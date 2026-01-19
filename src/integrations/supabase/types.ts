@@ -17,6 +17,7 @@ export type Database = {
       validation_reports: {
         Row: {
           ai_analysis: Json | null
+          competitor_data: Json | null
           created_at: string
           dimensions: Json | null
           id: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           ai_analysis?: Json | null
+          competitor_data?: Json | null
           created_at?: string
           dimensions?: Json | null
           id?: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           ai_analysis?: Json | null
+          competitor_data?: Json | null
           created_at?: string
           dimensions?: Json | null
           id?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.validation_reports ADD COLUMN IF NOT EXISTS competitor_data JSONB DEFAULT '[]'::jsonb;

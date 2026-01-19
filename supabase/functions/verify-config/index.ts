@@ -55,7 +55,7 @@ serve(async (req) => {
                             }
                      } catch (e) {
                             isValid = false;
-                            message = `Connection Error: ${e.message}`;
+                            message = `Connection Error: ${e instanceof Error ? e.message : 'Unknown error'}`;
                      }
               } else if (type === 'search') {
                      if (provider === 'bocha') {
