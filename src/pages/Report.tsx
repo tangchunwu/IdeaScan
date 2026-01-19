@@ -251,82 +251,121 @@ const Report = () => {
       <main className="pt-28 pb-16 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="mb-8 animate-fade-in">
-            <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors">
+          {/* Header */}
+          <div className="mb-10 animate-fade-in">
+            <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors text-sm font-medium">
               <ArrowLeft className="w-4 h-4 mr-2" />
               返回历史记录
             </Link>
 
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                  Product Investment Memo (商业验证报告)
-                </h1>
-                <p className="text-lg text-muted-foreground max-w-2xl">
-                  "{validation.idea}"
-                </p>
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {new Date(validation.created_at).toLocaleDateString()}
-                  </span>
-                  <Badge variant="outline">报告 #{validation.id.slice(0, 8)}</Badge>
-                  <Badge
-                    variant={validation.status === "completed" ? "default" : "secondary"}
-                  >
-                    {validation.status === "completed" ? "已完成" : validation.status}
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 px-3 py-1">
+                    Investment Memo #{validation.id.slice(0, 8)}
                   </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Generated: {new Date(validation.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight tracking-tight">
+                  {validation.idea}
+                </h1>
+
+                <div className="flex flex-wrap gap-2">
+                  {validation.tags.map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50">
+                      #{tag}
+                    </Badge>
+                  ))}
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <Button variant="outline" className="rounded-xl" onClick={handleExportImage}>
+                <Button variant="outline" className="rounded-xl border-dashed" onClick={handleExportImage}>
                   <ImageIcon className="w-4 h-4 mr-2" />
-                  导出图片
+                  Save Image
                 </Button>
-                <Button variant="outline" className="rounded-xl" onClick={handleExportPdf}>
-                  <Download className="w-4 h-4 mr-2" />
-                  导出 PDF
-                </Button>
-                <Button variant="outline" className="rounded-xl" onClick={handleShare}>
+                <Button variant="default" className="rounded-xl shadow-lg shadow-primary/20" onClick={handleShare}>
                   <Share2 className="w-4 h-4 mr-2" />
-                  分享
+                  Share Memo
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Overall Score Card */}
-          <GlassCard className="mb-8 ghibli-glow animate-slide-up">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8 py-4">
-              <div className="flex items-center gap-8">
-                <ScoreCircle score={validation.overall_score || 0} size="lg" label="综合评分" />
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">
-                    {(validation.overall_score || 0) >= 80 ? "强烈推荐" : (validation.overall_score || 0) >= 60 ? "值得尝试" : "需要谨慎"}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    基于 {xiaohongshuData.totalNotes.toLocaleString()} 篇小红书笔记分析
-                  </p>
+          {/* Investment Decision Card */}
+          <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
+
+            <div className="p-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
+              {/* Left: Final Verdict */}
+              <div className="col-span-1 lg:col-span-4 flex flex-col justify-center items-center lg:items-start border-b lg:border-b-0 lg:border-r border-border/50 pb-8 lg:pb-0 lg:pr-8">
+                <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+                  Investment Verdict
                 </div>
+                <div className="flex items-baseline gap-4 mb-4">
+                  <span className="text-7xl font-bold tracking-tighter text-foreground">
+                    {validation.overall_score || 0}
+                  </span>
+                  <span className="text-2xl text-muted-foreground font-light">/ 100</span>
+                </div>
+
+                <div className={`text-2xl font-bold px-6 py-2 rounded-full mb-4 ${(validation.overall_score || 0) >= 90 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
+                  (validation.overall_score || 0) >= 70 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
+                    (validation.overall_score || 0) >= 40 ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" :
+                      "bg-red-500/10 text-red-500 border border-red-500/20"
+                  }`}>
+                  {(validation.overall_score || 0) >= 90 ? "🦄 UNICORN POTENTIAL" :
+                    (validation.overall_score || 0) >= 70 ? "🚀 INVESTABLE" :
+                      (validation.overall_score || 0) >= 40 ? "⚠️ WATCHLIST" :
+                        "⛔ PASS"}
+                </div>
+
+                <p className="text-sm text-center lg:text-left text-muted-foreground">
+                  (Based on {xiaohongshuData.totalNotes} market signals)
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{xiaohongshuData.totalNotes.toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground">相关笔记</div>
+              {/* Right: Key Stats */}
+              <div className="col-span-1 lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-6 content-center">
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Market Interest</div>
+                  <div className="text-2xl font-semibold">{xiaohongshuData.totalNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">Notes</span></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-secondary">{xiaohongshuData.avgLikes}</div>
-                  <div className="text-sm text-muted-foreground">平均点赞</div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">User Engagement</div>
+                  <div className="text-2xl font-semibold">{xiaohongshuData.totalEngagement.toLocaleString()}</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-accent">{xiaohongshuData.avgComments}</div>
-                  <div className="text-sm text-muted-foreground">平均评论</div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Sentiment Score</div>
+                  <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
+                    {sentimentAnalysis.positive}% <span className="text-sm text-muted-foreground font-normal">Pos</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-ghibli-sunset">{sentimentAnalysis.positive}%</div>
-                  <div className="text-sm text-muted-foreground">正面评价</div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Competition</div>
+                  <div className="text-2xl font-semibold">{marketAnalysis.competitionLevel || "Unknown"}</div>
+                </div>
+
+                <div className="col-span-2 md:col-span-4 h-px bg-border/50 my-2" />
+
+                <div className="col-span-2 md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
+                    <Target className="w-5 h-5 text-secondary" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Target Audience</div>
+                      <div className="text-sm font-medium line-clamp-1">{marketAnalysis.targetAudience}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <Brain className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Core Strength</div>
+                      <div className="text-sm font-medium line-clamp-1">{aiAnalysis.strengths?.[0] || "-"}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -710,88 +749,118 @@ const Report = () => {
               </div>
             </TabsContent>
 
-            {/* AI Analysis Tab */}
-            <TabsContent value="ai" className="space-y-6">
-              <GlassCard className="animate-slide-up text-center py-6">
-                <Brain className="w-12 h-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">AI 可行性评估</h3>
-                <div className="text-5xl font-bold text-primary mb-2">{aiAnalysis.feasibilityScore}</div>
-                <p className="text-muted-foreground">综合可行性评分</p>
+            {/* AI Analysis Tab (VC Deep Dive) */}
+            <TabsContent value="ai" className="space-y-8 animate-slide-up">
+
+              {/* 1. Radar Analysis */}
+              <GlassCard className="p-8">
+                <div className="flex flex-col md:flex-row items-center gap-10">
+                  <div className="flex-1 w-full h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                        <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar
+                          name="Score"
+                          dataKey="A"
+                          stroke="hsl(var(--primary))"
+                          fill="hsl(var(--primary))"
+                          fillOpacity={0.3}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-primary" />
+                      Six-Dimension Evaluation
+                    </h3>
+                    <div className="space-y-3">
+                      {aiAnalysis.dimensions?.map((d: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+                          <span className="text-muted-foreground">{d.dimension}</span>
+                          <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
+                            {d.score}/100
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </GlassCard>
 
+              {/* 2. Thesis & Risks (Grid Layout) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-secondary" />
-                    核心护城河 (Unfair Advantage)
+                {/* Investment Thesis (Strengths) */}
+                <GlassCard className="h-full border-l-4 border-l-green-500 rounded-l-none">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-green-500">
+                    <TrendingUp className="w-5 h-5" />
+                    Core Investment Thesis
                   </h3>
-                  <div className="space-y-3">
-                    {(aiAnalysis.strengths || []).map((item, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-secondary/10">
-                        <span className="text-secondary mt-0.5">✓</span>
-                        <span className="text-foreground">{item}</span>
-                      </div>
+                  <ul className="space-y-3">
+                    {aiAnalysis.strengths?.map((item: string, i: number) => (
+                      <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
+                        <span className="text-foreground/90">{item}</span>
+                      </li>
                     ))}
-                    {(!aiAnalysis.strengths || aiAnalysis.strengths.length === 0) && (
-                      <p className="text-muted-foreground">暂无优势分析</p>
-                    )}
-                  </div>
+                  </ul>
                 </GlassCard>
 
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-accent" />
-                    致命弱点 (Deal Breaker)
+                {/* Deal Breakers (Weaknesses) */}
+                <GlassCard className="h-full border-l-4 border-l-red-500 rounded-l-none">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-500">
+                    <AlertCircle className="w-5 h-5" />
+                    Critical Risks & Deal Breakers
                   </h3>
-                  <div className="space-y-3">
-                    {(aiAnalysis.weaknesses || []).map((item, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-accent/10">
-                        <span className="text-accent mt-0.5">!</span>
-                        <span className="text-foreground">{item}</span>
-                      </div>
+                  <ul className="space-y-3">
+                    {aiAnalysis.weaknesses?.map((item: string, i: number) => (
+                      <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
+                        <span className="text-foreground/90">{item}</span>
+                      </li>
                     ))}
-                    {(!aiAnalysis.weaknesses || aiAnalysis.weaknesses.length === 0) && (
-                      <p className="text-muted-foreground">暂无劣势分析</p>
-                    )}
-                  </div>
+                  </ul>
                 </GlassCard>
               </div>
 
-              <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  行动指南 (MVP & GTM)
+              {/* 3. Strategic Roadmap */}
+              <GlassCard>
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
+                  <Target className="w-5 h-5" />
+                  Strategic Roadmap (GTM & Product)
                 </h3>
-                <div className="space-y-3">
-                  {(aiAnalysis.suggestions || []).map((item, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-primary/10">
-                      <span className="text-primary font-bold">{index + 1}</span>
-                      <span className="text-foreground">{item}</span>
+                <div className="grid grid-cols-1 gap-4">
+                  {aiAnalysis.suggestions?.map((item: string, i: number) => (
+                    <div key={i} className="flex gap-4 p-4 rounded-lg bg-card/50 border border-white/5">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                        {i + 1}
+                      </div>
+                      <div>
+                        <p className="text-sm text-foreground leading-relaxed">{item}</p>
+                      </div>
                     </div>
                   ))}
-                  {(!aiAnalysis.suggestions || aiAnalysis.suggestions.length === 0) && (
-                    <p className="text-muted-foreground">暂无建议</p>
-                  )}
                 </div>
               </GlassCard>
 
-              <GlassCard className="animate-slide-up border-destructive/20" style={{ animationDelay: "250ms" }}>
-                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-destructive" />
-                  事前验尸 (Pre-Mortem Risk)
-                </h3>
-                <div className="space-y-3">
-                  {(aiAnalysis.risks || []).map((item, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-destructive/10">
-                      <span className="text-destructive">⚠</span>
-                      <span className="text-foreground">{item}</span>
-                    </div>
-                  ))}
-                  {(!aiAnalysis.risks || aiAnalysis.risks.length === 0) && (
-                    <p className="text-muted-foreground">暂无风险提示</p>
-                  )}
-                </div>
-              </GlassCard>
+              {/* 4. Pre-Mortem Analysis (Risks) */}
+              {aiAnalysis.risks && aiAnalysis.risks.length > 0 && (
+                <GlassCard className="bg-red-500/5 border-red-500/10">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-400">
+                    <AlertTriangle className="w-5 h-5" />
+                    Pre-Mortem Analysis (Why this might fail)
+                  </h3>
+                  <div className="space-y-2">
+                    {aiAnalysis.risks.map((item: string, i: number) => (
+                      <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-red-500/50">•</span> {item}
+                      </p>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
             </TabsContent>
           </Tabs>
         </div>

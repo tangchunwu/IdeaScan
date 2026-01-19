@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar } from "@/components/shared";
-import { 
-  Sparkles, 
-  TrendingUp, 
-  Brain, 
-  FileText, 
+import {
+  Sparkles,
+  TrendingUp,
+  Brain,
+  FileText,
   ArrowRight,
   Search,
   BarChart3,
@@ -50,7 +50,7 @@ const Index = () => {
   return (
     <PageBackground variant="vibrant">
       <Navbar />
-      
+
       <main className="pt-28 pb-20 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section - 用户第一认知焦点 */}
@@ -58,28 +58,30 @@ const Index = () => {
             <div className="animate-fade-in">
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary mb-8 shadow-lg shadow-primary/10">
                 <Sparkles className="w-4 h-4 animate-pulse-soft" />
-                <span className="text-sm font-medium">AI 驱动的商业创意验证</span>
+                <span className="text-sm font-medium">VC 级商业创意验证引擎</span>
               </div>
             </div>
-            
+
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight animate-fade-in-up">
-              将你的
-              <span className="text-gradient-animated"> 创意想法 </span>
+              用
+              <span className="text-gradient-animated"> 顶级VC视角 </span>
               <br className="hidden sm:block" />
-              变成
-              <span className="text-gradient-animated"> 可行方案 </span>
+              审视你的
+              <span className="text-gradient-animated"> 商业创意 </span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up leading-relaxed" style={{ animationDelay: "100ms" }}>
-              基于小红书真实数据，结合 AI 智能分析，
-              <br className="hidden md:block" />
-              帮你快速验证商业创意的市场可行性
+              拒绝"正确废话"。基于全网真实数据，提供
+              <span className="font-semibold text-foreground"> 残酷诚实 </span>
+              的市场验证与
+              <span className="font-semibold text-foreground"> 投资备忘录级 </span>
+              深度分析
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-              <Button 
-                asChild 
-                size="lg" 
+              <Button
+                asChild
+                size="lg"
                 className="text-lg px-10 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 btn-ripple"
               >
                 <Link to="/validate">
@@ -87,10 +89,10 @@ const Index = () => {
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
-              <Button 
-                asChild 
-                variant="outline" 
-                size="lg" 
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
                 className="text-lg px-10 py-7 rounded-2xl glass-button border-border/50"
               >
                 <Link to="/history">
@@ -110,13 +112,13 @@ const Index = () => {
                 全方位的创意验证解决方案
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-container">
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
-                  <GlassCard 
-                    key={feature.title} 
+                  <GlassCard
+                    key={feature.title}
                     hover
                     interactive
                     className="group"
@@ -150,13 +152,13 @@ const Index = () => {
                 三步完成创意验证
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-container">
               {steps.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <GlassCard 
-                    key={item.step} 
+                  <GlassCard
+                    key={item.step}
                     className="text-center relative overflow-visible"
                     elevated
                   >
@@ -164,7 +166,7 @@ const Index = () => {
                     {index < steps.length - 1 && (
                       <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
                     )}
-                    
+
                     <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-ghibli-sunset text-accent-foreground text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/20 relative">
                       <span className="relative z-10">{item.step}</span>
                       <Icon className="absolute -bottom-2 -right-2 w-8 h-8 p-1.5 bg-background rounded-full text-accent shadow-lg" />
@@ -182,7 +184,7 @@ const Index = () => {
             <GlassCard className="py-16 px-8 relative overflow-hidden" glow elevated>
               {/* 装饰背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
-              
+
               <div className="relative z-10">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 animate-float">
                   <MessageCircle className="w-8 h-8 text-primary-foreground" />
@@ -193,9 +195,9 @@ const Index = () => {
                 <p className="text-muted-foreground mb-10 max-w-lg mx-auto text-lg">
                   只需几分钟，就能获得基于真实数据的商业可行性分析
                 </p>
-                <Button 
-                  asChild 
-                  size="lg" 
+                <Button
+                  asChild
+                  size="lg"
                   className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
                 >
                   <Link to="/validate">
