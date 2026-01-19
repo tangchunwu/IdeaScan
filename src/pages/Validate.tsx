@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,11 @@ import {
   TrendingUp,
   LogIn,
   FileText,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
+  Brain,
+  Globe,
+  FileBarChart
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -43,6 +47,8 @@ const Validate = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const createMutation = useCreateValidation();
 
   const handleAddTag = (tag: string) => {
@@ -64,6 +70,52 @@ const Validate = () => {
 
   const [progressStage, setProgressStage] = useState<string>("初始化...");
 
+  // Validation steps configuration
+  const validationSteps = [
+    { id: 0, label: "解析创意", description: "正在理解您的商业创意...", icon: Brain, targetProgress: 15 },
+    { id: 1, label: "提炼关键词", description: "正在智能提炼核心搜索词...", icon: Sparkles, targetProgress: 30 },
+    { id: 2, label: "数据搜索", description: "正在全网并行搜索数据...", icon: Globe, targetProgress: 55 },
+    { id: 3, label: "深度分析", description: "AI 正在分析市场数据...", icon: Brain, targetProgress: 80 },
+    { id: 4, label: "生成报告", description: "正在生成商业分析报告...", icon: FileBarChart, targetProgress: 95 },
+  ];
+
+  // Smooth progress animation
+  useEffect(() => {
+    if (isValidating && currentStep < validationSteps.length) {
+      const targetProgress = validationSteps[currentStep].targetProgress;
+      
+      progressIntervalRef.current = setInterval(() => {
+        setProgress(prev => {
+          if (prev < targetProgress) {
+            // Smooth increment with slight randomization for natural feel
+            const increment = Math.random() * 2 + 0.5;
+            return Math.min(prev + increment, targetProgress);
+          }
+          return prev;
+        });
+      }, 100);
+
+      return () => {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+        }
+      };
+    }
+  }, [isValidating, currentStep]);
+
+  // Step progression timer
+  useEffect(() => {
+    if (isValidating && currentStep < validationSteps.length - 1) {
+      const stepDurations = [800, 1500, 3000, 4000, 2000]; // Different duration per step
+      const timer = setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+        setProgressStage(validationSteps[currentStep + 1]?.description || "");
+      }, stepDurations[currentStep]);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isValidating, currentStep]);
+
   const handleValidate = async () => {
     if (!idea.trim()) return;
 
@@ -79,57 +131,38 @@ const Validate = () => {
 
     setIsValidating(true);
     setProgress(5);
-    setProgressStage("正在解析创意...");
+    setCurrentStep(0);
+    setProgressStage(validationSteps[0].description);
 
     try {
-      // Simulation of Tikhub + AI stages
-      // 1. Keyword Extraction (0-20%)
-      const stage0 = setTimeout(() => {
-        setProgress(20);
-        setProgressStage("正在智能提炼核心搜索词...");
-      }, 500);
-
-      // 1. Search Notes (20-50%)
-      const stage1 = setTimeout(() => {
-        setProgress(50);
-        setProgressStage("正在全网并行搜索 (小红书 + 竞品)...");
-      }, 2500);
-
-      // 2. Analyze Comments (50-80%)
-      const stage2 = setTimeout(() => {
-        setProgress(80);
-        setProgressStage("正在整合数据并分析...");
-      }, 5500);
-
-      // 3. AI Generation (80-95%)
-      const stage3 = setTimeout(() => {
-        setProgress(95);
-        setProgressStage("正在生成商业分析报告...");
-      }, 9000);
-
       // Actual API Call
       const result = await createMutation.mutateAsync({
         idea: idea.trim(),
         tags: selectedTags,
       });
 
-      // Cleanup simulation timers
-      clearTimeout(stage0);
-      clearTimeout(stage1);
-      clearTimeout(stage2);
-      clearTimeout(stage3);
+      // Cleanup
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
 
       setProgress(100);
-      setProgressStage("完成！跳转中...");
+      setCurrentStep(validationSteps.length);
+      setProgressStage("完成！正在跳转...");
 
       toast({
         title: "验证完成！",
         description: `综合评分：${result.overallScore}分`,
       });
 
-      // 跳转到报告页面
-      navigate(`/report/${result.validationId}`);
+      // Small delay before navigation for user to see completion
+      setTimeout(() => {
+        navigate(`/report/${result.validationId}`);
+      }, 500);
     } catch (error: unknown) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
       const errorMessage = error instanceof Error ? error.message : "验证过程中出现错误";
       toast({
         title: "验证失败",
@@ -137,6 +170,8 @@ const Validate = () => {
         variant: "destructive",
       });
       setIsValidating(false);
+      setProgress(0);
+      setCurrentStep(0);
     }
   };
 
@@ -300,45 +335,87 @@ const Validate = () => {
           {/* Submit Button */}
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {isValidating ? (
-              <div className="space-y-6 animate-slide-up">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-primary font-medium animate-pulse">
-                      {progressStage}
-                    </span>
-                    <span className="text-muted-foreground">{progress}%</span>
+              <GlassCard className="space-y-6 animate-scale-in">
+                {/* Main Progress Header */}
+                <div className="text-center space-y-3">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mx-auto">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
-                  <Progress value={progress} className="h-3 rounded-full" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">{progressStage}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">请稍候，这可能需要 15-30 秒</p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[
-                    { label: "AI 提炼", done: progress >= 20, icon: Sparkles },
-                    { label: "全网搜索", done: progress >= 50, icon: Search },
-                    { label: "报告生成", done: progress >= 90, icon: FileText },
-                  ].map((step, i) => {
-                    const Icon = step.icon;
-                    return (
-                      <div
-                        key={i}
-                        className={`p-4 rounded-xl border transition-all duration-500 ${step.done
-                          ? "bg-primary/10 border-primary/20"
-                          : "bg-muted/30 border-transparent opacity-50"
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${step.done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                            {step.done ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                          </div>
-                          <span className={`font-medium ${step.done ? "text-primary" : "text-muted-foreground"}`}>
-                            {step.label}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">处理进度</span>
+                    <span className="font-mono text-primary font-medium">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-secondary rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${progress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                {/* Steps Timeline */}
+                <div className="relative">
+                  <div className="absolute left-[19px] top-6 bottom-6 w-0.5 bg-border" />
+                  <div className="space-y-4">
+                    {validationSteps.map((step, i) => {
+                      const Icon = step.icon;
+                      const isCompleted = currentStep > i;
+                      const isActive = currentStep === i;
+                      const isPending = currentStep < i;
+                      
+                      return (
+                        <div
+                          key={step.id}
+                          className={`flex items-center gap-4 transition-all duration-500 ${
+                            isPending ? "opacity-40" : "opacity-100"
+                          }`}
+                        >
+                          <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 ${
+                            isCompleted 
+                              ? "bg-primary border-primary text-primary-foreground scale-100" 
+                              : isActive 
+                                ? "bg-primary/10 border-primary text-primary scale-110 shadow-lg shadow-primary/20" 
+                                : "bg-background border-border text-muted-foreground"
+                          }`}>
+                            {isCompleted ? (
+                              <CheckCircle2 className="w-5 h-5" />
+                            ) : isActive ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Icon className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`font-medium transition-colors ${
+                              isActive ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground"
+                            }`}>
+                              {step.label}
+                            </p>
+                            {isActive && (
+                              <p className="text-xs text-muted-foreground mt-0.5 animate-fade-in">
+                                {step.description}
+                              </p>
+                            )}
+                          </div>
+                          {isCompleted && (
+                            <span className="text-xs text-primary font-medium">完成</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </GlassCard>
             ) : (
               <Button
                 onClick={handleValidate}
