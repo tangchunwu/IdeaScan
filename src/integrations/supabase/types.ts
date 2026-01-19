@@ -14,16 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      validation_reports: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          dimensions: Json | null
+          id: string
+          market_analysis: Json | null
+          sentiment_analysis: Json | null
+          validation_id: string
+          xiaohongshu_data: Json | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          market_analysis?: Json | null
+          sentiment_analysis?: Json | null
+          validation_id: string
+          xiaohongshu_data?: Json | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          market_analysis?: Json | null
+          sentiment_analysis?: Json | null
+          validation_id?: string
+          xiaohongshu_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_reports_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      validations: {
+        Row: {
+          created_at: string
+          id: string
+          idea: string
+          overall_score: number | null
+          status: Database["public"]["Enums"]["validation_status"]
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idea: string
+          overall_score?: number | null
+          status?: Database["public"]["Enums"]["validation_status"]
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idea?: string
+          overall_score?: number | null
+          status?: Database["public"]["Enums"]["validation_status"]
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_validation_owner: { Args: { validation_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      validation_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +223,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      validation_status: ["pending", "processing", "completed", "failed"],
+    },
   },
 } as const

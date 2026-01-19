@@ -1,16 +1,29 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, BarChart3, Home, GitCompare } from "lucide-react";
+import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { path: "/", label: "首页", icon: Home },
-  { path: "/validate", label: "创意验证", icon: Sparkles },
-  { path: "/history", label: "历史记录", icon: History },
-  { path: "/compare", label: "对比分析", icon: GitCompare },
+  { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true },
+  { path: "/history", label: "历史记录", icon: History, requireAuth: true },
+  { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true },
 ];
 
 export const Navbar = () => {
   const location = useLocation();
+  const { user, signOut, isLoading } = useAuth();
+
+  const visibleNavItems = navItems.filter(item => 
+    !item.requireAuth || user
+  );
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 px-4 py-4">
@@ -28,7 +41,7 @@ export const Navbar = () => {
 
           {/* Navigation Links */}
           <div className="flex items-center gap-1">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               
@@ -48,6 +61,35 @@ export const Navbar = () => {
                 </Link>
               );
             })}
+
+            {/* Auth Button */}
+            {!isLoading && (
+              user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-xl ml-2">
+                      <User className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem className="text-muted-foreground" disabled>
+                      {user.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={signOut} className="text-destructive">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      退出登录
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="outline" size="sm" className="rounded-xl ml-2">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    登录
+                  </Button>
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>
