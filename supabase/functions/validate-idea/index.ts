@@ -176,78 +176,84 @@ async function analyzeWithAI(
     .map((c: any) => `- "${(c.content || "").slice(0, 80)}..." (${c.user_nickname}, ${c.ip_location || "未知"})`)
     .join("\n");
 
-  // Prepare Competitor Text
+  // Prepare Competitor Text (Formatted as Table for better AI context)
   const competitorText = competitorData.length > 0
-    ? competitorData.map((c, i) => `${i + 1}. [${c.source}] ${c.title}\n   ${c.snippet}\n   链接: ${c.url}`).join("\n\n")
+    ? competitorData.map((c, i) => `| ${i + 1} | ${c.title.slice(0, 30)}... | ${c.snippet.slice(0, 150)}... | ${c.source} |`).join("\n")
     : "未进行全网搜索或未找到相关竞品信息。";
 
-  const prompt = `你是一位拥有20年经验的 CPO (Chief Product Officer) 和前风险投资人。请基于以下**真实市场数据**，为创业者撰写一份 **专业级商业验证备忘录 (Product Investment Memo)**。
+  const prompt = `Act as a **General Partner at a Top-Tier VC Firm** (e.g., Sequoia, Benchmark). Your job is to write a brutal, honest, and data-driven **Investment Memo** for an internal Investment Committee (IC) meeting.
 
-商业创意：${idea}
-相关标签：${tags.join(", ")}
+  **Target Startup**:
+  - Idea: "${idea}"
+  - Tags: ${tags.join(", ")}
 
----
-**数据源1：小红书市场反馈 (用户声音)**
-- 相关笔记数量：${xiaohongshuData.totalNotes}
-- 平均互动数据 (点赞/评论/收藏)：${xiaohongshuData.avgLikes} / ${xiaohongshuData.avgComments} / ${xiaohongshuData.avgCollects}
+  ---
+  **EVIDENCE PACK (Use this data to justify EVERY score):**
 
-${sampleNotesText ? `**热门笔记样本 (用户真正关心的点)：**
-${sampleNotesText}` : ""}
+  **Source A: User Voice (Xiaohongshu/Social Media)**
+  - Market Volume: ${xiaohongshuData.totalNotes} notes found.
+  - Engagement: Avg ${xiaohongshuData.avgLikes} likes, ${xiaohongshuData.avgComments} comments.
+  
+  ${sampleNotesText ? `**Key User Snippets (What users ACTUALLY care about):**
+  ${sampleNotesText}` : ""}
+  
+  ${sampleCommentsText ? `**Real User Complaints/Feedback:**
+  ${sampleCommentsText}` : ""}
 
-${sampleCommentsText ? `**用户真实评论 (吐槽与期待)：**
-${sampleCommentsText}` : ""}
+  **Source B: Competitive Landscape**
+  | # | Competitor | Snippet (Value Prop) | Source |
+  |---|---|---|---|
+  ${competitorText}
 
----
-**数据源2：全网竞品搜索 (竞争格局)**
-${competitorText}
+  ---
 
----
+  **TASK:**
+  Analyze the above evidence and output a **strict JSON** report.
 
-请以 **VC 投资备忘录** 的深度输出结论，但**只返回可被 JSON.parse 直接解析的严格 JSON**（不要 Markdown、不要任何解释文字、不要代码块标记）。
+  **SCORING RUBRIC (0-100):**
+  - **90-100 (Unicorn)**: Monopoly potential, huge starving market, 10x better product.
+  - **70-89 (Investable)**: Strong traction, clear moat, good team/market fit.
+  - **40-69 (Watchlist)**: Crowded market, weak differentiation, or niche appeal.
+  - **0-39 (Pass)**: "Tar Pit" idea, solution looking for a problem, or fatal flaw.
 
-要求：
-- 所有 0-100 的分数字段必须是 number（例如 42），不要写成“0-100”“约40%”“40/100”。
-- 数组元素必须是字符串或对象，不要混入解释文字。
-- 字段必须齐全，不能缺字段。
+  **CRITICAL INSTRUCTIONS:**
+  1. **BRUTAL HONESTY**: Do not be polite. If it's a bad idea, say it. If the market is crowded (see Source B), call it out.
+  2. **CITE EVIDENCE**: When analyzing "Market Demand", quote specific XHS comments (Source A). When analyzing "Competition", name specific competitors found (Source B).
+  3. **NO GENERIC ADVICE**: Don't say "improve UX". Say "Users in comment #3 complained about price, so lower CAC is key."
 
-请严格按以下 **合法 JSON** 结构返回（字段名与层级不要改）：
-{
-  "overallScore": 0,
-  "marketAnalysis": {
-    "targetAudience": "",
-    "marketSize": "",
-    "competitionLevel": "",
-    "trendDirection": "",
-    "keywords": ["", "", "", ""]
-  },
-  "sentimentAnalysis": {
-    "positive": 0,
-    "neutral": 0,
-    "negative": 0,
-    "topPositive": ["", "", ""],
-    "topNegative": ["", "", ""]
-  },
-  "aiAnalysis": {
-    "feasibilityScore": 0,
-    "strengths": ["", "", ""],
-    "weaknesses": ["", "", ""],
-    "suggestions": ["", "", "", ""],
-    "risks": ["", ""]
-  },
-  "dimensions": [
-    {"dimension": "市场需求 (Pain Point)", "score": 0},
-    {"dimension": "竞争壁垒 (Moat)", "score": 0},
-    {"dimension": "盈利能力 (Unit Economics)", "score": 0},
-    {"dimension": "执行难度 (Feasibility)", "score": 0},
-    {"dimension": "创新程度 (Novelty)", "score": 0},
-    {"dimension": "PMF 潜力 (Product-Market Fit)", "score": 0}
-  ]
-}
-
-**特别指令 (Critical Instructions)：**
-1. **拒绝正确的废话**：不要说“要注重用户体验”，要说“用户抱怨现在的产品太贵/太慢，你的机会在于...”。
-2. **引用数据**：必须引用上面的小红书样本或竞品信息作为论据。
-3. **批判性思维**：如果想法很烂，请直言不讳指出风险与致命伤。`;
+  **Output ONLY valid JSON** with this structure (no markdown, no thinking text outside JSON):
+  {
+    "overallScore": 0,
+    "marketAnalysis": {
+      "targetAudience": "Specific persona (e.g. 'GenZ students in Tier 1 cities')",
+      "marketSize": "Tam/Sam/Som estimate or market vibe (e.g. 'Red Ocean')",
+      "competitionLevel": "High/Medium/Low",
+      "trendDirection": "Rising/Falling/Stable",
+      "keywords": ["High intent keyword 1", "Keyword 2"]
+    },
+    "sentimentAnalysis": {
+      "positive": 0,
+      "neutral": 0,
+      "negative": 0,
+      "topPositive": ["Specific praise from Source A"],
+      "topNegative": ["Specific complaint from Source A"]
+    },
+    "aiAnalysis": {
+      "feasibilityScore": 0,
+      "strengths": ["Unfair Advantage 1", "Moat 2"],
+      "weaknesses": ["Deadly Flaw 1", "Risk 2"],
+      "suggestions": ["Specific GTM strategy 1", "MVP feature 2"],
+      "risks": ["Pre-mortem risk 1", "Regulatory risk 2"]
+    },
+    "dimensions": [
+      {"dimension": "Market Pain (Urgency)", "score": 0},
+      {"dimension": "Moat (Defensibility)", "score": 0},
+      {"dimension": "Business Model (Unit Economics)", "score": 0},
+      {"dimension": "Tech Feasibility", "score": 0},
+      {"dimension": "Novelty (0-1)", "score": 0},
+      {"dimension": "PMF Potential", "score": 0}
+    ]
+  }`;
 
   console.log("Calling LLM for analysis...");
   const response = await fetch(endpoint, {
