@@ -91,14 +91,8 @@ export async function getValidation(validationId: string): Promise<FullValidatio
     throw new Error("请先登录");
   }
 
-  const response = await supabase.functions.invoke("get-validation", {
-    body: {},
-    headers: {},
-  });
-
-  // 使用查询参数方式
-  const { data, error } = await supabase.functions.invoke(`get-validation?id=${validationId}`, {
-    method: "GET",
+  const { data, error } = await supabase.functions.invoke("get-validation", {
+    body: { id: validationId },
   });
 
   if (error) {

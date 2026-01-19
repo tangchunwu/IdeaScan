@@ -38,9 +38,22 @@ serve(async (req) => {
       );
     }
 
-    // 获取 validation ID
-    const url = new URL(req.url);
-    const validationId = url.searchParams.get("id");
+    // 获取 validation ID (支持 body 或 query 参数)
+    let validationId: string | null = null;
+    
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        validationId = body.id;
+      } catch {
+        // ignore parse error
+      }
+    }
+    
+    if (!validationId) {
+      const url = new URL(req.url);
+      validationId = url.searchParams.get("id");
+    }
 
     if (!validationId) {
       return new Response(
