@@ -42,6 +42,12 @@ export interface ValidationReport {
     weeklyTrend: { name: string; value: number }[];
     contentTypes: { name: string; value: number }[];
   };
+  competitor_data?: {
+    title: string;
+    url: string;
+    snippet: string;
+    source: string;
+  }[];
   sentiment_analysis: {
     positive: number;
     neutral: number;

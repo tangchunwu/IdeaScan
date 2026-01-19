@@ -367,6 +367,7 @@ serve(async (req) => {
         validation_id: validation.id,
         market_analysis: aiResult.marketAnalysis,
         xiaohongshu_data: xiaohongshuData,
+        competitor_data: competitorData, // Save gathered competitor data
         sentiment_analysis: aiResult.sentimentAnalysis,
         ai_analysis: aiResult.aiAnalysis,
         dimensions: aiResult.dimensions,
