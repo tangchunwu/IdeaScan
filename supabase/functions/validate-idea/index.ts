@@ -51,67 +51,73 @@ async function analyzeWithAI(
     ? competitorData.map((c, i) => `${i + 1}. [${c.source}] ${c.title}\n   ${c.snippet}\n   链接: ${c.url}`).join("\n\n")
     : "未进行全网搜索或未找到相关竞品信息。";
 
-  const prompt = `你是一位资深的商业分析师和市场研究专家。请基于以下**真实小红书数据**和**全网竞品搜索数据**，对这个商业创意进行全面的可行性分析：
+  const prompt = `你是一位拥有20年经验的 CPO (Chief Product Officer) 和前风险投资人。请基于以下**真实市场数据**，为创业者撰写一份 **专业级商业验证备忘录 (Product Investment Memo)**。
 
 商业创意：${idea}
 相关标签：${tags.join(", ")}
 
 ---
-**数据源1：小红书市场反馈**
+**数据源1：小红书市场反馈 (用户声音)**
 - 相关笔记数量：${xiaohongshuData.totalNotes}
-- 平均点赞数：${xiaohongshuData.avgLikes}
-- 平均评论数：${xiaohongshuData.avgComments}
-- 平均收藏数：${xiaohongshuData.avgCollects}
+- 平均互动数据 (点赞/评论/收藏)：${xiaohongshuData.avgLikes} / ${xiaohongshuData.avgComments} / ${xiaohongshuData.avgCollects}
 
-${sampleNotesText ? `**热门笔记样本：**
+${sampleNotesText ? `**热门笔记样本 (用户真正关心的点)：**
 ${sampleNotesText}` : ""}
 
-${sampleCommentsText ? `**用户评论样本：**
+${sampleCommentsText ? `**用户真实评论 (吐槽与期待)：**
 ${sampleCommentsText}` : ""}
 
 ---
-**数据源2：全网竞品搜索 (Web Search)**
+**数据源2：全网竞品搜索 (竞争格局)**
 ${competitorText}
 
 ---
 
-请基于以上所有真实数据，以JSON格式返回分析结果，包含以下字段：
+请以 **VC 投资备忘录** 的深度，严格遵守以下 JSON 结构返回分析结果（不要包含 Markdown 格式）：
+
 {
-  "overallScore": 0-100的综合评分,
+  "overallScore": 0-100之间的投资推荐指数,
   "marketAnalysis": {
-    "targetAudience": "目标用户群体描述",
-    "marketSize": "小型/中型/大型",
-    "competitionLevel": "低/中/高",
-    "trendDirection": "上升/稳定/下降",
-    "keywords": ["热门关键词1", "热门关键词2", "热门关键词3", "热门关键词4"]
+    "targetAudience": "详细的用户画像（不仅是人口统计学，更要包含痛点、动机和生活方式）",
+    "marketSize": "市场规模预估 (TAM/SAM/SOM 概念描述)",
+    "competitionLevel": "蓝海/红海/寡头垄断",
+    "trendDirection": "爆发期/平稳期/衰退期",
+    "keywords": ["核心关键词1", "核心关键词2", "核心关键词3", "核心关键词4"]
   },
   "sentimentAnalysis": {
-    "positive": 正面评价百分比(0-100),
-    "neutral": 中性评价百分比(0-100),
-    "negative": 负面评价百分比(0-100),
-    "topPositive": ["正面关键词1", "正面关键词2", "正面关键词3", "正面关键词4"],
-    "topNegative": ["负面关键词1", "负面关键词2", "负面关键词3"]
+    "positive": 正面情绪占比(0-100),
+    "neutral": 中性情绪占比(0-100),
+    "negative": 负面情绪占比(0-100),
+    "topPositive": ["用户最喜欢的点1", "用户最喜欢的点2", "用户最喜欢的点3"],
+    "topNegative": ["用户最无法忍受的点1 (致命伤)", "用户最无法忍受的点2", "用户最无法忍受的点3"]
   },
   "aiAnalysis": {
-    "feasibilityScore": 可行性评分(0-100),
-    "strengths": ["优势1", "优势2", "优势3", "优势4"],
-    "weaknesses": ["劣势1", "劣势2", "劣势3", "劣势4"],
-    "suggestions": ["建议1", "建议2", "建议3", "建议4", "建议5"],
-    "risks": ["风险1", "风险2", "风险3"]
+    "feasibilityScore": MVP可行性评分(0-100),
+    "strengths": ["核心优势 (The Unfair Advantage) 1", "核心优势 2", "核心优势 3"],
+    "weaknesses": ["致命弱点 1", "致命弱点 2", "致命弱点 3"],
+    "suggestions": [
+      "MVP 定义: 第一版产品只做哪3个功能？",
+      "GTM 策略: 前1000个种子用户去哪里找？",
+      "商业模式: 如何建立正向的单体经济模型？",
+      "差异化: 一句话说清为什么用户选你不选对手？"
+    ],
+    "risks": ["Pre-Mortem (事前验尸): 如果项目失败，最通常的原因是什么？", "如何规避该风险？"]
   },
   "dimensions": [
-    {"dimension": "市场需求", "score": 0-100},
-    {"dimension": "竞争环境", "score": 0-100},
-    {"dimension": "盈利潜力", "score": 0-100},
-    {"dimension": "可行性", "score": 0-100},
-    {"dimension": "风险程度", "score": 0-100},
-    {"dimension": "创新性", "score": 0-100}
+    {"dimension": "市场需求 (Pain Point)", "score": 0-100},
+    {"dimension": "竞争壁垒 (Moat)", "score": 0-100},
+    {"dimension": "盈利能力 (Unit Economics)", "score": 0-100},
+    {"dimension": "执行难度 (Feasibility)", "score": 0-100},
+    {"dimension": "创新程度 (Novelty)", "score": 0-100},
+    {"dimension": "PMF 潜力 (Product-Market Fit)", "score": 0-100}
   ]
 }
 
-**特别要求：**
-1. 在“竞争环境”和“风险”分析中，请务必参考提供的【全网竞品搜索】数据，指出具体的竞争对手或类似产品。
-2. 请确保返回的是有效的JSON格式，不要包含任何其他文字。`;
+**特别指令 (Critical Instructions)：**
+1.  **拒绝正确的废话**：不要说“要注重用户体验”，要说“用户抱怨现在的产品太贵/太慢，你的机会在于...”。
+2.  **引用数据**：在分析中必须明确引用提供的小红书笔记或竞品信息作为论据。
+3.  **批判性思维**：如果这个想法很烂，请直言不讳地指出（Risk 部分），不要盲目鼓励。
+4.  请确保返回的是标准的 JSON 格式。`;
 
   // ... (fetch logic)
 }
