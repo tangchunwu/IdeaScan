@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ReactNode, CSSProperties, forwardRef } from "react";
+import { ReactNode, CSSProperties } from "react";
 
 interface GlassCardProps {
   children: ReactNode;
@@ -20,7 +20,7 @@ const paddingMap = {
   lg: "p-8",
 };
 
-export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(({ 
+export const GlassCard = ({ 
   children, 
   className, 
   hover = false,
@@ -30,10 +30,9 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(({
   padding = "md",
   style,
   onClick,
-}, ref) => {
+}: GlassCardProps) => {
   return (
     <div
-      ref={ref}
       className={cn(
         elevated ? "glass-card-elevated" : "glass-card",
         paddingMap[padding],
@@ -50,8 +49,6 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(({
       {children}
     </div>
   );
-});
-
-GlassCard.displayName = "GlassCard";
+};
 
 export default GlassCard;
