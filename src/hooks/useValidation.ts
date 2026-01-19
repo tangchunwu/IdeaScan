@@ -50,6 +50,8 @@ export const useCreateValidation = () => {
                             llmApiKey: settings.llmApiKey,
                             llmModel: settings.llmModel,
                             tikhubToken: settings.tikhubToken,
+                            searchProvider: settings.searchProvider,
+                            searchApiKey: settings.searchApiKey,
                      }
               }),
               onSuccess: () => {

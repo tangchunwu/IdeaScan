@@ -29,25 +29,31 @@ const PROVIDERS = {
 export const SettingsDialog = () => {
        const {
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+              searchProvider, searchApiKey,
               updateSettings, resetSettings
        } = useSettings();
 
        const [open, setOpen] = useState(false);
        const [showKey, setShowKey] = useState(false);
        const [showTikhubToken, setShowTikhubToken] = useState(false);
+       const [showSearchKey, setShowSearchKey] = useState(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({
-              llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken
+              llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+              searchProvider, searchApiKey
        });
 
        // Sync local state when dialog opens or store changes
        useEffect(() => {
               if (open) {
-                     setLocalSettings({ llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken });
+                     setLocalSettings({
+                            llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+                            searchProvider, searchApiKey
+                     });
               }
-       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken]);
+       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, searchProvider, searchApiKey]);
 
        const handleProviderChange = (value: 'openai' | 'deepseek' | 'custom') => {
               const providerConfig = PROVIDERS[value];
@@ -78,6 +84,8 @@ export const SettingsDialog = () => {
                             llmApiKey: '',
                             llmModel: 'gpt-4o',
                             tikhubToken: '',
+                            searchProvider: 'none',
+                            searchApiKey: '',
                      });
                      toast({
                             title: "已重置",
@@ -201,6 +209,54 @@ export const SettingsDialog = () => {
                                                         用于获取真实小红书数据 (可选，未配置将使用模拟数据)
                                                  </p>
                                           </div>
+                                   </div>
+
+                                   <hr className="border-gray-100" />
+
+                                   {/* Search Settings Section */}
+                                   <div className="space-y-4">
+                                          <h4 className="font-medium flex items-center gap-2">
+                                                 🔍 竞品搜索配置
+                                          </h4>
+
+                                          <div className="grid gap-2">
+                                                 <Label>搜索服务商 Provider</Label>
+                                                 <Select
+                                                        value={localSettings.searchProvider}
+                                                        onValueChange={(val: any) => setLocalSettings(s => ({ ...s, searchProvider: val }))}
+                                                 >
+                                                        <SelectTrigger>
+                                                               <SelectValue placeholder="选择搜索服务商" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                               <SelectItem value="none">不启用</SelectItem>
+                                                               <SelectItem value="bocha">博查 (Bocha)</SelectItem>
+                                                               <SelectItem value="you">You.com</SelectItem>
+                                                        </SelectContent>
+                                                 </Select>
+                                          </div>
+
+                                          {localSettings.searchProvider !== 'none' && (
+                                                 <div className="grid gap-2">
+                                                        <Label>Search API Key</Label>
+                                                        <div className="relative">
+                                                               <Input
+                                                                      type={showSearchKey ? "text" : "password"}
+                                                                      value={localSettings.searchApiKey}
+                                                                      onChange={(e) => setLocalSettings(s => ({ ...s, searchApiKey: e.target.value }))}
+                                                                      placeholder={localSettings.searchProvider === 'bocha' ? "sk-..." : "API Key..."}
+                                                                      className="pr-10"
+                                                               />
+                                                               <button
+                                                                      type="button"
+                                                                      onClick={() => setShowSearchKey(!showSearchKey)}
+                                                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                               >
+                                                                      {showSearchKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                               </button>
+                                                        </div>
+                                                 </div>
+                                          )}
                                    </div>
                             </div>
 

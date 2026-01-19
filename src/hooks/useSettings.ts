@@ -10,6 +10,10 @@ export interface UserSettings {
 
        // Tikhub Settings
        tikhubToken: string;
+
+       // Search Settings
+       searchProvider: 'bocha' | 'you' | 'none';
+       searchApiKey: string;
 }
 
 interface SettingsState extends UserSettings {
@@ -23,6 +27,8 @@ const defaultSettings: UserSettings = {
        llmApiKey: '',
        llmModel: 'gpt-4o',
        tikhubToken: '',
+       searchProvider: 'none',
+       searchApiKey: '',
 };
 
 export const useSettings = create<SettingsState>()(
