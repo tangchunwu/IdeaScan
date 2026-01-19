@@ -167,7 +167,7 @@ const Validate = () => {
       <main className="pt-28 pb-16 px-4">
         <div className="max-w-3xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12 animate-fade-in">
+          <div className="relative text-center mb-12 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-4">
               <Sparkles className="w-4 h-4" />
               <span className="text-sm font-medium">创意验证</span>
@@ -178,7 +178,11 @@ const Validate = () => {
             <p className="text-muted-foreground">
               详细描述你的想法，我们将基于小红书数据进行分析
             </p>
-            <div className="absolute top-4 right-4 md:top-8 md:right-8">
+            <div className="absolute right-0 top-0 md:top-auto md:bottom-2">
+              {/* 移动端右上角，桌面端可能更灵活，这里先简单修复为右上角可见 */}
+            </div>
+            {/* 重新定位：绝对定位相对于这个 Header 区域 */}
+            <div className="absolute top-0 right-2 md:top-4 md:right-4 z-10">
               <SettingsDialog />
             </div>
           </div>
