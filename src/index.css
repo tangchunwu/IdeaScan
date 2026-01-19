@@ -2,95 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* 宫崎骏风格 + Glassmorphism 设计系统
+   灵感来源：天空之城、龙猫、千与千寻的柔和自然色调
+   All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* 宫崎骏风格主色调 - 柔和天蓝色 */
+    --background: 200 40% 96%;
+    --foreground: 220 30% 20%;
 
+    /* 玻璃卡片 - 半透明白色 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 30% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 30% 20%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* 主色 - 宫崎骏天蓝 */
+    --primary: 200 70% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* 次要色 - 柔和草绿 */
+    --secondary: 140 40% 45%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* 静音色 - 淡米色 */
+    --muted: 40 30% 92%;
+    --muted-foreground: 220 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* 强调色 - 温暖橙黄 */
+    --accent: 35 90% 60%;
+    --accent-foreground: 220 30% 15%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* 危险色 - 柔和珊瑚红 */
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 200 30% 85%;
+    --input: 200 30% 90%;
+    --ring: 200 70% 50%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* 宫崎骏特色色 */
+    --sky-blue: 200 80% 70%;
+    --forest-green: 140 50% 40%;
+    --sunset-orange: 25 95% 65%;
+    --cloud-white: 40 30% 98%;
+    --earth-brown: 30 40% 35%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Glassmorphism 效果 */
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 0 0% 100% / 0.3;
+    --glass-shadow: 220 30% 20% / 0.1;
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 200 40% 96%;
+    --sidebar-foreground: 220 30% 30%;
+    --sidebar-primary: 200 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 140 40% 45%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 200 30% 85%;
+    --sidebar-ring: 200 70% 50%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* 暗色模式 - 星空夜景风格 */
+    --background: 220 40% 12%;
+    --foreground: 40 20% 92%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 35% 18%;
+    --card-foreground: 40 20% 92%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 35% 18%;
+    --popover-foreground: 40 20% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 200 70% 55%;
+    --primary-foreground: 220 40% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 140 45% 40%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 30% 22%;
+    --muted-foreground: 40 15% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 35 85% 55%;
+    --accent-foreground: 220 40% 10%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 60% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 220 30% 25%;
+    --input: 220 30% 22%;
+    --ring: 200 70% 55%;
+
+    --sky-blue: 200 70% 55%;
+    --forest-green: 140 45% 35%;
+    --sunset-orange: 25 90% 55%;
+    --cloud-white: 40 20% 90%;
+    --earth-brown: 30 35% 45%;
+
+    --glass-bg: 220 35% 18% / 0.8;
+    --glass-border: 0 0% 100% / 0.1;
+    --glass-shadow: 0 0% 0% / 0.3;
+
+    --sidebar-background: 220 40% 10%;
+    --sidebar-foreground: 40 20% 85%;
+    --sidebar-primary: 200 70% 55%;
+    --sidebar-primary-foreground: 220 40% 10%;
+    --sidebar-accent: 140 45% 40%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 30% 25%;
+    --sidebar-ring: 200 70% 55%;
   }
 }
 
@@ -100,6 +125,104 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* 玻璃拟态卡片 */
+  .glass-card {
+    @apply relative overflow-hidden rounded-2xl;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 
+      0 8px 32px hsl(var(--glass-shadow)),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+  }
+
+  /* 玻璃按钮 */
+  .glass-button {
+    @apply relative overflow-hidden rounded-xl px-6 py-3 font-medium transition-all duration-300;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px hsl(var(--glass-shadow));
+  }
+
+  /* 宫崎骏风格渐变背景 */
+  .ghibli-gradient {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--sky-blue)) 0%,
+      hsl(var(--background)) 50%,
+      hsl(var(--forest-green) / 0.2) 100%
+    );
+  }
+
+  /* 动态云朵装饰 */
+  .cloud-decoration {
+    position: absolute;
+    border-radius: 9999px;
+    background: hsl(var(--cloud-white) / 0.6);
+    filter: blur(1px);
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+    }
+    50% {
+      transform: translateY(-20px) translateX(10px);
+    }
+  }
+
+  /* 柔和发光效果 */
+  .ghibli-glow {
+    box-shadow: 
+      0 0 40px hsl(var(--primary) / 0.2),
+      0 0 80px hsl(var(--primary) / 0.1);
+  }
+
+  /* 手绘风格边框 */
+  .hand-drawn-border {
+    border-radius: 30% 70% 70% 30% / 60% 40% 60% 40%;
+  }
+}
+
+@layer utilities {
+  /* 文字渐变效果 */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--secondary)) 50%,
+      hsl(var(--accent)) 100%
+    );
+  }
+
+  /* 景深模糊层 */
+  .blur-layer-1 {
+    filter: blur(2px);
+    opacity: 0.8;
+  }
+
+  .blur-layer-2 {
+    filter: blur(4px);
+    opacity: 0.6;
+  }
+
+  .blur-layer-3 {
+    filter: blur(8px);
+    opacity: 0.4;
   }
 }
