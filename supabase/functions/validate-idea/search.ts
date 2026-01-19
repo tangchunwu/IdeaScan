@@ -113,7 +113,7 @@ async function searchBocha(query: string, apiKey: string): Promise<SearchResult[
 
 async function searchYou(query: string, apiKey: string): Promise<SearchResult[]> {
        // You.com usually uses YDC (You.com Developer Control) API
-       const response = await fetch(`https://api.ydc-index.io/search?query=${encodeURIComponent(query)}&num_web_results=5`, {
+       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=5`, {
               headers: {
                      "X-API-Key": apiKey
               }

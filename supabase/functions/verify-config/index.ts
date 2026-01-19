@@ -70,7 +70,7 @@ serve(async (req) => {
                             } catch (e) { isValid = false; message = "Connection failed"; }
                      } else if (provider === 'you') {
                             try {
-                                   const res = await fetch(`https://api.ydc-index.io/search?query=test`, {
+                                   const res = await fetch(`https://ydc-index.io/v1/search?query=test&count=1`, {
                                           headers: { "X-API-Key": apiKey }
                                    });
                                    isValid = res.ok;
