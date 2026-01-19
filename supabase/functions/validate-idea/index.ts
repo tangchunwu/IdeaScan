@@ -118,15 +118,89 @@ ${competitorText}
 
 // ... inside serve ...
 
-// 2. 爬取小红书数据
-const xiaohongshuData = await crawlXiaohongshuData(idea, tags, config?.tikhubToken);
-console.log("Crawled Xiaohongshu data");
+// 智能关键词提炼
+async function extractKeywords(idea: string, config?: RequestConfig): Promise<{ xhsKeywords: string[], webQueries: string[] }> {
+  // 优先使用用户配置，否则使用环境变量
+  const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
+  const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
+  const model = config?.llmModel || "google/gemini-3-flash-preview";
+
+  if (!apiKey) {
+    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
+  }
+
+  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
+  if (cleanBaseUrl.endsWith("/chat/completions")) {
+    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
+  }
+  const endpoint = `${cleanBaseUrl}/chat/completions`;
+
+  const prompt = `Based on the following business idea description, please extract keywords for different search purposes.
+  
+  Business Idea: "${idea}"
+  
+  Please provide:
+  1. Two short keywords (max 4 chars each) suitable for social media search (like Xiaohongshu/Instagram tags).
+  2. Two specific search queries for finding competitors or market reports on a search engine.
+  
+  Return ONLY valid JSON format:
+  {
+    "xhsKeywords": ["short_keyword1", "short_keyword2"],
+    "webQueries": ["competitor search query 1", "market report search query 2"]
+  }`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
+  } catch (e) {
+    console.error("Keyword extraction failed:", e);
+    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
+  }
+}
+
+// ... inside serve ...
+
+// 1.5 智能关键词提炼
+console.log("Extracting keywords...");
+const { xhsKeywords, webQueries } = await extractKeywords(idea, config);
+console.log("Keywords extracted:", { xhsKeywords, webQueries });
+
+// 2. 爬取小红书数据 (使用提炼出的第一个关键词)
+// 如果没有提炼出有效关键词，回退到原始 idea 的前 20 个字
+const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
+const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags, config?.tikhubToken);
+console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm}`);
 
 // 2.5 全网搜集竞品
 let competitorData: SearchResult[] = [];
 if (config?.searchProvider && config.searchProvider !== 'none' && config.searchApiKey) {
   console.log(`Searching competitors using ${config.searchProvider}...`);
-  competitorData = await searchCompetitors(idea + " 竞品 类似产品", config.searchProvider, config.searchApiKey);
+  // 并行执行所有 webQueries 的搜索
+  const searchPromises = webQueries.map(q => searchCompetitors(q, config.searchProvider!, config.searchApiKey!));
+  const results = await Promise.all(searchPromises);
+  // 打平结果数组
+  competitorData = results.flat();
   console.log(`Found ${competitorData.length} competitor results`);
 }
 

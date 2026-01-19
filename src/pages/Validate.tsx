@@ -83,23 +83,29 @@ const Validate = () => {
 
     try {
       // Simulation of Tikhub + AI stages
-      // 1. Search Notes (0-30%)
+      // 1. Keyword Extraction (0-20%)
+      const stage0 = setTimeout(() => {
+        setProgress(20);
+        setProgressStage("正在智能提炼核心搜索词...");
+      }, 500);
+
+      // 1. Search Notes (20-50%)
       const stage1 = setTimeout(() => {
-        setProgress(30);
-        setProgressStage("正在全网搜索相关笔记 (Tikhub)...");
-      }, 1500);
+        setProgress(50);
+        setProgressStage("正在全网并行搜索 (小红书 + 竞品)...");
+      }, 2500);
 
-      // 2. Analyze Comments (30-60%)
+      // 2. Analyze Comments (50-80%)
       const stage2 = setTimeout(() => {
-        setProgress(60);
-        setProgressStage("正在分析用户评论情感...");
-      }, 4500);
+        setProgress(80);
+        setProgressStage("正在整合数据并分析...");
+      }, 5500);
 
-      // 3. AI Generation (60-90%)
+      // 3. AI Generation (80-95%)
       const stage3 = setTimeout(() => {
-        setProgress(90);
+        setProgress(95);
         setProgressStage("正在生成商业分析报告...");
-      }, 8000);
+      }, 9000);
 
       // Actual API Call
       const result = await createMutation.mutateAsync({
@@ -107,7 +113,8 @@ const Validate = () => {
         tags: selectedTags,
       });
 
-      // Cleanup simulation timers if response is faster
+      // Cleanup simulation timers
+      clearTimeout(stage0);
       clearTimeout(stage1);
       clearTimeout(stage2);
       clearTimeout(stage3);
@@ -306,8 +313,8 @@ const Validate = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    { label: "数据抓取", done: progress >= 30, icon: Search },
-                    { label: "AI 分析", done: progress >= 60, icon: Sparkles },
+                    { label: "AI 提炼", done: progress >= 20, icon: Sparkles },
+                    { label: "全网搜索", done: progress >= 50, icon: Search },
                     { label: "报告生成", done: progress >= 90, icon: FileText },
                   ].map((step, i) => {
                     const Icon = step.icon;
