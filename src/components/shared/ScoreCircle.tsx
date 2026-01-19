@@ -31,13 +31,13 @@ const getScoreLabel = (percentage: number) => {
   return "待改进";
 };
 
-export const ScoreCircle = ({ 
-  score, 
-  maxScore = 100, 
+export const ScoreCircle = ({
+  score,
+  maxScore = 100,
   size = "md",
   label,
   showAnimation = true,
-  className 
+  className
 }: ScoreCircleProps) => {
   const [animatedScore, setAnimatedScore] = useState(showAnimation ? 0 : score);
   const config = sizeConfig[size];
@@ -49,17 +49,24 @@ export const ScoreCircle = ({
 
   useEffect(() => {
     if (!showAnimation) return;
-    
+
     const duration = 1500;
     const steps = 60;
     const increment = score / steps;
     let current = 0;
-    
+
     const timer = setInterval(() => {
       current += increment;
       if (current >= score) {
         setAnimatedScore(score);
         clearInterval(timer);
+        setTimeout(() => {
+          const element = document.getElementById(`score-${gradientId}`);
+          if (element) {
+            element.classList.add("scale-110");
+            setTimeout(() => element.classList.remove("scale-110"), 300);
+          }
+        }, 100);
       } else {
         setAnimatedScore(Math.round(current));
       }
@@ -70,15 +77,18 @@ export const ScoreCircle = ({
 
   return (
     <div className={cn("flex flex-col items-center gap-3", className)}>
-      <div className={cn("relative", config.container)}>
+      <div
+        id={`score-${gradientId}`}
+        className={cn("relative transition-transform duration-300", config.container)}
+      >
         {/* 外部光晕 */}
-        <div 
+        <div
           className="absolute inset-0 rounded-full opacity-30 blur-md"
-          style={{ 
-            background: `radial-gradient(circle, ${gradient.start}, transparent)` 
+          style={{
+            background: `radial-gradient(circle, ${gradient.start}, transparent)`
           }}
         />
-        
+
         {/* SVG 圆环 */}
         <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 100 100">
           {/* 背景圆环 */}
@@ -91,7 +101,7 @@ export const ScoreCircle = ({
             strokeWidth={config.stroke}
             className="opacity-50"
           />
-          
+
           {/* 进度圆环 */}
           <circle
             cx="50"
@@ -105,7 +115,7 @@ export const ScoreCircle = ({
             strokeDashoffset={strokeDashoffset}
             className="transition-all duration-1000 ease-out drop-shadow-sm"
           />
-          
+
           {/* 渐变定义 */}
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -114,7 +124,7 @@ export const ScoreCircle = ({
             </linearGradient>
           </defs>
         </svg>
-        
+
         {/* 分数文字 */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn("font-bold text-foreground number-highlight", config.text)}>
@@ -127,7 +137,7 @@ export const ScoreCircle = ({
           )}
         </div>
       </div>
-      
+
       {label && (
         <span className={cn("text-muted-foreground font-medium text-center", config.label)}>
           {label}

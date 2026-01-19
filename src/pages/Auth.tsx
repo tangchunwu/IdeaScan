@@ -7,30 +7,55 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { Sparkles, Mail, Lock, User, ArrowLeft, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+// Zod Schemas
+const loginSchema = z.object({
+  email: z.string().email({ message: "请输入有效的邮箱地址" }),
+  password: z.string().min(1, { message: "请输入密码" }),
+});
+
+const signupSchema = z.object({
+  name: z.string().min(2, { message: "昵称至少需要2个字符" }),
+  email: z.string().email({ message: "请输入有效的邮箱地址" }),
+  password: z.string().min(6, { message: "密码至少需要6位" }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type SignupFormValues = z.infer<typeof signupSchema>;
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // 登录表单
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  
-  // 注册表单
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupName, setSignupName] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Login Form Hook
+  const {
+    register: registerLogin,
+    handleSubmit: handleLoginSubmit,
+    formState: { errors: loginErrors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  // Signup Form Hook
+  const {
+    register: registerSignup,
+    handleSubmit: handleSignupSubmit,
+    formState: { errors: signupErrors },
+  } = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+  });
+
+  const onLogin = async (data: LoginFormValues) => {
     setIsLoading(true);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
+        email: data.email,
+        password: data.password,
       });
 
       if (error) throw error;
@@ -52,17 +77,15 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSignup = async (data: SignupFormValues) => {
     setIsLoading(true);
-
     try {
       const { error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
+        email: data.email,
+        password: data.password,
         options: {
           data: {
-            full_name: signupName,
+            full_name: data.name,
           },
           emailRedirectTo: window.location.origin,
         },
@@ -92,8 +115,8 @@ const Auth = () => {
       <main className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           {/* Back Link */}
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -102,7 +125,7 @@ const Auth = () => {
 
           {/* Logo */}
           <div className="text-center mb-8 animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
               <Sparkles className="w-8 h-8 text-primary-foreground" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">创意验证器</h1>
@@ -119,107 +142,130 @@ const Auth = () => {
 
               {/* Login Tab */}
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">邮箱</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="login-email"
                         type="email"
                         placeholder="your@email.com"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="pl-10 rounded-xl"
-                        required
+                        className={`pl-10 rounded-xl ${loginErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        {...registerLogin("email")}
+                        disabled={isLoading}
                       />
                     </div>
+                    {loginErrors.email && (
+                      <p className="text-xs text-destructive ml-1">{loginErrors.email.message}</p>
+                    )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="login-password">密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="login-password"
                         type="password"
                         placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="pl-10 rounded-xl"
-                        required
+                        className={`pl-10 rounded-xl ${loginErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        {...registerLogin("password")}
+                        disabled={isLoading}
                       />
                     </div>
+                    {loginErrors.password && (
+                      <p className="text-xs text-destructive ml-1">{loginErrors.password.message}</p>
+                    )}
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-5"
+                    className="w-full rounded-xl py-5 font-medium shadow-md hover:shadow-lg transition-all"
                     disabled={isLoading}
                   >
-                    {isLoading ? "登录中..." : "登录"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        登录中...
+                      </>
+                    ) : (
+                      "登录"
+                    )}
                   </Button>
                 </form>
               </TabsContent>
 
               {/* Signup Tab */}
               <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
+                <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">昵称</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-name"
                         type="text"
                         placeholder="你的昵称"
-                        value={signupName}
-                        onChange={(e) => setSignupName(e.target.value)}
-                        className="pl-10 rounded-xl"
-                        required
+                        className={`pl-10 rounded-xl ${signupErrors.name ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        {...registerSignup("name")}
+                        disabled={isLoading}
                       />
                     </div>
+                    {signupErrors.name && (
+                      <p className="text-xs text-destructive ml-1">{signupErrors.name.message}</p>
+                    )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">邮箱</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-email"
                         type="email"
                         placeholder="your@email.com"
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
-                        className="pl-10 rounded-xl"
-                        required
+                        className={`pl-10 rounded-xl ${signupErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        {...registerSignup("email")}
+                        disabled={isLoading}
                       />
                     </div>
+                    {signupErrors.email && (
+                      <p className="text-xs text-destructive ml-1">{signupErrors.email.message}</p>
+                    )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
                         type="password"
                         placeholder="至少6位密码"
-                        value={signupPassword}
-                        onChange={(e) => setSignupPassword(e.target.value)}
-                        className="pl-10 rounded-xl"
-                        minLength={6}
-                        required
+                        className={`pl-10 rounded-xl ${signupErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        {...registerSignup("password")}
+                        disabled={isLoading}
                       />
                     </div>
+                    {signupErrors.password && (
+                      <p className="text-xs text-destructive ml-1">{signupErrors.password.message}</p>
+                    )}
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-5"
+                    className="w-full rounded-xl py-5 font-medium shadow-md hover:shadow-lg transition-all"
                     disabled={isLoading}
                   >
-                    {isLoading ? "注册中..." : "注册"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        注册中...
+                      </>
+                    ) : (
+                      "注册"
+                    )}
                   </Button>
                 </form>
               </TabsContent>

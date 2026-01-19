@@ -5,23 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { createValidation } from "@/services/validationService";
+import { useCreateValidation } from "@/hooks/useValidation";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Sparkles, 
-  Search, 
-  X, 
+import {
+  Sparkles,
+  Search,
+  X,
   Plus,
   Lightbulb,
   Target,
   TrendingUp,
-  LogIn
+  LogIn,
+  FileText,
+  CheckCircle2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const suggestedTags = [
-  "美妆护肤", "穿搭时尚", "美食探店", "家居生活", 
+  "美妆护肤", "穿搭时尚", "美食探店", "家居生活",
   "母婴育儿", "健身运动", "旅行攻略", "数码科技"
 ];
 
@@ -39,7 +42,8 @@ const Validate = () => {
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
-  const [validationProgress, setValidationProgress] = useState("");
+  const [progress, setProgress] = useState(0);
+  const createMutation = useCreateValidation();
 
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
@@ -58,9 +62,11 @@ const Validate = () => {
     }
   };
 
+  const [progressStage, setProgressStage] = useState<string>("初始化...");
+
   const handleValidate = async () => {
     if (!idea.trim()) return;
-    
+
     if (!user) {
       toast({
         title: "请先登录",
@@ -70,19 +76,44 @@ const Validate = () => {
       navigate("/auth");
       return;
     }
-    
+
     setIsValidating(true);
-    setValidationProgress("正在搜索相关笔记...");
+    setProgress(5);
+    setProgressStage("正在解析创意...");
 
     try {
-      // 模拟进度更新
-      setTimeout(() => setValidationProgress("正在统计互动数据..."), 2000);
-      setTimeout(() => setValidationProgress("AI 正在分析市场可行性..."), 4000);
-      
-      const result = await createValidation({
+      // Simulation of Tikhub + AI stages
+      // 1. Search Notes (0-30%)
+      const stage1 = setTimeout(() => {
+        setProgress(30);
+        setProgressStage("正在全网搜索相关笔记 (Tikhub)...");
+      }, 1500);
+
+      // 2. Analyze Comments (30-60%)
+      const stage2 = setTimeout(() => {
+        setProgress(60);
+        setProgressStage("正在分析用户评论情感...");
+      }, 4500);
+
+      // 3. AI Generation (60-90%)
+      const stage3 = setTimeout(() => {
+        setProgress(90);
+        setProgressStage("正在生成商业分析报告...");
+      }, 8000);
+
+      // Actual API Call
+      const result = await createMutation.mutateAsync({
         idea: idea.trim(),
         tags: selectedTags,
       });
+
+      // Cleanup simulation timers if response is faster
+      clearTimeout(stage1);
+      clearTimeout(stage2);
+      clearTimeout(stage3);
+
+      setProgress(100);
+      setProgressStage("完成！跳转中...");
 
       toast({
         title: "验证完成！",
@@ -132,7 +163,7 @@ const Validate = () => {
   return (
     <PageBackground>
       <Navbar />
-      
+
       <main className="pt-28 pb-16 px-4">
         <div className="max-w-3xl mx-auto">
           {/* Header */}
@@ -193,13 +224,13 @@ const Validate = () => {
                   <Target className="w-4 h-4 inline mr-2" />
                   相关标签（可选，最多5个）
                 </label>
-                
+
                 {/* Selected Tags */}
                 {selectedTags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {selectedTags.map((tag) => (
-                      <Badge 
-                        key={tag} 
+                      <Badge
+                        key={tag}
                         variant="secondary"
                         className="px-3 py-1 text-sm bg-primary/10 text-primary hover:bg-primary/20"
                       >
@@ -238,8 +269,8 @@ const Validate = () => {
                     className="flex-1 rounded-xl border-border/50 bg-background/50"
                     disabled={selectedTags.length >= 5 || isValidating}
                   />
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     onClick={handleAddCustomTag}
                     disabled={!customTag.trim() || selectedTags.length >= 5 || isValidating}
@@ -255,12 +286,45 @@ const Validate = () => {
           {/* Submit Button */}
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {isValidating ? (
-              <GlassCard className="py-12">
-                <LoadingSpinner size="lg" text={validationProgress} />
-                <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-                  <p className="animate-pulse-soft">请稍候，AI 正在深度分析...</p>
+              <div className="space-y-6 animate-slide-up">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-primary font-medium animate-pulse">
+                      {progressStage}
+                    </span>
+                    <span className="text-muted-foreground">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-3 rounded-full" />
                 </div>
-              </GlassCard>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { label: "数据抓取", done: progress >= 30, icon: Search },
+                    { label: "AI 分析", done: progress >= 60, icon: Sparkles },
+                    { label: "报告生成", done: progress >= 90, icon: FileText },
+                  ].map((step, i) => {
+                    const Icon = step.icon;
+                    return (
+                      <div
+                        key={i}
+                        className={`p-4 rounded-xl border transition-all duration-500 ${step.done
+                          ? "bg-primary/10 border-primary/20"
+                          : "bg-muted/30 border-transparent opacity-50"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${step.done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                            {step.done ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                          </div>
+                          <span className={`font-medium ${step.done ? "text-primary" : "text-muted-foreground"}`}>
+                            {step.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               <Button
                 onClick={handleValidate}

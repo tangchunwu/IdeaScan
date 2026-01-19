@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,44 +42,137 @@ import {
   Activity,
   AlertCircle,
 } from "lucide-react";
-import { getValidation, FullValidation } from "@/services/validationService";
+import { FullValidation } from "@/services/validationService";
+import { useValidation } from "@/hooks/useValidation";
+import { exportToPdf, exportToImage } from "@/lib/export";
+import { Image as ImageIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
-  const [data, setData] = useState<FullValidation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
 
-  useEffect(() => {
-    const fetchReport = async () => {
-      if (!id) {
-        setError("报告 ID 不存在");
-        setLoading(false);
-        return;
-      }
+  // Extract error message if it exists
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
 
+  // No explicit useEffect needed for fetching anymore
+
+  const handleExportPdf = async () => {
+    try {
+      await exportToPdf("report-content", `report-${id}`);
+      toast({
+        title: "导出成功",
+        description: "PDF报告已下载",
+      });
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportImage = async () => {
+    try {
+      await exportToImage("report-content", `report-${id}`);
+      toast({
+        title: "导出成功",
+        description: "图片报告已下载",
+      });
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = `商业创意验证报告 - ${data?.validation?.idea || ""}`;
+    const shareText = `查看我的商业创意验证报告，综合评分：${data?.validation?.overall_score || 0}分`;
+
+    // Try Web Share API first (mobile-friendly)
+    if (navigator.share) {
       try {
-        const result = await getValidation(id);
-        setData(result);
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        toast({
+          title: "分享成功",
+          description: "报告已分享",
+        });
+        return;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "获取报告失败");
-      } finally {
-        setLoading(false);
+        // User cancelled or share failed, fall through to clipboard
+        if ((err as Error).name !== "AbortError") {
+          console.warn("Web Share failed:", err);
+        }
       }
-    };
+    }
 
-    fetchReport();
-  }, [id]);
+    // Fallback to clipboard
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: "链接已复制",
+        description: "报告链接已复制到剪贴板",
+      });
+    } catch (err) {
+      toast({
+        title: "复制失败",
+        description: "请手动复制浏览器地址栏链接",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading) {
     return (
       <PageBackground showClouds={false}>
         <Navbar />
-        <main className="pt-28 pb-16 px-4 flex items-center justify-center min-h-screen">
-          <LoadingSpinner size="lg" />
+        <main className="pt-28 pb-16 px-4">
+          <div className="max-w-6xl mx-auto animate-pulse">
+            {/* Header Skeleton */}
+            <div className="mb-8">
+              <div className="h-4 w-24 bg-muted rounded mb-4" />
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="w-full">
+                  <div className="h-8 w-64 bg-muted rounded mb-4" />
+                  <div className="h-6 w-96 bg-muted rounded mb-3" />
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="h-4 w-24 bg-muted rounded" />
+                    <div className="h-5 w-20 bg-muted rounded-full" />
+                    <div className="h-5 w-16 bg-muted rounded-full" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="h-10 w-28 bg-muted rounded-xl" />
+                  <div className="h-10 w-24 bg-muted rounded-xl" />
+                </div>
+              </div>
+            </div>
+
+            {/* Score Card Skeleton */}
+            <div className="h-40 w-full bg-muted/30 rounded-xl mb-8" />
+
+            {/* Tabs Skeleton */}
+            <div className="w-full h-10 bg-muted/20 rounded-lg mb-6" />
+
+            {/* Content Skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="h-80 w-full bg-muted/30 rounded-xl" />
+              <div className="h-80 w-full bg-muted/30 rounded-xl" />
+            </div>
+          </div>
         </main>
       </PageBackground>
     );
@@ -91,17 +184,14 @@ const Report = () => {
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <GlassCard className="text-center py-16">
-              <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">加载失败</h2>
-              <p className="text-muted-foreground mb-6">{error || "未找到报告数据"}</p>
-              <Button asChild variant="outline" className="rounded-xl">
-                <Link to="/history">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  返回历史记录
-                </Link>
-              </Button>
-            </GlassCard>
+            <EmptyState
+              icon={AlertCircle}
+              title="加载失败"
+              description={error || "未找到报告数据"}
+              actionLabel="重试"
+              onAction={() => refetch()}
+              className="py-16"
+            />
           </div>
         </main>
       </PageBackground>
@@ -150,7 +240,7 @@ const Report = () => {
   return (
     <PageBackground showClouds={false}>
       <Navbar />
-      
+
       <main className="pt-28 pb-16 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -159,7 +249,7 @@ const Report = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               返回历史记录
             </Link>
-            
+
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
@@ -174,20 +264,24 @@ const Report = () => {
                     {new Date(validation.created_at).toLocaleDateString()}
                   </span>
                   <Badge variant="outline">报告 #{validation.id.slice(0, 8)}</Badge>
-                  <Badge 
+                  <Badge
                     variant={validation.status === "completed" ? "default" : "secondary"}
                   >
                     {validation.status === "completed" ? "已完成" : validation.status}
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
-                <Button variant="outline" className="rounded-xl">
-                  <Download className="w-4 h-4 mr-2" />
-                  导出报告
+                <Button variant="outline" className="rounded-xl" onClick={handleExportImage}>
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  导出图片
                 </Button>
-                <Button variant="outline" className="rounded-xl">
+                <Button variant="outline" className="rounded-xl" onClick={handleExportPdf}>
+                  <Download className="w-4 h-4 mr-2" />
+                  导出 PDF
+                </Button>
+                <Button variant="outline" className="rounded-xl" onClick={handleShare}>
                   <Share2 className="w-4 h-4 mr-2" />
                   分享
                 </Button>
@@ -209,7 +303,7 @@ const Report = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{xiaohongshuData.totalNotes.toLocaleString()}</div>
@@ -268,17 +362,17 @@ const Report = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                           <YAxis stroke="hsl(var(--muted-foreground))" />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: "hsl(var(--card))", 
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
                               border: "1px solid hsl(var(--border))",
                               borderRadius: "12px"
-                            }} 
+                            }}
                           />
-                          <Line 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke="hsl(var(--primary))" 
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="hsl(var(--primary))"
                             strokeWidth={3}
                             dot={{ fill: "hsl(var(--primary))" }}
                           />
@@ -348,20 +442,20 @@ const Report = () => {
                                 <Cell key={`cell-${index}`} fill={CONTENT_COLORS[index % CONTENT_COLORS.length]} />
                               ))}
                             </Pie>
-                            <Tooltip 
-                              contentStyle={{ 
-                                backgroundColor: "hsl(var(--card))", 
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--card))",
                                 border: "1px solid hsl(var(--border))",
                                 borderRadius: "12px"
-                              }} 
+                              }}
                             />
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="space-y-2">
                           {xiaohongshuData.contentTypes.map((item, index) => (
                             <div key={item.name} className="flex items-center gap-2 text-sm">
-                              <div 
-                                className="w-3 h-3 rounded-full" 
+                              <div
+                                className="w-3 h-3 rounded-full"
                                 style={{ backgroundColor: CONTENT_COLORS[index % CONTENT_COLORS.length] }}
                               />
                               <span className="text-muted-foreground">{item.name}</span>
@@ -477,12 +571,12 @@ const Report = () => {
                             <Cell key={`cell-${index}`} fill={color} />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: "hsl(var(--card))", 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
                             border: "1px solid hsl(var(--border))",
                             borderRadius: "12px"
-                          }} 
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -520,12 +614,12 @@ const Report = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
                         <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: "hsl(var(--card))", 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
                             border: "1px solid hsl(var(--border))",
                             borderRadius: "12px"
-                          }} 
+                          }}
                         />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                           {SENTIMENT_COLORS.map((color, index) => (

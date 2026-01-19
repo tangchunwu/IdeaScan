@@ -20,9 +20,9 @@ const paddingMap = {
   lg: "p-8",
 };
 
-export const GlassCard = ({ 
-  children, 
-  className, 
+export const GlassCard = ({
+  children,
+  className,
   hover = false,
   glow = false,
   elevated = false,
@@ -37,7 +37,7 @@ export const GlassCard = ({
         elevated ? "glass-card-elevated" : "glass-card",
         paddingMap[padding],
         "transition-all duration-300",
-        hover && "hover:translate-y-[-4px] hover:shadow-xl cursor-pointer",
+        hover && "hover:-translate-y-1 hover:shadow-xl hover:border-primary/20 cursor-pointer",
         glow && "ghibli-glow",
         interactive && "card-interactive",
         onClick && "cursor-pointer",
