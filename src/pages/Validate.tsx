@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, LoadingSpinner } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -178,6 +178,9 @@ const Validate = () => {
             <p className="text-muted-foreground">
               详细描述你的想法，我们将基于小红书数据进行分析
             </p>
+            <div className="absolute top-4 right-4 md:top-8 md:right-8">
+              <SettingsDialog />
+            </div>
           </div>
 
           {/* Main Input Card */}

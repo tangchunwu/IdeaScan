@@ -34,12 +34,24 @@ export const useValidations = (userId: string | undefined) => {
        });
 };
 
+import { useSettings } from "./useSettings";
+
 // Hook to create a validation
 export const useCreateValidation = () => {
        const queryClient = useQueryClient();
+       const settings = useSettings();
 
        return useMutation({
-              mutationFn: (request: ValidationRequest) => createValidation(request),
+              mutationFn: (request: ValidationRequest) => createValidation({
+                     ...request,
+                     config: {
+                            llmProvider: settings.llmProvider,
+                            llmBaseUrl: settings.llmBaseUrl,
+                            llmApiKey: settings.llmApiKey,
+                            llmModel: settings.llmModel,
+                            tikhubToken: settings.tikhubToken,
+                     }
+              }),
               onSuccess: () => {
                      queryClient.invalidateQueries({ queryKey: validationKeys.lists() });
               },

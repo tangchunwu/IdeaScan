@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface ValidationRequest {
   idea: string;
   tags: string[];
+  config?: any;
 }
 
 export interface ValidationResponse {
@@ -67,7 +68,7 @@ export interface FullValidation {
 // 创建新验证
 export async function createValidation(request: ValidationRequest): Promise<ValidationResponse> {
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   if (!session) {
     throw new Error("请先登录");
   }
@@ -86,7 +87,7 @@ export async function createValidation(request: ValidationRequest): Promise<Vali
 // 获取验证详情
 export async function getValidation(validationId: string): Promise<FullValidation> {
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   if (!session) {
     throw new Error("请先登录");
   }
@@ -105,7 +106,7 @@ export async function getValidation(validationId: string): Promise<FullValidatio
 // 获取验证列表
 export async function listValidations(): Promise<Validation[]> {
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   if (!session) {
     throw new Error("请先登录");
   }
@@ -124,7 +125,7 @@ export async function listValidations(): Promise<Validation[]> {
 // 删除验证
 export async function deleteValidation(validationId: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   if (!session) {
     throw new Error("请先登录");
   }

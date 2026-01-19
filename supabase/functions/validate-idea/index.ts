@@ -7,23 +7,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// 声明 Config 接口
+interface RequestConfig {
+  llmProvider?: string;
+  llmBaseUrl?: string;
+  llmApiKey?: string;
+  llmModel?: string;
+  tikhubToken?: string;
+}
+
 interface ValidationRequest {
   idea: string;
   tags: string[];
+  config?: RequestConfig;
 }
 
 // 使用 Tikhub API 获取真实小红书数据
-async function crawlXiaohongshuData(idea: string, tags: string[]) {
-  const tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
+  const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
-  if (!tikhubToken) {
+  if (!token) {
     console.warn("TIKHUB_TOKEN not configured, falling back to mock data");
     // Fallback to mock data if token not configured
     return getMockXiaohongshuData();
   }
 
   try {
-    const realData = await crawlRealXiaohongshuData(tikhubToken, idea, tags);
+    const realData = await crawlRealXiaohongshuData(token, idea, tags);
     console.log(`[Tikhub] Successfully fetched real data: ${realData.totalNotes} notes`);
     return {
       totalNotes: realData.totalNotes,
@@ -76,13 +86,20 @@ function getMockXiaohongshuData() {
   };
 }
 
-// 使用 Lovable AI 进行商业分析
-async function analyzeWithAI(idea: string, tags: string[], xiaohongshuData: any) {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+// 使用 AI 进行商业分析
+async function analyzeWithAI(idea: string, tags: string[], xiaohongshuData: any, config?: RequestConfig) {
+  // 优先使用用户配置，否则使用环境变量
+  const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
+  const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
+  const model = config?.llmModel || "google/gemini-3-flash-preview";
 
   if (!apiKey) {
-    throw new Error("LOVABLE_API_KEY not configured");
+    throw new Error("API Key not configured (User or Env)");
   }
+
+  // Ensure base URL doesn't end with slash if we append path, but usually base URL includes /v1
+  // If user enters 'https://api.openai.com/v1', we append '/chat/completions'
+  const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
 
   // Prepare sample data for AI context
   const sampleNotesText = (xiaohongshuData.sampleNotes || [])
@@ -150,14 +167,14 @@ ${sampleCommentsText}` : ""}
 
 请确保返回的是有效的JSON格式，不要包含任何其他文字。`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: model,
       messages: [
         { role: "user", content: prompt }
       ],
@@ -168,7 +185,7 @@ ${sampleCommentsText}` : ""}
   if (!response.ok) {
     const errorText = await response.text();
     console.error("AI API error:", errorText);
-    throw new Error(`AI analysis failed: ${response.status}`);
+    throw new Error(`AI analysis failed: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -224,10 +241,6 @@ serve(async (req) => {
 
     if (rateLimitError) {
       console.error("Rate limit check failed:", rateLimitError);
-      // Fallback: allow if check fails (fail open) vs fail closed. 
-      // safer to fail open for UX if DB issue, but strict security implies fail closed.
-      // Let's log it but proceed to avoid blocking users on system error, OR return 500.
-      // For now, let's treat it as system error.
     }
 
     if (isAllowed === false) {
@@ -238,7 +251,7 @@ serve(async (req) => {
     }
 
     // 解析请求体
-    const { idea, tags }: ValidationRequest = await req.json();
+    const { idea, tags, config }: ValidationRequest = await req.json();
 
     if (!idea || idea.trim().length === 0) {
       return new Response(
@@ -269,11 +282,11 @@ serve(async (req) => {
     console.log(`Created validation record: ${validation.id}`);
 
     // 2. 爬取小红书数据
-    const xiaohongshuData = await crawlXiaohongshuData(idea, tags);
+    const xiaohongshuData = await crawlXiaohongshuData(idea, tags, config?.tikhubToken);
     console.log("Crawled Xiaohongshu data");
 
     // 3. AI 分析
-    const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData);
+    const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, config);
     console.log("AI analysis completed");
 
     // 4. 保存报告
