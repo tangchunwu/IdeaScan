@@ -42,6 +42,8 @@ import {
   Activity,
   AlertCircle,
   Globe,
+  Search,
+  Zap,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
 import { useValidation } from "@/hooks/useValidation";
@@ -244,6 +246,12 @@ const Report = () => {
 
   const dimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
 
+  const radarData = dimensions.map((d: any) => ({
+    subject: d.dimension,
+    A: d.score,
+    fullMark: 100,
+  }));
+
   return (
     <PageBackground showClouds={false}>
       <Navbar />
@@ -329,38 +337,64 @@ const Report = () => {
               </div>
 
               {/* Right: Key Stats */}
-              <div className="col-span-1 lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-6 content-center">
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Market Interest</div>
-                  <div className="text-2xl font-semibold">{xiaohongshuData.totalNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">Notes</span></div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">User Engagement</div>
-                  <div className="text-2xl font-semibold">{xiaohongshuData.totalEngagement.toLocaleString()}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Sentiment Score</div>
-                  <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
-                    {sentimentAnalysis.positive}% <span className="text-sm text-muted-foreground font-normal">Pos</span>
+              <div className="col-span-1 lg:col-span-8 flex flex-col justify-center gap-8">
+                {/* Numeric Metrics Row */}
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/10">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      <Search className="w-3 h-3" /> Market Interest
+                    </div>
+                    <div className="text-2xl font-bold font-mono">
+                      {xiaohongshuData.totalNotes > 0 ? xiaohongshuData.totalNotes.toLocaleString() : "-"}
+                      <span className="text-sm text-muted-foreground font-normal ml-1">notes</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 p-4 rounded-xl bg-accent/5 border border-accent/10">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      <MessageCircle className="w-3 h-3" /> Engagement
+                    </div>
+                    <div className="text-2xl font-bold font-mono">
+                      {xiaohongshuData.totalEngagement > 0 ? xiaohongshuData.totalEngagement.toLocaleString() : "-"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 p-4 rounded-xl bg-green-500/5 border border-green-500/10">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> Sentiment
+                    </div>
+                    <div className={`text-2xl font-bold font-mono ${sentimentAnalysis.positive > 60 ? 'text-green-600' : 'text-foreground'}`}>
+                      {sentimentAnalysis.positive}%
+                      <span className="text-sm text-muted-foreground font-normal ml-1">Pos</span>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Competition</div>
-                  <div className="text-2xl font-semibold">{marketAnalysis.competitionLevel || "Unknown"}</div>
+
+                {/* Competition Analysis Row (Full Width) */}
+                <div className="space-y-2 p-4 rounded-xl bg-secondary/5 border border-secondary/10">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1 mb-1">
+                    <Target className="w-3 h-3" /> Competition Analysis
+                  </div>
+                  <div className="text-sm font-medium leading-relaxed text-foreground/90 line-clamp-3">
+                    {marketAnalysis.competitionLevel || "No data available"}
+                  </div>
                 </div>
 
-                <div className="col-span-2 md:col-span-4 h-px bg-border/50 my-2" />
-
-                <div className="col-span-2 md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
-                    <Target className="w-5 h-5 text-secondary" />
+                {/* Tags Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-4 h-4 text-secondary" />
+                    </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Target Audience</div>
                       <div className="text-sm font-medium line-clamp-1">{marketAnalysis.targetAudience}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                    <Brain className="w-5 h-5 text-primary" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Zap className="w-4 h-4 text-primary" />
+                    </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Core Strength</div>
                       <div className="text-sm font-medium line-clamp-1">{aiAnalysis.strengths?.[0] || "-"}</div>
@@ -777,7 +811,7 @@ const Report = () => {
                       Six-Dimension Evaluation
                     </h3>
                     <div className="space-y-3">
-                      {aiAnalysis.dimensions?.map((d: any, i: number) => (
+                      {dimensions?.map((d: any, i: number) => (
                         <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
                           <span className="text-muted-foreground">{d.dimension}</span>
                           <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
