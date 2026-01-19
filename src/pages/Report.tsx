@@ -201,41 +201,47 @@ const Report = () => {
   const { validation, report } = data;
 
   // 准备显示数据
-  const marketAnalysis = report?.market_analysis || {
-    targetAudience: "暂无数据",
-    marketSize: "未知",
-    competitionLevel: "未知",
-    trendDirection: "未知",
-    keywords: [],
+  const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
+  const marketAnalysis = {
+    targetAudience: (marketAnalysisRaw.targetAudience as string) ?? "暂无数据",
+    marketSize: (marketAnalysisRaw.marketSize as string) ?? "未知",
+    competitionLevel: (marketAnalysisRaw.competitionLevel as string) ?? "未知",
+    trendDirection: (marketAnalysisRaw.trendDirection as string) ?? "未知",
+    keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
   };
 
-  const xiaohongshuData = report?.xiaohongshu_data || {
-    totalNotes: 0,
-    avgLikes: 0,
-    avgComments: 0,
-    avgCollects: 0,
-    totalEngagement: 0,
-    weeklyTrend: [],
-    contentTypes: [],
+  const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
+  const xiaohongshuData = {
+    totalNotes: (xiaohongshuDataRaw.totalNotes as number) ?? 0,
+    avgLikes: (xiaohongshuDataRaw.avgLikes as number) ?? 0,
+    avgComments: (xiaohongshuDataRaw.avgComments as number) ?? 0,
+    avgCollects: (xiaohongshuDataRaw.avgCollects as number) ?? 0,
+    totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ?? 0,
+    weeklyTrend: Array.isArray(xiaohongshuDataRaw.weeklyTrend) ? xiaohongshuDataRaw.weeklyTrend : [],
+    contentTypes: Array.isArray(xiaohongshuDataRaw.contentTypes) ? xiaohongshuDataRaw.contentTypes : [],
+    sampleNotes: Array.isArray(xiaohongshuDataRaw.sampleNotes) ? xiaohongshuDataRaw.sampleNotes : [],
+    sampleComments: Array.isArray(xiaohongshuDataRaw.sampleComments) ? xiaohongshuDataRaw.sampleComments : [],
   };
 
-  const sentimentAnalysis = report?.sentiment_analysis || {
-    positive: 0,
-    neutral: 0,
-    negative: 0,
-    topPositive: [],
-    topNegative: [],
+  const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
+  const sentimentAnalysis = {
+    positive: (sentimentAnalysisRaw.positive as number) ?? 0,
+    neutral: (sentimentAnalysisRaw.neutral as number) ?? 0,
+    negative: (sentimentAnalysisRaw.negative as number) ?? 0,
+    topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
+    topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
   };
 
-  const aiAnalysis = report?.ai_analysis || {
-    feasibilityScore: 0,
-    strengths: [],
-    weaknesses: [],
-    suggestions: [],
-    risks: [],
+  const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
+  const aiAnalysis = {
+    feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
+    strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
+    weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
+    suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
+    risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
   };
 
-  const dimensions = report?.dimensions || [];
+  const dimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
 
   return (
     <PageBackground showClouds={false}>
