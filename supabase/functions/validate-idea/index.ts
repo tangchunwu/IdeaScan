@@ -249,7 +249,7 @@ serve(async (req) => {
   }
 
   try {
-    const { idea, tags, validation, config } = await req.json();
+    const { idea, tags, config } = await req.json();
 
     if (!idea) throw new Error("Idea is required");
 
@@ -258,6 +258,33 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // 获取当前用户
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Authorization required");
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) throw new Error("Invalid user token");
+
+    // 1. 创建验证记录
+    const { data: validation, error: createError } = await supabase
+      .from("validations")
+      .insert({
+        user_id: user.id,
+        idea,
+        tags: tags || [],
+        status: "processing",
+      })
+      .select()
+      .single();
+
+    if (createError || !validation) {
+      console.error("Failed to create validation:", createError);
+      throw new Error("Failed to create validation record");
+    }
+
+    console.log("Created validation:", validation.id);
+
     // 1.5 智能关键词提炼
     console.log("Extracting keywords...");
     const { xhsKeywords, webQueries } = await extractKeywords(idea, config);
@@ -265,7 +292,7 @@ serve(async (req) => {
 
     // 2. 爬取小红书数据 (使用提炼出的第一个关键词)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
-    const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags, config?.tikhubToken);
+    const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags || [], config?.tikhubToken);
     console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm}`);
 
     // 2.5 全网搜集竞品
