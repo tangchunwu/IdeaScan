@@ -58,14 +58,14 @@ type AIResult = {
 async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
-  // Return mock data if no token
+  // Return empty data if no token - no mock data
   if (!token) {
-    console.log("No Tikhub token, using mock data");
+    console.log("No Tikhub token configured, skipping XHS data");
     return {
-      totalNotes: 120,
-      avgLikes: 45,
-      avgComments: 12,
-      avgCollects: 30,
+      totalNotes: 0,
+      avgLikes: 0,
+      avgComments: 0,
+      avgCollects: 0,
       sampleNotes: [],
       sampleComments: []
     };
