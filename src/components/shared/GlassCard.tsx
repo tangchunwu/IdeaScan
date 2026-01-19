@@ -1,34 +1,57 @@
 import { cn } from "@/lib/utils";
-import { ReactNode, CSSProperties } from "react";
+import { ReactNode, CSSProperties, forwardRef } from "react";
 
 interface GlassCardProps {
   children: ReactNode;
   className?: string;
   hover?: boolean;
   glow?: boolean;
+  elevated?: boolean;
+  interactive?: boolean;
+  padding?: "none" | "sm" | "md" | "lg";
   style?: CSSProperties;
+  onClick?: () => void;
 }
 
-export const GlassCard = ({ 
+const paddingMap = {
+  none: "",
+  sm: "p-4",
+  md: "p-6",
+  lg: "p-8",
+};
+
+export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(({ 
   children, 
   className, 
   hover = false,
   glow = false,
-  style
-}: GlassCardProps) => {
+  elevated = false,
+  interactive = false,
+  padding = "md",
+  style,
+  onClick,
+}, ref) => {
   return (
     <div
+      ref={ref}
       className={cn(
-        "glass-card p-6 transition-all duration-300",
+        elevated ? "glass-card-elevated" : "glass-card",
+        paddingMap[padding],
+        "transition-all duration-300",
         hover && "hover:translate-y-[-4px] hover:shadow-xl cursor-pointer",
         glow && "ghibli-glow",
+        interactive && "card-interactive",
+        onClick && "cursor-pointer",
         className
       )}
       style={style}
+      onClick={onClick}
     >
       {children}
     </div>
   );
-};
+});
+
+GlassCard.displayName = "GlassCard";
 
 export default GlassCard;
