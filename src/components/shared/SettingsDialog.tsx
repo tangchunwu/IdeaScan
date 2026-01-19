@@ -76,6 +76,32 @@ export const SettingsDialog = () => {
               setOpen(false);
        };
 
+       // Auto-save when dialog closes with unsaved changes
+       const handleOpenChange = (newOpen: boolean) => {
+              if (!newOpen && open) {
+                     // Check if there are unsaved changes
+                     const hasChanges = 
+                            localSettings.llmApiKey !== llmApiKey ||
+                            localSettings.llmBaseUrl !== llmBaseUrl ||
+                            localSettings.llmProvider !== llmProvider ||
+                            localSettings.llmModel !== llmModel ||
+                            localSettings.tikhubToken !== tikhubToken ||
+                            localSettings.bochaApiKey !== bochaApiKey ||
+                            localSettings.youApiKey !== youApiKey ||
+                            localSettings.tavilyApiKey !== tavilyApiKey;
+                     
+                     if (hasChanges) {
+                            // Auto-save on close
+                            updateSettings(localSettings);
+                            toast({
+                                   title: "配置已自动保存",
+                                   description: "您的设置已更新。",
+                            });
+                     }
+              }
+              setOpen(newOpen);
+       };
+
        const handleReset = () => {
               if (confirm("确定要恢复默认设置吗？")) {
                      resetSettings();
@@ -168,7 +194,7 @@ export const SettingsDialog = () => {
        };
 
        return (
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog open={open} onOpenChange={handleOpenChange}>
                      {/* ... (DialogTrigger consistent with previous) */}
                      <DialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="rounded-full">
