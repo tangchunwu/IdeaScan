@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { createValidation } from "@/services/validationService";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Sparkles, 
   Search, 
@@ -12,8 +15,10 @@ import {
   Plus,
   Lightbulb,
   Target,
-  TrendingUp
+  TrendingUp,
+  LogIn
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const suggestedTags = [
   "美妆护肤", "穿搭时尚", "美食探店", "家居生活", 
@@ -28,10 +33,13 @@ const exampleIdeas = [
 
 const Validate = () => {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
+  const [validationProgress, setValidationProgress] = useState("");
 
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
@@ -53,14 +61,73 @@ const Validate = () => {
   const handleValidate = async () => {
     if (!idea.trim()) return;
     
+    if (!user) {
+      toast({
+        title: "请先登录",
+        description: "需要登录才能进行验证",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+    
     setIsValidating(true);
-    
-    // 模拟验证过程 - 实际对接后端API时替换
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // 跳转到报告页面（带上模拟数据）
-    navigate("/report/demo-123");
+    setValidationProgress("正在搜索相关笔记...");
+
+    try {
+      // 模拟进度更新
+      setTimeout(() => setValidationProgress("正在统计互动数据..."), 2000);
+      setTimeout(() => setValidationProgress("AI 正在分析市场可行性..."), 4000);
+      
+      const result = await createValidation({
+        idea: idea.trim(),
+        tags: selectedTags,
+      });
+
+      toast({
+        title: "验证完成！",
+        description: `综合评分：${result.overallScore}分`,
+      });
+
+      // 跳转到报告页面
+      navigate(`/report/${result.validationId}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "验证过程中出现错误";
+      toast({
+        title: "验证失败",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setIsValidating(false);
+    }
   };
+
+  // 未登录状态
+  if (!authLoading && !user) {
+    return (
+      <PageBackground>
+        <Navbar />
+        <main className="pt-28 pb-16 px-4">
+          <div className="max-w-lg mx-auto text-center">
+            <GlassCard className="animate-fade-in">
+              <LogIn className="w-16 h-16 text-primary mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-foreground mb-4">
+                登录后开始验证
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                登录或注册账号，即可使用创意验证功能
+              </p>
+              <Button asChild size="lg" className="rounded-xl">
+                <Link to="/auth">
+                  立即登录
+                </Link>
+              </Button>
+            </GlassCard>
+          </div>
+        </main>
+      </PageBackground>
+    );
+  }
 
   return (
     <PageBackground>
@@ -96,6 +163,7 @@ const Validate = () => {
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
                   className="min-h-[150px] text-base resize-none rounded-xl border-border/50 bg-background/50 focus:bg-background transition-colors"
+                  disabled={isValidating}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   描述越详细，分析结果越精准
@@ -110,7 +178,8 @@ const Validate = () => {
                     <button
                       key={example}
                       onClick={() => setIdea(example)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                      disabled={isValidating}
+                      className="text-xs px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
                     >
                       {example}
                     </button>
@@ -135,7 +204,7 @@ const Validate = () => {
                         className="px-3 py-1 text-sm bg-primary/10 text-primary hover:bg-primary/20"
                       >
                         {tag}
-                        <button onClick={() => handleRemoveTag(tag)} className="ml-2">
+                        <button onClick={() => handleRemoveTag(tag)} className="ml-2" disabled={isValidating}>
                           <X className="w-3 h-3" />
                         </button>
                       </Badge>
@@ -151,7 +220,7 @@ const Validate = () => {
                       <button
                         key={tag}
                         onClick={() => handleAddTag(tag)}
-                        disabled={selectedTags.length >= 5}
+                        disabled={selectedTags.length >= 5 || isValidating}
                         className="text-sm px-3 py-1.5 rounded-full border border-border/50 text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + {tag}
@@ -167,13 +236,13 @@ const Validate = () => {
                     onChange={(e) => setCustomTag(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
                     className="flex-1 rounded-xl border-border/50 bg-background/50"
-                    disabled={selectedTags.length >= 5}
+                    disabled={selectedTags.length >= 5 || isValidating}
                   />
                   <Button 
                     variant="outline" 
                     size="icon"
                     onClick={handleAddCustomTag}
-                    disabled={!customTag.trim() || selectedTags.length >= 5}
+                    disabled={!customTag.trim() || selectedTags.length >= 5 || isValidating}
                     className="rounded-xl"
                   >
                     <Plus className="w-4 h-4" />
@@ -187,11 +256,9 @@ const Validate = () => {
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {isValidating ? (
               <GlassCard className="py-12">
-                <LoadingSpinner size="lg" text="正在分析小红书数据..." />
+                <LoadingSpinner size="lg" text={validationProgress} />
                 <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-                  <p>🔍 搜索相关笔记...</p>
-                  <p>📊 统计互动数据...</p>
-                  <p>🤖 AI 分析中...</p>
+                  <p className="animate-pulse-soft">请稍候，AI 正在深度分析...</p>
                 </div>
               </GlassCard>
             ) : (
