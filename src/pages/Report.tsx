@@ -246,6 +246,7 @@ const Report = () => {
 
   const dimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
 
+
   const radarData = dimensions.map((d: any) => ({
     subject: d.dimension,
     A: d.score,
