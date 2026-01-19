@@ -97,9 +97,16 @@ async function analyzeWithAI(idea: string, tags: string[], xiaohongshuData: any,
     throw new Error("API Key not configured (User or Env)");
   }
 
-  // Ensure base URL doesn't end with slash if we append path, but usually base URL includes /v1
-  // If user enters 'https://api.openai.com/v1', we append '/chat/completions'
-  const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+  // Ensure base URL doesn't end with slash
+  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
+
+  // If the user already included /chat/completions, don't append it again
+  // (Common mistake with custom proxies)
+  if (cleanBaseUrl.endsWith("/chat/completions")) {
+    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
+  }
+
+  const endpoint = `${cleanBaseUrl}/chat/completions`;
 
   // Prepare sample data for AI context
   const sampleNotesText = (xiaohongshuData.sampleNotes || [])
