@@ -16,34 +16,34 @@ import { Button } from "@/components/ui/button";
 const features = [
   {
     icon: Search,
-    title: "小红书数据抓取",
-    description: "实时抓取小红书相关笔记、评论数据，获取一手市场信息",
+    title: "全网市场情报侦察",
+    description: "不只是小红书。聚合全网竞品数据与真实用户反馈，打破信息茧房。",
     gradient: "from-primary to-ghibli-sky",
   },
   {
     icon: BarChart3,
-    title: "多维度数据分析",
-    description: "点赞、收藏、评论等多维度数据统计，直观了解市场热度",
+    title: "多维度竞争格局分析",
+    description: "通过雷达图与竞品矩阵，量化分析“护城河”与“市场拥挤度”。",
     gradient: "from-secondary to-ghibli-forest",
   },
   {
     icon: Brain,
-    title: "AI 深度分析",
-    description: "基于 AI 深度分析市场可行性，提供专业商业建议",
+    title: "VC 合伙人级深度点评",
+    description: "拒绝模棱两可。AI 模拟顶级 VC 视角，提供“残酷诚实”的通过/否决建议。",
     gradient: "from-accent to-ghibli-sunset",
   },
   {
     icon: FileText,
-    title: "智能报告生成",
-    description: "自动生成完整验证报告，包含市场分析、情感分析、可行性评估",
+    title: "专业投资决策备忘录",
+    description: "自动生成包含核心论点、致命风险与事前验尸分析的标准化 Investment Memo。",
     gradient: "from-primary to-secondary",
   },
 ];
 
 const steps = [
-  { step: "01", title: "输入创意", desc: "描述你的商业创意或产品想法", icon: Sparkles },
-  { step: "02", title: "数据分析", desc: "AI 自动抓取分析小红书相关数据", icon: Zap },
-  { step: "03", title: "获取报告", desc: "查看详细的可行性分析报告", icon: TrendingUp },
+  { step: "01", title: "提交创意", desc: "输入你的商业想法与目标赛道", icon: Sparkles },
+  { step: "02", title: "全网侦察", desc: "AI 自动检索竞品与用户评价", icon: Zap },
+  { step: "03", title: "决策报告", desc: "获取 VC 视角的深度评估结果", icon: TrendingUp },
 ];
 
 const Index = () => {
