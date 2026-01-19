@@ -244,6 +244,13 @@ const Report = () => {
 
   const dimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
 
+  // Prepare radar chart data from dimensions
+  const radarData = dimensions.map((d: any) => ({
+    subject: d.dimension,
+    A: d.score,
+    fullMark: 100,
+  }));
+
   return (
     <PageBackground showClouds={false}>
       <Navbar />
@@ -777,7 +784,7 @@ const Report = () => {
                       Six-Dimension Evaluation
                     </h3>
                     <div className="space-y-3">
-                      {aiAnalysis.dimensions?.map((d: any, i: number) => (
+                      {dimensions.map((d: any, i: number) => (
                         <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
                           <span className="text-muted-foreground">{d.dimension}</span>
                           <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
