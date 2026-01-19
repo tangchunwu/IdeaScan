@@ -96,6 +96,42 @@ export const SettingsDialog = () => {
               }
        };
 
+       const handleVerifyLLM = async () => {
+              if (!localSettings.llmApiKey) {
+                     toast({ variant: "destructive", title: "请输入 API Key" });
+                     return;
+              }
+              const { data, error } = await supabase.functions.invoke('verify-config', {
+                     body: {
+                            type: 'llm',
+                            apiKey: localSettings.llmApiKey,
+                            baseUrl: localSettings.llmBaseUrl,
+                            model: localSettings.llmModel
+                     }
+              });
+
+              if (error || !data.valid) {
+                     toast({
+                            variant: "destructive",
+                            title: "验证失败",
+                            description: data?.message || error?.message || "连接失败，请检查配置"
+                     });
+              } else {
+                     // Auto-save on success
+                     updateSettings({
+                            llmApiKey: localSettings.llmApiKey,
+                            llmBaseUrl: localSettings.llmBaseUrl,
+                            llmProvider: localSettings.llmProvider,
+                            llmModel: localSettings.llmModel
+                     });
+                     toast({
+                            title: "验证成功",
+                            description: "配置已自动保存",
+                            className: "bg-green-50 border-green-200 text-green-800"
+                     });
+              }
+       };
+
        const handleVerify = async (provider: string, apiKey: string) => {
               if (!apiKey) {
                      toast({ variant: "destructive", title: "请输入 API Key" });
@@ -112,9 +148,20 @@ export const SettingsDialog = () => {
                             description: data?.message || error?.message || "请检查 Key 是否正确"
                      });
               } else {
+                     // Auto-save on success
+                     const keyMap: Record<string, string> = {
+                            bocha: 'bochaApiKey',
+                            you: 'youApiKey',
+                            tavily: 'tavilyApiKey'
+                     };
+                     const settingKey = keyMap[provider];
+                     if (settingKey) {
+                            updateSettings({ [settingKey]: apiKey });
+                     }
+
                      toast({
                             title: "验证成功",
-                            description: `${provider} API Key 有效`,
+                            description: `${provider} 配置已自动保存`,
                             className: "bg-green-50 border-green-200 text-green-800"
                      });
               }
@@ -160,9 +207,12 @@ export const SettingsDialog = () => {
                                           </div>
                                           <div className="grid gap-2">
                                                  <Label>API Key</Label>
-                                                 <div className="relative">
-                                                        <Input type={showKey ? "text" : "password"} value={localSettings.llmApiKey} onChange={(e) => setLocalSettings(s => ({ ...s, llmApiKey: e.target.value }))} className="pr-10" />
-                                                        <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                                 <div className="flex gap-2">
+                                                        <div className="relative flex-1">
+                                                               <Input type={showKey ? "text" : "password"} value={localSettings.llmApiKey} onChange={(e) => setLocalSettings(s => ({ ...s, llmApiKey: e.target.value }))} className="pr-10" />
+                                                               <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                                        </div>
+                                                        <Button variant="outline" size="sm" onClick={handleVerifyLLM}>验证</Button>
                                                  </div>
                                           </div>
                                           <div className="grid gap-2">

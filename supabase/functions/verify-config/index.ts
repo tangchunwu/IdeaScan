@@ -11,7 +11,7 @@ serve(async (req) => {
        }
 
        try {
-              const { provider, apiKey, type } = await req.json();
+              const { provider, apiKey, type, baseUrl, model } = await req.json();
 
               if (!apiKey) {
                      return new Response(
@@ -24,11 +24,39 @@ serve(async (req) => {
               let message = "Unknown provider";
 
               if (type === 'llm') {
-                     // Basic verify for LLM (just check if key looks valid format-wise for now or simple call)
-                     // For now, let's just say valid if length > 10. Real verification is complex for generic providers.
-                     isValid = apiKey.length > 5;
-                     message = "LLM Key format looks valid (Server-side check pending)";
-                     // Ideally, make a small request to the provider.
+                     try {
+                            // Normalize base URL
+                            let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+                            if (cleanBaseUrl.endsWith("/chat/completions")) {
+                                   cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
+                            }
+                            const endpoint = `${cleanBaseUrl}/chat/completions`;
+
+                            const res = await fetch(endpoint, {
+                                   method: "POST",
+                                   headers: {
+                                          "Authorization": `Bearer ${apiKey}`,
+                                          "Content-Type": "application/json"
+                                   },
+                                   body: JSON.stringify({
+                                          model: model || "gpt-3.5-turbo",
+                                          messages: [{ role: "user", content: "Hello" }],
+                                          max_tokens: 5
+                                   })
+                            });
+
+                            if (res.ok) {
+                                   isValid = true;
+                                   message = "LLM Connection Successful";
+                            } else {
+                                   const errText = await res.text();
+                                   isValid = false;
+                                   message = `LLM Connection Failed: ${res.status} - ${errText.slice(0, 100)}`;
+                            }
+                     } catch (e) {
+                            isValid = false;
+                            message = `Connection Error: ${e.message}`;
+                     }
               } else if (type === 'search') {
                      if (provider === 'bocha') {
                             try {
