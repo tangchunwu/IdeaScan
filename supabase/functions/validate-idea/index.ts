@@ -22,6 +22,39 @@ interface RequestConfig {
   };
 }
 
+function extractFirstJsonObject(text: string): string | null {
+  if (!text) return null;
+
+  const cleaned = text
+    .replace(/```json/gi, "```")
+    .replace(/```/g, "")
+    .trim();
+
+  const first = cleaned.indexOf("{");
+  const last = cleaned.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) return null;
+
+  return cleaned.slice(first, last + 1);
+}
+
+function parseJsonFromModelOutput<T = unknown>(text: string): T {
+  const json = extractFirstJsonObject(text);
+  if (!json) throw new Error("AI did not return valid JSON");
+
+  // Remove common trailing commas (models sometimes output them)
+  const normalized = json.replace(/,\s*([}\]])/g, "$1");
+  return JSON.parse(normalized) as T;
+}
+
+type KeywordExtractionResult = { xhsKeywords: string[]; webQueries: string[] };
+
+type AIResult = {
+  overallScore: number;
+  marketAnalysis: Record<string, unknown>;
+  sentimentAnalysis: Record<string, unknown>;
+  aiAnalysis: Record<string, unknown>;
+  dimensions: Array<{ dimension: string; score: number }>;
+};
 async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
@@ -54,7 +87,7 @@ async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: 
   }
 }
 
-async function extractKeywords(idea: string, config?: RequestConfig): Promise<{ xhsKeywords: string[], webQueries: string[] }> {
+async function extractKeywords(idea: string, config?: RequestConfig): Promise<KeywordExtractionResult> {
   // 优先使用用户配置，否则使用环境变量
   const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
   const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
@@ -102,12 +135,13 @@ async function extractKeywords(idea: string, config?: RequestConfig): Promise<{ 
 
     const data = await response.json();
     const content = data.choices[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
 
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+    try {
+      return parseJsonFromModelOutput<KeywordExtractionResult>(content);
+    } catch (e) {
+      console.error("Keyword JSON parse failed:", e);
+      return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
     }
-    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
   } catch (e) {
     console.error("Keyword extraction failed:", e);
     return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
@@ -120,7 +154,7 @@ async function analyzeWithAI(
   xiaohongshuData: any,
   competitorData: SearchResult[],
   config?: RequestConfig
-) {
+): Promise<AIResult> {
   const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
   const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
   const model = config?.llmModel || "google/gemini-3-flash-preview";
@@ -169,51 +203,51 @@ ${competitorText}
 
 ---
 
-请以 **VC 投资备忘录** 的深度，严格遵守以下 JSON 结构返回分析结果（不要包含 Markdown 格式）：
+请以 **VC 投资备忘录** 的深度输出结论，但**只返回可被 JSON.parse 直接解析的严格 JSON**（不要 Markdown、不要任何解释文字、不要代码块标记）。
 
+要求：
+- 所有 0-100 的分数字段必须是 number（例如 42），不要写成“0-100”“约40%”“40/100”。
+- 数组元素必须是字符串或对象，不要混入解释文字。
+- 字段必须齐全，不能缺字段。
+
+请严格按以下 **合法 JSON** 结构返回（字段名与层级不要改）：
 {
-  "overallScore": 0-100之间的投资推荐指数,
+  "overallScore": 0,
   "marketAnalysis": {
-    "targetAudience": "详细的用户画像（不仅是人口统计学，更要包含痛点、动机和生活方式）",
-    "marketSize": "市场规模预估 (TAM/SAM/SOM 概念描述)",
-    "competitionLevel": "蓝海/红海/寡头垄断",
-    "trendDirection": "爆发期/平稳期/衰退期",
-    "keywords": ["核心关键词1", "核心关键词2", "核心关键词3", "核心关键词4"]
+    "targetAudience": "",
+    "marketSize": "",
+    "competitionLevel": "",
+    "trendDirection": "",
+    "keywords": ["", "", "", ""]
   },
   "sentimentAnalysis": {
-    "positive": 正面情绪占比(0-100),
-    "neutral": 中性情绪占比(0-100),
-    "negative": 负面情绪占比(0-100),
-    "topPositive": ["用户最喜欢的点1", "用户最喜欢的点2", "用户最喜欢的点3"],
-    "topNegative": ["用户最无法忍受的点1 (致命伤)", "用户最无法忍受的点2", "用户最无法忍受的点3"]
+    "positive": 0,
+    "neutral": 0,
+    "negative": 0,
+    "topPositive": ["", "", ""],
+    "topNegative": ["", "", ""]
   },
   "aiAnalysis": {
-    "feasibilityScore": MVP可行性评分(0-100),
-    "strengths": ["核心优势 (The Unfair Advantage) 1", "核心优势 2", "核心优势 3"],
-    "weaknesses": ["致命弱点 1", "致命弱点 2", "致命弱点 3"],
-    "suggestions": [
-      "MVP 定义: 第一版产品只做哪3个功能？",
-      "GTM 策略: 前1000个种子用户去哪里找？",
-      "商业模式: 如何建立正向的单体经济模型？",
-      "差异化: 一句话说清为什么用户选你不选对手？"
-    ],
-    "risks": ["Pre-Mortem (事前验尸): 如果项目失败，最通常的原因是什么？", "如何规避该风险？"]
+    "feasibilityScore": 0,
+    "strengths": ["", "", ""],
+    "weaknesses": ["", "", ""],
+    "suggestions": ["", "", "", ""],
+    "risks": ["", ""]
   },
   "dimensions": [
-    {"dimension": "市场需求 (Pain Point)", "score": 0-100},
-    {"dimension": "竞争壁垒 (Moat)", "score": 0-100},
-    {"dimension": "盈利能力 (Unit Economics)", "score": 0-100},
-    {"dimension": "执行难度 (Feasibility)", "score": 0-100},
-    {"dimension": "创新程度 (Novelty)", "score": 0-100},
-    {"dimension": "PMF 潜力 (Product-Market Fit)", "score": 0-100}
+    {"dimension": "市场需求 (Pain Point)", "score": 0},
+    {"dimension": "竞争壁垒 (Moat)", "score": 0},
+    {"dimension": "盈利能力 (Unit Economics)", "score": 0},
+    {"dimension": "执行难度 (Feasibility)", "score": 0},
+    {"dimension": "创新程度 (Novelty)", "score": 0},
+    {"dimension": "PMF 潜力 (Product-Market Fit)", "score": 0}
   ]
 }
 
 **特别指令 (Critical Instructions)：**
-1.  **拒绝正确的废话**：不要说“要注重用户体验”，要说“用户抱怨现在的产品太贵/太慢，你的机会在于...”。
-2.  **引用数据**：在分析中必须明确引用提供的小红书笔记或竞品信息作为论据。
-3.  **批判性思维**：如果这个想法很烂，请直言不讳地指出（Risk 部分），不要盲目鼓励。
-4.  请确保返回的是标准的 JSON 格式。`;
+1. **拒绝正确的废话**：不要说“要注重用户体验”，要说“用户抱怨现在的产品太贵/太慢，你的机会在于...”。
+2. **引用数据**：必须引用上面的小红书样本或竞品信息作为论据。
+3. **批判性思维**：如果想法很烂，请直言不讳指出风险与致命伤。`;
 
   console.log("Calling LLM for analysis...");
   const response = await fetch(endpoint, {
@@ -225,7 +259,7 @@ ${competitorText}
     body: JSON.stringify({
       model: model,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
+      temperature: 0.3,
     }),
   });
 
@@ -237,10 +271,13 @@ ${competitorText}
 
   const data = await response.json();
   const content = data.choices[0]?.message?.content || "";
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("AI did not return valid JSON");
 
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return parseJsonFromModelOutput<AIResult>(content);
+  } catch (e) {
+    console.error("AI JSON parse failed. Raw (first 1200 chars):", content.slice(0, 1200));
+    throw e;
+  }
 }
 
 serve(async (req) => {
