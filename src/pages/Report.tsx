@@ -253,7 +253,7 @@ const Report = () => {
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                  验证报告
+                  Product Investment Memo (商业验证报告)
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-2xl">
                   "{validation.idea}"
@@ -342,7 +342,7 @@ const Report = () => {
               </TabsTrigger>
               <TabsTrigger value="ai" className="rounded-lg">
                 <Brain className="w-4 h-4 mr-2" />
-                AI 建议
+                VC 深度点评
               </TabsTrigger>
             </TabsList>
 
@@ -684,7 +684,7 @@ const Report = () => {
                 <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
                   <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-secondary" />
-                    项目优势
+                    核心护城河 (Unfair Advantage)
                   </h3>
                   <div className="space-y-3">
                     {(aiAnalysis.strengths || []).map((item, index) => (
@@ -702,7 +702,7 @@ const Report = () => {
                 <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
                   <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-accent" />
-                    潜在劣势
+                    致命弱点 (Deal Breaker)
                   </h3>
                   <div className="space-y-3">
                     {(aiAnalysis.weaknesses || []).map((item, index) => (
@@ -721,7 +721,7 @@ const Report = () => {
               <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
                 <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                   <Target className="w-5 h-5 text-primary" />
-                  AI 建议
+                  行动指南 (MVP & GTM)
                 </h3>
                 <div className="space-y-3">
                   {(aiAnalysis.suggestions || []).map((item, index) => (
@@ -739,7 +739,7 @@ const Report = () => {
               <GlassCard className="animate-slide-up border-destructive/20" style={{ animationDelay: "250ms" }}>
                 <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-destructive" />
-                  风险提示
+                  事前验尸 (Pre-Mortem Risk)
                 </h3>
                 <div className="space-y-3">
                   {(aiAnalysis.risks || []).map((item, index) => (
