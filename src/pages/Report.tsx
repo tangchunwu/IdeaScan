@@ -42,7 +42,8 @@ import {
   Activity,
   AlertCircle,
   Globe,
-  Swords,
+  Swords, // Added
+  Sparkles,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
 import ReactMarkdown from 'react-markdown';
@@ -51,6 +52,8 @@ import { exportToPdf, exportToImage } from "@/lib/export";
 import { Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VCFeed, ShareCard } from "@/components/social";
+import { PersonaCard } from "@/components/dashboard/PersonaCard";
+import { Progress } from "@/components/ui/progress";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -261,48 +264,150 @@ const Report = () => {
 
       <main className="pt-28 pb-16 px-4">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-10 animate-fade-in">
-            <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors text-sm font-medium">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              返回历史记录
-            </Link>
-
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 px-3 py-1">
-                    Investment Memo #{validation.id.slice(0, 8)}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    Generated: {new Date(validation.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-
-                <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight tracking-tight">
-                  {validation.idea}
-                </h1>
-
-                <div className="flex flex-wrap gap-2">
-                  {validation.tags.map((tag, i) => (
-                    <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50">
-                      #{tag}
-                    </Badge>
-                  ))}
-                </div>
+          {/* Header & Context */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-8">
+            <div>
+              <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors text-sm font-medium">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回历史记录
+              </Link>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
+                <Sparkles className="w-3 h-3" />
+                商业创意验证报告 #{validation.id.slice(0, 8)}
               </div>
-
-              <div className="flex items-center gap-3">
-                <Button variant="outline" className="rounded-xl border-dashed" onClick={handleExportImage}>
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  Save Image
-                </Button>
-                <Button variant="default" className="rounded-xl shadow-lg shadow-primary/20" onClick={handleShare}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share Memo
-                </Button>
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-3">
+                {validation.idea.length > 20
+                  ? `${validation.idea.slice(0, 20)}...`
+                  : validation.idea}
+              </h1>
+              <p className="text-muted-foreground max-w-2xl text-lg leading-relaxed">
+                {aiAnalysis.overallVerdict || "AI 正在生成深度分析结论..."}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {validation.tags.map((tag, i) => (
+                  <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50 border-border/50">
+                    #{tag}
+                  </Badge>
+                ))}
               </div>
             </div>
+
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed" onClick={handleExportImage}>
+                <ImageIcon className="w-4 h-4 mr-2" />
+                保存图片
+              </Button>
+              <Button variant="default" size="sm" className="rounded-full h-9 shadow-lg shadow-primary/20" onClick={handleShare}>
+                <Share2 className="w-4 h-4 mr-2" />
+                分享
+              </Button>
+            </div>
+          </div>
+
+          {/* 2. Top Bento Row: Score + Persona */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+            {/* Score KPI Card (4 cols) */}
+            <div className="lg:col-span-4 flex flex-col gap-6 animate-slide-up">
+              <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
+
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">市场可行性评分</span>
+                <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
+                  <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-5xl font-bold text-foreground tracking-tighter">{report?.ai_analysis?.feasibilityScore || 0}</span>
+                    <span className="text-sm text-muted-foreground mt-1 font-medium">/ 100</span>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center space-y-2">
+                  <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
+                    (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
+                    {(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "🚀 极具潜力" :
+                      (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "⚖️ 值得尝试" : "⚠️ 风险较高"}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">基于 {xiaohongshuData.totalNotes} 条市场数据分析</p>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* Persona Card (8 cols) */}
+            <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
+              {report?.persona ? (
+                <PersonaCard persona={report.persona} />
+              ) : (
+                <GlassCard className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed min-h-[400px]">
+                  <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                  <h3 className="text-lg font-medium mb-2">正在生成目标用户画像...</h3>
+                  <p className="text-sm opacity-60">AI 正在分析目标人群特征、痛点与需求</p>
+                </GlassCard>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Middle Bento Grid: Dimensions & Analysis */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Radar Chart (1 col) */}
+            <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                五维能力雷达
+              </h3>
+              <div className="flex-1 min-h-[250px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                    <PolarGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name="Score"
+                      dataKey="A"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.2}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "12px",
+                        boxShadow: "0 10px 40px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </GlassCard>
+
+            {/* Detailed Dimensions (2 cols) */}
+            <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
+              <h3 className="font-semibold mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-secondary" />
+                维度深度解析
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                {dimensions.map((d: any, i: number) => (
+                  <div key={i} className="space-y-2 group">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground font-medium group-hover:text-foreground transition-colors">{d.dimension}</span>
+                      <span className={`font-bold ${d.score >= 80 ? 'text-green-500' : d.score >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
+                        {d.score}
+                      </span>
+                    </div>
+                    <Progress value={d.score} className="h-2"
+                      indicatorClassName={d.score >= 80 ? 'bg-green-500' : d.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}
+                    />
+                    {d.reason && (
+                      <div className="text-xs text-muted-foreground/80 leading-relaxed pl-2 border-l-2 border-border mt-1.5 prose prose-invert max-w-none line-clamp-2 hover:line-clamp-none transition-all">
+                        <ReactMarkdown>{d.reason}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
           </div>
 
           {/* Investment Decision Card */}

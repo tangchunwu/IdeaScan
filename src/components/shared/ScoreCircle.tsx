@@ -5,6 +5,8 @@ interface ScoreCircleProps {
   score: number;
   maxScore?: number;
   size?: "sm" | "md" | "lg" | "xl";
+  customSize?: number;
+  strokeWidth?: number;
   label?: string;
   showAnimation?: boolean;
   className?: string;
@@ -35,6 +37,8 @@ export const ScoreCircle = ({
   score,
   maxScore = 100,
   size = "md",
+  customSize,
+  strokeWidth,
   label,
   showAnimation = true,
   className
@@ -46,6 +50,10 @@ export const ScoreCircle = ({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
   const gradient = getScoreGradient((score / maxScore) * 100);
   const gradientId = `scoreGradient-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Use custom style if provided, otherwise use tailwind class
+  const containerStyle = customSize ? { width: customSize, height: customSize } : {};
+  const actualStroke = strokeWidth || config.stroke;
 
   useEffect(() => {
     if (!showAnimation) return;
@@ -79,7 +87,8 @@ export const ScoreCircle = ({
     <div className={cn("flex flex-col items-center gap-3", className)}>
       <div
         id={`score-${gradientId}`}
-        className={cn("relative transition-transform duration-300", config.container)}
+        className={cn("relative transition-transform duration-300", !customSize && config.container)}
+        style={containerStyle}
       >
         {/* 外部光晕 */}
         <div
@@ -98,7 +107,7 @@ export const ScoreCircle = ({
             r="45"
             fill="none"
             stroke="hsl(var(--muted))"
-            strokeWidth={config.stroke}
+            strokeWidth={actualStroke}
             className="opacity-50"
           />
 
@@ -109,7 +118,7 @@ export const ScoreCircle = ({
             r="45"
             fill="none"
             stroke={`url(#${gradientId})`}
-            strokeWidth={config.stroke}
+            strokeWidth={actualStroke}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}

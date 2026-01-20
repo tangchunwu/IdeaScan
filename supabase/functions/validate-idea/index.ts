@@ -48,7 +48,7 @@ function repairJson(json: string): string {
   repaired = repaired.replace(/\](\s+)\[/g, "],$1[");
   repaired = repaired.replace(/\](\s+)\{/g, "],$1{");
   repaired = repaired.replace(/\](\s+)"/g, "],$1\"");
-  
+
   // Pattern: "}" followed by whitespace then "{" or quote (for object properties)
   repaired = repaired.replace(/\}(\s+)\{/g, "},$1{");
   repaired = repaired.replace(/\}(\s+)"/g, "},$1\"");
@@ -73,22 +73,22 @@ function completeTruncatedJson(json: string): string {
 
   for (let i = 0; i < json.length; i++) {
     const char = json[i];
-    
+
     if (escape) {
       escape = false;
       continue;
     }
-    
+
     if (char === '\\' && inString) {
       escape = true;
       continue;
     }
-    
+
     if (char === '"' && !escape) {
       inString = !inString;
       continue;
     }
-    
+
     if (!inString) {
       if (char === '{') openBraces++;
       else if (char === '}') openBraces--;
@@ -102,12 +102,12 @@ function completeTruncatedJson(json: string): string {
   if (inString) {
     completed += '"';
   }
-  
+
   // Remove any trailing incomplete key-value pairs
   // e.g., `"someKey": "incomplete` or `"someKey": [`
   completed = completed.replace(/,\s*"[^"]*":\s*("[^"]*)?$/g, '');
   completed = completed.replace(/,\s*"[^"]*":\s*\[?\s*$/g, '');
-  
+
   // Add missing closing brackets
   for (let i = 0; i < openBrackets; i++) {
     completed += ']';
@@ -159,6 +159,7 @@ type AIResult = {
   marketAnalysis: Record<string, unknown>;
   sentimentAnalysis: Record<string, unknown>;
   aiAnalysis: Record<string, unknown>;
+  persona: Record<string, unknown>;
   dimensions: Array<{ dimension: string; score: number }>;
 };
 async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
@@ -357,6 +358,17 @@ async function analyzeWithAI(
         }
       ],
       "risks": ["Pre-mortem risk 1", "Regulatory risk 2"]
+    },
+    "persona": {
+      "name": "User Persona Name (e.g. 'Stressed Sally')",
+      "role": "Job Title / Role",
+      "age": "Age Range",
+      "income": "Income Level",
+      "painPoints": ["Major pain point 1", "Major pain point 2"],
+      "goals": ["Goal 1", "Goal 2"],
+      "techSavviness": 80,
+      "spendingCapacity": 60,
+      "description": "A short, vivid description of this user's daily life and struggles."
     },
     "dimensions": [
       {"dimension": "Market Pain (Urgency)", "score": 0, "reason": "Why this score - cite specific evidence from Source A/B"},

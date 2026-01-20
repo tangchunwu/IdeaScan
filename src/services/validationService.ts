@@ -12,6 +12,18 @@ export interface ValidationResponse {
   overallScore: number;
 }
 
+export interface Persona {
+  name: string;
+  role: string;
+  age: string;
+  income: string;
+  painPoints: string[];
+  goals: string[];
+  techSavviness: number;
+  spendingCapacity: number;
+  description: string;
+}
+
 export interface Validation {
   id: string;
   user_id: string;
@@ -62,6 +74,7 @@ export interface ValidationReport {
     suggestions: string[];
     risks: string[];
   };
+  persona?: Persona;
   dimensions: { dimension: string; score: number }[];
   created_at: string;
 }
