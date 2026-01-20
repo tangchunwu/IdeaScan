@@ -6,9 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateValidation } from "@/hooks/useValidation";
 import { useToast } from "@/hooks/use-toast";
+import { toUserFacingBackendError } from "@/lib/backendErrors";
 import {
   Sparkles,
   Search,
@@ -163,12 +165,20 @@ const Validate = () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
-      const errorMessage = error instanceof Error ? error.message : "验证过程中出现错误";
+
+      const { title, description, isNetworkError } = toUserFacingBackendError(error);
+
       toast({
-        title: "验证失败",
-        description: errorMessage,
+        title: title,
+        description,
         variant: "destructive",
+        action: isNetworkError ? (
+          <ToastAction altText="重试" onClick={() => handleValidate()}>
+            重试
+          </ToastAction>
+        ) : undefined,
       });
+
       setIsValidating(false);
       setProgress(0);
       setCurrentStep(0);
