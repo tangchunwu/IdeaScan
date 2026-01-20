@@ -67,26 +67,38 @@ export async function toggleCommentLike(commentId: string): Promise<boolean> {
        const { data: { user } } = await supabase.auth.getUser();
        if (!user) throw new Error("Not authenticated");
 
-       // Check if already liked
-       const { data: existing } = await supabase
+       // Check if already liked - use maybeSingle to avoid 406 error
+       const { data: existing, error: checkError } = await supabase
               .from("comment_likes")
               .select("id")
               .eq("comment_id", commentId)
               .eq("user_id", user.id)
-              .single();
+              .maybeSingle();
+
+       if (checkError) {
+              console.error("Check like error:", checkError);
+              throw checkError;
+       }
 
        if (existing) {
               // Unlike
-              await supabase
+              const { error: deleteError } = await supabase
                      .from("comment_likes")
                      .delete()
                      .eq("id", existing.id);
+              if (deleteError) throw deleteError;
               return false;
        } else {
-              // Like
-              await supabase
+              // Like - handle potential conflict gracefully
+              const { error: insertError } = await supabase
                      .from("comment_likes")
                      .insert({ comment_id: commentId, user_id: user.id });
+              
+              // If conflict (already liked), just return true
+              if (insertError?.code === '23505') {
+                     return true;
+              }
+              if (insertError) throw insertError;
               return true;
        }
 }
