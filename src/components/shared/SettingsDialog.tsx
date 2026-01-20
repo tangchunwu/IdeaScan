@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
+import { useAuth } from "@/hooks/useAuth";
 const PROVIDERS = {
        openai: {
               name: "OpenAI",
@@ -38,8 +38,11 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel,
-              updateSettings, resetSettings
+              updateSettings, resetSettings,
+              isLoading, isSynced, syncToCloud, syncFromCloud
        } = useSettings();
+       
+       const { user } = useAuth();
 
        const [internalOpen, setInternalOpen] = useState(false);
 
@@ -50,6 +53,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [showKey, setShowKey] = useState(false);
        const [showTikhubToken, setShowTikhubToken] = useState(false);
        const [showSearchKey, setShowSearchKey] = useState(false);
+       const [isSaving, setIsSaving] = useState(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
@@ -81,12 +85,34 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               }));
        };
 
-       const handleSave = () => {
+       const handleSave = async () => {
+              setIsSaving(true);
               updateSettings(localSettings);
-              toast({
-                     title: "配置已保存",
-                     description: "您的设置已更新并保存到本地。",
-              });
+              
+              // Sync to cloud if user is logged in
+              if (user) {
+                     try {
+                            await syncToCloud();
+                            toast({
+                                   title: "配置已保存到云端",
+                                   description: "您的设置已加密保存，下次登录自动恢复。",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     } catch (error) {
+                            toast({
+                                   title: "配置已保存到本地",
+                                   description: "云端同步失败，配置仅保存在本地。",
+                                   variant: "destructive"
+                            });
+                     }
+              } else {
+                     toast({
+                            title: "配置已保存到本地",
+                            description: "登录后可同步到云端，跨设备使用。",
+                     });
+              }
+              
+              setIsSaving(false);
               setOpen?.(false);
        };
 
@@ -110,10 +136,26 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (hasChanges) {
                             // Auto-save on close
                             updateSettings(localSettings);
-                            toast({
-                                   title: "配置已自动保存",
-                                   description: "您的设置已更新。",
-                            });
+                            
+                            // Sync to cloud if user is logged in
+                            if (user) {
+                                   syncToCloud().then(() => {
+                                          toast({
+                                                 title: "配置已自动保存到云端",
+                                                 description: "您的设置已加密保存。",
+                                          });
+                                   }).catch(() => {
+                                          toast({
+                                                 title: "配置已保存到本地",
+                                                 description: "云端同步失败。",
+                                          });
+                                   });
+                            } else {
+                                   toast({
+                                          title: "配置已自动保存",
+                                          description: "登录后可同步到云端。",
+                                   });
+                            }
                      }
               }
               setOpen?.(newOpen);
@@ -266,10 +308,31 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               )}
               <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
                      <DialogHeader>
-                            <DialogTitle>系统配置</DialogTitle>
+                            <DialogTitle className="flex items-center gap-2">
+                                   系统配置
+                                   {user && (
+                                          <span className="flex items-center gap-1 text-xs font-normal">
+                                                 {isLoading ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                                                 ) : isSynced ? (
+                                                        <Cloud className="w-3 h-3 text-green-500" />
+                                                 ) : (
+                                                        <CloudOff className="w-3 h-3 text-muted-foreground" />
+                                                 )}
+                                                 <span className="text-muted-foreground">
+                                                        {isLoading ? "同步中..." : isSynced ? "已同步" : "未同步"}
+                                                 </span>
+                                          </span>
+                                   )}
+                            </DialogTitle>
                             <DialogDescription className="sr-only">
                                    配置大模型与数据源，用于创意验证与报告生成。
                             </DialogDescription>
+                            {!user && (
+                                   <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                                          💡 登录后配置将加密保存到云端，跨设备自动同步
+                                   </p>
+                            )}
                      </DialogHeader>
                      <div className="grid gap-6 py-4">
 
@@ -496,9 +559,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    <RotateCcw className="w-4 h-4 mr-2" />
                                    重置默认
                             </Button>
-                            <Button onClick={handleSave}>
-                                   <Save className="w-4 h-4 mr-2" />
-                                   保存配置
+                            <Button onClick={handleSave} disabled={isSaving || isLoading}>
+                                   {isSaving ? (
+                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                   ) : (
+                                          <Save className="w-4 h-4 mr-2" />
+                                   )}
+                                   {user ? "保存到云端" : "保存配置"}
                             </Button>
                      </div>
               </DialogContent>
