@@ -83,7 +83,7 @@ const Validate = () => {
   useEffect(() => {
     if (isValidating && currentStep < validationSteps.length) {
       const targetProgress = validationSteps[currentStep].targetProgress;
-      
+
       progressIntervalRef.current = setInterval(() => {
         setProgress(prev => {
           if (prev < targetProgress) {
@@ -206,127 +206,150 @@ const Validate = () => {
     <PageBackground>
       <Navbar />
 
-      <main className="pt-28 pb-16 px-4">
-        <div className="max-w-3xl mx-auto">
+      <main className="pt-28 pb-20 px-4 md:px-8">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="relative text-center mb-12 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-4">
+          <div className="relative text-center mb-16 animate-fade-in">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 backdrop-blur-sm border border-white/20 text-primary shadow-sm mb-6">
               <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">创意验证</span>
+              <span className="text-sm font-medium">创意验证实验室</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              输入你的商业创意
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6 tracking-tight">
+              告诉我们你的<span className="text-primary">商业灵感</span>
             </h1>
-            <p className="text-muted-foreground">
-              详细描述你的想法，我们将基于小红书数据进行分析
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              在这个安静的空间里，详细描述你的想法。我们将利用全网数据，为你提供一份深度、客观的商业验证报告。
             </p>
-            <div className="absolute right-0 top-0 md:top-auto md:bottom-2">
-              {/* 移动端右上角，桌面端可能更灵活，这里先简单修复为右上角可见 */}
-            </div>
-            {/* 重新定位：绝对定位相对于这个 Header 区域 */}
-            <div className="absolute top-0 right-2 md:top-4 md:right-4 z-10">
+
+            {/* Settings Button */}
+            <div className="absolute top-0 right-0 z-10 opacity-60 hover:opacity-100 transition-opacity">
               <SettingsDialog />
             </div>
           </div>
 
           {/* Main Input Card */}
-          <GlassCard className="mb-8 animate-slide-up">
-            <div className="space-y-6">
-              {/* Idea Input */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  <Lightbulb className="w-4 h-4 inline mr-2" />
-                  商业创意描述
+          <GlassCard className="mb-12 animate-slide-up relative overflow-visible" elevated padding="lg">
+            {/* Visual Decoration */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="space-y-10 relative z-10">
+              {/* SECTION 1: Idea Input (Primary Focus) */}
+              <div className="space-y-4">
+                <label className="block text-lg font-semibold text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <Lightbulb className="w-5 h-5" />
+                  </div>
+                  核心创意
                 </label>
-                <Textarea
-                  placeholder="例如：开一家专门做猫咪主题下午茶的咖啡店，提供猫咪陪伴服务..."
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  className="min-h-[150px] text-base resize-none rounded-xl border-border/50 bg-background/50 focus:bg-background transition-colors"
-                  disabled={isValidating}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  描述越详细，分析结果越精准
-                </p>
+                <div className="relative group">
+                  <Textarea
+                    placeholder="描述你的创业想法、目标用户以及你认为的核心优势..."
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    className="min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
+                    disabled={isValidating}
+                  />
+                  {/* Character count or hint could go here */}
+                </div>
+                <div className="flex justify-between items-start pt-2">
+                  <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> 越详细的描述，越能获得精准的市场分析
+                  </p>
+                </div>
               </div>
 
-              {/* Quick Examples */}
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">💡 快速尝试:</p>
-                <div className="flex flex-wrap gap-2">
+              {/* Quick Examples (Tertiary) */}
+              <div className="pl-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">灵感参考</p>
+                <div className="flex flex-wrap gap-3">
                   {exampleIdeas.map((example) => (
                     <button
                       key={example}
                       onClick={() => setIdea(example)}
                       disabled={isValidating}
-                      className="text-xs px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                      className="text-sm px-4 py-2 rounded-xl bg-secondary/5 border border-transparent hover:border-secondary/20 hover:bg-secondary/10 text-muted-foreground hover:text-secondary-foreground transition-all duration-300 text-left disabled:opacity-50"
                     >
-                      {example}
+                      "{example}"
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Tags Selection */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  <Target className="w-4 h-4 inline mr-2" />
-                  相关标签（可选，最多5个）
+              <div className="h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+
+              {/* SECTION 2: Tags Selection (Secondary Context) */}
+              <div className="space-y-4">
+                <label className="block text-base font-semibold text-foreground flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
+                    <Target className="w-4 h-4" />
+                  </div>
+                  目标赛道 <span className="text-sm font-normal text-muted-foreground ml-2">(可选)</span>
                 </label>
 
-                {/* Selected Tags */}
-                {selectedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
+                <div className="bg-muted/30 rounded-2xl p-6 border border-border/20">
+                  {/* Selected Tags Area */}
+                  <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+                    {selectedTags.length === 0 && (
+                      <span className="text-sm text-muted-foreground/50 italic py-1">暂未选择标签（系统将自动分析）</span>
+                    )}
                     {selectedTags.map((tag) => (
                       <Badge
                         key={tag}
                         variant="secondary"
-                        className="px-3 py-1 text-sm bg-primary/10 text-primary hover:bg-primary/20"
+                        className="pl-3 pr-1 py-1.5 text-sm bg-background border-border/50 shadow-sm text-foreground hover:bg-background"
                       >
                         {tag}
-                        <button onClick={() => handleRemoveTag(tag)} className="ml-2" disabled={isValidating}>
+                        <button
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-2 p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                          disabled={isValidating}
+                        >
                           <X className="w-3 h-3" />
                         </button>
                       </Badge>
                     ))}
                   </div>
-                )}
 
-                {/* Suggested Tags */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {suggestedTags
-                    .filter(tag => !selectedTags.includes(tag))
-                    .map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddTag(tag)}
+                  {/* Input & Suggestions */}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 flex gap-2">
+                      <Input
+                        placeholder="输入标签..."
+                        value={customTag}
+                        onChange={(e) => setCustomTag(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
+                        className="flex-1 rounded-xl border-border/50 bg-background/50 focus:bg-background h-10"
                         disabled={selectedTags.length >= 5 || isValidating}
-                        className="text-sm px-3 py-1.5 rounded-full border border-border/50 text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={handleAddCustomTag}
+                        disabled={!customTag.trim() || selectedTags.length >= 5 || isValidating}
+                        className="rounded-xl h-10 w-10 shrink-0"
                       >
-                        + {tag}
-                      </button>
-                    ))}
-                </div>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
 
-                {/* Custom Tag Input */}
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="添加自定义标签..."
-                    value={customTag}
-                    onChange={(e) => setCustomTag(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                    className="flex-1 rounded-xl border-border/50 bg-background/50"
-                    disabled={selectedTags.length >= 5 || isValidating}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAddCustomTag}
-                    disabled={!customTag.trim() || selectedTags.length >= 5 || isValidating}
-                    className="rounded-xl"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                    <div className="flex-1 flex flex-wrap gap-2 items-center">
+                      <span className="text-xs text-muted-foreground mr-1">热门:</span>
+                      {suggestedTags
+                        .filter(tag => !selectedTags.includes(tag))
+                        .slice(0, 5) // Show fewer
+                        .map((tag) => (
+                          <button
+                            key={tag}
+                            onClick={() => handleAddTag(tag)}
+                            disabled={selectedTags.length >= 5 || isValidating}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-border/40 bg-background/30 hover:bg-white hover:border-primary/30 text-muted-foreground hover:text-primary transition-all disabled:opacity-50"
+                          >
+                            + {tag}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -354,7 +377,7 @@ const Validate = () => {
                     <span className="font-mono text-primary font-medium">{Math.round(progress)}%</span>
                   </div>
                   <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-secondary rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${progress}%` }}
                     >
@@ -372,21 +395,19 @@ const Validate = () => {
                       const isCompleted = currentStep > i;
                       const isActive = currentStep === i;
                       const isPending = currentStep < i;
-                      
+
                       return (
                         <div
                           key={step.id}
-                          className={`flex items-center gap-4 transition-all duration-500 ${
-                            isPending ? "opacity-40" : "opacity-100"
-                          }`}
+                          className={`flex items-center gap-4 transition-all duration-500 ${isPending ? "opacity-40" : "opacity-100"
+                            }`}
                         >
-                          <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 ${
-                            isCompleted 
-                              ? "bg-primary border-primary text-primary-foreground scale-100" 
-                              : isActive 
-                                ? "bg-primary/10 border-primary text-primary scale-110 shadow-lg shadow-primary/20" 
+                          <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 ${isCompleted
+                              ? "bg-primary border-primary text-primary-foreground scale-100"
+                              : isActive
+                                ? "bg-primary/10 border-primary text-primary scale-110 shadow-lg shadow-primary/20"
                                 : "bg-background border-border text-muted-foreground"
-                          }`}>
+                            }`}>
                             {isCompleted ? (
                               <CheckCircle2 className="w-5 h-5" />
                             ) : isActive ? (
@@ -396,9 +417,8 @@ const Validate = () => {
                             )}
                           </div>
                           <div className="flex-1">
-                            <p className={`font-medium transition-colors ${
-                              isActive ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground"
-                            }`}>
+                            <p className={`font-medium transition-colors ${isActive ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground"
+                              }`}>
                               {step.label}
                             </p>
                             {isActive && (
