@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,6 +204,9 @@ export const SettingsDialog = () => {
                      <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
                             <DialogHeader>
                                    <DialogTitle>系统配置</DialogTitle>
+                                   <DialogDescription className="sr-only">
+                                          配置大模型与数据源，用于创意验证与报告生成。
+                                   </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-6 py-4">
 
