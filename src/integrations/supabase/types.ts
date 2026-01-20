@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_ai: boolean | null
+          likes_count: number | null
+          parent_id: string | null
+          persona_id: string | null
+          user_id: string | null
+          validation_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_ai?: boolean | null
+          likes_count?: number | null
+          parent_id?: string | null
+          persona_id?: string | null
+          user_id?: string | null
+          validation_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_ai?: boolean | null
+          likes_count?: number | null
+          parent_id?: string | null
+          persona_id?: string | null
+          user_id?: string | null
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          avatar_url: string | null
+          catchphrase: string | null
+          created_at: string | null
+          focus_areas: string[] | null
+          id: string
+          is_active: boolean | null
+          name: string
+          personality: string | null
+          role: string
+          system_prompt: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          catchphrase?: string | null
+          created_at?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          personality?: string | null
+          role: string
+          system_prompt: string
+        }
+        Update: {
+          avatar_url?: string | null
+          catchphrase?: string | null
+          created_at?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          personality?: string | null
+          role?: string
+          system_prompt?: string
+        }
+        Relationships: []
+      }
       validation_reports: {
         Row: {
           ai_analysis: Json | null
