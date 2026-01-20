@@ -1,18 +1,41 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
   validateString, 
-  validateBaseUrl,
   validateSearchProvider,
   validateConfigType,
   ValidationError,
-  LIMITS,
-  ALLOWED_LLM_DOMAINS
+  LIMITS
 } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+/**
+ * Validate URL format (without domain restriction for verify-config)
+ * This is less restrictive since verify-config is just a test call
+ */
+function validateUrlFormat(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  
+  const str = validateString(value, fieldName, LIMITS.URL_MAX_LENGTH);
+  if (!str) return null;
+  
+  try {
+    const parsed = new URL(str);
+    // Only allow https for security
+    if (parsed.protocol !== "https:") {
+      throw new ValidationError(`${fieldName} must use HTTPS`);
+    }
+    return str;
+  } catch (e) {
+    if (e instanceof ValidationError) throw e;
+    throw new ValidationError(`${fieldName} must be a valid URL`);
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -28,10 +51,10 @@ serve(async (req) => {
     const provider = body.provider ? validateSearchProvider(body.provider) : null;
     const model = validateString(body.model, "model", LIMITS.MODEL_MAX_LENGTH) || undefined;
     
-    // For LLM/image_gen, validate baseUrl against allowlist
+    // For LLM/image_gen, validate URL format (but allow any HTTPS domain)
     let baseUrl: string | undefined;
     if (type === 'llm' || type === 'image_gen') {
-      baseUrl = validateBaseUrl(body.baseUrl, "baseUrl") || undefined;
+      baseUrl = validateUrlFormat(body.baseUrl, "baseUrl") || undefined;
     }
 
     let isValid = false;
