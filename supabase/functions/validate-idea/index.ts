@@ -20,6 +20,12 @@ interface RequestConfig {
     you?: string;
     tavily?: string;
   };
+  // Image Gen Keys
+  imageGen?: {
+    baseUrl?: string;
+    apiKey?: string;
+    model?: string;
+  };
 }
 
 function extractFirstJsonObject(text: string): string | null {
@@ -417,7 +423,27 @@ serve(async (req) => {
   }
 
   try {
-    const { idea, tags, config } = await req.json();
+    console.log("----------------------------------------");
+    console.log(`[Request Start] Method: ${req.method}`);
+
+    // Log Headers
+    const headers = Object.fromEntries(req.headers.entries());
+    console.log("Headers:", JSON.stringify(headers, null, 2));
+
+    // Read raw body
+    const rawBody = await req.text();
+    console.log(`Body Length: ${rawBody.length}`);
+    console.log("Raw Body Preview:", rawBody.slice(0, 2000)); // Log enough to see structure
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (e) {
+      console.error("JSON Parse Error:", e);
+      throw new Error(`Invalid JSON body: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const { idea, tags, config } = body;
 
     if (!idea) throw new Error("Idea is required");
 
