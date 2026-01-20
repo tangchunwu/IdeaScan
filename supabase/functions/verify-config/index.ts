@@ -1,131 +1,157 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { 
+  validateString, 
+  validateBaseUrl,
+  validateSearchProvider,
+  validateConfigType,
+  ValidationError,
+  LIMITS,
+  ALLOWED_LLM_DOMAINS
+} from "../_shared/validation.ts";
 
 const corsHeaders = {
-       "Access-Control-Allow-Origin": "*",
-       "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-       if (req.method === "OPTIONS") {
-              return new Response("ok", { headers: corsHeaders });
-       }
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
-       try {
-              const { provider, apiKey, type, baseUrl, model } = await req.json();
+  try {
+    const body = await req.json();
+    
+    // Validate inputs
+    const type = validateConfigType(body.type);
+    const apiKey = validateString(body.apiKey, "apiKey", LIMITS.API_KEY_MAX_LENGTH, true)!;
+    const provider = body.provider ? validateSearchProvider(body.provider) : null;
+    const model = validateString(body.model, "model", LIMITS.MODEL_MAX_LENGTH) || undefined;
+    
+    // For LLM/image_gen, validate baseUrl against allowlist
+    let baseUrl: string | undefined;
+    if (type === 'llm' || type === 'image_gen') {
+      baseUrl = validateBaseUrl(body.baseUrl, "baseUrl") || undefined;
+    }
 
-              if (!apiKey) {
-                     return new Response(
-                            JSON.stringify({ valid: false, message: "API Key is missing" }),
-                            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                     );
-              }
+    let isValid = false;
+    let message = "Configuration verification failed";
 
-              let isValid = false;
-              let message = "Unknown provider";
+    if (type === 'llm') {
+      try {
+        let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+        if (cleanBaseUrl.endsWith("/chat/completions")) {
+          cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
+        }
+        const endpoint = `${cleanBaseUrl}/chat/completions`;
 
-              if (type === 'llm') {
-                     try {
-                            // Normalize base URL
-                            let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
-                            if (cleanBaseUrl.endsWith("/chat/completions")) {
-                                   cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-                            }
-                            const endpoint = `${cleanBaseUrl}/chat/completions`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model || "gpt-3.5-turbo",
+            messages: [{ role: "user", content: "Hello" }],
+            max_tokens: 5
+          })
+        });
 
-                            const res = await fetch(endpoint, {
-                                   method: "POST",
-                                   headers: {
-                                          "Authorization": `Bearer ${apiKey}`,
-                                          "Content-Type": "application/json"
-                                   },
-                                   body: JSON.stringify({
-                                          model: model || "gpt-3.5-turbo",
-                                          messages: [{ role: "user", content: "Hello" }],
-                                          max_tokens: 5
-                                   })
-                            });
+        if (res.ok) {
+          isValid = true;
+          message = "LLM connection successful";
+        } else {
+          isValid = false;
+          message = "LLM connection failed. Please check your API key.";
+        }
+      } catch (e) {
+        isValid = false;
+        message = "Connection failed. Please check your network and try again.";
+      }
+    } else if (type === 'image_gen') {
+      try {
+        let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+        const endpoint = `${cleanBaseUrl}/models`;
 
-                            if (res.ok) {
-                                   isValid = true;
-                                   message = "LLM Connection Successful";
-                            } else {
-                                   const errText = await res.text();
-                                   isValid = false;
-                                   message = `LLM Connection Failed: ${res.status} - ${errText.slice(0, 100)}`;
-                            }
-                     } catch (e) {
-                            isValid = false;
-                            message = `Connection Error: ${e instanceof Error ? e.message : 'Unknown error'}`;
-                     }
-              } else if (type === 'image_gen') {
-                     try {
-                            let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
-                            // Use /models to verify key without generating image (cost saving)
-                            const endpoint = `${cleanBaseUrl}/models`;
+        const res = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          }
+        });
 
-                            const res = await fetch(endpoint, {
-                                   method: "GET",
-                                   headers: {
-                                          "Authorization": `Bearer ${apiKey}`,
-                                          "Content-Type": "application/json"
-                                   }
-                            });
+        if (res.ok) {
+          isValid = true;
+          message = "Image generation API connection successful";
+        } else {
+          isValid = false;
+          message = "Image generation API connection failed. Please check your API key.";
+        }
+      } catch (e) {
+        isValid = false;
+        message = "Connection failed. Please check your network and try again.";
+      }
+    } else if (type === 'search') {
+      if (provider === 'bocha') {
+        try {
+          const res = await fetch("https://api.bochaai.com/v1/web-search", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ query: "test", count: 1 })
+          });
+          isValid = res.ok;
+          message = res.ok ? "Bocha API key is valid" : "Invalid Bocha API key";
+        } catch (e) { 
+          isValid = false; 
+          message = "Connection failed. Please check your network."; 
+        }
+      } else if (provider === 'you') {
+        try {
+          const res = await fetch(`https://ydc-index.io/v1/search?query=test&count=1`, {
+            headers: { "X-API-Key": apiKey }
+          });
+          isValid = res.ok;
+          message = res.ok ? "You.com API key is valid" : "Invalid You.com API key";
+        } catch (e) { 
+          isValid = false; 
+          message = "Connection failed. Please check your network."; 
+        }
+      } else if (provider === 'tavily') {
+        try {
+          const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: apiKey, query: "test", max_results: 1 })
+          });
+          isValid = res.ok;
+          message = res.ok ? "Tavily API key is valid" : "Invalid Tavily API key";
+        } catch (e) { 
+          isValid = false; 
+          message = "Connection failed. Please check your network."; 
+        }
+      } else {
+        message = "Search provider is required";
+      }
+    }
 
-                            if (res.ok) {
-                                   isValid = true;
-                                   message = "Image Gen API Connection Successful";
-                            } else {
-                                   // Fallback: If modules not allowed, maybe try generation? No, too risky/costly.
-                                   // Just return error.
-                                   const errText = await res.text();
-                                   isValid = false;
-                                   message = `Image Gen Connection Failed: ${res.status} - ${errText.slice(0, 100)}`;
-                            }
-                     } catch (e) {
-                            isValid = false;
-                            message = `Connection Error: ${e instanceof Error ? e.message : 'Unknown error'}`;
-                     }
-              } else if (type === 'search') {
-                     if (provider === 'bocha') {
-                            try {
-                                   const res = await fetch("https://api.bochaai.com/v1/web-search", {
-                                          method: "POST",
-                                          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                                          body: JSON.stringify({ query: "test", count: 1 })
-                                   });
-                                   isValid = res.ok;
-                                   message = res.ok ? "Bocha Key is valid" : `Invalid Bocha Key (${res.status})`;
-                            } catch (e) { isValid = false; message = "Connection failed"; }
-                     } else if (provider === 'you') {
-                            try {
-                                   const res = await fetch(`https://ydc-index.io/v1/search?query=test&count=1`, {
-                                          headers: { "X-API-Key": apiKey }
-                                   });
-                                   isValid = res.ok;
-                                   message = res.ok ? "You.com Key is valid" : `Invalid You.com Key (${res.status})`;
-                            } catch (e) { isValid = false; message = "Connection failed"; }
-                     } else if (provider === 'tavily') {
-                            try {
-                                   const res = await fetch("https://api.tavily.com/search", {
-                                          method: "POST",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ api_key: apiKey, query: "test", max_results: 1 })
-                                   });
-                                   isValid = res.ok;
-                                   message = res.ok ? "Tavily Key is valid" : `Invalid Tavily Key (${res.status})`;
-                            } catch (e) { isValid = false; message = "Connection failed"; }
-                     }
-              }
-
-              return new Response(
-                     JSON.stringify({ valid: isValid, message }),
-                     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-              );
-       } catch (error) {
-              const message = error instanceof Error ? error.message : 'Unknown error';
-              return new Response(
-                     JSON.stringify({ valid: false, message }),
-                     { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-              );
-       }
+    return new Response(
+      JSON.stringify({ valid: isValid, message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    // Log detailed error server-side
+    console.error("verify-config error:", error);
+    
+    // Return generic message for unexpected errors, specific for validation errors
+    const message = error instanceof ValidationError 
+      ? error.message 
+      : "Configuration verification failed. Please try again.";
+    
+    return new Response(
+      JSON.stringify({ valid: false, message }),
+      { status: error instanceof ValidationError ? 400 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });
