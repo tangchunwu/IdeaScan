@@ -2,6 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crawlRealXiaohongshuData, XhsNote, XhsComment } from "./tikhub.ts";
 import { searchCompetitors, SearchResult } from "./search.ts";
+import { 
+  validateString, 
+  validateStringArray, 
+  validateUserProvidedUrl,
+  sanitizeForPrompt,
+  ValidationError,
+  createErrorResponse,
+  LIMITS 
+} from "../_shared/validation.ts";
+import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,17 +24,34 @@ interface RequestConfig {
   llmApiKey?: string;
   llmModel?: string;
   tikhubToken?: string;
-  // Search Keys
   searchKeys?: {
     bocha?: string;
     you?: string;
     tavily?: string;
   };
-  // Image Gen Keys
-  imageGen?: {
-    baseUrl?: string;
-    apiKey?: string;
-    model?: string;
+}
+
+/**
+ * Validate and sanitize the request config
+ */
+function validateConfig(config: unknown): RequestConfig {
+  if (!config || typeof config !== "object") {
+    return {};
+  }
+  
+  const c = config as Record<string, unknown>;
+  
+  return {
+    llmProvider: validateString(c.llmProvider, "llmProvider", LIMITS.MODEL_MAX_LENGTH) || undefined,
+    llmBaseUrl: validateUserProvidedUrl(c.llmBaseUrl, "llmBaseUrl") || undefined,
+    llmApiKey: validateString(c.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+    llmModel: validateString(c.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
+    tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+    searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
+      bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+      you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+      tavily: validateString((c.searchKeys as any).tavily, "tavily key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+    } : undefined,
   };
 }
 
@@ -45,33 +72,18 @@ function extractFirstJsonObject(text: string): string | null {
 
 function repairJson(json: string): string {
   let repaired = json;
-
-  // Remove trailing commas before } or ]
   repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
-
-  // Fix missing commas between array items or object properties
-  // Pattern: "]" followed by whitespace then "[" or "{" or quote
   repaired = repaired.replace(/\](\s+)\[/g, "],$1[");
   repaired = repaired.replace(/\](\s+)\{/g, "],$1{");
   repaired = repaired.replace(/\](\s+)"/g, "],$1\"");
-
-  // Pattern: "}" followed by whitespace then "{" or quote (for object properties)
   repaired = repaired.replace(/\}(\s+)\{/g, "},$1{");
   repaired = repaired.replace(/\}(\s+)"/g, "},$1\"");
-
-  // Fix missing comma after string values: "value" followed by newline then "key"
   repaired = repaired.replace(/"(\s*\n\s*)"/g, "\",$1\"");
-
-  // Fix arrays ending with values missing comma before next property
-  // e.g. ["item"]\n    "nextKey" -> ["item"],\n    "nextKey"
   repaired = repaired.replace(/\](\s*\n\s*)"([a-zA-Z_])/g, "],$1\"$2");
-
   return repaired;
 }
 
-// Try to complete truncated JSON by adding missing closing brackets
 function completeTruncatedJson(json: string): string {
-  // Count open and close brackets
   let openBraces = 0;
   let openBrackets = 0;
   let inString = false;
@@ -79,22 +91,9 @@ function completeTruncatedJson(json: string): string {
 
   for (let i = 0; i < json.length; i++) {
     const char = json[i];
-
-    if (escape) {
-      escape = false;
-      continue;
-    }
-
-    if (char === '\\' && inString) {
-      escape = true;
-      continue;
-    }
-
-    if (char === '"' && !escape) {
-      inString = !inString;
-      continue;
-    }
-
+    if (escape) { escape = false; continue; }
+    if (char === '\\' && inString) { escape = true; continue; }
+    if (char === '"' && !escape) { inString = !inString; continue; }
     if (!inString) {
       if (char === '{') openBraces++;
       else if (char === '}') openBraces--;
@@ -103,25 +102,12 @@ function completeTruncatedJson(json: string): string {
     }
   }
 
-  // If we're in the middle of a string, close it
   let completed = json;
-  if (inString) {
-    completed += '"';
-  }
-
-  // Remove any trailing incomplete key-value pairs
-  // e.g., `"someKey": "incomplete` or `"someKey": [`
+  if (inString) completed += '"';
   completed = completed.replace(/,\s*"[^"]*":\s*("[^"]*)?$/g, '');
   completed = completed.replace(/,\s*"[^"]*":\s*\[?\s*$/g, '');
-
-  // Add missing closing brackets
-  for (let i = 0; i < openBrackets; i++) {
-    completed += ']';
-  }
-  for (let i = 0; i < openBraces; i++) {
-    completed += '}';
-  }
-
+  for (let i = 0; i < openBrackets; i++) completed += ']';
+  for (let i = 0; i < openBraces; i++) completed += '}';
   return completed;
 }
 
@@ -132,27 +118,20 @@ function parseJsonFromModelOutput<T = unknown>(text: string): T {
     throw new Error("AI did not return valid JSON");
   }
 
-  // Try parsing as-is first
   try {
     return JSON.parse(json) as T;
   } catch (_firstError) {
-    // Try repairing common issues
     const repaired = repairJson(json);
     try {
       return JSON.parse(repaired) as T;
     } catch (_secondError) {
-      // Try completing truncated JSON
       const completed = completeTruncatedJson(repaired);
       try {
         console.log("Attempting to parse completed JSON...");
         return JSON.parse(completed) as T;
       } catch (_thirdError) {
-        // Log all attempts for debugging
         console.error("AI JSON parse failed. Raw (first 1200 chars):", text.slice(0, 1200));
-        console.error("JSON repair failed. Original (500 chars):", json.slice(0, 500));
-        console.error("Repaired attempt (500 chars):", repaired.slice(0, 500));
-        console.error("Completed attempt (last 200 chars):", completed.slice(-200));
-        throw new Error("AI returned malformed JSON that could not be repaired");
+        throw new Error("Analysis processing failed. Please try again.");
       }
     }
   }
@@ -168,10 +147,10 @@ type AIResult = {
   persona: Record<string, unknown>;
   dimensions: Array<{ dimension: string; score: number }>;
 };
+
 async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
-  // Return empty data if no token - no mock data
   if (!token) {
     console.log("No Tikhub token configured, skipping XHS data");
     return {
@@ -201,7 +180,6 @@ async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: 
 }
 
 async function extractKeywords(idea: string, config?: RequestConfig): Promise<KeywordExtractionResult> {
-  // 优先使用用户配置，否则使用环境变量
   const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
   const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
   const model = config?.llmModel || "google/gemini-3-flash-preview";
@@ -216,9 +194,12 @@ async function extractKeywords(idea: string, config?: RequestConfig): Promise<Ke
   }
   const endpoint = `${cleanBaseUrl}/chat/completions`;
 
+  // Sanitize idea for prompt
+  const sanitizedIdea = sanitizeForPrompt(idea);
+
   const prompt = `Based on the following business idea description, please extract keywords for different search purposes.
   
-  Business Idea: "${idea}"
+  Business Idea: "${sanitizedIdea}"
   
   Please provide:
   1. Two short keywords (max 4 chars each) suitable for social media search (like Xiaohongshu/Instagram tags).
@@ -278,27 +259,29 @@ async function analyzeWithAI(
   }
   const endpoint = `${cleanBaseUrl}/chat/completions`;
 
-  // Prepare sample data for AI context
+  // Sanitize inputs for prompt
+  const sanitizedIdea = sanitizeForPrompt(idea);
+  const sanitizedTags = tags.map(t => sanitizeForPrompt(t));
+
   const sampleNotesText = (xiaohongshuData.sampleNotes || [])
     .slice(0, 5)
-    .map((n: any, i: number) => `${i + 1}. 标题: ${n.title || "无"}\n   描述: ${(n.desc || "").slice(0, 100)}...\n   点赞: ${n.liked_count}, 收藏: ${n.collected_count}`)
+    .map((n: any, i: number) => `${i + 1}. 标题: ${sanitizeForPrompt(n.title || "无")}\n   描述: ${sanitizeForPrompt((n.desc || "").slice(0, 100))}...\n   点赞: ${n.liked_count}, 收藏: ${n.collected_count}`)
     .join("\n");
 
   const sampleCommentsText = (xiaohongshuData.sampleComments || [])
     .slice(0, 10)
-    .map((c: any) => `- "${(c.content || "").slice(0, 80)}..." (${c.user_nickname}, ${c.ip_location || "未知"})`)
+    .map((c: any) => `- "${sanitizeForPrompt((c.content || "").slice(0, 80))}..." (${sanitizeForPrompt(c.user_nickname || "")}, ${c.ip_location || "未知"})`)
     .join("\n");
 
-  // Prepare Competitor Text (Formatted as Table for better AI context)
   const competitorText = competitorData.length > 0
-    ? competitorData.map((c, i) => `| ${i + 1} | ${c.title.slice(0, 30)}... | ${c.snippet.slice(0, 150)}... | ${c.source} |`).join("\n")
+    ? competitorData.map((c, i) => `| ${i + 1} | ${sanitizeForPrompt(c.title.slice(0, 30))}... | ${sanitizeForPrompt(c.snippet.slice(0, 150))}... | ${c.source} |`).join("\n")
     : "未进行全网搜索或未找到相关竞品信息。";
 
   const prompt = `Act as a **General Partner at a Top-Tier VC Firm** (e.g., Sequoia, Benchmark). Your job is to write a brutal, honest, and data-driven **Investment Memo** for an internal Investment Committee (IC) meeting.
 
   **Target Startup**:
-  - Idea: "${idea}"
-  - Tags: ${tags.join(", ")}
+  - Idea: "${sanitizedIdea}"
+  - Tags: ${sanitizedTags.join(", ")}
 
   ---
   **EVIDENCE PACK (Use this data to justify EVERY score):**
@@ -403,7 +386,7 @@ async function analyzeWithAI(
   if (!response.ok) {
     const text = await response.text();
     console.error("AI Analysis failed:", text);
-    throw new Error(`AI Analysis failed: ${text}`);
+    throw new Error("Analysis service temporarily unavailable. Please try again.");
   }
 
   const data = await response.json();
@@ -423,44 +406,30 @@ serve(async (req) => {
   }
 
   try {
-    console.log("----------------------------------------");
-    console.log(`[Request Start] Method: ${req.method}`);
-
-    // Log Headers
-    const headers = Object.fromEntries(req.headers.entries());
-    console.log("Headers:", JSON.stringify(headers, null, 2));
-
-    // Read raw body
-    const rawBody = await req.text();
-    console.log(`Body Length: ${rawBody.length}`);
-    console.log("Raw Body Preview:", rawBody.slice(0, 2000)); // Log enough to see structure
-
-    let body;
-    try {
-      body = JSON.parse(rawBody);
-    } catch (e) {
-      console.error("JSON Parse Error:", e);
-      throw new Error(`Invalid JSON body: ${e instanceof Error ? e.message : String(e)}`);
-    }
-
-    const { idea, tags, config } = body;
-
-    if (!idea) throw new Error("Idea is required");
+    const body = await req.json();
+    
+    // Validate inputs
+    const idea = validateString(body.idea, "idea", LIMITS.IDEA_MAX_LENGTH, true)!;
+    const tags = validateStringArray(body.tags, "tags", LIMITS.TAG_MAX_COUNT, LIMITS.TAG_MAX_LENGTH);
+    const config = validateConfig(body.config);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 获取当前用户
+    // Authenticate user
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Authorization required");
+    if (!authHeader) throw new ValidationError("Authorization required");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error("Invalid user token");
+    if (userError || !user) throw new ValidationError("Invalid or expired session");
 
-    // 1. 创建验证记录
+    // Check rate limit
+    await checkRateLimit(supabase, user.id, "validate-idea");
+
+    // 1. Create validation record
     const { data: validation, error: createError } = await supabase
       .from("validations")
       .insert({
@@ -474,22 +443,22 @@ serve(async (req) => {
 
     if (createError || !validation) {
       console.error("Failed to create validation:", createError);
-      throw new Error("Failed to create validation record");
+      throw new Error("Failed to create validation");
     }
 
     console.log("Created validation:", validation.id);
 
-    // 1.5 智能关键词提炼
+    // 1.5 Extract keywords
     console.log("Extracting keywords...");
     const { xhsKeywords, webQueries } = await extractKeywords(idea, config);
     console.log("Keywords extracted:", { xhsKeywords, webQueries });
 
-    // 2. 爬取小红书数据 (使用提炼出的第一个关键词)
+    // 2. Crawl Xiaohongshu data
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
     const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags || [], config?.tikhubToken);
     console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm}`);
 
-    // 2.5 全网搜集竞品
+    // 2.5 Search competitors
     let competitorData: SearchResult[] = [];
     const searchKeys = config?.searchKeys;
 
@@ -513,18 +482,18 @@ serve(async (req) => {
       console.log("No search keys provided, skipping competitor search.");
     }
 
-    // 3. AI 分析
+    // 3. AI Analysis
     const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, config);
     console.log("AI analysis completed");
 
-    // 4. 保存报告
+    // 4. Save report
     const { error: reportError } = await supabase
       .from("validation_reports")
       .insert({
         validation_id: validation.id,
         market_analysis: aiResult.marketAnalysis,
         xiaohongshu_data: xiaohongshuData,
-        competitor_data: competitorData, // Save gathered competitor data
+        competitor_data: competitorData,
         sentiment_analysis: aiResult.sentimentAnalysis,
         ai_analysis: aiResult.aiAnalysis,
         dimensions: aiResult.dimensions,
@@ -532,10 +501,10 @@ serve(async (req) => {
 
     if (reportError) {
       console.error("Error saving report:", reportError);
-      throw new Error("Failed to save validation report");
+      throw new Error("Failed to save report");
     }
 
-    // 5. 更新验证状态
+    // 5. Update validation status
     const { error: updateError } = await supabase
       .from("validations")
       .update({
@@ -557,11 +526,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    console.error("Error in validate-idea function:", error);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (error instanceof RateLimitError) {
+      return createRateLimitResponse(error, corsHeaders);
+    }
+    return createErrorResponse(error, corsHeaders);
   }
 });

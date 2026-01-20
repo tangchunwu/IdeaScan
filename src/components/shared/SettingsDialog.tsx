@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
+import { useAuth } from "@/hooks/useAuth";
 const PROVIDERS = {
        openai: {
               name: "OpenAI",
@@ -38,8 +38,11 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel,
-              updateSettings, resetSettings
+              updateSettings, resetSettings,
+              isLoading, isSynced, syncToCloud, syncFromCloud
        } = useSettings();
+       
+       const { user } = useAuth();
 
        const [internalOpen, setInternalOpen] = useState(false);
 
@@ -50,6 +53,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [showKey, setShowKey] = useState(false);
        const [showTikhubToken, setShowTikhubToken] = useState(false);
        const [showSearchKey, setShowSearchKey] = useState(false);
+       const [isSaving, setIsSaving] = useState(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
@@ -81,12 +85,34 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               }));
        };
 
-       const handleSave = () => {
+       const handleSave = async () => {
+              setIsSaving(true);
               updateSettings(localSettings);
-              toast({
-                     title: "配置已保存",
-                     description: "您的设置已更新并保存到本地。",
-              });
+              
+              // Sync to cloud if user is logged in
+              if (user) {
+                     try {
+                            await syncToCloud();
+                            toast({
+                                   title: "配置已保存到云端",
+                                   description: "您的设置已加密保存，下次登录自动恢复。",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     } catch (error) {
+                            toast({
+                                   title: "配置已保存到本地",
+                                   description: "云端同步失败，配置仅保存在本地。",
+                                   variant: "destructive"
+                            });
+                     }
+              } else {
+                     toast({
+                            title: "配置已保存到本地",
+                            description: "登录后可同步到云端，跨设备使用。",
+                     });
+              }
+              
+              setIsSaving(false);
               setOpen?.(false);
        };
 
@@ -110,10 +136,26 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (hasChanges) {
                             // Auto-save on close
                             updateSettings(localSettings);
-                            toast({
-                                   title: "配置已自动保存",
-                                   description: "您的设置已更新。",
-                            });
+                            
+                            // Sync to cloud if user is logged in
+                            if (user) {
+                                   syncToCloud().then(() => {
+                                          toast({
+                                                 title: "配置已自动保存到云端",
+                                                 description: "您的设置已加密保存。",
+                                          });
+                                   }).catch(() => {
+                                          toast({
+                                                 title: "配置已保存到本地",
+                                                 description: "云端同步失败。",
+                                          });
+                                   });
+                            } else {
+                                   toast({
+                                          title: "配置已自动保存",
+                                          description: "登录后可同步到云端。",
+                                   });
+                            }
                      }
               }
               setOpen?.(newOpen);
@@ -140,6 +182,83 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             description: "配置已恢复默认值。",
                      });
               }
+       };
+
+       // Export settings to JSON file
+       const handleExport = () => {
+              const exportData = {
+                     version: 1,
+                     exportedAt: new Date().toISOString(),
+                     settings: localSettings
+              };
+              
+              const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `vc-circle-config-${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              
+              toast({
+                     title: "导出成功",
+                     description: "配置文件已下载到本地",
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+       };
+
+       // Import settings from JSON file
+       const handleImport = () => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = async (e) => {
+                     const file = (e.target as HTMLInputElement).files?.[0];
+                     if (!file) return;
+                     
+                     try {
+                            const text = await file.text();
+                            const importData = JSON.parse(text);
+                            
+                            // Validate structure
+                            if (!importData.settings || typeof importData.settings !== 'object') {
+                                   throw new Error('Invalid config file format');
+                            }
+                            
+                            const { settings } = importData;
+                            
+                            // Merge with current settings (only update fields that exist in imported data)
+                            setLocalSettings(prev => ({
+                                   ...prev,
+                                   ...(settings.llmProvider && { llmProvider: settings.llmProvider }),
+                                   ...(settings.llmBaseUrl && { llmBaseUrl: settings.llmBaseUrl }),
+                                   ...(settings.llmApiKey && { llmApiKey: settings.llmApiKey }),
+                                   ...(settings.llmModel && { llmModel: settings.llmModel }),
+                                   ...(settings.tikhubToken && { tikhubToken: settings.tikhubToken }),
+                                   ...(settings.bochaApiKey && { bochaApiKey: settings.bochaApiKey }),
+                                   ...(settings.youApiKey && { youApiKey: settings.youApiKey }),
+                                   ...(settings.tavilyApiKey && { tavilyApiKey: settings.tavilyApiKey }),
+                                   ...(settings.imageGenBaseUrl && { imageGenBaseUrl: settings.imageGenBaseUrl }),
+                                   ...(settings.imageGenApiKey && { imageGenApiKey: settings.imageGenApiKey }),
+                                   ...(settings.imageGenModel && { imageGenModel: settings.imageGenModel }),
+                            }));
+                            
+                            toast({
+                                   title: "导入成功",
+                                   description: "配置已加载，请点击保存以应用更改",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     } catch (error) {
+                            toast({
+                                   variant: "destructive",
+                                   title: "导入失败",
+                                   description: "配置文件格式无效"
+                            });
+                     }
+              };
+              input.click();
        };
 
        const handleVerifyLLM = async () => {
@@ -176,333 +295,372 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             className: "bg-green-50 border-green-200 text-green-800"
                      });
               }
-       }
-
+       };
 
        const handleVerifyImageGen = async () => {
-              if (!localSettings.imageGenApiKey) {
-                     toast({ variant: "destructive", title: "请输入 API Key" });
-                     return;
+       if (!localSettings.imageGenApiKey) {
+              toast({ variant: "destructive", title: "请输入 API Key" });
+              return;
+       }
+       const { data, error } = await supabase.functions.invoke('verify-config', {
+              body: {
+                     type: 'image_gen',
+                     apiKey: localSettings.imageGenApiKey,
+                     baseUrl: localSettings.imageGenBaseUrl,
+                     model: localSettings.imageGenModel
               }
-              const { data, error } = await supabase.functions.invoke('verify-config', {
-                     body: {
-                            type: 'image_gen',
-                            apiKey: localSettings.imageGenApiKey,
-                            baseUrl: localSettings.imageGenBaseUrl,
-                            model: localSettings.imageGenModel
-                     }
+       });
+
+       if (error || !data.valid) {
+              toast({
+                     variant: "destructive",
+                     title: "验证失败",
+                     description: data?.message || error?.message || "连接失败，请检查配置"
               });
-
-              if (error || !data.valid) {
-                     toast({
-                            variant: "destructive",
-                            title: "验证失败",
-                            description: data?.message || error?.message || "连接失败，请检查配置"
-                     });
-              } else {
-                     // Auto-save on success
-                     updateSettings({
-                            imageGenApiKey: localSettings.imageGenApiKey,
-                            imageGenBaseUrl: localSettings.imageGenBaseUrl,
-                            imageGenModel: localSettings.imageGenModel
-                     });
-                     toast({
-                            title: "验证成功",
-                            description: "AI 绘图配置已自动保存",
-                            className: "bg-green-50 border-green-200 text-green-800"
-                     });
-              }
-       };
-
-       const handleVerify = async (provider: string, apiKey: string) => {
-              if (!apiKey) {
-                     toast({ variant: "destructive", title: "请输入 API Key" });
-                     return;
-              }
-              const { data, error } = await supabase.functions.invoke('verify-config', {
-                     body: { type: 'search', provider, apiKey }
+       } else {
+              // Auto-save on success
+              updateSettings({
+                     imageGenApiKey: localSettings.imageGenApiKey,
+                     imageGenBaseUrl: localSettings.imageGenBaseUrl,
+                     imageGenModel: localSettings.imageGenModel
               });
+              toast({
+                     title: "验证成功",
+                     description: "AI 绘图配置已自动保存",
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+       }
+  };
 
-              if (error || !data.valid) {
-                     toast({
-                            variant: "destructive",
-                            title: "验证失败",
-                            description: data?.message || error?.message || "请检查 Key 是否正确"
-                     });
-              } else {
-                     // Auto-save on success
-                     const keyMap: Record<string, string> = {
-                            bocha: 'bochaApiKey',
-                            you: 'youApiKey',
-                            tavily: 'tavilyApiKey'
-                     };
-                     const settingKey = keyMap[provider];
-                     if (settingKey) {
-                            // @ts-ignore - dynamic key assignment
-                            updateSettings({ [settingKey]: apiKey });
-                     }
+  const handleVerify = async (provider: string, apiKey: string) => {
+       if (!apiKey) {
+              toast({ variant: "destructive", title: "请输入 API Key" });
+              return;
+       }
+       const { data, error } = await supabase.functions.invoke('verify-config', {
+              body: { type: 'search', provider, apiKey }
+       });
 
-                     toast({
-                            title: "验证成功",
-                            description: `${provider} 配置已自动保存`,
-                            className: "bg-green-50 border-green-200 text-green-800"
-                     });
+       if (error || !data.valid) {
+              toast({
+                     variant: "destructive",
+                     title: "验证失败",
+                     description: data?.message || error?.message || "请检查 Key 是否正确"
+              });
+       } else {
+              // Auto-save on success
+              const keyMap: Record<string, string> = {
+                     bocha: 'bochaApiKey',
+                     you: 'youApiKey',
+                     tavily: 'tavilyApiKey'
+              };
+              const settingKey = keyMap[provider];
+              if (settingKey) {
+                     // @ts-ignore - dynamic key assignment
+                     updateSettings({ [settingKey]: apiKey });
               }
-       };
 
-       return (
-              <Dialog open={open} onOpenChange={handleOpenChange}>
-                     {trigger ? (
+              toast({
+                     title: "验证成功",
+                     description: `${provider} 配置已自动保存`,
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+       }
+  };
+
+  return (
+       <Dialog open={open} onOpenChange={handleOpenChange}>
+              {trigger ? (
+                     <DialogTrigger asChild>
+                            {trigger}
+                     </DialogTrigger>
+              ) : (
+                     !isControlled && (
                             <DialogTrigger asChild>
-                                   {trigger}
+                                   <Button variant="ghost" size="icon" className="rounded-full">
+                                          <Settings className="w-5 h-5" />
+                                   </Button>
                             </DialogTrigger>
-                     ) : (
-                            !isControlled && (
-                                   <DialogTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="rounded-full">
-                                                 <Settings className="w-5 h-5" />
-                                          </Button>
-                                   </DialogTrigger>
-                            )
-                     )}
-                     <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
-                            <DialogHeader>
-                                   <DialogTitle>系统配置</DialogTitle>
-                                   <DialogDescription className="sr-only">
-                                          配置大模型与数据源，用于创意验证与报告生成。
-                                   </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-6 py-4">
+                     )
+              )}
+              <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
+                     <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                   系统配置
+                                   {user && (
+                                          <span className="flex items-center gap-1 text-xs font-normal">
+                                                 {isLoading ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                                                 ) : isSynced ? (
+                                                        <Cloud className="w-3 h-3 text-green-500" />
+                                                 ) : (
+                                                        <CloudOff className="w-3 h-3 text-muted-foreground" />
+                                                 )}
+                                                 <span className="text-muted-foreground">
+                                                        {isLoading ? "同步中..." : isSynced ? "已同步" : "未同步"}
+                                                 </span>
+                                          </span>
+                                   )}
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                   配置大模型与数据源，用于创意验证与报告生成。
+                            </DialogDescription>
+                            {!user && (
+                                   <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                                          💡 登录后配置将加密保存到云端，跨设备自动同步
+                                   </p>
+                            )}
+                     </DialogHeader>
+                     <div className="grid gap-6 py-4">
 
-                                   {/* LLM Settings */}
-                                   <div className="space-y-4">
-                                          <h4 className="font-medium flex items-center justify-between">
-                                                 <span className="flex items-center gap-2">🤖 大模型配置 (LLM)</span>
-                                                 <a
-                                                        href={localSettings.llmProvider === 'deepseek'
-                                                               ? "https://platform.deepseek.com/api_keys"
-                                                               : "https://platform.openai.com/api-keys"
-                                                        }
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                                                 >
-                                                        获取 API Key <ExternalLink className="w-3 h-3" />
-                                                 </a>
-                                          </h4>
-                                          <div className="grid gap-2">
-                                                 <Label>提供商 Provider</Label>
-                                                 <Select
-                                                        value={localSettings.llmProvider}
-                                                        onValueChange={(val: any) => handleProviderChange(val)}
-                                                 >
-                                                        <SelectTrigger><SelectValue placeholder="Select provider" /></SelectTrigger>
-                                                        <SelectContent>
-                                                               {Object.entries(PROVIDERS).map(([key, config]) => (
-                                                                      <SelectItem key={key} value={key}>{config.name}</SelectItem>
-                                                               ))}
-                                                        </SelectContent>
-                                                 </Select>
-                                          </div>
-                                          <div className="grid gap-2">
-                                                 <Label>API Base URL</Label>
-                                                 <Input value={localSettings.llmBaseUrl} onChange={(e) => setLocalSettings(s => ({ ...s, llmBaseUrl: e.target.value }))} />
-                                          </div>
-                                          <div className="grid gap-2">
-                                                 <Label>API Key</Label>
-                                                 <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                               <Input type={showKey ? "text" : "password"} value={localSettings.llmApiKey} onChange={(e) => setLocalSettings(s => ({ ...s, llmApiKey: e.target.value }))} className="pr-10" />
-                                                               <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
-                                                        </div>
-                                                        <Button variant="outline" size="sm" onClick={handleVerifyLLM}>验证</Button>
+                            {/* LLM Settings */}
+                            <div className="space-y-4">
+                                   <h4 className="font-medium flex items-center justify-between">
+                                          <span className="flex items-center gap-2">🤖 大模型配置 (LLM)</span>
+                                          <a
+                                                 href={localSettings.llmProvider === 'deepseek'
+                                                        ? "https://platform.deepseek.com/api_keys"
+                                                        : "https://platform.openai.com/api-keys"
+                                                 }
+                                                 target="_blank"
+                                                 rel="noopener noreferrer"
+                                                 className="text-xs text-primary hover:underline flex items-center gap-1"
+                                          >
+                                                 获取 API Key <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                   </h4>
+                                   <div className="grid gap-2">
+                                          <Label>提供商 Provider</Label>
+                                          <Select
+                                                 value={localSettings.llmProvider}
+                                                 onValueChange={(val: any) => handleProviderChange(val)}
+                                          >
+                                                 <SelectTrigger><SelectValue placeholder="Select provider" /></SelectTrigger>
+                                                 <SelectContent>
+                                                        {Object.entries(PROVIDERS).map(([key, config]) => (
+                                                               <SelectItem key={key} value={key}>{config.name}</SelectItem>
+                                                        ))}
+                                                 </SelectContent>
+                                          </Select>
+                                   </div>
+                                   <div className="grid gap-2">
+                                          <Label>API Base URL</Label>
+                                          <Input value={localSettings.llmBaseUrl} onChange={(e) => setLocalSettings(s => ({ ...s, llmBaseUrl: e.target.value }))} />
+                                   </div>
+                                   <div className="grid gap-2">
+                                          <Label>API Key</Label>
+                                          <div className="flex gap-2">
+                                                 <div className="relative flex-1">
+                                                        <Input type={showKey ? "text" : "password"} value={localSettings.llmApiKey} onChange={(e) => setLocalSettings(s => ({ ...s, llmApiKey: e.target.value }))} className="pr-10" />
+                                                        <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                                  </div>
-                                          </div>
-                                          <div className="grid gap-2">
-                                                 <Label>模型名称 Model Name</Label>
-                                                 <Input value={localSettings.llmModel} onChange={(e) => setLocalSettings(s => ({ ...s, llmModel: e.target.value }))} list="model-suggestions" />
-                                                 <datalist id="model-suggestions">
-                                                        {localSettings.llmProvider !== 'custom' && PROVIDERS[localSettings.llmProvider]?.models.map(m => <option key={m} value={m} />)}
-                                                 </datalist>
+                                                 <Button variant="outline" size="sm" onClick={handleVerifyLLM}>验证</Button>
                                           </div>
                                    </div>
-
-                                   <hr className="border-gray-100" />
-
-                                   {/* Tikhub Settings */}
-                                   <div className="space-y-4">
-                                          <h4 className="font-medium flex items-center justify-between">
-                                                 <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
-                                                 <a
-                                                        href="https://tikhub.io/users/api_keys"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                                                 >
-                                                        获取 Token <ExternalLink className="w-3 h-3" />
-                                                 </a>
-                                          </h4>
-                                          <div className="grid gap-2">
-                                                 <Label>Tikhub API Token</Label>
-                                                 <div className="relative">
-                                                        <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
-                                                        <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
-                                                 </div>
-                                          </div>
+                                   <div className="grid gap-2">
+                                          <Label>模型名称 Model Name</Label>
+                                          <Input value={localSettings.llmModel} onChange={(e) => setLocalSettings(s => ({ ...s, llmModel: e.target.value }))} list="model-suggestions" />
+                                          <datalist id="model-suggestions">
+                                                 {localSettings.llmProvider !== 'custom' && PROVIDERS[localSettings.llmProvider]?.models.map(m => <option key={m} value={m} />)}
+                                          </datalist>
                                    </div>
+                            </div>
 
-                                   <hr className="border-gray-100" />
+                            <hr className="border-gray-100" />
 
-                                   {/* Search Settings Section */}
-                                   <div className="space-y-4">
-                                          <h4 className="font-medium flex items-center gap-2">
-                                                 🔍 竞品搜索配置 (多源并行)
-                                          </h4>
-                                          <p className="text-xs text-muted-foreground">
-                                                 配置多个搜索引擎可提高竞品分析的全面性。系统将并行搜索所有已配置的服务。
-                                          </p>
-
-                                          {/* Bocha Settings */}
-                                          <div className="grid gap-2 border-l-2 border-primary/20 pl-4">
-                                                 <Label className="flex justify-between items-center">
-                                                        <span className="flex items-center gap-2">
-                                                               博查 (Bocha) {localSettings.bochaApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                        </span>
-                                                        <a
-                                                               href="https://open.bochaai.com/"
-                                                               target="_blank"
-                                                               rel="noopener noreferrer"
-                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                        >
-                                                               获取 <ExternalLink className="w-3 h-3" />
-                                                        </a>
-                                                 </Label>
-                                                 <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                               <Input
-                                                                      type={showSearchKey ? "text" : "password"}
-                                                                      value={localSettings.bochaApiKey}
-                                                                      onChange={(e) => setLocalSettings(s => ({ ...s, bochaApiKey: e.target.value }))}
-                                                                      placeholder="sk-..."
-                                                                      className="pr-10"
-                                                               />
-                                                               <button type="button" onClick={() => setShowSearchKey(!showSearchKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
-                                                        </div>
-                                                        <Button variant="outline" size="sm" onClick={() => handleVerify('bocha', localSettings.bochaApiKey)}>验证</Button>
-                                                 </div>
-                                          </div>
-
-                                          {/* You.com Settings */}
-                                          <div className="grid gap-2 border-l-2 border-secondary/20 pl-4">
-                                                 <Label className="flex justify-between items-center">
-                                                        <span className="flex items-center gap-2">
-                                                               You.com {localSettings.youApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                        </span>
-                                                        <a
-                                                               href="https://you.com/api"
-                                                               target="_blank"
-                                                               rel="noopener noreferrer"
-                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                        >
-                                                               获取 <ExternalLink className="w-3 h-3" />
-                                                        </a>
-                                                 </Label>
-                                                 <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                               <Input
-                                                                      type={showSearchKey ? "text" : "password"}
-                                                                      value={localSettings.youApiKey}
-                                                                      onChange={(e) => setLocalSettings(s => ({ ...s, youApiKey: e.target.value }))}
-                                                                      placeholder="You.com API Key"
-                                                                      className="pr-10"
-                                                               />
-                                                        </div>
-                                                        <Button variant="outline" size="sm" onClick={() => handleVerify('you', localSettings.youApiKey)}>验证</Button>
-                                                 </div>
-                                          </div>
-
-                                          {/* Tavily Settings */}
-                                          <div className="grid gap-2 border-l-2 border-accent/20 pl-4">
-                                                 <Label className="flex justify-between items-center">
-                                                        <span className="flex items-center gap-2">
-                                                               Tavily {localSettings.tavilyApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                        </span>
-                                                        <a
-                                                               href="https://app.tavily.com/home"
-                                                               target="_blank"
-                                                               rel="noopener noreferrer"
-                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                        >
-                                                               获取 <ExternalLink className="w-3 h-3" />
-                                                        </a>
-                                                 </Label>
-                                                 <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                               <Input
-                                                                      type={showSearchKey ? "text" : "password"}
-                                                                      value={localSettings.tavilyApiKey}
-                                                                      onChange={(e) => setLocalSettings(s => ({ ...s, tavilyApiKey: e.target.value }))}
-                                                                      placeholder="tvly-..."
-                                                                      className="pr-10"
-                                                               />
-                                                        </div>
-                                                        <Button variant="outline" size="sm" onClick={() => handleVerify('tavily', localSettings.tavilyApiKey)}>验证</Button>
-                                                 </div>
-                                          </div>
-                                   </div>
-
-                                   <hr className="border-gray-100" />
-
-                                   {/* Image Generation Settings */}
-                                   <div className="space-y-4">
-                                          <h4 className="font-medium flex items-center justify-between">
-                                                 <span className="flex items-center gap-2">🎨 AI 绘图配置 (OpenAI Compatible)</span>
-                                          </h4>
-                                          <div className="grid gap-2">
-                                                 <Label>API Base URL</Label>
-                                                 <Input
-                                                        value={localSettings.imageGenBaseUrl}
-                                                        onChange={(e) => setLocalSettings(s => ({ ...s, imageGenBaseUrl: e.target.value }))}
-                                                        placeholder="https://api.openai.com/v1"
-                                                 />
-                                          </div>
-                                          <div className="grid gap-2">
-                                                 <Label>API Key</Label>
-                                                 <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                               <Input
-                                                                      type={showKey ? "text" : "password"}
-                                                                      value={localSettings.imageGenApiKey}
-                                                                      onChange={(e) => setLocalSettings(s => ({ ...s, imageGenApiKey: e.target.value }))}
-                                                                      className="pr-10"
-                                                               />
-                                                               <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
-                                                        </div>
-                                                        <Button variant="outline" size="sm" onClick={handleVerifyImageGen}>验证</Button>
-                                                 </div>
-                                          </div>
-                                          <div className="grid gap-2">
-                                                 <Label>模型名称 Model Name</Label>
-                                                 <Input
-                                                        value={localSettings.imageGenModel}
-                                                        onChange={(e) => setLocalSettings(s => ({ ...s, imageGenModel: e.target.value }))}
-                                                        placeholder="dall-e-3"
-                                                 />
+                            {/* Tikhub Settings */}
+                            <div className="space-y-4">
+                                   <h4 className="font-medium flex items-center justify-between">
+                                          <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
+                                          <a
+                                                 href="https://tikhub.io/users/api_keys"
+                                                 target="_blank"
+                                                 rel="noopener noreferrer"
+                                                 className="text-xs text-primary hover:underline flex items-center gap-1"
+                                          >
+                                                 获取 Token <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                   </h4>
+                                   <div className="grid gap-2">
+                                          <Label>Tikhub API Token</Label>
+                                          <div className="relative">
+                                                 <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
+                                                 <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                           </div>
                                    </div>
                             </div>
 
-                            <div className="flex justify-between mt-4">
+                            <hr className="border-gray-100" />
+
+                            {/* Search Settings Section */}
+                            <div className="space-y-4">
+                                   <h4 className="font-medium flex items-center gap-2">
+                                          🔍 竞品搜索配置 (多源并行)
+                                   </h4>
+                                   <p className="text-xs text-muted-foreground">
+                                          配置多个搜索引擎可提高竞品分析的全面性。系统将并行搜索所有已配置的服务。
+                                   </p>
+
+                                   {/* Bocha Settings */}
+                                   <div className="grid gap-2 border-l-2 border-primary/20 pl-4">
+                                          <Label className="flex justify-between items-center">
+                                                 <span className="flex items-center gap-2">
+                                                        博查 (Bocha) {localSettings.bochaApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                 </span>
+                                                 <a
+                                                        href="https://open.bochaai.com/"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                 >
+                                                        获取 <ExternalLink className="w-3 h-3" />
+                                                 </a>
+                                          </Label>
+                                          <div className="flex gap-2">
+                                                 <div className="relative flex-1">
+                                                        <Input
+                                                               type={showSearchKey ? "text" : "password"}
+                                                               value={localSettings.bochaApiKey}
+                                                               onChange={(e) => setLocalSettings(s => ({ ...s, bochaApiKey: e.target.value }))}
+                                                               placeholder="sk-..."
+                                                               className="pr-10"
+                                                        />
+                                                        <button type="button" onClick={() => setShowSearchKey(!showSearchKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                                 </div>
+                                                 <Button variant="outline" size="sm" onClick={() => handleVerify('bocha', localSettings.bochaApiKey)}>验证</Button>
+                                          </div>
+                                   </div>
+
+                                   {/* You.com Settings */}
+                                   <div className="grid gap-2 border-l-2 border-secondary/20 pl-4">
+                                          <Label className="flex justify-between items-center">
+                                                 <span className="flex items-center gap-2">
+                                                        You.com {localSettings.youApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                 </span>
+                                                 <a
+                                                        href="https://you.com/api"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                 >
+                                                        获取 <ExternalLink className="w-3 h-3" />
+                                                 </a>
+                                          </Label>
+                                          <div className="flex gap-2">
+                                                 <div className="relative flex-1">
+                                                        <Input
+                                                               type={showSearchKey ? "text" : "password"}
+                                                               value={localSettings.youApiKey}
+                                                               onChange={(e) => setLocalSettings(s => ({ ...s, youApiKey: e.target.value }))}
+                                                               placeholder="You.com API Key"
+                                                               className="pr-10"
+                                                        />
+                                                 </div>
+                                                 <Button variant="outline" size="sm" onClick={() => handleVerify('you', localSettings.youApiKey)}>验证</Button>
+                                          </div>
+                                   </div>
+
+                                   {/* Tavily Settings */}
+                                   <div className="grid gap-2 border-l-2 border-accent/20 pl-4">
+                                          <Label className="flex justify-between items-center">
+                                                 <span className="flex items-center gap-2">
+                                                        Tavily {localSettings.tavilyApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                 </span>
+                                                 <a
+                                                        href="https://app.tavily.com/home"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                 >
+                                                        获取 <ExternalLink className="w-3 h-3" />
+                                                 </a>
+                                          </Label>
+                                          <div className="flex gap-2">
+                                                 <div className="relative flex-1">
+                                                        <Input
+                                                               type={showSearchKey ? "text" : "password"}
+                                                               value={localSettings.tavilyApiKey}
+                                                               onChange={(e) => setLocalSettings(s => ({ ...s, tavilyApiKey: e.target.value }))}
+                                                               placeholder="tvly-..."
+                                                               className="pr-10"
+                                                        />
+                                                 </div>
+                                                 <Button variant="outline" size="sm" onClick={() => handleVerify('tavily', localSettings.tavilyApiKey)}>验证</Button>
+                                          </div>
+                                   </div>
+                            </div>
+
+                            <hr className="border-gray-100" />
+
+                            {/* Image Generation Settings */}
+                            <div className="space-y-4">
+                                   <h4 className="font-medium flex items-center justify-between">
+                                          <span className="flex items-center gap-2">🎨 AI 绘图配置 (OpenAI Compatible)</span>
+                                   </h4>
+                                   <div className="grid gap-2">
+                                          <Label>API Base URL</Label>
+                                          <Input
+                                                 value={localSettings.imageGenBaseUrl}
+                                                 onChange={(e) => setLocalSettings(s => ({ ...s, imageGenBaseUrl: e.target.value }))}
+                                                 placeholder="https://api.openai.com/v1"
+                                          />
+                                   </div>
+                                   <div className="grid gap-2">
+                                          <Label>API Key</Label>
+                                          <div className="flex gap-2">
+                                                 <div className="relative flex-1">
+                                                        <Input
+                                                               type={showKey ? "text" : "password"}
+                                                               value={localSettings.imageGenApiKey}
+                                                               onChange={(e) => setLocalSettings(s => ({ ...s, imageGenApiKey: e.target.value }))}
+                                                               className="pr-10"
+                                                        />
+                                                        <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                                 </div>
+                                                 <Button variant="outline" size="sm" onClick={handleVerifyImageGen}>验证</Button>
+                                          </div>
+                                   </div>
+                                   <div className="grid gap-2">
+                                          <Label>模型名称 Model Name</Label>
+                                          <Input
+                                                 value={localSettings.imageGenModel}
+                                                 onChange={(e) => setLocalSettings(s => ({ ...s, imageGenModel: e.target.value }))}
+                                                 placeholder="dall-e-3"
+                                          />
+                                   </div>
+                            </div>
+                     </div>
+
+                     <div className="flex flex-col gap-3 mt-4">
+                            {/* Import/Export buttons */}
+                            <div className="flex gap-2">
+                                   <Button variant="outline" size="sm" onClick={handleImport} className="flex-1">
+                                          <Upload className="w-4 h-4 mr-2" />
+                                          导入配置
+                                   </Button>
+                                   <Button variant="outline" size="sm" onClick={handleExport} className="flex-1">
+                                          <Download className="w-4 h-4 mr-2" />
+                                          导出配置
+                                   </Button>
+                            </div>
+                            
+                            {/* Main action buttons */}
+                            <div className="flex justify-between">
                                    <Button variant="outline" onClick={handleReset} className="text-muted-foreground">
                                           <RotateCcw className="w-4 h-4 mr-2" />
                                           重置默认
                                    </Button>
-                                   <Button onClick={handleSave}>
-                                          <Save className="w-4 h-4 mr-2" />
-                                          保存配置
+                                   <Button onClick={handleSave} disabled={isSaving || isLoading}>
+                                          {isSaving ? (
+                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                          ) : (
+                                                 <Save className="w-4 h-4 mr-2" />
+                                          )}
+                                          {user ? "保存到云端" : "保存配置"}
                                    </Button>
                             </div>
-                     </DialogContent>
-              </Dialog>
-       );
+                     </div>
+              </DialogContent>
+       </Dialog>
+);
 };
