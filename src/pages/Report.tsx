@@ -49,7 +49,7 @@ import { useValidation } from "@/hooks/useValidation";
 import { exportToPdf, exportToImage } from "@/lib/export";
 import { Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { VCFeed } from "@/components/social";
+import { VCFeed, ShareCard } from "@/components/social";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -242,6 +242,7 @@ const Report = () => {
     weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
     suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
     risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
+    overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "",
   };
 
   const dimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
@@ -418,6 +419,10 @@ const Report = () => {
               <TabsTrigger value="circle" className="rounded-lg">
                 <MessageCircle className="w-4 h-4 mr-2" />
                 创投圈
+              </TabsTrigger>
+              <TabsTrigger value="share" className="rounded-lg">
+                <Share2 className="w-4 h-4 mr-2" />
+                分享
               </TabsTrigger>
             </TabsList>
 
@@ -803,11 +808,18 @@ const Report = () => {
                     </h3>
                     <div className="space-y-3">
                       {dimensions.map((d: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-                          <span className="text-muted-foreground">{d.dimension}</span>
-                          <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
-                            {d.score}/100
-                          </span>
+                        <div key={i} className="space-y-1">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">{d.dimension}</span>
+                            <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
+                              {d.score}/100
+                            </span>
+                          </div>
+                          {d.reason && (
+                            <p className={`text-xs leading-relaxed pl-2 border-l-2 ${d.score < 50 ? 'border-red-500/50 text-red-400/80' : 'border-white/10 text-muted-foreground'}`}>
+                              {d.reason}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -857,13 +869,29 @@ const Report = () => {
                   Strategic Roadmap (GTM & Product)
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
-                  {aiAnalysis.suggestions?.map((item: string, i: number) => (
+                  {aiAnalysis.suggestions?.map((item: any, i: number) => (
                     <div key={i} className="flex gap-4 p-4 rounded-lg bg-card/50 border border-white/5">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                         {i + 1}
                       </div>
-                      <div>
-                        <p className="text-sm text-foreground leading-relaxed">{item}</p>
+                      <div className="flex-1 space-y-2">
+                        {typeof item === 'string' ? (
+                          <p className="text-sm text-foreground leading-relaxed">{item}</p>
+                        ) : (
+                          <>
+                            <p className="text-sm text-foreground font-medium">{item.action}</p>
+                            {item.reference && (
+                              <p className="text-xs text-primary/80 flex items-center gap-1">
+                                <span className="opacity-60">📚 参考:</span> {item.reference}
+                              </p>
+                            )}
+                            {item.expectedResult && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="opacity-60">→ 预期效果:</span> {item.expectedResult}
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -891,6 +919,26 @@ const Report = () => {
             {/* VC Circle Tab */}
             <TabsContent value="circle" className="space-y-6 animate-slide-up">
               <VCFeed validationId={validation.id} />
+            </TabsContent>
+
+            {/* Share Tab */}
+            <TabsContent value="share" className="space-y-6 animate-slide-up">
+              <GlassCard className="p-6">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
+                  <Share2 className="w-5 h-5" />
+                  生成分享卡片
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  生成一张精美的验证报告卡片，分享到朋友圈或小红书，展示你的创业想法！
+                </p>
+                <ShareCard
+                  idea={validation.idea}
+                  score={validation.overall_score || 0}
+                  verdict={aiAnalysis.overallVerdict || ""}
+                  dimensions={dimensions}
+                  tags={validation.tags || []}
+                />
+              </GlassCard>
             </TabsContent>
           </Tabs>
         </div>

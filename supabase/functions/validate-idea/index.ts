@@ -224,10 +224,11 @@ async function analyzeWithAI(
   **Output ONLY valid JSON** with this structure (no markdown, no thinking text outside JSON):
   {
     "overallScore": 0,
+    "overallVerdict": "One-sentence brutal summary (e.g., 'A crowded space with no clear moat')",
     "marketAnalysis": {
       "targetAudience": "Specific persona (e.g. 'GenZ students in Tier 1 cities')",
       "marketSize": "Tam/Sam/Som estimate or market vibe (e.g. 'Red Ocean')",
-      "competitionLevel": "High/Medium/Low",
+      "competitionLevel": "Detailed competition analysis citing Source B competitors",
       "trendDirection": "Rising/Falling/Stable",
       "keywords": ["High intent keyword 1", "Keyword 2"]
     },
@@ -242,16 +243,22 @@ async function analyzeWithAI(
       "feasibilityScore": 0,
       "strengths": ["Unfair Advantage 1", "Moat 2"],
       "weaknesses": ["Deadly Flaw 1", "Risk 2"],
-      "suggestions": ["Specific GTM strategy 1", "MVP feature 2"],
+      "suggestions": [
+        {
+          "action": "Specific action to take",
+          "reference": "Reference case (e.g., 'Notion used PLG to grow without sales team')",
+          "expectedResult": "Expected outcome if this action is taken"
+        }
+      ],
       "risks": ["Pre-mortem risk 1", "Regulatory risk 2"]
     },
     "dimensions": [
-      {"dimension": "Market Pain (Urgency)", "score": 0},
-      {"dimension": "Moat (Defensibility)", "score": 0},
-      {"dimension": "Business Model (Unit Economics)", "score": 0},
-      {"dimension": "Tech Feasibility", "score": 0},
-      {"dimension": "Novelty (0-1)", "score": 0},
-      {"dimension": "PMF Potential", "score": 0}
+      {"dimension": "Market Pain (Urgency)", "score": 0, "reason": "Why this score - cite specific evidence from Source A/B"},
+      {"dimension": "Moat (Defensibility)", "score": 0, "reason": "Why this score - what competitors do better?"},
+      {"dimension": "Business Model (Unit Economics)", "score": 0, "reason": "Why this score - is monetization viable?"},
+      {"dimension": "Tech Feasibility", "score": 0, "reason": "Why this score - any technical blockers?"},
+      {"dimension": "Novelty (0-1)", "score": 0, "reason": "Why this score - what's truly new here?"},
+      {"dimension": "PMF Potential", "score": 0, "reason": "Why this score - does market want this?"}
     ]
   }`;
 
