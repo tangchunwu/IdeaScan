@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ReactNode, CSSProperties } from "react";
+import { ReactNode, CSSProperties, forwardRef } from "react";
 
 interface GlassCardProps {
   children: ReactNode;
@@ -20,35 +20,43 @@ const paddingMap = {
   lg: "p-8",
 };
 
-export const GlassCard = ({
-  children,
-  className,
-  hover = false,
-  glow = false,
-  elevated = false,
-  interactive = false,
-  padding = "md",
-  style,
-  onClick,
-}: GlassCardProps) => {
-  return (
-    <div
-      className={cn(
-        elevated ? "glass-card-elevated" : "glass-card",
-        paddingMap[padding],
-        "transition-all duration-300",
-        hover && "hover:-translate-y-1 hover:shadow-xl hover:border-primary/20 cursor-pointer",
-        glow && "ghibli-glow",
-        interactive && "card-interactive",
-        onClick && "cursor-pointer",
-        className
-      )}
-      style={style}
-      onClick={onClick}
-    >
-      {children}
-    </div>
-  );
-};
+export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
+  (
+    {
+      children,
+      className,
+      hover = false,
+      glow = false,
+      elevated = false,
+      interactive = false,
+      padding = "md",
+      style,
+      onClick,
+    },
+    ref
+  ) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          elevated ? "glass-card-elevated" : "glass-card",
+          paddingMap[padding],
+          "transition-all duration-300",
+          hover && "hover:-translate-y-1 hover:shadow-xl hover:border-primary/20 cursor-pointer",
+          glow && "ghibli-glow",
+          interactive && "card-interactive",
+          onClick && "cursor-pointer",
+          className
+        )}
+        style={style}
+        onClick={onClick}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+GlassCard.displayName = "GlassCard";
 
 export default GlassCard;
