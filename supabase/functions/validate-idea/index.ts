@@ -63,9 +63,68 @@ function repairJson(json: string): string {
   return repaired;
 }
 
+// Try to complete truncated JSON by adding missing closing brackets
+function completeTruncatedJson(json: string): string {
+  // Count open and close brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < json.length; i++) {
+    const char = json[i];
+    
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    
+    if (char === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    
+    if (char === '"' && !escape) {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') openBraces++;
+      else if (char === '}') openBraces--;
+      else if (char === '[') openBrackets++;
+      else if (char === ']') openBrackets--;
+    }
+  }
+
+  // If we're in the middle of a string, close it
+  let completed = json;
+  if (inString) {
+    completed += '"';
+  }
+  
+  // Remove any trailing incomplete key-value pairs
+  // e.g., `"someKey": "incomplete` or `"someKey": [`
+  completed = completed.replace(/,\s*"[^"]*":\s*("[^"]*)?$/g, '');
+  completed = completed.replace(/,\s*"[^"]*":\s*\[?\s*$/g, '');
+  
+  // Add missing closing brackets
+  for (let i = 0; i < openBrackets; i++) {
+    completed += ']';
+  }
+  for (let i = 0; i < openBraces; i++) {
+    completed += '}';
+  }
+
+  return completed;
+}
+
 function parseJsonFromModelOutput<T = unknown>(text: string): T {
   const json = extractFirstJsonObject(text);
-  if (!json) throw new Error("AI did not return valid JSON");
+  if (!json) {
+    console.error("AI JSON parse failed. Raw (first 1200 chars):", text.slice(0, 1200));
+    throw new Error("AI did not return valid JSON");
+  }
 
   // Try parsing as-is first
   try {
@@ -76,10 +135,19 @@ function parseJsonFromModelOutput<T = unknown>(text: string): T {
     try {
       return JSON.parse(repaired) as T;
     } catch (_secondError) {
-      // Log both attempts for debugging
-      console.error("JSON repair failed. Original (500 chars):", json.slice(0, 500));
-      console.error("Repaired attempt (500 chars):", repaired.slice(0, 500));
-      throw new Error("AI returned malformed JSON that could not be repaired");
+      // Try completing truncated JSON
+      const completed = completeTruncatedJson(repaired);
+      try {
+        console.log("Attempting to parse completed JSON...");
+        return JSON.parse(completed) as T;
+      } catch (_thirdError) {
+        // Log all attempts for debugging
+        console.error("AI JSON parse failed. Raw (first 1200 chars):", text.slice(0, 1200));
+        console.error("JSON repair failed. Original (500 chars):", json.slice(0, 500));
+        console.error("Repaired attempt (500 chars):", repaired.slice(0, 500));
+        console.error("Completed attempt (last 200 chars):", completed.slice(-200));
+        throw new Error("AI returned malformed JSON that could not be repaired");
+      }
     }
   }
 }
