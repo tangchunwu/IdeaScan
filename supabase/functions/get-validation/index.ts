@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateUUID, ValidationError, createErrorResponse, LIMITS } from "../_shared/validation.ts";
+import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,38 +15,37 @@ serve(async (req) => {
   }
 
   try {
-    // 验证用户身份
+    // Validate authorization
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw new ValidationError("Authorization required");
     }
 
-    // 创建 Supabase 客户端
+    // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 验证 JWT token
+    // Validate JWT token
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw new ValidationError("Invalid or expired session");
     }
 
-    // 获取 validation ID (支持 body 或 query 参数)
+    // Check rate limit
+    await checkRateLimit(supabase, user.id, "get-validation");
+
+    // Get validation ID (support body or query params)
     let validationId: string | null = null;
     
     if (req.method === "POST") {
       try {
         const body = await req.json();
-        validationId = body.id;
+        if (body.id) {
+          validationId = validateUUID(body.id, "id");
+        }
       } catch {
         // ignore parse error
       }
@@ -52,17 +53,17 @@ serve(async (req) => {
     
     if (!validationId) {
       const url = new URL(req.url);
-      validationId = url.searchParams.get("id");
+      const idParam = url.searchParams.get("id");
+      if (idParam) {
+        validationId = validateUUID(idParam, "id");
+      }
     }
 
     if (!validationId) {
-      return new Response(
-        JSON.stringify({ error: "Validation ID is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw new ValidationError("Validation ID is required");
     }
 
-    // 获取验证记录
+    // Get validation record
     const { data: validation, error: validationError } = await supabase
       .from("validations")
       .select("*")
@@ -76,13 +77,10 @@ serve(async (req) => {
     }
 
     if (!validation) {
-      return new Response(
-        JSON.stringify({ error: "Validation not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw new Error("Validation not found");
     }
 
-    // 获取报告数据
+    // Get report data
     const { data: report, error: reportError } = await supabase
       .from("validation_reports")
       .select("*")
@@ -101,11 +99,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    console.error("Error in get-validation function:", error);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (error instanceof RateLimitError) {
+      return createRateLimitResponse(error, corsHeaders);
+    }
+    return createErrorResponse(error, corsHeaders);
   }
 });
