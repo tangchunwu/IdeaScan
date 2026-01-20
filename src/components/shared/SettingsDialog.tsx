@@ -176,10 +176,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             className: "bg-green-50 border-green-200 text-green-800"
                      });
               }
-       }
-};
+       };
 
-const handleVerifyImageGen = async () => {
+       const handleVerifyImageGen = async () => {
        if (!localSettings.imageGenApiKey) {
               toast({ variant: "destructive", title: "请输入 API Key" });
               return;
@@ -212,9 +211,9 @@ const handleVerifyImageGen = async () => {
                      className: "bg-green-50 border-green-200 text-green-800"
               });
        }
-};
+  };
 
-const handleVerify = async (provider: string, apiKey: string) => {
+  const handleVerify = async (provider: string, apiKey: string) => {
        if (!apiKey) {
               toast({ variant: "destructive", title: "请输入 API Key" });
               return;
@@ -248,9 +247,9 @@ const handleVerify = async (provider: string, apiKey: string) => {
                      className: "bg-green-50 border-green-200 text-green-800"
               });
        }
-};
+  };
 
-return (
+  return (
        <Dialog open={open} onOpenChange={handleOpenChange}>
               {trigger ? (
                      <DialogTrigger asChild>
