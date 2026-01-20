@@ -49,6 +49,7 @@ import { useValidation } from "@/hooks/useValidation";
 import { exportToPdf, exportToImage } from "@/lib/export";
 import { Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { VCFeed } from "@/components/social";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -413,6 +414,10 @@ const Report = () => {
               <TabsTrigger value="ai" className="rounded-lg">
                 <Brain className="w-4 h-4 mr-2" />
                 VC 深度点评
+              </TabsTrigger>
+              <TabsTrigger value="circle" className="rounded-lg">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                创投圈
               </TabsTrigger>
             </TabsList>
 
@@ -881,6 +886,11 @@ const Report = () => {
                   </div>
                 </GlassCard>
               )}
+            </TabsContent>
+
+            {/* VC Circle Tab */}
+            <TabsContent value="circle" className="space-y-6 animate-slide-up">
+              <VCFeed validationId={validation.id} />
             </TabsContent>
           </Tabs>
         </div>
