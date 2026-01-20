@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface ValidationRequest {
   idea: string;
   tags: string[];
+  mode?: 'quick' | 'deep';
   config?: any;
 }
 

@@ -2,14 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crawlRealXiaohongshuData, XhsNote, XhsComment } from "./tikhub.ts";
 import { searchCompetitors, SearchResult } from "./search.ts";
-import { 
-  validateString, 
-  validateStringArray, 
+import {
+  validateString,
+  validateStringArray,
   validateUserProvidedUrl,
   sanitizeForPrompt,
   ValidationError,
   createErrorResponse,
-  LIMITS 
+  LIMITS
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
 
@@ -29,6 +29,7 @@ interface RequestConfig {
     you?: string;
     tavily?: string;
   };
+  mode?: 'quick' | 'deep';
 }
 
 /**
@@ -38,9 +39,9 @@ function validateConfig(config: unknown): RequestConfig {
   if (!config || typeof config !== "object") {
     return {};
   }
-  
+
   const c = config as Record<string, unknown>;
-  
+
   return {
     llmProvider: validateString(c.llmProvider, "llmProvider", LIMITS.MODEL_MAX_LENGTH) || undefined,
     llmBaseUrl: validateUserProvidedUrl(c.llmBaseUrl, "llmBaseUrl") || undefined,
@@ -52,6 +53,7 @@ function validateConfig(config: unknown): RequestConfig {
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       tavily: validateString((c.searchKeys as any).tavily, "tavily key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     } : undefined,
+    mode: (c.mode === 'quick' || c.mode === 'deep') ? (c.mode as 'quick' | 'deep') : undefined,
   };
 }
 
@@ -407,7 +409,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    
+
     // Validate inputs
     const idea = validateString(body.idea, "idea", LIMITS.IDEA_MAX_LENGTH, true)!;
     const tags = validateStringArray(body.tags, "tags", LIMITS.TAG_MAX_COUNT, LIMITS.TAG_MAX_LENGTH);
@@ -472,7 +474,8 @@ serve(async (req) => {
 
       const searchPromises = webQueries.map(q => searchCompetitors(q, {
         providers: providers,
-        keys: searchKeys
+        keys: searchKeys,
+        mode: config?.mode
       }));
 
       const results = await Promise.all(searchPromises);

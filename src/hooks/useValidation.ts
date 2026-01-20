@@ -45,6 +45,7 @@ export const useCreateValidation = () => {
               mutationFn: (request: ValidationRequest) => createValidation({
                      ...request,
                      config: {
+                            mode: request.mode || 'deep',
                             llmProvider: settings.llmProvider,
                             llmBaseUrl: settings.llmBaseUrl,
                             llmApiKey: settings.llmApiKey,

@@ -25,7 +25,9 @@ import {
   Loader2,
   Brain,
   Globe,
-  FileBarChart
+  FileBarChart,
+  Zap,
+  Microscope
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -52,6 +54,7 @@ const Validate = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const createMutation = useCreateValidation();
+  const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
 
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
@@ -141,6 +144,7 @@ const Validate = () => {
       const result = await createMutation.mutateAsync({
         idea: idea.trim(),
         tags: selectedTags,
+        mode: validationMode,
       });
 
       // Cleanup
@@ -365,6 +369,75 @@ const Validate = () => {
             </div>
           </GlassCard>
 
+          {/* Validation Mode Selector */}
+          <div className="mb-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Quick Validation */}
+              <button
+                onClick={() => setValidationMode('quick')}
+                disabled={isValidating}
+                className={`relative p-5 rounded-2xl border-2 transition-all duration-300 text-left ${validationMode === 'quick'
+                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                    : 'border-border/40 bg-white/40 hover:border-primary/30 hover:bg-white/60'
+                  } disabled:opacity-50`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-xl ${validationMode === 'quick' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`font-semibold ${validationMode === 'quick' ? 'text-primary' : 'text-foreground'}`}>
+                      快速验证
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      快速获取初步验证，适合快速筛选创意
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-2">
+                      预计 10-20 秒
+                    </p>
+                  </div>
+                </div>
+                {validationMode === 'quick' && (
+                  <div className="absolute top-3 right-3">
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                  </div>
+                )}
+              </button>
+
+              {/* Deep Validation */}
+              <button
+                onClick={() => setValidationMode('deep')}
+                disabled={isValidating}
+                className={`relative p-5 rounded-2xl border-2 transition-all duration-300 text-left ${validationMode === 'deep'
+                    ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
+                    : 'border-border/40 bg-white/40 hover:border-secondary/30 hover:bg-white/60'
+                  } disabled:opacity-50`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-xl ${validationMode === 'deep' ? 'bg-secondary/10 text-secondary' : 'bg-muted text-muted-foreground'}`}>
+                    <Microscope className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`font-semibold ${validationMode === 'deep' ? 'text-secondary' : 'text-foreground'}`}>
+                      深度验证
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      全面数据采集，获取详尽分析报告
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-2">
+                      预计 30-60 秒
+                    </p>
+                  </div>
+                </div>
+                {validationMode === 'deep' && (
+                  <div className="absolute top-3 right-3">
+                    <CheckCircle2 className="w-5 h-5 text-secondary" />
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* Submit Button */}
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {isValidating ? (
@@ -413,10 +486,10 @@ const Validate = () => {
                             }`}
                         >
                           <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 ${isCompleted
-                              ? "bg-primary border-primary text-primary-foreground scale-100"
-                              : isActive
-                                ? "bg-primary/10 border-primary text-primary scale-110 shadow-lg shadow-primary/20"
-                                : "bg-background border-border text-muted-foreground"
+                            ? "bg-primary border-primary text-primary-foreground scale-100"
+                            : isActive
+                              ? "bg-primary/10 border-primary text-primary scale-110 shadow-lg shadow-primary/20"
+                              : "bg-background border-border text-muted-foreground"
                             }`}>
                             {isCompleted ? (
                               <CheckCircle2 className="w-5 h-5" />

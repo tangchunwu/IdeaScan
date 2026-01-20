@@ -16,13 +16,19 @@ export interface SearchKeys {
 export interface SearchConfig {
        providers: ('bocha' | 'you' | 'tavily')[];
        keys: SearchKeys;
+       mode?: 'quick' | 'deep';
 }
 
 export async function searchCompetitors(
        query: string,
        config: SearchConfig
 ): Promise<SearchResult[]> {
-       const { providers, keys } = config;
+       const { providers, keys, mode = 'deep' } = config;
+
+       // Determine count based on mode
+       const tavilyCount = mode === 'quick' ? 5 : 30;
+       const bochaCount = mode === 'quick' ? 5 : 20;
+       const youCount = mode === 'quick' ? 5 : 20;
 
        if (!providers || providers.length === 0) {
               return [];
@@ -31,11 +37,11 @@ export async function searchCompetitors(
        const searchPromises = providers.map(async (provider) => {
               try {
                      if (provider === 'bocha' && keys.bocha) {
-                            return await searchBocha(query, keys.bocha);
+                            return await searchBocha(query, keys.bocha, bochaCount);
                      } else if (provider === 'you' && keys.you) {
-                            return await searchYou(query, keys.you);
+                            return await searchYou(query, keys.you, youCount);
                      } else if (provider === 'tavily' && keys.tavily) {
-                            return await searchTavily(query, keys.tavily);
+                            return await searchTavily(query, keys.tavily, tavilyCount);
                      }
                      return [];
               } catch (error) {
@@ -49,7 +55,7 @@ export async function searchCompetitors(
        return results.flat();
 }
 
-async function searchTavily(query: string, apiKey: string): Promise<SearchResult[]> {
+async function searchTavily(query: string, apiKey: string, count: number): Promise<SearchResult[]> {
        const response = await fetch("https://api.tavily.com/search", {
               method: "POST",
               headers: {
@@ -61,7 +67,7 @@ async function searchTavily(query: string, apiKey: string): Promise<SearchResult
                      search_depth: "basic",
                      include_answer: false,
                      include_images: false,
-                     max_results: 30
+                     max_results: count
               })
        });
 
@@ -81,7 +87,7 @@ async function searchTavily(query: string, apiKey: string): Promise<SearchResult
        }));
 }
 
-async function searchBocha(query: string, apiKey: string): Promise<SearchResult[]> {
+async function searchBocha(query: string, apiKey: string, count: number): Promise<SearchResult[]> {
        const response = await fetch("https://api.bochaai.com/v1/web-search", {
               method: "POST",
               headers: {
@@ -92,7 +98,7 @@ async function searchBocha(query: string, apiKey: string): Promise<SearchResult[
                      query: query,
                      freshness: "noLimit", // or "oneMonth"
                      summary: true,
-                     count: 20
+                     count: count
               })
        });
 
@@ -111,9 +117,9 @@ async function searchBocha(query: string, apiKey: string): Promise<SearchResult[
        }));
 }
 
-async function searchYou(query: string, apiKey: string): Promise<SearchResult[]> {
+async function searchYou(query: string, apiKey: string, count: number): Promise<SearchResult[]> {
        // You.com YDC Index API
-       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=20`, {
+       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=${count}`, {
               headers: {
                      "X-API-Key": apiKey
               }
