@@ -37,13 +37,51 @@ function extractFirstJsonObject(text: string): string | null {
   return cleaned.slice(first, last + 1);
 }
 
+function repairJson(json: string): string {
+  let repaired = json;
+
+  // Remove trailing commas before } or ]
+  repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
+
+  // Fix missing commas between array items or object properties
+  // Pattern: "]" followed by whitespace then "[" or "{" or quote
+  repaired = repaired.replace(/\](\s+)\[/g, "],$1[");
+  repaired = repaired.replace(/\](\s+)\{/g, "],$1{");
+  repaired = repaired.replace(/\](\s+)"/g, "],$1\"");
+  
+  // Pattern: "}" followed by whitespace then "{" or quote (for object properties)
+  repaired = repaired.replace(/\}(\s+)\{/g, "},$1{");
+  repaired = repaired.replace(/\}(\s+)"/g, "},$1\"");
+
+  // Fix missing comma after string values: "value" followed by newline then "key"
+  repaired = repaired.replace(/"(\s*\n\s*)"/g, "\",$1\"");
+
+  // Fix arrays ending with values missing comma before next property
+  // e.g. ["item"]\n    "nextKey" -> ["item"],\n    "nextKey"
+  repaired = repaired.replace(/\](\s*\n\s*)"([a-zA-Z_])/g, "],$1\"$2");
+
+  return repaired;
+}
+
 function parseJsonFromModelOutput<T = unknown>(text: string): T {
   const json = extractFirstJsonObject(text);
   if (!json) throw new Error("AI did not return valid JSON");
 
-  // Remove common trailing commas (models sometimes output them)
-  const normalized = json.replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(normalized) as T;
+  // Try parsing as-is first
+  try {
+    return JSON.parse(json) as T;
+  } catch (_firstError) {
+    // Try repairing common issues
+    const repaired = repairJson(json);
+    try {
+      return JSON.parse(repaired) as T;
+    } catch (_secondError) {
+      // Log both attempts for debugging
+      console.error("JSON repair failed. Original (500 chars):", json.slice(0, 500));
+      console.error("Repaired attempt (500 chars):", repaired.slice(0, 500));
+      throw new Error("AI returned malformed JSON that could not be repaired");
+    }
+  }
 }
 
 type KeywordExtractionResult = { xhsKeywords: string[]; webQueries: string[] };
