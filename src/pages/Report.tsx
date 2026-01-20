@@ -45,6 +45,7 @@ import {
   Swords,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
+import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
 import { exportToPdf, exportToImage } from "@/lib/export";
 import { Image as ImageIcon } from "lucide-react";
@@ -759,9 +760,12 @@ const Report = () => {
                     <GlassCard key={i} className="animate-slide-up" style={{ animationDelay: `${i * 50}ms` }}>
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-xs">
-                            {comp.source}
-                          </Badge>
+                          <div className="flex gap-2">
+                            <Badge variant={comp.source?.toLowerCase().includes('you') ? 'default' : comp.source?.toLowerCase().includes('tavily') ? 'secondary' : 'outline'}
+                              className={`${comp.source?.toLowerCase().includes('bocha') ? 'border-orange-500 text-orange-500' : ''} text-xs`}>
+                              {comp.source}
+                            </Badge>
+                          </div>
                           <a href={comp.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
                             访问链接 <ArrowLeft className="w-3 h-3 rotate-180" />
                           </a>
@@ -816,9 +820,9 @@ const Report = () => {
                             </span>
                           </div>
                           {d.reason && (
-                            <p className={`text-xs leading-relaxed pl-2 border-l-2 ${d.score < 50 ? 'border-red-500/50 text-red-400/80' : 'border-white/10 text-muted-foreground'}`}>
-                              {d.reason}
-                            </p>
+                            <div className={`text-xs leading-relaxed pl-2 border-l-2 ${d.score < 50 ? 'border-red-500/50 text-red-400/80' : 'border-white/10 text-muted-foreground'} prose prose-invert max-w-none`}>
+                              <ReactMarkdown>{d.reason}</ReactMarkdown>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -839,7 +843,9 @@ const Report = () => {
                     {aiAnalysis.strengths?.map((item: string, i: number) => (
                       <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                        <span className="text-foreground/90">{item}</span>
+                        <div className="text-foreground/90 prose prose-invert max-w-none">
+                          <ReactMarkdown>{item}</ReactMarkdown>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -855,7 +861,9 @@ const Report = () => {
                     {aiAnalysis.weaknesses?.map((item: string, i: number) => (
                       <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
                         <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
-                        <span className="text-foreground/90">{item}</span>
+                        <div className="text-foreground/90 prose prose-invert max-w-none">
+                          <ReactMarkdown>{item}</ReactMarkdown>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -876,10 +884,14 @@ const Report = () => {
                       </div>
                       <div className="flex-1 space-y-2">
                         {typeof item === 'string' ? (
-                          <p className="text-sm text-foreground leading-relaxed">{item}</p>
+                          <div className="text-sm text-foreground leading-relaxed prose prose-invert max-w-none">
+                            <ReactMarkdown>{item}</ReactMarkdown>
+                          </div>
                         ) : (
                           <>
-                            <p className="text-sm text-foreground font-medium">{item.action}</p>
+                            <div className="text-sm text-foreground font-medium prose prose-invert max-w-none">
+                              <ReactMarkdown>{item.action}</ReactMarkdown>
+                            </div>
                             {item.reference && (
                               <p className="text-xs text-primary/80 flex items-center gap-1">
                                 <span className="opacity-60">📚 参考:</span> {item.reference}
@@ -907,9 +919,12 @@ const Report = () => {
                   </h3>
                   <div className="space-y-2">
                     {aiAnalysis.risks.map((item: string, i: number) => (
-                      <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-red-500/50">•</span> {item}
-                      </p>
+                      <div key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-red-500/50 mt-1.5">•</span>
+                        <div className="prose prose-invert max-w-none text-sm text-muted-foreground">
+                          <ReactMarkdown>{item}</ReactMarkdown>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </GlassCard>
