@@ -9,7 +9,8 @@ import {
   Search,
   BarChart3,
   MessageCircle,
-  Zap
+  Zap,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -210,6 +211,59 @@ const Index = () => {
           </section>
         </div>
       </main>
+      <footer className="border-t border-border/50 bg-card/30 backdrop-blur-sm pt-16 pb-8">
+        <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          <div className="col-span-1 md:col-span-2">
+            <div className="flex items-center gap-2.5 mb-6">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-lg">Idea Validator</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed max-w-sm">
+              基于 AI 的商业创意验证引擎。集成全网数据与顶级 VC 视角，帮助创业者在投入开发前验证想法可行性。
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 text-foreground">产品</h4>
+            <ul className="space-y-4">
+              <li><Link to="/validate" className="text-muted-foreground hover:text-primary transition-colors">开始验证</Link></li>
+              <li><Link to="/history" className="text-muted-foreground hover:text-primary transition-colors">历史记录</Link></li>
+              <li><Link to="/compare" className="text-muted-foreground hover:text-primary transition-colors">对比分析</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 text-foreground">API 资源</h4>
+            <ul className="space-y-4">
+              <li>
+                <a href="https://platform.openai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  OpenAI <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  DeepSeek <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a href="https://tikhub.io/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  Tikhub (小红书数据) <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a href="https://open.bochaai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  Bocha (全网搜索) <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto px-4 pt-8 border-t border-border/10 text-center md:text-left text-sm text-muted-foreground">
+          © {new Date().getFullYear()} Idea Validator. All rights reserved.
+        </div>
+      </footer>
     </PageBackground>
   );
 };
