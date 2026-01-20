@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2 } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -182,6 +182,83 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             description: "配置已恢复默认值。",
                      });
               }
+       };
+
+       // Export settings to JSON file
+       const handleExport = () => {
+              const exportData = {
+                     version: 1,
+                     exportedAt: new Date().toISOString(),
+                     settings: localSettings
+              };
+              
+              const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `vc-circle-config-${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              
+              toast({
+                     title: "导出成功",
+                     description: "配置文件已下载到本地",
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+       };
+
+       // Import settings from JSON file
+       const handleImport = () => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = async (e) => {
+                     const file = (e.target as HTMLInputElement).files?.[0];
+                     if (!file) return;
+                     
+                     try {
+                            const text = await file.text();
+                            const importData = JSON.parse(text);
+                            
+                            // Validate structure
+                            if (!importData.settings || typeof importData.settings !== 'object') {
+                                   throw new Error('Invalid config file format');
+                            }
+                            
+                            const { settings } = importData;
+                            
+                            // Merge with current settings (only update fields that exist in imported data)
+                            setLocalSettings(prev => ({
+                                   ...prev,
+                                   ...(settings.llmProvider && { llmProvider: settings.llmProvider }),
+                                   ...(settings.llmBaseUrl && { llmBaseUrl: settings.llmBaseUrl }),
+                                   ...(settings.llmApiKey && { llmApiKey: settings.llmApiKey }),
+                                   ...(settings.llmModel && { llmModel: settings.llmModel }),
+                                   ...(settings.tikhubToken && { tikhubToken: settings.tikhubToken }),
+                                   ...(settings.bochaApiKey && { bochaApiKey: settings.bochaApiKey }),
+                                   ...(settings.youApiKey && { youApiKey: settings.youApiKey }),
+                                   ...(settings.tavilyApiKey && { tavilyApiKey: settings.tavilyApiKey }),
+                                   ...(settings.imageGenBaseUrl && { imageGenBaseUrl: settings.imageGenBaseUrl }),
+                                   ...(settings.imageGenApiKey && { imageGenApiKey: settings.imageGenApiKey }),
+                                   ...(settings.imageGenModel && { imageGenModel: settings.imageGenModel }),
+                            }));
+                            
+                            toast({
+                                   title: "导入成功",
+                                   description: "配置已加载，请点击保存以应用更改",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     } catch (error) {
+                            toast({
+                                   variant: "destructive",
+                                   title: "导入失败",
+                                   description: "配置文件格式无效"
+                            });
+                     }
+              };
+              input.click();
        };
 
        const handleVerifyLLM = async () => {
@@ -554,19 +631,34 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             </div>
                      </div>
 
-                     <div className="flex justify-between mt-4">
-                            <Button variant="outline" onClick={handleReset} className="text-muted-foreground">
-                                   <RotateCcw className="w-4 h-4 mr-2" />
-                                   重置默认
-                            </Button>
-                            <Button onClick={handleSave} disabled={isSaving || isLoading}>
-                                   {isSaving ? (
-                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                   ) : (
-                                          <Save className="w-4 h-4 mr-2" />
-                                   )}
-                                   {user ? "保存到云端" : "保存配置"}
-                            </Button>
+                     <div className="flex flex-col gap-3 mt-4">
+                            {/* Import/Export buttons */}
+                            <div className="flex gap-2">
+                                   <Button variant="outline" size="sm" onClick={handleImport} className="flex-1">
+                                          <Upload className="w-4 h-4 mr-2" />
+                                          导入配置
+                                   </Button>
+                                   <Button variant="outline" size="sm" onClick={handleExport} className="flex-1">
+                                          <Download className="w-4 h-4 mr-2" />
+                                          导出配置
+                                   </Button>
+                            </div>
+                            
+                            {/* Main action buttons */}
+                            <div className="flex justify-between">
+                                   <Button variant="outline" onClick={handleReset} className="text-muted-foreground">
+                                          <RotateCcw className="w-4 h-4 mr-2" />
+                                          重置默认
+                                   </Button>
+                                   <Button onClick={handleSave} disabled={isSaving || isLoading}>
+                                          {isSaving ? (
+                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                          ) : (
+                                                 <Save className="w-4 h-4 mr-2" />
+                                          )}
+                                          {user ? "保存到云端" : "保存配置"}
+                                   </Button>
+                            </div>
                      </div>
               </DialogContent>
        </Dialog>
