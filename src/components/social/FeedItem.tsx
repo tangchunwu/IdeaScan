@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { Heart, MessageCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PersonaAvatar } from "./PersonaAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { Comment, Persona } from "@/types/social";
+import type { Comment } from "@/types/social";
 
 interface FeedItemProps {
        comment: Comment;
@@ -14,13 +14,13 @@ interface FeedItemProps {
        depth?: number;
 }
 
-export function FeedItem({
+export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedItem({
        comment,
        onReply,
        onLike,
        isReplying = false,
        depth = 0
-}: FeedItemProps) {
+}, ref) {
        const [showReplyInput, setShowReplyInput] = useState(false);
        const [replyContent, setReplyContent] = useState("");
        const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,6 +185,6 @@ export function FeedItem({
                                    ))}
                             </div>
                      )}
-              </div>
+               </div>
        );
-}
+});
