@@ -57,6 +57,34 @@ serve(async (req) => {
                             isValid = false;
                             message = `Connection Error: ${e instanceof Error ? e.message : 'Unknown error'}`;
                      }
+              } else if (type === 'image_gen') {
+                     try {
+                            let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+                            // Use /models to verify key without generating image (cost saving)
+                            const endpoint = `${cleanBaseUrl}/models`;
+
+                            const res = await fetch(endpoint, {
+                                   method: "GET",
+                                   headers: {
+                                          "Authorization": `Bearer ${apiKey}`,
+                                          "Content-Type": "application/json"
+                                   }
+                            });
+
+                            if (res.ok) {
+                                   isValid = true;
+                                   message = "Image Gen API Connection Successful";
+                            } else {
+                                   // Fallback: If modules not allowed, maybe try generation? No, too risky/costly.
+                                   // Just return error.
+                                   const errText = await res.text();
+                                   isValid = false;
+                                   message = `Image Gen Connection Failed: ${res.status} - ${errText.slice(0, 100)}`;
+                            }
+                     } catch (e) {
+                            isValid = false;
+                            message = `Connection Error: ${e instanceof Error ? e.message : 'Unknown error'}`;
+                     }
               } else if (type === 'search') {
                      if (provider === 'bocha') {
                             try {
