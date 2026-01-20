@@ -15,6 +15,10 @@ export interface UserSettings {
        bochaApiKey: string;
        youApiKey: string;
        tavilyApiKey: string;
+       // Image Generation Settings (OpenAI Compatible)
+       imageGenBaseUrl: string;
+       imageGenApiKey: string;
+       imageGenModel: string;
 }
 
 interface SettingsState extends UserSettings {
@@ -31,6 +35,9 @@ const defaultSettings: UserSettings = {
        bochaApiKey: '',
        youApiKey: '',
        tavilyApiKey: '',
+       imageGenBaseUrl: 'https://api.openai.com/v1',
+       imageGenApiKey: '',
+       imageGenModel: 'dall-e-3',
 };
 
 export const useSettings = create<SettingsState>()(

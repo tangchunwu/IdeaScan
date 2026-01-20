@@ -8,6 +8,7 @@ interface ScoreCircleProps {
   customSize?: number;
   strokeWidth?: number;
   label?: string;
+  showText?: boolean;
   showAnimation?: boolean;
   className?: string;
 }
@@ -40,6 +41,7 @@ export const ScoreCircle = ({
   customSize,
   strokeWidth,
   label,
+  showText = true,
   showAnimation = true,
   className
 }: ScoreCircleProps) => {
@@ -135,16 +137,18 @@ export const ScoreCircle = ({
         </svg>
 
         {/* 分数文字 */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("font-bold text-foreground number-highlight", config.text)}>
-            {animatedScore}
-          </span>
-          {size !== "sm" && (
-            <span className="text-xs text-muted-foreground">
-              {getScoreLabel((score / maxScore) * 100)}
+        {showText && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className={cn("font-bold text-foreground number-highlight", config.text)}>
+              {animatedScore}
             </span>
-          )}
-        </div>
+            {size !== "sm" && (
+              <span className="text-xs text-muted-foreground">
+                {getScoreLabel((score / maxScore) * 100)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {label && (

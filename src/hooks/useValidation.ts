@@ -54,6 +54,11 @@ export const useCreateValidation = () => {
                                    bocha: settings.bochaApiKey,
                                    you: settings.youApiKey,
                                    tavily: settings.tavilyApiKey,
+                            },
+                            imageGen: {
+                                   baseUrl: settings.imageGenBaseUrl,
+                                   apiKey: settings.imageGenApiKey,
+                                   model: settings.imageGenModel,
                             }
                      }
               }),

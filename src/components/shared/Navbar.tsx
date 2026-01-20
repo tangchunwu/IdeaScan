@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X } from "lucide-react";
+import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SettingsDialog } from "./SettingsDialog";
 
 const navItems = [
   { path: "/", label: "首页", icon: Home },
@@ -23,8 +24,9 @@ export const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const visibleNavItems = navItems.filter(item => 
+  const visibleNavItems = navItems.filter(item =>
     !item.requireAuth || user
   );
 
@@ -52,15 +54,15 @@ export const Navbar = () => {
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={cn(
                     "relative flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-300 group",
-                    isActive 
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
@@ -69,7 +71,7 @@ export const Navbar = () => {
                     !isActive && "group-hover:scale-110"
                   )} />
                   <span className="text-sm font-medium">{item.label}</span>
-                  
+
                   {/* 活跃指示器 */}
                   {isActive && (
                     <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-foreground" />
@@ -87,8 +89,8 @@ export const Navbar = () => {
                 {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         className="rounded-xl h-10 px-3 gap-2 hover:bg-muted/50"
                       >
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -105,8 +107,13 @@ export const Navbar = () => {
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                       </div>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={signOut} 
+                      <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer">
+                        <Settings className="w-4 h-4 mr-2" />
+                        系统配置
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={signOut}
                         className="text-destructive focus:text-destructive cursor-pointer"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
@@ -116,9 +123,9 @@ export const Navbar = () => {
                   </DropdownMenu>
                 ) : (
                   <Link to="/auth">
-                    <Button 
-                      variant="default" 
-                      size="sm" 
+                    <Button
+                      variant="default"
+                      size="sm"
                       className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                     >
                       <LogIn className="w-4 h-4 mr-2" />
@@ -148,7 +155,7 @@ export const Navbar = () => {
               {visibleNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
-                
+
                 return (
                   <Link
                     key={item.path}
@@ -156,8 +163,8 @@ export const Navbar = () => {
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
-                      isActive 
-                        ? "bg-primary text-primary-foreground" 
+                      isActive
+                        ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     )}
                   >
@@ -167,7 +174,7 @@ export const Navbar = () => {
                 );
               })}
             </div>
-            
+
             {/* Mobile Auth */}
             {!isLoading && (
               <div className="mt-4 pt-4 border-t border-border/50">
@@ -177,8 +184,8 @@ export const Navbar = () => {
                       <p className="text-sm text-muted-foreground">已登录</p>
                       <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full rounded-xl justify-start text-destructive border-destructive/30"
                       onClick={() => {
                         signOut();
@@ -202,6 +209,7 @@ export const Navbar = () => {
           </div>
         )}
       </div>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </nav>
   );
 };

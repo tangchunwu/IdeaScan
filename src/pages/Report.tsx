@@ -314,7 +314,7 @@ const Report = () => {
 
                 <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">市场可行性评分</span>
                 <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
-                  <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} />
+                  <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-5xl font-bold text-foreground tracking-tighter">{report?.ai_analysis?.feasibilityScore || 0}</span>
                     <span className="text-sm text-muted-foreground mt-1 font-medium">/ 100</span>

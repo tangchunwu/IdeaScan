@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, EyeOff, Save, RotateCcw, ExternalLink } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,14 +27,26 @@ const PROVIDERS = {
        }
 };
 
-export const SettingsDialog = () => {
+interface SettingsDialogProps {
+       open?: boolean;
+       onOpenChange?: (open: boolean) => void;
+       trigger?: React.ReactNode;
+}
+
+export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
        const {
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
               bochaApiKey, youApiKey, tavilyApiKey,
+              imageGenBaseUrl, imageGenApiKey, imageGenModel,
               updateSettings, resetSettings
        } = useSettings();
 
-       const [open, setOpen] = useState(false);
+       const [internalOpen, setInternalOpen] = useState(false);
+
+       const isControlled = controlledOpen !== undefined;
+       const open = isControlled ? controlledOpen : internalOpen;
+       const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
+
        const [showKey, setShowKey] = useState(false);
        const [showTikhubToken, setShowTikhubToken] = useState(false);
        const [showSearchKey, setShowSearchKey] = useState(false);
@@ -43,7 +55,8 @@ export const SettingsDialog = () => {
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-              bochaApiKey, youApiKey, tavilyApiKey
+              bochaApiKey, youApiKey, tavilyApiKey,
+              imageGenBaseUrl, imageGenApiKey, imageGenModel
        });
 
        // Sync local state when dialog opens or store changes
@@ -51,10 +64,11 @@ export const SettingsDialog = () => {
               if (open) {
                      setLocalSettings({
                             llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-                            bochaApiKey, youApiKey, tavilyApiKey
+                            bochaApiKey, youApiKey, tavilyApiKey,
+                            imageGenBaseUrl, imageGenApiKey, imageGenModel
                      });
               }
-       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, bochaApiKey, youApiKey, tavilyApiKey]);
+       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
 
        const handleProviderChange = (value: 'openai' | 'deepseek' | 'custom') => {
               const providerConfig = PROVIDERS[value];
@@ -73,14 +87,14 @@ export const SettingsDialog = () => {
                      title: "配置已保存",
                      description: "您的设置已更新并保存到本地。",
               });
-              setOpen(false);
+              setOpen?.(false);
        };
 
        // Auto-save when dialog closes with unsaved changes
        const handleOpenChange = (newOpen: boolean) => {
               if (!newOpen && open) {
                      // Check if there are unsaved changes
-                     const hasChanges = 
+                     const hasChanges =
                             localSettings.llmApiKey !== llmApiKey ||
                             localSettings.llmBaseUrl !== llmBaseUrl ||
                             localSettings.llmProvider !== llmProvider ||
@@ -88,8 +102,11 @@ export const SettingsDialog = () => {
                             localSettings.tikhubToken !== tikhubToken ||
                             localSettings.bochaApiKey !== bochaApiKey ||
                             localSettings.youApiKey !== youApiKey ||
-                            localSettings.tavilyApiKey !== tavilyApiKey;
-                     
+                            localSettings.tavilyApiKey !== tavilyApiKey ||
+                            localSettings.imageGenBaseUrl !== imageGenBaseUrl ||
+                            localSettings.imageGenApiKey !== imageGenApiKey ||
+                            localSettings.imageGenModel !== imageGenModel;
+
                      if (hasChanges) {
                             // Auto-save on close
                             updateSettings(localSettings);
@@ -99,7 +116,7 @@ export const SettingsDialog = () => {
                             });
                      }
               }
-              setOpen(newOpen);
+              setOpen?.(newOpen);
        };
 
        const handleReset = () => {
@@ -114,6 +131,9 @@ export const SettingsDialog = () => {
                             bochaApiKey: '',
                             youApiKey: '',
                             tavilyApiKey: '',
+                            imageGenBaseUrl: 'https://api.openai.com/v1',
+                            imageGenApiKey: '',
+                            imageGenModel: 'dall-e-3',
                      });
                      toast({
                             title: "已重置",
@@ -182,6 +202,7 @@ export const SettingsDialog = () => {
                      };
                      const settingKey = keyMap[provider];
                      if (settingKey) {
+                            // @ts-ignore - dynamic key assignment
                             updateSettings({ [settingKey]: apiKey });
                      }
 
@@ -195,12 +216,19 @@ export const SettingsDialog = () => {
 
        return (
               <Dialog open={open} onOpenChange={handleOpenChange}>
-                     {/* ... (DialogTrigger consistent with previous) */}
-                     <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full">
-                                   <Settings className="w-5 h-5" />
-                            </Button>
-                     </DialogTrigger>
+                     {trigger ? (
+                            <DialogTrigger asChild>
+                                   {trigger}
+                            </DialogTrigger>
+                     ) : (
+                            !isControlled && (
+                                   <DialogTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="rounded-full">
+                                                 <Settings className="w-5 h-5" />
+                                          </Button>
+                                   </DialogTrigger>
+                            )
+                     )}
                      <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[90vh]">
                             <DialogHeader>
                                    <DialogTitle>系统配置</DialogTitle>
@@ -210,23 +238,22 @@ export const SettingsDialog = () => {
                             </DialogHeader>
                             <div className="grid gap-6 py-4">
 
-                                   {/* ... (LLM & Tikhub sections consistent with previous) ... */}
-                                    <div className="space-y-4">
-                                           <h4 className="font-medium flex items-center justify-between">
-                                                  <span className="flex items-center gap-2">🤖 大模型配置 (LLM)</span>
-                                                  <a 
-                                                         href={localSettings.llmProvider === 'deepseek' 
-                                                                ? "https://platform.deepseek.com/api_keys" 
-                                                                : "https://platform.openai.com/api-keys"
-                                                         }
-                                                         target="_blank" 
-                                                         rel="noopener noreferrer"
-                                                         className="text-xs text-primary hover:underline flex items-center gap-1"
-                                                  >
-                                                         获取 API Key <ExternalLink className="w-3 h-3" />
-                                                  </a>
-                                           </h4>
-                                          {/* LLM Inputs (Keep existing) */}
+                                   {/* LLM Settings */}
+                                   <div className="space-y-4">
+                                          <h4 className="font-medium flex items-center justify-between">
+                                                 <span className="flex items-center gap-2">🤖 大模型配置 (LLM)</span>
+                                                 <a
+                                                        href={localSettings.llmProvider === 'deepseek'
+                                                               ? "https://platform.deepseek.com/api_keys"
+                                                               : "https://platform.openai.com/api-keys"
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                 >
+                                                        获取 API Key <ExternalLink className="w-3 h-3" />
+                                                 </a>
+                                          </h4>
                                           <div className="grid gap-2">
                                                  <Label>提供商 Provider</Label>
                                                  <Select
@@ -266,18 +293,19 @@ export const SettingsDialog = () => {
 
                                    <hr className="border-gray-100" />
 
-                                    <div className="space-y-4">
-                                           <h4 className="font-medium flex items-center justify-between">
-                                                  <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
-                                                  <a 
-                                                         href="https://tikhub.io/users/api_keys"
-                                                         target="_blank" 
-                                                         rel="noopener noreferrer"
-                                                         className="text-xs text-primary hover:underline flex items-center gap-1"
-                                                  >
-                                                         获取 Token <ExternalLink className="w-3 h-3" />
-                                                  </a>
-                                           </h4>
+                                   {/* Tikhub Settings */}
+                                   <div className="space-y-4">
+                                          <h4 className="font-medium flex items-center justify-between">
+                                                 <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
+                                                 <a
+                                                        href="https://tikhub.io/users/api_keys"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                 >
+                                                        获取 Token <ExternalLink className="w-3 h-3" />
+                                                 </a>
+                                          </h4>
                                           <div className="grid gap-2">
                                                  <Label>Tikhub API Token</Label>
                                                  <div className="relative">
@@ -298,21 +326,21 @@ export const SettingsDialog = () => {
                                                  配置多个搜索引擎可提高竞品分析的全面性。系统将并行搜索所有已配置的服务。
                                           </p>
 
-                                           {/* Bocha Settings */}
-                                           <div className="grid gap-2 border-l-2 border-primary/20 pl-4">
-                                                  <Label className="flex justify-between items-center">
-                                                         <span className="flex items-center gap-2">
-                                                                博查 (Bocha) {localSettings.bochaApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                         </span>
-                                                         <a 
-                                                                href="https://open.bochaai.com/"
-                                                                target="_blank" 
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                         >
-                                                                获取 <ExternalLink className="w-3 h-3" />
-                                                         </a>
-                                                  </Label>
+                                          {/* Bocha Settings */}
+                                          <div className="grid gap-2 border-l-2 border-primary/20 pl-4">
+                                                 <Label className="flex justify-between items-center">
+                                                        <span className="flex items-center gap-2">
+                                                               博查 (Bocha) {localSettings.bochaApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                        </span>
+                                                        <a
+                                                               href="https://open.bochaai.com/"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                        >
+                                                               获取 <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                 </Label>
                                                  <div className="flex gap-2">
                                                         <div className="relative flex-1">
                                                                <Input
@@ -328,21 +356,21 @@ export const SettingsDialog = () => {
                                                  </div>
                                           </div>
 
-                                           {/* You.com Settings */}
-                                           <div className="grid gap-2 border-l-2 border-secondary/20 pl-4">
-                                                  <Label className="flex justify-between items-center">
-                                                         <span className="flex items-center gap-2">
-                                                                You.com {localSettings.youApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                         </span>
-                                                         <a 
-                                                                href="https://you.com/api"
-                                                                target="_blank" 
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                         >
-                                                                获取 <ExternalLink className="w-3 h-3" />
-                                                         </a>
-                                                  </Label>
+                                          {/* You.com Settings */}
+                                          <div className="grid gap-2 border-l-2 border-secondary/20 pl-4">
+                                                 <Label className="flex justify-between items-center">
+                                                        <span className="flex items-center gap-2">
+                                                               You.com {localSettings.youApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                        </span>
+                                                        <a
+                                                               href="https://you.com/api"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                        >
+                                                               获取 <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                 </Label>
                                                  <div className="flex gap-2">
                                                         <div className="relative flex-1">
                                                                <Input
@@ -357,21 +385,21 @@ export const SettingsDialog = () => {
                                                  </div>
                                           </div>
 
-                                           {/* Tavily Settings */}
-                                           <div className="grid gap-2 border-l-2 border-accent/20 pl-4">
-                                                  <Label className="flex justify-between items-center">
-                                                         <span className="flex items-center gap-2">
-                                                                Tavily {localSettings.tavilyApiKey && <span className="text-xs text-green-500">已填</span>}
-                                                         </span>
-                                                         <a 
-                                                                href="https://app.tavily.com/home"
-                                                                target="_blank" 
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                                                         >
-                                                                获取 <ExternalLink className="w-3 h-3" />
-                                                         </a>
-                                                  </Label>
+                                          {/* Tavily Settings */}
+                                          <div className="grid gap-2 border-l-2 border-accent/20 pl-4">
+                                                 <Label className="flex justify-between items-center">
+                                                        <span className="flex items-center gap-2">
+                                                               Tavily {localSettings.tavilyApiKey && <span className="text-xs text-green-500">已填</span>}
+                                                        </span>
+                                                        <a
+                                                               href="https://app.tavily.com/home"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                                        >
+                                                               获取 <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                 </Label>
                                                  <div className="flex gap-2">
                                                         <div className="relative flex-1">
                                                                <Input
@@ -384,6 +412,43 @@ export const SettingsDialog = () => {
                                                         </div>
                                                         <Button variant="outline" size="sm" onClick={() => handleVerify('tavily', localSettings.tavilyApiKey)}>验证</Button>
                                                  </div>
+                                          </div>
+                                   </div>
+
+                                   <hr className="border-gray-100" />
+
+                                   {/* Image Generation Settings */}
+                                   <div className="space-y-4">
+                                          <h4 className="font-medium flex items-center justify-between">
+                                                 <span className="flex items-center gap-2">🎨 AI 绘图配置 (OpenAI Compatible)</span>
+                                          </h4>
+                                          <div className="grid gap-2">
+                                                 <Label>API Base URL</Label>
+                                                 <Input
+                                                        value={localSettings.imageGenBaseUrl}
+                                                        onChange={(e) => setLocalSettings(s => ({ ...s, imageGenBaseUrl: e.target.value }))}
+                                                        placeholder="https://api.openai.com/v1"
+                                                 />
+                                          </div>
+                                          <div className="grid gap-2">
+                                                 <Label>API Key</Label>
+                                                 <div className="relative">
+                                                        <Input
+                                                               type={showKey ? "text" : "password"}
+                                                               value={localSettings.imageGenApiKey}
+                                                               onChange={(e) => setLocalSettings(s => ({ ...s, imageGenApiKey: e.target.value }))}
+                                                               className="pr-10"
+                                                        />
+                                                        <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                                 </div>
+                                          </div>
+                                          <div className="grid gap-2">
+                                                 <Label>模型名称 Model Name</Label>
+                                                 <Input
+                                                        value={localSettings.imageGenModel}
+                                                        onChange={(e) => setLocalSettings(s => ({ ...s, imageGenModel: e.target.value }))}
+                                                        placeholder="dall-e-3"
+                                                 />
                                           </div>
                                    </div>
                             </div>
