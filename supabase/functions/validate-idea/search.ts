@@ -61,7 +61,7 @@ async function searchTavily(query: string, apiKey: string): Promise<SearchResult
                      search_depth: "basic",
                      include_answer: false,
                      include_images: false,
-                     max_results: 5
+                     max_results: 30
               })
        });
 
@@ -92,7 +92,7 @@ async function searchBocha(query: string, apiKey: string): Promise<SearchResult[
                      query: query,
                      freshness: "noLimit", // or "oneMonth"
                      summary: true,
-                     count: 5
+                     count: 20
               })
        });
 
@@ -112,8 +112,8 @@ async function searchBocha(query: string, apiKey: string): Promise<SearchResult[
 }
 
 async function searchYou(query: string, apiKey: string): Promise<SearchResult[]> {
-       // You.com usually uses YDC (You.com Developer Control) API
-       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=5`, {
+       // You.com YDC Index API
+       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=20`, {
               headers: {
                      "X-API-Key": apiKey
               }
@@ -125,13 +125,13 @@ async function searchYou(query: string, apiKey: string): Promise<SearchResult[]>
 
        const data = await response.json();
 
-       // Mapping YDC response
-       const hits = data.hits || [];
+       // YDC API returns results.web array
+       const webResults = data.results?.web || [];
 
-       return hits.map((hit: any) => ({
-              title: hit.title,
-              url: hit.url,
-              snippet: hit.description || hit.snippets?.join(" ") || "",
+       return webResults.map((item: any) => ({
+              title: item.title || "",
+              url: item.url || "",
+              snippet: item.description || item.snippets?.[0] || "",
               source: "You.com"
        }));
 }
