@@ -3,7 +3,7 @@
 export interface Persona {
        id: string;
        name: string;
-       role: 'vc' | 'pm' | 'user' | 'analyst';
+       role: string;
        avatar_url: string | null;
        personality: string | null;
        system_prompt: string;
