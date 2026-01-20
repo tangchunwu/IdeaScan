@@ -5,7 +5,7 @@ import { searchCompetitors, SearchResult } from "./search.ts";
 import { 
   validateString, 
   validateStringArray, 
-  validateBaseUrl,
+  validateUserProvidedUrl,
   sanitizeForPrompt,
   ValidationError,
   createErrorResponse,
@@ -43,7 +43,7 @@ function validateConfig(config: unknown): RequestConfig {
   
   return {
     llmProvider: validateString(c.llmProvider, "llmProvider", LIMITS.MODEL_MAX_LENGTH) || undefined,
-    llmBaseUrl: validateBaseUrl(c.llmBaseUrl, "llmBaseUrl") || undefined,
+    llmBaseUrl: validateUserProvidedUrl(c.llmBaseUrl, "llmBaseUrl") || undefined,
     llmApiKey: validateString(c.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     llmModel: validateString(c.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,

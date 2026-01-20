@@ -101,7 +101,7 @@ export function validateUUID(value: unknown, fieldName: string): string {
 }
 
 /**
- * Validate a base URL against allowlist
+ * Validate a base URL against allowlist (for system-level URLs)
  */
 export function validateBaseUrl(value: unknown, fieldName: string): string | null {
   if (value === undefined || value === null) {
@@ -122,6 +122,33 @@ export function validateBaseUrl(value: unknown, fieldName: string): string | nul
     
     if (!isAllowed) {
       throw new ValidationError(`${fieldName} must be from an allowed provider domain`);
+    }
+    
+    return url;
+  } catch (e) {
+    if (e instanceof ValidationError) throw e;
+    throw new ValidationError(`${fieldName} must be a valid URL`);
+  }
+}
+
+/**
+ * Validate a user-provided URL (format and HTTPS only, no domain restriction)
+ * Use this for user-configurable endpoints like custom LLM providers
+ */
+export function validateUserProvidedUrl(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  
+  const url = validateString(value, fieldName, LIMITS.URL_MAX_LENGTH);
+  if (!url) return null;
+  
+  try {
+    const parsed = new URL(url);
+    
+    // Require HTTPS for security
+    if (parsed.protocol !== "https:") {
+      throw new ValidationError(`${fieldName} must use HTTPS protocol`);
     }
     
     return url;
