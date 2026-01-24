@@ -83,7 +83,7 @@ export const Navbar = () => {
 
           {/* Right Section */}
           <div className="flex items-center gap-2">
-            {/* Auth Button - Desktop (hidden on homepage when not logged in) */}
+            {/* Auth Button - Desktop */}
             {!isLoading && (
               <div className="hidden md:block">
                 {user ? (
@@ -121,7 +121,18 @@ export const Navbar = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                ) : null}
+                ) : (
+                  <Link to="/auth">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
+                    >
+                      <LogIn className="w-4 h-4 mr-2" />
+                      登录
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
 
@@ -164,26 +175,35 @@ export const Navbar = () => {
               })}
             </div>
 
-            {/* Mobile Auth - only show when logged in */}
-            {!isLoading && user && (
+            {/* Mobile Auth */}
+            {!isLoading && (
               <div className="mt-4 pt-4 border-t border-border/50">
-                <div className="space-y-3">
-                  <div className="px-4 py-2">
-                    <p className="text-sm text-muted-foreground">已登录</p>
-                    <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
+                {user ? (
+                  <div className="space-y-3">
+                    <div className="px-4 py-2">
+                      <p className="text-sm text-muted-foreground">已登录</p>
+                      <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl justify-start text-destructive border-destructive/30"
+                      onClick={() => {
+                        signOut();
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      退出登录
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl justify-start text-destructive border-destructive/30"
-                    onClick={() => {
-                      signOut();
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    退出登录
-                  </Button>
-                </div>
+                ) : (
+                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full rounded-xl">
+                      <LogIn className="w-4 h-4 mr-2" />
+                      登录 / 注册
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
