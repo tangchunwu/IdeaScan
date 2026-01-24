@@ -19,6 +19,30 @@ export interface SearchConfig {
        mode?: 'quick' | 'deep';
 }
 
+// 检测文本是否包含中文字符
+function containsChinese(text: string): boolean {
+       return /[\u4e00-\u9fff]/.test(text);
+}
+
+// 过滤结果，优先保留中文内容
+function filterChineseResults(results: SearchResult[]): SearchResult[] {
+       // 首先筛选包含中文的结果
+       const chineseResults = results.filter(r => 
+              containsChinese(r.title) || containsChinese(r.snippet)
+       );
+       
+       // 如果中文结果足够多，只返回中文结果
+       if (chineseResults.length >= 5) {
+              return chineseResults;
+       }
+       
+       // 否则返回所有结果但中文优先
+       return [
+              ...chineseResults,
+              ...results.filter(r => !containsChinese(r.title) && !containsChinese(r.snippet))
+       ];
+}
+
 export async function searchCompetitors(
        query: string,
        config: SearchConfig
@@ -34,14 +58,17 @@ export async function searchCompetitors(
               return [];
        }
 
+       // 确保查询包含中文上下文
+       const localizedQuery = containsChinese(query) ? query : `${query} 中国市场`;
+
        const searchPromises = providers.map(async (provider) => {
               try {
                      if (provider === 'bocha' && keys.bocha) {
-                            return await searchBocha(query, keys.bocha, bochaCount);
+                            return await searchBocha(localizedQuery, keys.bocha, bochaCount);
                      } else if (provider === 'you' && keys.you) {
-                            return await searchYou(query, keys.you, youCount);
+                            return await searchYou(localizedQuery, keys.you, youCount);
                      } else if (provider === 'tavily' && keys.tavily) {
-                            return await searchTavily(query, keys.tavily, tavilyCount);
+                            return await searchTavily(localizedQuery, keys.tavily, tavilyCount);
                      }
                      return [];
               } catch (error) {
@@ -51,11 +78,36 @@ export async function searchCompetitors(
        });
 
        const results = await Promise.all(searchPromises);
-       // Flatten and dedup results if needed, simple flatten for now
-       return results.flat();
+       const flatResults = results.flat();
+       
+       // 过滤并优先返回中文结果
+       return filterChineseResults(flatResults);
 }
 
 async function searchTavily(query: string, apiKey: string, count: number): Promise<SearchResult[]> {
+       // 中国主流内容网站域名
+       const chineseDomains = [
+              "zhihu.com",
+              "36kr.com",
+              "huxiu.com",
+              "jianshu.com",
+              "douban.com",
+              "weibo.com",
+              "baidu.com",
+              "sohu.com",
+              "163.com",
+              "qq.com",
+              "sina.com.cn",
+              "bilibili.com",
+              "xiaohongshu.com",
+              "toutiao.com",
+              "sspai.com",
+              "geekpark.net",
+              "pingwest.com",
+              "qdaily.com",
+              "jiqizhixin.com"
+       ];
+
        const response = await fetch("https://api.tavily.com/search", {
               method: "POST",
               headers: {
@@ -67,7 +119,8 @@ async function searchTavily(query: string, apiKey: string, count: number): Promi
                      search_depth: "basic",
                      include_answer: false,
                      include_images: false,
-                     max_results: count
+                     max_results: count,
+                     include_domains: chineseDomains
               })
        });
 
@@ -96,9 +149,12 @@ async function searchBocha(query: string, apiKey: string, count: number): Promis
               },
               body: JSON.stringify({
                      query: query,
-                     freshness: "noLimit", // or "oneMonth"
+                     freshness: "noLimit",
                      summary: true,
-                     count: count
+                     count: count,
+                     // Bocha 支持的本地化参数
+                     market: "zh-CN",
+                     language: "zh"
               })
        });
 
@@ -118,8 +174,8 @@ async function searchBocha(query: string, apiKey: string, count: number): Promis
 }
 
 async function searchYou(query: string, apiKey: string, count: number): Promise<SearchResult[]> {
-       // You.com YDC Index API
-       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=${count}`, {
+       // You.com YDC Index API - 添加国家参数
+       const response = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=${count}&country=CN`, {
               headers: {
                      "X-API-Key": apiKey
               }

@@ -1,1 +1,4 @@
 project_id = "qmfqkpddrifffvlfevyf"
+
+[functions.generate-persona-image]
+verify_jwt = false
