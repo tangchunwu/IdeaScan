@@ -44,8 +44,10 @@ export async function searchNotes(
        authToken: string,
        keyword: string,
        page: number = 1,
-       sort: string = "general"
+       sort: string = "general",
+       retryCount: number = 0
 ): Promise<TikhubSearchResult> {
+       const maxRetries = 3;
        const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/web/search_notes`;
        const params = new URLSearchParams({
               keyword: keyword,
@@ -54,51 +56,77 @@ export async function searchNotes(
               noteType: "_0" // all types
        });
 
-       const response = await fetch(`${url}?${params.toString()}`, {
-              method: "GET",
-              headers: {
-                     "Authorization": `Bearer ${authToken}`,
-                     "Accept": "application/json",
-                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+       try {
+              const response = await fetch(`${url}?${params.toString()}`, {
+                     method: "GET",
+                     headers: {
+                            "Authorization": `Bearer ${authToken}`,
+                            "Accept": "application/json",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                     }
+              });
+
+              if (response.status === 429) {
+                     console.warn("Tikhub rate limit hit, waiting...");
+                     await new Promise(resolve => setTimeout(resolve, 5000));
+                     if (retryCount < maxRetries) {
+                            return searchNotes(authToken, keyword, page, sort, retryCount + 1);
+                     }
               }
-       });
 
-       if (response.status === 429) {
-              console.warn("Tikhub rate limit hit, waiting...");
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              // Retry once
-              return searchNotes(authToken, keyword, page, sort);
-       }
+              // Handle 5xx errors with retry
+              if (response.status >= 500 && response.status < 600) {
+                     if (retryCount < maxRetries) {
+                            const delay = (retryCount + 1) * 2000; // 2s, 4s, 6s
+                            console.warn(`Tikhub 5xx error (${response.status}), retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            return searchNotes(authToken, keyword, page, sort, retryCount + 1);
+                     }
+                     console.error(`Tikhub search failed after ${maxRetries} retries with status ${response.status}`);
+                     // Return empty result instead of throwing
+                     return { success: false, notes: [], total_count: 0 };
+              }
 
-       if (!response.ok) {
-              const errorText = await response.text();
-              console.error("Tikhub search error:", errorText);
-              throw new Error(`Tikhub search failed: ${response.status}`);
-       }
+              if (!response.ok) {
+                     const errorText = await response.text();
+                     console.error("Tikhub search error:", errorText);
+                     // Return empty result for non-5xx errors
+                     return { success: false, notes: [], total_count: 0 };
+               }
 
-       const data = await response.json();
-       const items = data?.data?.data?.items || [];
+              const data = await response.json();
+              const items = data?.data?.data?.items || [];
 
-       const notes: XhsNote[] = items.map((item: any) => {
-              const note = item.note || item;
+              const notes: XhsNote[] = items.map((item: any) => {
+                     const note = item.note || item;
+                     return {
+                            note_id: note.id || "",
+                            title: note.title || "",
+                            desc: note.desc || "",
+                            type: note.type || "normal",
+                            liked_count: note.liked_count || 0,
+                            collected_count: note.collected_count || 0,
+                            comments_count: note.comments_count || 0,
+                            shared_count: note.shared_count || 0,
+                            user_nickname: note.user?.nickname || ""
+                     };
+              });
+
               return {
-                     note_id: note.id || "",
-                     title: note.title || "",
-                     desc: note.desc || "",
-                     type: note.type || "normal",
-                     liked_count: note.liked_count || 0,
-                     collected_count: note.collected_count || 0,
-                     comments_count: note.comments_count || 0,
-                     shared_count: note.shared_count || 0,
-                     user_nickname: note.user?.nickname || ""
+                     success: true,
+                     notes: notes,
+                     total_count: notes.length
               };
-       });
-
-       return {
-              success: true,
-              notes: notes,
-              total_count: notes.length
-       };
+       } catch (error) {
+              console.error("Tikhub search exception:", error);
+              if (retryCount < maxRetries) {
+                     const delay = (retryCount + 1) * 2000;
+                     console.warn(`Retrying after network error in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+                     await new Promise(resolve => setTimeout(resolve, delay));
+                     return searchNotes(authToken, keyword, page, sort, retryCount + 1);
+              }
+              return { success: false, notes: [], total_count: 0 };
+       }
 }
 
 /**

@@ -143,11 +143,12 @@ type KeywordExtractionResult = { xhsKeywords: string[]; webQueries: string[] };
 
 type AIResult = {
   overallScore: number;
+  overallVerdict?: string;
   marketAnalysis: Record<string, unknown>;
   sentimentAnalysis: Record<string, unknown>;
   aiAnalysis: Record<string, unknown>;
   persona: Record<string, unknown>;
-  dimensions: Array<{ dimension: string; score: number }>;
+  dimensions: Array<{ dimension: string; score: number; reason?: string }>;
 };
 
 async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
@@ -396,7 +397,25 @@ async function analyzeWithAI(
   const content = data.choices[0]?.message?.content || "";
 
   try {
-    return parseJsonFromModelOutput<AIResult>(content);
+    const parsed = parseJsonFromModelOutput<any>(content);
+    
+    // Log parsed structure for debugging
+    console.log("Parsed AI result keys:", Object.keys(parsed));
+    console.log("Parsed dimensions length:", Array.isArray(parsed.dimensions) ? parsed.dimensions.length : 'not array');
+    console.log("Parsed persona:", parsed.persona ? 'exists' : 'null');
+    
+    // Validate and normalize the result
+    const result: AIResult = {
+      overallScore: typeof parsed.overallScore === 'number' ? parsed.overallScore : 0,
+      overallVerdict: typeof parsed.overallVerdict === 'string' ? parsed.overallVerdict : undefined,
+      marketAnalysis: parsed.marketAnalysis || {},
+      sentimentAnalysis: parsed.sentimentAnalysis || {},
+      aiAnalysis: parsed.aiAnalysis || {},
+      persona: parsed.persona || {},
+      dimensions: Array.isArray(parsed.dimensions) ? parsed.dimensions : [],
+    };
+    
+    return result;
   } catch (e) {
     console.error("AI JSON parse failed. Raw (first 1200 chars):", content.slice(0, 1200));
     throw e;
@@ -492,9 +511,10 @@ serve(async (req) => {
 
     // Debug: Log what we got from AI
     console.log("AI Result keys:", Object.keys(aiResult));
-    console.log("AI Result dimensions:", JSON.stringify(aiResult.dimensions));
-    console.log("AI Result persona:", JSON.stringify(aiResult.persona));
+    console.log("AI Result dimensions:", JSON.stringify(aiResult.dimensions?.slice(0, 2)));
+    console.log("AI Result persona:", aiResult.persona ? "exists" : "null");
     console.log("AI Result overallScore:", aiResult.overallScore);
+    console.log("AI Result overallVerdict:", aiResult.overallVerdict?.slice(0, 50));
 
     // Ensure dimensions is an array with default values if missing
     const dimensionsData = Array.isArray(aiResult.dimensions) && aiResult.dimensions.length > 0
@@ -508,6 +528,11 @@ serve(async (req) => {
           { dimension: "PMF潜力", score: Math.round(Math.random() * 30 + 30), reason: "待AI分析" },
         ];
 
+    // Ensure persona has valid data
+    const personaData = aiResult.persona && Object.keys(aiResult.persona).length > 0
+      ? aiResult.persona
+      : null;
+
     // 4. Save report with robust retry logic for connection issues
     const reportData = {
       validation_id: validation.id,
@@ -517,10 +542,10 @@ serve(async (req) => {
       sentiment_analysis: aiResult.sentimentAnalysis || {},
       ai_analysis: {
         ...(aiResult.aiAnalysis || {}),
-        overallVerdict: (aiResult as any).overallVerdict || "AI分析完成",
+        overallVerdict: aiResult.overallVerdict || "AI分析完成",
       },
       dimensions: dimensionsData,
-      persona: aiResult.persona || null,
+      persona: personaData,
     };
     
     let reportSaved = false;
