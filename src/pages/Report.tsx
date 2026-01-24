@@ -102,8 +102,8 @@ const Report = () => {
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
-    const shareTitle = `商业创意验证报告 - ${data?.validation?.idea || ""}`;
-    const shareText = `查看我的商业创意验证报告，综合评分：${data?.validation?.overall_score || 0}分`;
+    const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
+    const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
 
     // Try Web Share API first (mobile-friendly)
     if (navigator.share) {
@@ -273,7 +273,7 @@ const Report = () => {
               </Link>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
                 <Sparkles className="w-3 h-3" />
-                商业创意验证报告 #{validation.id.slice(0, 8)}
+                需求验证报告 #{validation.id.slice(0, 8)}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-3">
                 {validation.idea.length > 20
@@ -312,7 +312,7 @@ const Report = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
-                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">市场可行性评分</span>
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">需求真实度评分</span>
                 <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
                   <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -324,10 +324,10 @@ const Report = () => {
                 <div className="mt-8 text-center space-y-2">
                   <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
                     (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
-                    {(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "🚀 极具潜力" :
-                      (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "⚖️ 值得尝试" : "⚠️ 风险较高"}
+                    {(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "✅ 真实刚需" :
+                      (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">基于 {xiaohongshuData.totalNotes} 条市场数据分析</p>
+                  <p className="text-xs text-muted-foreground mt-2">基于 {xiaohongshuData.totalNotes} 条真实用户数据分析</p>
                 </div>
               </GlassCard>
             </div>
@@ -339,8 +339,8 @@ const Report = () => {
               ) : (
                 <GlassCard className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed min-h-[400px]">
                   <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <h3 className="text-lg font-medium mb-2">正在生成目标用户画像...</h3>
-                  <p className="text-sm opacity-60">AI 正在分析目标人群特征、痛点与需求</p>
+                  <h3 className="text-lg font-medium mb-2">正在分析目标用户...</h3>
+                  <p className="text-sm opacity-60">AI 正在识别谁最需要这个产品</p>
                 </GlassCard>
               )}
             </div>
@@ -352,7 +352,7 @@ const Report = () => {
             <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <Target className="w-5 h-5 text-primary" />
-                五维能力雷达
+                需求验证雷达
               </h3>
               <div className="flex-1 min-h-[250px] w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -385,7 +385,7 @@ const Report = () => {
             <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
               <h3 className="font-semibold mb-6 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-secondary" />
-                维度深度解析
+                需求真伪分析
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 {dimensions.map((d: any, i: number) => (
@@ -410,7 +410,7 @@ const Report = () => {
             </GlassCard>
           </div>
 
-          {/* Investment Decision Card */}
+          {/* Demand Validation Decision Card */}
           <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
 
@@ -418,7 +418,7 @@ const Report = () => {
               {/* Left: Final Verdict */}
               <div className="col-span-1 lg:col-span-4 flex flex-col justify-center items-center lg:items-start border-b lg:border-b-0 lg:border-r border-border/50 pb-8 lg:pb-0 lg:pr-8">
                 <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-                  Investment Verdict
+                  需求验证结论
                 </div>
                 <div className="flex items-baseline gap-4 mb-4">
                   <span className="text-7xl font-bold tracking-tighter text-foreground">
@@ -427,19 +427,19 @@ const Report = () => {
                   <span className="text-2xl text-muted-foreground font-light">/ 100</span>
                 </div>
 
-                <div className={`text-2xl font-bold px-6 py-2 rounded-full mb-4 ${(validation.overall_score || 0) >= 90 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
+                <div className={`text-2xl font-bold px-6 py-2 rounded-full mb-4 ${(validation.overall_score || 0) >= 90 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
                   (validation.overall_score || 0) >= 70 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
                     (validation.overall_score || 0) >= 40 ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" :
                       "bg-red-500/10 text-red-500 border border-red-500/20"
                   }`}>
-                  {(validation.overall_score || 0) >= 90 ? "🦄 UNICORN POTENTIAL" :
-                    (validation.overall_score || 0) >= 70 ? "🚀 INVESTABLE" :
-                      (validation.overall_score || 0) >= 40 ? "⚠️ WATCHLIST" :
-                        "⛔ PASS"}
+                  {(validation.overall_score || 0) >= 90 ? "🔥 强烈刚需" :
+                    (validation.overall_score || 0) >= 70 ? "✅ 真实需求" :
+                      (validation.overall_score || 0) >= 40 ? "⚠️ 需求存疑" :
+                        "❌ 伪需求警告"}
                 </div>
 
                 <p className="text-sm text-center lg:text-left text-muted-foreground">
-                  (Based on {xiaohongshuData.totalNotes} market signals)
+                  (基于 {xiaohongshuData.totalNotes} 条真实用户反馈)
                 </p>
               </div>
 
@@ -448,17 +448,17 @@ const Report = () => {
                 {/* Top Row: 3 metrics side by side */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Market Interest</div>
-                    <div className="text-2xl font-semibold">{xiaohongshuData.totalNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">Notes</span></div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">用户讨论量</div>
+                    <div className="text-2xl font-semibold">{xiaohongshuData.totalNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
                   </div>
                   <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">User Engagement</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">用户互动热度</div>
                     <div className="text-2xl font-semibold">{xiaohongshuData.totalEngagement.toLocaleString()}</div>
                   </div>
                   <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Sentiment Score</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">用户态度</div>
                     <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
-                      {sentimentAnalysis.positive}% <span className="text-sm text-muted-foreground font-normal">Pos</span>
+                      {sentimentAnalysis.positive}% <span className="text-sm text-muted-foreground font-normal">正向</span>
                     </div>
                   </div>
                 </div>
@@ -470,7 +470,7 @@ const Report = () => {
                       <Swords className="w-5 h-5 text-orange-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Competition Analysis</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">竞品拥挤度分析</div>
                       <div className="text-sm text-foreground leading-relaxed">
                         {marketAnalysis.competitionLevel || "暂无竞争分析数据"}
                       </div>
@@ -483,14 +483,14 @@ const Report = () => {
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
                     <Target className="w-5 h-5 text-secondary shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs text-muted-foreground">Target Audience</div>
+                      <div className="text-xs text-muted-foreground">目标用户</div>
                       <div className="text-sm font-medium line-clamp-2">{marketAnalysis.targetAudience}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                     <Brain className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs text-muted-foreground">Core Strength</div>
+                      <div className="text-xs text-muted-foreground">核心痛点</div>
                       <div className="text-sm font-medium line-clamp-2">{aiAnalysis.strengths?.[0] || "-"}</div>
                     </div>
                   </div>
@@ -520,7 +520,7 @@ const Report = () => {
               </TabsTrigger>
               <TabsTrigger value="ai" className="rounded-lg">
                 <Brain className="w-4 h-4 mr-2" />
-                VC 深度点评
+                AI 深度点评
               </TabsTrigger>
               <TabsTrigger value="circle" className="rounded-lg">
                 <MessageCircle className="w-4 h-4 mr-2" />
