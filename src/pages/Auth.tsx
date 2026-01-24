@@ -125,33 +125,35 @@ const Auth = () => {
 
           {/* Logo */}
           <div className="text-center mb-8 animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
-              <Sparkles className="w-8 h-8 text-primary-foreground" />
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center mx-auto mb-5 shadow-xl shadow-primary/30 rotate-3 hover:rotate-0 transition-transform duration-300">
+              <Sparkles className="w-10 h-10 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">创意验证器</h1>
-            <p className="text-muted-foreground mt-1">登录开始验证你的商业创意</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">需求验证器</h1>
+            <p className="text-muted-foreground">
+              分辨<span className="text-primary font-medium">真刚需</span>与<span className="text-destructive font-medium">伪需求</span>，少走弯路
+            </p>
           </div>
 
           {/* Auth Card */}
-          <GlassCard className="animate-slide-up">
+          <GlassCard className="animate-slide-up p-6">
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">登录</TabsTrigger>
-                <TabsTrigger value="signup">注册</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
+                <TabsTrigger value="login" className="text-base">登录</TabsTrigger>
+                <TabsTrigger value="signup" className="text-base">免费注册</TabsTrigger>
               </TabsList>
 
               {/* Login Tab */}
               <TabsContent value="login">
-                <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
+                <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">邮箱</Label>
+                    <Label htmlFor="login-email" className="text-sm font-medium">邮箱地址</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="login-email"
                         type="email"
                         placeholder="your@email.com"
-                        className={`pl-10 rounded-xl ${loginErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        className={`pl-11 h-11 rounded-xl bg-background/50 ${loginErrors.email ? "border-destructive focus-visible:ring-destructive" : "border-border/50"}`}
                         {...registerLogin("email")}
                         disabled={isLoading}
                       />
@@ -162,14 +164,14 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">密码</Label>
+                    <Label htmlFor="login-password" className="text-sm font-medium">密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="login-password"
                         type="password"
                         placeholder="••••••••"
-                        className={`pl-10 rounded-xl ${loginErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        className={`pl-11 h-11 rounded-xl bg-background/50 ${loginErrors.password ? "border-destructive focus-visible:ring-destructive" : "border-border/50"}`}
                         {...registerLogin("password")}
                         disabled={isLoading}
                       />
@@ -181,7 +183,7 @@ const Auth = () => {
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-5 font-medium shadow-md hover:shadow-lg transition-all"
+                    className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -190,7 +192,7 @@ const Auth = () => {
                         登录中...
                       </>
                     ) : (
-                      "登录"
+                      "登录账户"
                     )}
                   </Button>
                 </form>
@@ -198,16 +200,16 @@ const Auth = () => {
 
               {/* Signup Tab */}
               <TabsContent value="signup">
-                <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-4">
+                <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">昵称</Label>
+                    <Label htmlFor="signup-name" className="text-sm font-medium">昵称</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <User className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-name"
                         type="text"
-                        placeholder="你的昵称"
-                        className={`pl-10 rounded-xl ${signupErrors.name ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        placeholder="给自己取个名字"
+                        className={`pl-11 h-11 rounded-xl bg-background/50 ${signupErrors.name ? "border-destructive focus-visible:ring-destructive" : "border-border/50"}`}
                         {...registerSignup("name")}
                         disabled={isLoading}
                       />
@@ -218,14 +220,14 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">邮箱</Label>
+                    <Label htmlFor="signup-email" className="text-sm font-medium">邮箱地址</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-email"
                         type="email"
                         placeholder="your@email.com"
-                        className={`pl-10 rounded-xl ${signupErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        className={`pl-11 h-11 rounded-xl bg-background/50 ${signupErrors.email ? "border-destructive focus-visible:ring-destructive" : "border-border/50"}`}
                         {...registerSignup("email")}
                         disabled={isLoading}
                       />
@@ -236,14 +238,14 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">密码</Label>
+                    <Label htmlFor="signup-password" className="text-sm font-medium">设置密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
                         type="password"
                         placeholder="至少6位密码"
-                        className={`pl-10 rounded-xl ${signupErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        className={`pl-11 h-11 rounded-xl bg-background/50 ${signupErrors.password ? "border-destructive focus-visible:ring-destructive" : "border-border/50"}`}
                         {...registerSignup("password")}
                         disabled={isLoading}
                       />
@@ -255,7 +257,7 @@ const Auth = () => {
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-5 font-medium shadow-md hover:shadow-lg transition-all"
+                    className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -264,9 +266,13 @@ const Auth = () => {
                         注册中...
                       </>
                     ) : (
-                      "注册"
+                      "开始验证需求"
                     )}
                   </Button>
+                  
+                  <p className="text-xs text-center text-muted-foreground mt-4">
+                    注册即表示同意我们的服务条款和隐私政策
+                  </p>
                 </form>
               </TabsContent>
             </Tabs>
