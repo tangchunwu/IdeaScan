@@ -490,43 +490,59 @@ serve(async (req) => {
     const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, config);
     console.log("AI analysis completed");
 
-    // 4. Save report with retry logic for connection issues
-    let reportSaved = false;
-    let retries = 3;
-    let lastReportError: unknown = null;
+    // 4. Save report with robust retry logic for connection issues
+    const reportData = {
+      validation_id: validation.id,
+      market_analysis: aiResult.marketAnalysis,
+      xiaohongshu_data: xiaohongshuData,
+      competitor_data: competitorData,
+      sentiment_analysis: aiResult.sentimentAnalysis,
+      ai_analysis: aiResult.aiAnalysis,
+      dimensions: aiResult.dimensions,
+    };
     
-    while (!reportSaved && retries > 0) {
-      const { error: reportError } = await supabase
-        .from("validation_reports")
-        .insert({
-          validation_id: validation.id,
-          market_analysis: aiResult.marketAnalysis,
-          xiaohongshu_data: xiaohongshuData,
-          competitor_data: competitorData,
-          sentiment_analysis: aiResult.sentimentAnalysis,
-          ai_analysis: aiResult.aiAnalysis,
-          dimensions: aiResult.dimensions,
-        });
+    let reportSaved = false;
+    let lastReportError: unknown = null;
+    const maxRetries = 5;
+    const retryDelays = [500, 1000, 2000, 3000, 5000]; // Exponential backoff
+    
+    for (let attempt = 0; attempt < maxRetries && !reportSaved; attempt++) {
+      try {
+        console.log(`Saving report (attempt ${attempt + 1}/${maxRetries})...`);
+        
+        const { error: reportError } = await supabase
+          .from("validation_reports")
+          .insert(reportData);
 
-      if (!reportError) {
-        reportSaved = true;
-      } else {
-        lastReportError = reportError;
-        retries--;
-        if (retries > 0) {
-          console.log(`Report save failed, retrying... (${retries} attempts left)`);
-          // Wait 500ms before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+        if (!reportError) {
+          reportSaved = true;
+          console.log("Report saved successfully");
+        } else {
+          lastReportError = reportError;
+          console.error(`Report save attempt ${attempt + 1} failed:`, reportError.message || reportError);
+          
+          if (attempt < maxRetries - 1) {
+            const delay = retryDelays[attempt];
+            console.log(`Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      } catch (saveError) {
+        lastReportError = saveError;
+        console.error(`Report save attempt ${attempt + 1} threw error:`, saveError);
+        
+        if (attempt < maxRetries - 1) {
+          const delay = retryDelays[attempt];
+          console.log(`Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
 
     if (!reportSaved) {
-      console.error("Error saving report after retries:", lastReportError);
-      throw new Error("Failed to save report");
+      console.error("Error saving report after all retries:", lastReportError);
+      throw new Error("Failed to save report after multiple attempts");
     }
-    
-    console.log("Report saved successfully");
 
     // 5. Update validation status
     const { error: updateError } = await supabase
