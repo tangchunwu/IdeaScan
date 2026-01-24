@@ -33,8 +33,8 @@ export const exportToPdf = async (elementId: string, fileName: string = "report"
 export const exportToImage = async (elementId: string, fileName: string = "report") => {
        const element = document.getElementById(elementId);
        if (!element) {
-              console.error("Element not found");
-              return;
+              console.error("Element not found:", elementId);
+              throw new Error("Element not found");
        }
 
        try {
