@@ -93,69 +93,84 @@ ${personaDescription}
     console.log("Using Lovable AI:", !useUserConfig);
 
     let imageUrl: string | null = null;
+    let customProviderError: string | null = null;
 
     if (useUserConfig) {
-      // 用户自定义的图片生成 API (OpenAI compatible)
+      // 用户自定义的图片生成 API (期望 OpenAI 兼容: /images/generations)
+      // 注意：很多第三方 "Gemini" 网关并不实现 OpenAI 的图片接口，
+      // 所以这里失败时会自动回退到内置图片生成，避免前端一直生成失败。
       const baseUrl = imageGenBaseUrl!.replace(/\/$/, "");
       const model = imageGenModel || "dall-e-3";
-      
-      console.log("Using custom image API:", baseUrl);
-      
-      const imageResponse = await fetch(`${baseUrl}/images/generations`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: model,
-          prompt: prompt,
-          n: 1,
-          size: "256x256",
-          response_format: "url"
-        })
-      });
 
-      if (!imageResponse.ok) {
-        const errorText = await imageResponse.text();
-        console.error("Custom image API error:", errorText);
+      console.log("Using custom image API:", baseUrl);
+
+      try {
+        const imageResponse = await fetch(`${baseUrl}/images/generations`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            prompt,
+            n: 1,
+            size: "256x256",
+            response_format: "url",
+          }),
+        });
+
+        if (!imageResponse.ok) {
+          const errorText = await imageResponse.text();
+          customProviderError = `Custom provider error (${imageResponse.status}): ${errorText}`;
+          console.error("Custom image API error:", customProviderError);
+        } else {
+          const imageData = await imageResponse.json();
+          imageUrl = imageData.data?.[0]?.url;
+        }
+      } catch (e: unknown) {
+        customProviderError = `Custom provider request failed: ${e instanceof Error ? e.message : String(e)}`;
+        console.error("Custom image API exception:", customProviderError);
+      }
+    }
+
+    // 如果没有拿到图片（或自定义接口不可用），回退使用内置图片生成
+    if (!imageUrl) {
+      const fallbackKey = lovableApiKey;
+      if (!fallbackKey) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: "Image generation failed",
-            details: errorText 
+            details: customProviderError || "No fallback image provider configured",
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const imageData = await imageResponse.json();
-      imageUrl = imageData.data?.[0]?.url;
-    } else {
-      // 使用 Lovable AI Gateway 的图片生成
-      console.log("Using Lovable AI for image generation");
-      
+      console.log("Falling back to Lovable AI for image generation");
+
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
+          "Authorization": `Bearer ${fallbackKey}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image-preview",
           messages: [
             {
               role: "user",
-              content: prompt
-            }
+              content: prompt,
+            },
           ],
-          modalities: ["image", "text"]
-        })
+          modalities: ["image", "text"],
+        }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Lovable AI image error:", response.status, errorText);
-        
+
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: "Rate limit exceeded, please try again later" }),
@@ -168,11 +183,12 @@ ${personaDescription}
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
+
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: "Image generation failed",
-            details: errorText 
+            details: errorText,
+            customProviderError,
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -180,7 +196,7 @@ ${personaDescription}
 
       const data = await response.json();
       console.log("Lovable AI response received");
-      
+
       // 从 Lovable AI 响应中提取图片
       const images = data.choices?.[0]?.message?.images;
       if (images && images.length > 0) {
