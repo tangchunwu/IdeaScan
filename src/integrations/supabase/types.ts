@@ -202,6 +202,7 @@ export type Database = {
           dimensions: Json | null
           id: string
           market_analysis: Json | null
+          persona: Json | null
           sentiment_analysis: Json | null
           validation_id: string
           xiaohongshu_data: Json | null
@@ -213,6 +214,7 @@ export type Database = {
           dimensions?: Json | null
           id?: string
           market_analysis?: Json | null
+          persona?: Json | null
           sentiment_analysis?: Json | null
           validation_id: string
           xiaohongshu_data?: Json | null
@@ -224,6 +226,7 @@ export type Database = {
           dimensions?: Json | null
           id?: string
           market_analysis?: Json | null
+          persona?: Json | null
           sentiment_analysis?: Json | null
           validation_id?: string
           xiaohongshu_data?: Json | null
