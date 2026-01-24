@@ -42,8 +42,10 @@ import {
   Activity,
   AlertCircle,
   Globe,
-  Swords, // Added
+  Swords,
   Sparkles,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
 import ReactMarkdown from 'react-markdown';
@@ -54,6 +56,8 @@ import { useToast } from "@/hooks/use-toast";
 import { VCFeed, ShareCard } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { Progress } from "@/components/ui/progress";
+import { useSettings } from "@/hooks/useSettings";
+import { supabase } from "@/integrations/supabase/client";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -62,11 +66,85 @@ const Report = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   // Extract error message if it exists
   const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
 
+  // Check if data needs re-analysis
+  const checkNeedsReanalysis = () => {
+    if (!data?.report) return false;
+    const report = data.report;
+    
+    // Check persona
+    const personaIncomplete = !report.persona || 
+      !(report.persona as any)?.name || 
+      !(report.persona as any)?.role ||
+      ((report.persona as any)?.description?.includes("分析中"));
+    
+    // Check dimensions
+    const dimensions = Array.isArray(report.dimensions) ? report.dimensions : [];
+    const dimensionsIncomplete = dimensions.length === 0 || 
+      dimensions.some((d: any) => 
+        !d.reason || 
+        d.reason === "待AI分析" || 
+        d.reason.includes("数据加载中") ||
+        (d.reason.length < 15 && !d.reason.includes("评估"))
+      );
+    
+    return personaIncomplete || dimensionsIncomplete;
+  };
+
+  const needsReanalysis = data?.report ? checkNeedsReanalysis() : false;
+
   // No explicit useEffect needed for fetching anymore
+
+  // Import settings for re-analysis
+  const settings = useSettings();
+
+  const handleReanalyze = async () => {
+    if (!id || isReanalyzing) return;
+    
+    setIsReanalyzing(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('re-analyze-validation', {
+        body: {
+          validationId: id,
+          config: {
+            llmProvider: settings.llmProvider,
+            llmBaseUrl: settings.llmBaseUrl,
+            llmApiKey: settings.llmApiKey,
+            llmModel: settings.llmModel,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (result?.updated) {
+        toast({
+          title: "分析完成",
+          description: `已更新: ${result.updatedFields?.join(", ") || "数据"}`,
+        });
+        // Refetch to get updated data
+        refetch();
+      } else {
+        toast({
+          title: "数据已完整",
+          description: result?.message || "无需重新分析",
+        });
+      }
+    } catch (error) {
+      console.error("Re-analyze error:", error);
+      toast({
+        title: "分析失败",
+        description: (error as Error).message || "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
 
   const handleExportPdf = async () => {
     try {
@@ -364,7 +442,23 @@ const Report = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-4 md:mt-0">
+            <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+              {needsReanalysis && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10" 
+                  onClick={handleReanalyze}
+                  disabled={isReanalyzing}
+                >
+                  {isReanalyzing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  {isReanalyzing ? "分析中..." : "补充分析"}
+                </Button>
+              )}
               <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed" onClick={handleExportImage}>
                 <ImageIcon className="w-4 h-4 mr-2" />
                 保存图片
@@ -411,8 +505,22 @@ const Report = () => {
               ) : (
                 <GlassCard className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed min-h-[400px]">
                   <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <h3 className="text-lg font-medium mb-2">用户画像分析中...</h3>
-                  <p className="text-sm opacity-60">AI 正在识别核心目标用户群体</p>
+                  <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
+                  <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" 
+                    onClick={handleReanalyze}
+                    disabled={isReanalyzing}
+                  >
+                    {isReanalyzing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    {isReanalyzing ? "分析中..." : "补充分析用户画像"}
+                  </Button>
                 </GlassCard>
               )}
             </div>
