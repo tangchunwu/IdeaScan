@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { GlassCard } from "@/components/shared";
 import { Persona } from "@/services/validationService";
 import { User, Briefcase, Target, Heart, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,13 +12,31 @@ interface PersonaCardProps {
        persona: Persona;
 }
 
-export const PersonaCard = ({ persona }: PersonaCardProps) => {
+// Helper to ensure persona has all required fields with defaults
+const normalizePersona = (persona: Persona): Persona => ({
+  name: persona.name || "目标用户",
+  role: persona.role || "潜在用户",
+  age: persona.age || "25-45岁",
+  income: persona.income || "中等收入",
+  painPoints: Array.isArray(persona.painPoints) && persona.painPoints.length > 0
+    ? persona.painPoints
+    : ["需要更高效的解决方案"],
+  goals: Array.isArray(persona.goals) && persona.goals.length > 0
+    ? persona.goals
+    : ["找到更好的产品体验"],
+  techSavviness: typeof persona.techSavviness === 'number' ? persona.techSavviness : 65,
+  spendingCapacity: typeof persona.spendingCapacity === 'number' ? persona.spendingCapacity : 60,
+  description: persona.description || "AI正在分析用户画像..."
+});
+
+export const PersonaCard = ({ persona: rawPersona }: PersonaCardProps) => {
+       const persona = normalizePersona(rawPersona);
        const [imageUrl, setImageUrl] = useState<string | null>(null);
        const [isGenerating, setIsGenerating] = useState(false);
        const [hasError, setHasError] = useState(false);
        const settings = useSettings();
 
-       if (!persona) return null;
+       if (!rawPersona) return null;
 
        const generateImage = async () => {
               setIsGenerating(true);
