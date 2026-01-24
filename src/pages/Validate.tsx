@@ -189,27 +189,21 @@ const Validate = () => {
     }
   };
 
-  // 未登录状态
-  if (!authLoading && !user) {
+  // 未登录状态 - 直接跳转到登录页
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [authLoading, user, navigate]);
+
+  // 加载中或未登录时显示加载状态
+  if (authLoading || !user) {
     return (
       <PageBackground>
         <Navbar />
         <main className="pt-28 pb-16 px-4">
-          <div className="max-w-lg mx-auto text-center">
-            <GlassCard className="animate-fade-in">
-              <LogIn className="w-16 h-16 text-primary mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-4">
-                登录后验证你的想法
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                登录账号，用真实数据验证你的创意是真刚需还是伪需求
-              </p>
-              <Button asChild size="lg" className="rounded-xl">
-                <Link to="/auth">
-                  立即登录
-                </Link>
-              </Button>
-            </GlassCard>
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <LoadingSpinner size="lg" />
           </div>
         </main>
       </PageBackground>
