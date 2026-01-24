@@ -52,3 +52,21 @@ export const exportToImage = async (elementId: string, fileName: string = "repor
               throw error;
        }
 };
+
+export const exportToHTML = (htmlContent: string, fileName: string = "report") => {
+       try {
+              const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `${fileName}.html`;
+              link.click();
+              
+              // Cleanup
+              URL.revokeObjectURL(url);
+       } catch (error) {
+              console.error("Export to HTML failed:", error);
+              throw error;
+       }
+};

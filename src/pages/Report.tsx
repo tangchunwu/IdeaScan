@@ -50,8 +50,16 @@ import {
 import { FullValidation } from "@/services/validationService";
 import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
-import { exportToPdf, exportToImage } from "@/lib/export";
-import { Image as ImageIcon } from "lucide-react";
+import { exportToPdf, exportToImage, exportToHTML } from "@/lib/export";
+import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
+import { Image as ImageIcon, FileText, FileCode, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { VCFeed, ShareCard } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
@@ -143,6 +151,104 @@ const Report = () => {
       });
     } finally {
       setIsReanalyzing(false);
+    }
+  };
+
+  // Prepare report data for HTML export
+  const prepareReportData = (): ReportData | null => {
+    if (!data?.validation || !data?.report) return null;
+    
+    const { validation, report } = data;
+    const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
+    const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
+    const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
+    const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
+    const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
+    const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
+    
+    return {
+      id: validation.id,
+      idea: validation.idea,
+      score: (aiAnalysisRaw.feasibilityScore as number) ?? validation.overall_score ?? 0,
+      verdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+      tags: validation.tags || [],
+      createdAt: validation.created_at,
+      dimensions: rawDimensions.length > 0 
+        ? rawDimensions.map((d: any) => ({
+            dimension: d.dimension || "未知维度",
+            score: typeof d.score === 'number' ? d.score : 50,
+            reason: d.reason || "基于市场数据的综合评估"
+          }))
+        : [],
+      persona: rawPersona && rawPersona.name ? {
+        name: String(rawPersona.name || "目标用户"),
+        role: String(rawPersona.role || "潜在用户"),
+        age: String(rawPersona.age || "25-45岁"),
+        income: String(rawPersona.income || "中等收入"),
+        painPoints: Array.isArray(rawPersona.painPoints) ? rawPersona.painPoints as string[] : [],
+        goals: Array.isArray(rawPersona.goals) ? rawPersona.goals as string[] : [],
+        techSavviness: Number(rawPersona.techSavviness) || 65,
+        spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
+        description: String(rawPersona.description || "")
+      } : null,
+      marketAnalysis: {
+        targetAudience: (marketAnalysisRaw.targetAudience as string) ?? "目标用户群体分析中...",
+        marketSize: (marketAnalysisRaw.marketSize as string) ?? "未知",
+        competitionLevel: (marketAnalysisRaw.competitionLevel as string) ?? "未知",
+        trendDirection: (marketAnalysisRaw.trendDirection as string) ?? "未知",
+        keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
+      },
+      sentiment: {
+        positive: (sentimentAnalysisRaw.positive as number) || 33,
+        neutral: (sentimentAnalysisRaw.neutral as number) || 34,
+        negative: (sentimentAnalysisRaw.negative as number) || 33,
+        topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
+        topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
+      },
+      xiaohongshu: {
+        totalNotes: (xiaohongshuDataRaw.totalNotes as number) ?? 0,
+        totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ?? 0,
+        avgLikes: (xiaohongshuDataRaw.avgLikes as number) ?? 0,
+        avgComments: (xiaohongshuDataRaw.avgComments as number) ?? 0,
+        avgCollects: (xiaohongshuDataRaw.avgCollects as number) ?? 0,
+      },
+      aiAnalysis: {
+        feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
+        overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+        strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
+        weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
+        suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
+        risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
+      }
+    };
+  };
+
+  const handleExportHTML = () => {
+    const reportData = prepareReportData();
+    if (!reportData) {
+      toast({
+        title: "导出失败",
+        description: "报告数据未加载完成",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const htmlContent = generateReportHTML(reportData);
+      const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
+      const dateStr = new Date().toISOString().split('T')[0];
+      exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
+      toast({
+        title: "导出成功",
+        description: "HTML 完整报告已下载，可离线查看",
+      });
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
     }
   };
 
@@ -459,10 +565,39 @@ const Report = () => {
                   {isReanalyzing ? "分析中..." : "补充分析"}
                 </Button>
               )}
-              <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed" onClick={handleExportImage}>
-                <ImageIcon className="w-4 h-4 mr-2" />
-                保存图片
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed">
+                    <Download className="w-4 h-4 mr-2" />
+                    下载报告
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-popover border border-border z-50">
+                  <DropdownMenuItem onClick={handleExportHTML} className="cursor-pointer">
+                    <FileCode className="w-4 h-4 mr-2 text-primary" />
+                    <div className="flex flex-col">
+                      <span>导出为 HTML</span>
+                      <span className="text-xs text-muted-foreground">完整报告，可离线查看</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleExportPdf} className="cursor-pointer">
+                    <FileText className="w-4 h-4 mr-2 text-red-500" />
+                    <div className="flex flex-col">
+                      <span>导出为 PDF</span>
+                      <span className="text-xs text-muted-foreground">当前页面截图</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportImage} className="cursor-pointer">
+                    <ImageIcon className="w-4 h-4 mr-2 text-blue-500" />
+                    <div className="flex flex-col">
+                      <span>保存为图片</span>
+                      <span className="text-xs text-muted-foreground">PNG 格式截图</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button variant="default" size="sm" className="rounded-full h-9 shadow-lg shadow-primary/20" onClick={handleShare}>
                 <Share2 className="w-4 h-4 mr-2" />
                 分享
