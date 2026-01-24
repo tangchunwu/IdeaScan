@@ -77,11 +77,11 @@ const Validate = () => {
 
   // Validation steps configuration
   const validationSteps = [
-    { id: 0, label: "解析创意", description: "正在理解您的商业创意...", icon: Brain, targetProgress: 15 },
-    { id: 1, label: "提炼关键词", description: "正在智能提炼核心搜索词...", icon: Sparkles, targetProgress: 30 },
-    { id: 2, label: "数据搜索", description: "正在全网并行搜索数据...", icon: Globe, targetProgress: 55 },
-    { id: 3, label: "深度分析", description: "AI 正在分析市场数据...", icon: Brain, targetProgress: 80 },
-    { id: 4, label: "生成报告", description: "正在生成商业分析报告...", icon: FileBarChart, targetProgress: 95 },
+    { id: 0, label: "解析想法", description: "正在理解你的商业想法...", icon: Brain, targetProgress: 15 },
+    { id: 1, label: "提炼关键词", description: "正在智能提炼搜索关键词...", icon: Sparkles, targetProgress: 30 },
+    { id: 2, label: "抓取真实数据", description: "小红书痛点 + 全网竞品情报...", icon: Globe, targetProgress: 55 },
+    { id: 3, label: "需求真伪分析", description: "AI 正在判断是否为伪需求...", icon: Brain, targetProgress: 80 },
+    { id: 4, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
   ];
 
   // Smooth progress animation
@@ -199,10 +199,10 @@ const Validate = () => {
             <GlassCard className="animate-fade-in">
               <LogIn className="w-16 h-16 text-primary mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                登录后开始验证
+                登录后验证你的想法
               </h2>
               <p className="text-muted-foreground mb-6">
-                登录或注册账号，即可使用创意验证功能
+                登录账号，用真实数据验证你的创意是真刚需还是伪需求
               </p>
               <Button asChild size="lg" className="rounded-xl">
                 <Link to="/auth">
@@ -225,14 +225,14 @@ const Validate = () => {
           {/* Header */}
           <div className="relative text-center mb-16 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 backdrop-blur-sm border border-white/20 text-primary shadow-sm mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">创意验证实验室</span>
+              <Target className="w-4 h-4" />
+              <span className="text-sm font-medium">需求验证实验室</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6 tracking-tight">
-              告诉我们你的<span className="text-primary">商业灵感</span>
+              你的想法是<span className="text-primary">真刚需</span>吗？
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              在这个安静的空间里，详细描述你的想法。我们将利用全网数据，为你提供一份深度、客观的商业验证报告。
+              描述你的创业想法，我们会抓取小红书真实用户痛点和全网竞品数据，帮你验证需求是否真实存在。
             </p>
 
             {/* Settings Button */}
@@ -254,11 +254,11 @@ const Validate = () => {
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     <Lightbulb className="w-5 h-5" />
                   </div>
-                  核心创意
+                  你想做什么？
                 </label>
                 <div className="relative group">
                   <Textarea
-                    placeholder="描述你的创业想法、目标用户以及你认为的核心优势..."
+                    placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
                     value={idea}
                     onChange={(e) => setIdea(e.target.value)}
                     className="min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
@@ -268,7 +268,7 @@ const Validate = () => {
                 </div>
                 <div className="flex justify-between items-start pt-2">
                   <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> 越详细的描述，越能获得精准的市场分析
+                    <TrendingUp className="w-3 h-3" /> 描述越具体，验证结果越精准
                   </p>
                 </div>
               </div>
@@ -390,7 +390,7 @@ const Validate = () => {
                       快速验证
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      快速获取初步验证，适合快速筛选创意
+                      快速判断需求真伪，适合初步筛选
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-2">
                       预计 10-20 秒
@@ -422,7 +422,7 @@ const Validate = () => {
                       深度验证
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      全面数据采集，获取详尽分析报告
+                      小红书痛点 + 竞品分析 + AI辩论
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-2">
                       预计 30-60 秒
@@ -448,7 +448,7 @@ const Validate = () => {
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">{progressStage}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">正在验证你的想法...</h3>
                     <p className="text-sm text-muted-foreground mt-1">请稍候，这可能需要 15-30 秒</p>
                   </div>
                 </div>
@@ -526,8 +526,8 @@ const Validate = () => {
                 size="lg"
                 className="text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
               >
-                <Search className="w-5 h-5 mr-2" />
-                开始验证
+                <Target className="w-5 h-5 mr-2" />
+                验证我的想法
               </Button>
             )}
           </div>
@@ -535,14 +535,14 @@ const Validate = () => {
           {/* Tips */}
           <GlassCard className="mt-8 animate-slide-up" style={{ animationDelay: "200ms" }}>
             <div className="flex items-start gap-3">
-              <TrendingUp className="w-5 h-5 text-secondary flex-shrink-0 mt-0.5" />
+              <Lightbulb className="w-5 h-5 text-secondary flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-medium text-foreground mb-1">提升验证效果的小技巧</h3>
+                <h3 className="font-medium text-foreground mb-1">让验证结果更精准</h3>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• 详细描述你的目标用户群体</li>
-                  <li>• 说明产品/服务的核心卖点</li>
-                  <li>• 提及你了解的竞争对手</li>
-                  <li>• 选择准确的行业标签</li>
+                  <li>• 明确说明你想解决什么问题</li>
+                  <li>• 描述你的目标用户是谁</li>
+                  <li>• 说明你认为的差异化优势</li>
+                  <li>• 选择准确的行业赛道标签</li>
                 </ul>
               </div>
             </div>
