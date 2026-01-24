@@ -14,7 +14,6 @@ import {
 import { SettingsDialog } from "./SettingsDialog";
 
 const navItems = [
-  { path: "/", label: "首页", icon: Home },
   { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true },
   { path: "/history", label: "历史记录", icon: History, requireAuth: true },
   { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true },
