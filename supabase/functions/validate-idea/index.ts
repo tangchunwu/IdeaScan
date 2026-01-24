@@ -490,23 +490,43 @@ serve(async (req) => {
     const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, config);
     console.log("AI analysis completed");
 
-    // 4. Save report
-    const { error: reportError } = await supabase
-      .from("validation_reports")
-      .insert({
-        validation_id: validation.id,
-        market_analysis: aiResult.marketAnalysis,
-        xiaohongshu_data: xiaohongshuData,
-        competitor_data: competitorData,
-        sentiment_analysis: aiResult.sentimentAnalysis,
-        ai_analysis: aiResult.aiAnalysis,
-        dimensions: aiResult.dimensions,
-      });
+    // 4. Save report with retry logic for connection issues
+    let reportSaved = false;
+    let retries = 3;
+    let lastReportError: unknown = null;
+    
+    while (!reportSaved && retries > 0) {
+      const { error: reportError } = await supabase
+        .from("validation_reports")
+        .insert({
+          validation_id: validation.id,
+          market_analysis: aiResult.marketAnalysis,
+          xiaohongshu_data: xiaohongshuData,
+          competitor_data: competitorData,
+          sentiment_analysis: aiResult.sentimentAnalysis,
+          ai_analysis: aiResult.aiAnalysis,
+          dimensions: aiResult.dimensions,
+        });
 
-    if (reportError) {
-      console.error("Error saving report:", reportError);
+      if (!reportError) {
+        reportSaved = true;
+      } else {
+        lastReportError = reportError;
+        retries--;
+        if (retries > 0) {
+          console.log(`Report save failed, retrying... (${retries} attempts left)`);
+          // Wait 500ms before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
+
+    if (!reportSaved) {
+      console.error("Error saving report after retries:", lastReportError);
       throw new Error("Failed to save report");
     }
+    
+    console.log("Report saved successfully");
 
     // 5. Update validation status
     const { error: updateError } = await supabase
