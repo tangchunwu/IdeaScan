@@ -4,47 +4,49 @@ import {
   Sparkles,
   TrendingUp,
   Brain,
-  FileText,
+  Users,
   ArrowRight,
   Search,
   BarChart3,
   MessageCircle,
   Zap,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert,
+  Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const features = [
   {
     icon: Search,
-    title: "全网市场情报侦察",
-    description: "不只是小红书。聚合全网竞品数据与真实用户反馈，打破信息茧房。",
+    title: "小红书真实痛点挖掘",
+    description: "直接抓取小红书用户吐槽与需求，用真实声音验证市场是否存在，告别自嗨式创业。",
     gradient: "from-primary to-ghibli-sky",
   },
   {
     icon: BarChart3,
-    title: "多维度竞争格局分析",
-    description: "通过雷达图与竞品矩阵，量化分析“护城河”与“市场拥挤度”。",
+    title: "全网竞品情报分析",
+    description: "聚合知乎、36氪、虎嗅等全网中文数据，量化分析竞争格局与市场拥挤度。",
     gradient: "from-secondary to-ghibli-forest",
   },
   {
-    icon: Brain,
-    title: "VC 合伙人级深度点评",
-    description: "拒绝模棱两可。AI 模拟顶级 VC 视角，提供“残酷诚实”的通过/否决建议。",
+    icon: Users,
+    title: "创投圈 AI 辩论",
+    description: "4位AI专家（犀利VC、杠精PM、Z世代用户、数据分析师）激烈辩论，全方位拷打你的想法。",
     gradient: "from-accent to-ghibli-sunset",
   },
   {
-    icon: FileText,
-    title: "专业投资决策备忘录",
-    description: "自动生成包含核心论点、致命风险与事前验尸分析的标准化 Investment Memo。",
+    icon: ShieldAlert,
+    title: "伪需求检测引擎",
+    description: "结合用户痛点频率与竞品密度，判断你的创意是真刚需还是自嗨伪需求。",
     gradient: "from-primary to-secondary",
   },
 ];
 
 const steps = [
-  { step: "01", title: "提交创意", desc: "输入你的商业想法与目标赛道", icon: Sparkles },
-  { step: "02", title: "全网侦察", desc: "AI 自动检索竞品与用户评价", icon: Zap },
-  { step: "03", title: "决策报告", desc: "获取 VC 视角的深度评估结果", icon: TrendingUp },
+  { step: "01", title: "描述你的想法", desc: "一句话说清楚你想做什么", icon: Sparkles },
+  { step: "02", title: "AI 全网调研", desc: "抓取小红书痛点和竞品情报", icon: Zap },
+  { step: "03", title: "需求验证报告", desc: "获取残酷诚实的市场反馈", icon: Target },
 ];
 
 const Index = () => {
@@ -58,25 +60,25 @@ const Index = () => {
           <section className="text-center mb-24 section-breathe">
             <div className="animate-fade-in">
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary mb-8 shadow-lg shadow-primary/10">
-                <Sparkles className="w-4 h-4 animate-pulse-soft" />
-                <span className="text-sm font-medium">VC 级商业创意验证引擎</span>
+                <ShieldAlert className="w-4 h-4 animate-pulse-soft" />
+                <span className="text-sm font-medium">在写第一行代码前，先验证需求</span>
               </div>
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight animate-fade-in-up">
-              用
-              <span className="text-gradient-animated"> 顶级VC视角 </span>
+              你的创意是
+              <span className="text-gradient-animated"> 真刚需 </span>
               <br className="hidden sm:block" />
-              审视你的
-              <span className="text-gradient-animated"> 商业创意 </span>
+              还是
+              <span className="text-gradient-animated"> 伪需求？ </span>
             </h1>
 
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up leading-relaxed" style={{ animationDelay: "100ms" }}>
-              拒绝"正确废话"。基于全网真实数据，提供
-              <span className="font-semibold text-foreground"> 残酷诚实 </span>
-              的市场验证与
-              <span className="font-semibold text-foreground"> 投资备忘录级 </span>
-              深度分析
+              抓取
+              <span className="font-semibold text-foreground"> 小红书真实用户痛点 </span>
+              + 全网竞品数据，让
+              <span className="font-semibold text-foreground"> 4位AI专家激烈辩论 </span>
+              你的商业想法
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style={{ animationDelay: "200ms" }}>
@@ -86,7 +88,7 @@ const Index = () => {
                 className="text-lg px-10 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 btn-ripple"
               >
                 <Link to="/validate">
-                  开始验证
+                  验证我的想法
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
@@ -107,10 +109,10 @@ const Index = () => {
           <section className="mb-24 section-breathe">
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                核心功能
+                不只是分析，是残酷诚实的验证
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto">
-                全方位的创意验证解决方案
+                用真实数据和多元视角，帮你避开"自嗨式创业"的坑
               </p>
             </div>
 
@@ -147,10 +149,10 @@ const Index = () => {
           <section className="mb-24 section-breathe">
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                如何使用
+                3 分钟完成需求验证
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto">
-                三步完成创意验证
+                比写 PRD 还快，比问朋友更靠谱
               </p>
             </div>
 
@@ -191,10 +193,10 @@ const Index = () => {
                   <MessageCircle className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                  准备好验证你的创意了吗？
+                  别让"伪需求"浪费你的半年
                 </h2>
                 <p className="text-muted-foreground mb-10 max-w-lg mx-auto text-lg">
-                  只需几分钟，就能获得基于真实数据的商业可行性分析
+                  写代码之前，先用真实数据验证你的想法值不值得做
                 </p>
                 <Button
                   asChild
@@ -202,7 +204,7 @@ const Index = () => {
                   className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
                 >
                   <Link to="/validate">
-                    立即开始
+                    开始验证
                     <Sparkles className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
@@ -218,10 +220,10 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-bold text-lg">Idea Validator</span>
+              <span className="font-bold text-lg">需求验证器</span>
             </div>
             <p className="text-muted-foreground leading-relaxed max-w-sm">
-              基于 AI 的商业创意验证引擎。集成全网数据与顶级 VC 视角，帮助创业者在投入开发前验证想法可行性。
+              抓取小红书用户痛点和全网竞品数据，让4位AI专家辩论你的想法。在写第一行代码前，验证你的创意是真刚需还是伪需求。
             </p>
           </div>
 
@@ -235,18 +237,8 @@ const Index = () => {
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">API 资源</h4>
+            <h4 className="font-bold mb-6 text-foreground">数据来源</h4>
             <ul className="space-y-4">
-              <li>
-                <a href="https://platform.openai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                  OpenAI <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                <a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                  DeepSeek <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
               <li>
                 <a href="https://tikhub.io/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
                   Tikhub (小红书数据) <ExternalLink className="w-3 h-3" />
@@ -257,11 +249,16 @@ const Index = () => {
                   Bocha (全网搜索) <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
+              <li>
+                <a href="https://platform.openai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  OpenAI / DeepSeek <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
             </ul>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 pt-8 border-t border-border/10 text-center md:text-left text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Idea Validator. All rights reserved.
+          © {new Date().getFullYear()} 需求验证器. All rights reserved.
         </div>
       </footer>
     </PageBackground>
