@@ -50,8 +50,9 @@ import {
 import { FullValidation } from "@/services/validationService";
 import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
-import { exportToPdf, exportToImage, exportToHTML } from "@/lib/export";
+import { exportToPdf, exportToImage, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
+import { generatePDFHTML } from "@/lib/pdfGenerator";
 import { Image as ImageIcon, FileText, FileCode, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -253,13 +254,27 @@ const Report = () => {
   };
 
   const handleExportPdf = async () => {
+    const reportData = prepareReportData();
+    if (!reportData) {
+      toast({
+        title: "导出失败",
+        description: "报告数据未加载完成",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      await exportToPdf("report-content", `report-${id}`);
+      const pdfHtml = generatePDFHTML(reportData);
+      const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
+      const dateStr = new Date().toISOString().split('T')[0];
+      await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
       toast({
         title: "导出成功",
-        description: "PDF报告已下载",
+        description: "多页 PDF 报告已下载",
       });
     } catch (error) {
+      console.error("PDF export error:", error);
       toast({
         title: "导出失败",
         description: "请稍后重试",
@@ -586,7 +601,7 @@ const Report = () => {
                     <FileText className="w-4 h-4 mr-2 text-red-500" />
                     <div className="flex flex-col">
                       <span>导出为 PDF</span>
-                      <span className="text-xs text-muted-foreground">当前页面截图</span>
+                      <span className="text-xs text-muted-foreground">多页完整报告</span>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportImage} className="cursor-pointer">
