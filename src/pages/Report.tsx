@@ -263,7 +263,7 @@ const Report = () => {
       <Navbar />
 
       <main className="pt-28 pb-16 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div id="report-content" className="max-w-6xl mx-auto">
           {/* Header & Context */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-8">
             <div>
