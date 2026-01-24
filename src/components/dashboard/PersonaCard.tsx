@@ -22,12 +22,6 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
        if (!persona) return null;
 
        const generateImage = async () => {
-              // 检查是否有配置图片生成 API
-              if (!settings.imageGenApiKey) {
-                     toast.error("请先在设置中配置图片生成 API Key");
-                     return;
-              }
-
               setIsGenerating(true);
               setHasError(false);
 
@@ -38,9 +32,10 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
                                    personaName: persona.name,
                                    personaRole: persona.role,
                                    age: persona.age,
-                                   imageGenBaseUrl: settings.imageGenBaseUrl,
-                                   imageGenApiKey: settings.imageGenApiKey,
-                                   imageGenModel: settings.imageGenModel
+                                   // 如果用户配置了自定义 API，使用用户配置
+                                   imageGenBaseUrl: settings.imageGenApiKey ? settings.imageGenBaseUrl : undefined,
+                                   imageGenApiKey: settings.imageGenApiKey || undefined,
+                                   imageGenModel: settings.imageGenApiKey ? settings.imageGenModel : undefined
                             }
                      });
 
@@ -52,14 +47,14 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
                             setImageUrl(data.imageUrl);
                             toast.success(`${persona.name} 头像生成成功`);
                      } else if (data?.needsConfig) {
-                            toast.error("请在设置中配置图片生成 API");
+                            toast.error("图片生成服务暂不可用");
                      } else {
                             throw new Error(data?.error || "生成失败");
                      }
               } catch (error) {
                      console.error("Failed to generate persona image:", error);
                      setHasError(true);
-                     toast.error("头像生成失败，请检查 API 配置");
+                     toast.error("头像生成失败，请稍后重试");
               } finally {
                      setIsGenerating(false);
               }
@@ -120,8 +115,8 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
                                                  {persona.role}
                                           </div>
 
-                                          {/* Generate button if no image */}
-                                          {!imageUrl && !isGenerating && settings.imageGenApiKey && (
+                                          {/* Generate button - always show when no image */}
+                                          {!imageUrl && !isGenerating && (
                                                  <Button
                                                         variant="ghost"
                                                         size="sm"
