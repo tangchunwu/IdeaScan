@@ -1,30 +1,69 @@
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/shared";
 import { Persona } from "@/services/validationService";
-import { User, Briefcase, Target, Heart, Zap, DollarSign } from "lucide-react";
+import { User, Briefcase, Target, Heart, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-       RadialBarChart,
-       RadialBar,
-       PolarAngleAxis,
-       ResponsiveContainer,
-} from "recharts";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useSettings } from "@/hooks/useSettings";
+import { toast } from "sonner";
 
 interface PersonaCardProps {
        persona: Persona;
 }
 
 export const PersonaCard = ({ persona }: PersonaCardProps) => {
+       const [imageUrl, setImageUrl] = useState<string | null>(null);
+       const [isGenerating, setIsGenerating] = useState(false);
+       const [hasError, setHasError] = useState(false);
+       const settings = useSettings();
+
        if (!persona) return null;
 
-       // Chart Data for Tech Savviness
-       const techData = [
-              {
-                     name: "Tech Savviness",
-                     value: persona.techSavviness || 70,
-                     fill: "hsl(var(--primary))",
-              },
-       ];
+       const generateImage = async () => {
+              // 检查是否有配置图片生成 API
+              if (!settings.imageGenApiKey) {
+                     toast.error("请先在设置中配置图片生成 API Key");
+                     return;
+              }
+
+              setIsGenerating(true);
+              setHasError(false);
+
+              try {
+                     const { data, error } = await supabase.functions.invoke('generate-persona-image', {
+                            body: {
+                                   personaDescription: persona.description,
+                                   personaName: persona.name,
+                                   personaRole: persona.role,
+                                   age: persona.age,
+                                   imageGenBaseUrl: settings.imageGenBaseUrl,
+                                   imageGenApiKey: settings.imageGenApiKey,
+                                   imageGenModel: settings.imageGenModel
+                            }
+                     });
+
+                     if (error) {
+                            throw error;
+                     }
+
+                     if (data?.imageUrl) {
+                            setImageUrl(data.imageUrl);
+                            toast.success(`${persona.name} 头像生成成功`);
+                     } else if (data?.needsConfig) {
+                            toast.error("请在设置中配置图片生成 API");
+                     } else {
+                            throw new Error(data?.error || "生成失败");
+                     }
+              } catch (error) {
+                     console.error("Failed to generate persona image:", error);
+                     setHasError(true);
+                     toast.error("头像生成失败，请检查 API 配置");
+              } finally {
+                     setIsGenerating(false);
+              }
+       };
 
        return (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
@@ -43,14 +82,36 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
 
                             <div className="relative z-10 p-8 flex flex-col h-full">
                                    <div className="flex-1 text-center mt-8">
-                                          <div className="w-32 h-32 mx-auto rounded-full bg-white/30 backdrop-blur-md border border-white/40 shadow-xl flex items-center justify-center mb-6 relative overflow-hidden">
-                                                 {/* Fallback Icon if no image */}
-                                                 <User className="w-12 h-12 text-primary/60" />
-
-                                                 {/* Wait for API Integration overlay */}
-                                                 <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                                        <span className="text-[10px] text-white font-medium bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">AI Drawing API Pending</span>
-                                                 </div>
+                                          <div 
+                                                 className="w-32 h-32 mx-auto rounded-full bg-white/30 backdrop-blur-md border border-white/40 shadow-xl flex items-center justify-center mb-6 relative overflow-hidden cursor-pointer transition-all hover:shadow-2xl hover:scale-105"
+                                                 onClick={!isGenerating && !imageUrl ? generateImage : undefined}
+                                          >
+                                                 {imageUrl ? (
+                                                        <img 
+                                                               src={imageUrl} 
+                                                               alt={persona.name}
+                                                               className="w-full h-full object-cover rounded-full"
+                                                        />
+                                                 ) : isGenerating ? (
+                                                        <div className="flex flex-col items-center justify-center">
+                                                               <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                                               <span className="text-[10px] text-muted-foreground mt-2">生成中...</span>
+                                                        </div>
+                                                 ) : hasError ? (
+                                                        <div className="flex flex-col items-center justify-center">
+                                                               <ImageOff className="w-8 h-8 text-muted-foreground/50" />
+                                                               <span className="text-[10px] text-muted-foreground mt-2">生成失败</span>
+                                                        </div>
+                                                 ) : (
+                                                        <>
+                                                               <User className="w-12 h-12 text-primary/60" />
+                                                               {/* Hover overlay for generation */}
+                                                               <div className="absolute inset-0 bg-primary/20 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity backdrop-blur-sm">
+                                                                      <Sparkles className="w-6 h-6 text-primary mb-1" />
+                                                                      <span className="text-[10px] text-foreground font-medium">点击生成 AI 头像</span>
+                                                               </div>
+                                                        </>
+                                                 )}
                                           </div>
 
                                           <h3 className="text-2xl font-bold text-foreground mb-1 tracking-tight">{persona.name}</h3>
@@ -58,6 +119,19 @@ export const PersonaCard = ({ persona }: PersonaCardProps) => {
                                                  <Briefcase className="w-3.5 h-3.5" />
                                                  {persona.role}
                                           </div>
+
+                                          {/* Generate button if no image */}
+                                          {!imageUrl && !isGenerating && settings.imageGenApiKey && (
+                                                 <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="mt-4 text-xs"
+                                                        onClick={generateImage}
+                                                 >
+                                                        <Sparkles className="w-3 h-3 mr-1" />
+                                                        生成 AI 头像
+                                                 </Button>
+                                          )}
                                    </div>
 
                                    <div className="mt-8 grid grid-cols-2 gap-4">
