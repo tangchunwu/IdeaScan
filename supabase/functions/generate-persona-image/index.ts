@@ -149,6 +149,7 @@ ${personaDescription}
 
       console.log("Falling back to Lovable AI for image generation");
 
+      // 使用 Lovable AI 图片生成模型
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -156,14 +157,13 @@ ${personaDescription}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
+          model: "google/gemini-3-pro-image-preview",
           messages: [
             {
               role: "user",
               content: prompt,
             },
           ],
-          modalities: ["image", "text"],
         }),
       });
 
@@ -195,13 +195,49 @@ ${personaDescription}
       }
 
       const data = await response.json();
-      console.log("Lovable AI response received");
+      console.log("Lovable AI response received:", JSON.stringify(data).slice(0, 500));
 
-      // 从 Lovable AI 响应中提取图片
-      const images = data.choices?.[0]?.message?.images;
-      if (images && images.length > 0) {
-        imageUrl = images[0]?.image_url?.url;
-        console.log("Got base64 image from Lovable AI");
+      // 从响应中提取图片 - 检查多种可能的格式
+      const message = data.choices?.[0]?.message;
+      
+      // 格式1: message.images 数组
+      if (message?.images && Array.isArray(message.images) && message.images.length > 0) {
+        const img = message.images[0];
+        imageUrl = img?.image_url?.url || img?.url || img;
+        console.log("Got image from message.images");
+      }
+      
+      // 格式2: message.content 包含 base64 图片
+      if (!imageUrl && message?.content) {
+        // 检查是否是 base64 图片
+        if (typeof message.content === 'string' && message.content.startsWith('data:image')) {
+          imageUrl = message.content;
+          console.log("Got base64 image from message.content");
+        }
+        // 检查是否是数组格式 (multimodal content)
+        if (Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'image_url' && part.image_url?.url) {
+              imageUrl = part.image_url.url;
+              console.log("Got image from multimodal content");
+              break;
+            }
+            if (part.type === 'image' && part.url) {
+              imageUrl = part.url;
+              console.log("Got image from image part");
+              break;
+            }
+          }
+        }
+      }
+
+      // 格式3: data.data 数组 (OpenAI 格式)
+      if (!imageUrl && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        imageUrl = data.data[0]?.url || data.data[0]?.b64_json;
+        if (data.data[0]?.b64_json) {
+          imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+        }
+        console.log("Got image from data array");
       }
     }
 
