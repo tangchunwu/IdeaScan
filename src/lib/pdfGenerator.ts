@@ -2,6 +2,7 @@
 // Generates print-optimized HTML for multi-page PDF export
 
 import { ReportData } from "./reportGenerator";
+import { escapeHtml, escapeHtmlArray } from "./htmlEscape";
 
 function getScoreColor(score: number): string {
   if (score >= 80) return "#22c55e";
@@ -68,7 +69,7 @@ function generateRadarSVG(dimensions: { dimension: string; score: number }[]): s
     const x = cx + labelRadius * Math.cos(angle);
     const y = cy + labelRadius * Math.sin(angle);
     const dim = dimensions[i];
-    labels += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#374151" font-size="9" font-weight="500">${dim.dimension}</text>`;
+    labels += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#374151" font-size="9" font-weight="500">${escapeHtml(dim.dimension)}</text>`;
   }
   
   let dataPoints = "";
@@ -458,13 +459,13 @@ export function generatePDFHTML(data: ReportData): string {
     return `
       <div class="dimension-item">
         <div class="dimension-header">
-          <span class="dimension-name">${d.dimension}</span>
+          <span class="dimension-name">${escapeHtml(d.dimension)}</span>
           <span class="dimension-score" style="color: ${color}">${d.score}</span>
         </div>
         <div class="dimension-bar">
           <div class="dimension-bar-fill" style="width: ${d.score}%; background: ${color}"></div>
         </div>
-        <div class="dimension-reason">${d.reason}</div>
+        <div class="dimension-reason">${escapeHtml(d.reason)}</div>
       </div>
     `;
   }).join("");
@@ -474,17 +475,17 @@ export function generatePDFHTML(data: ReportData): string {
       <h2 class="section-title">👤 用户画像</h2>
       <div class="persona-grid">
         <div class="persona-box">
-          <div class="persona-name">${data.persona.name}</div>
-          <div class="persona-role">${data.persona.role}</div>
-          <div class="persona-detail">📅 年龄: ${data.persona.age}</div>
-          <div class="persona-detail">💰 收入: ${data.persona.income}</div>
-          <div style="font-size: 9px; color: #6b7280; margin-top: 8px;">${data.persona.description}</div>
+          <div class="persona-name">${escapeHtml(data.persona.name)}</div>
+          <div class="persona-role">${escapeHtml(data.persona.role)}</div>
+          <div class="persona-detail">📅 年龄: ${escapeHtml(data.persona.age)}</div>
+          <div class="persona-detail">💰 收入: ${escapeHtml(data.persona.income)}</div>
+          <div style="font-size: 9px; color: #6b7280; margin-top: 8px;">${escapeHtml(data.persona.description)}</div>
           
           <div class="list-title">😣 核心痛点</div>
-          ${data.persona.painPoints.map(p => `<div class="list-item">${p}</div>`).join("")}
+          ${escapeHtmlArray(data.persona.painPoints).map(p => `<div class="list-item">${p}</div>`).join("")}
           
           <div class="list-title">🎯 核心目标</div>
-          ${data.persona.goals.map(g => `<div class="list-item">${g}</div>`).join("")}
+          ${escapeHtmlArray(data.persona.goals).map(g => `<div class="list-item">${g}</div>`).join("")}
         </div>
         
         <div class="persona-box">
@@ -517,7 +518,7 @@ export function generatePDFHTML(data: ReportData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>需求验证报告 - ${data.idea}</title>
+  <title>需求验证报告 - ${escapeHtml(data.idea)}</title>
   <style>${styles}</style>
 </head>
 <body>
@@ -525,11 +526,11 @@ export function generatePDFHTML(data: ReportData): string {
   <div class="page">
     <header class="header">
       <div class="tags">
-        ${data.tags.map(tag => `<span class="tag">#${tag}</span>`).join("")}
+        ${escapeHtmlArray(data.tags).map(tag => `<span class="tag">#${tag}</span>`).join("")}
       </div>
-      <h1>${data.idea}</h1>
+      <h1>${escapeHtml(data.idea)}</h1>
       <div class="meta">
-        📅 ${formatDate(data.createdAt)} · 报告ID: ${data.id.slice(0, 8)}
+        📅 ${formatDate(data.createdAt)} · 报告ID: ${escapeHtml(data.id.slice(0, 8))}
       </div>
     </header>
     
@@ -562,26 +563,26 @@ export function generatePDFHTML(data: ReportData): string {
       <div class="market-grid">
         <div class="market-item">
           <div class="market-label">🎯 目标用户</div>
-          <div class="market-value">${data.marketAnalysis.targetAudience}</div>
+          <div class="market-value">${escapeHtml(data.marketAnalysis.targetAudience)}</div>
         </div>
         <div class="market-item">
           <div class="market-label">📊 市场规模</div>
-          <div class="market-value">${data.marketAnalysis.marketSize}</div>
+          <div class="market-value">${escapeHtml(data.marketAnalysis.marketSize)}</div>
         </div>
         <div class="market-item">
           <div class="market-label">⚔️ 竞争程度</div>
-          <div class="market-value">${data.marketAnalysis.competitionLevel}</div>
+          <div class="market-value">${escapeHtml(data.marketAnalysis.competitionLevel)}</div>
         </div>
         <div class="market-item">
           <div class="market-label">📈 趋势方向</div>
-          <div class="market-value">${data.marketAnalysis.trendDirection}</div>
+          <div class="market-value">${escapeHtml(data.marketAnalysis.trendDirection)}</div>
         </div>
       </div>
       ${data.marketAnalysis.keywords.length > 0 ? `
         <div style="margin-top: 12px;">
           <div class="list-title">🔑 关键词</div>
           <div class="tags" style="justify-content: flex-start;">
-            ${data.marketAnalysis.keywords.map(k => `<span class="tag">${k}</span>`).join("")}
+            ${escapeHtmlArray(data.marketAnalysis.keywords).map(k => `<span class="tag">${k}</span>`).join("")}
           </div>
         </div>
       ` : ""}
@@ -604,14 +605,14 @@ export function generatePDFHTML(data: ReportData): string {
         <div class="persona-box">
           <div class="list-title" style="margin-top: 0; color: #22c55e;">✅ 正面反馈</div>
           ${data.sentiment.topPositive.length > 0 
-            ? data.sentiment.topPositive.slice(0, 3).map(p => `<div class="list-item">${p}</div>`).join("")
+            ? escapeHtmlArray(data.sentiment.topPositive.slice(0, 3)).map(p => `<div class="list-item">${p}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>
         <div class="persona-box">
           <div class="list-title" style="margin-top: 0; color: #ef4444;">❌ 负面反馈</div>
           ${data.sentiment.topNegative.length > 0 
-            ? data.sentiment.topNegative.slice(0, 3).map(n => `<div class="list-item">${n}</div>`).join("")
+            ? escapeHtmlArray(data.sentiment.topNegative.slice(0, 3)).map(n => `<div class="list-item">${n}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>
@@ -646,35 +647,35 @@ export function generatePDFHTML(data: ReportData): string {
     <div class="section">
       <h2 class="section-title">🧠 AI 深度分析</h2>
       <div class="verdict-box">
-        <div class="verdict-text">${data.aiAnalysis.overallVerdict}</div>
+        <div class="verdict-text">${escapeHtml(data.aiAnalysis.overallVerdict)}</div>
       </div>
       
       <div class="ai-grid">
         <div class="ai-box">
           <div class="ai-box-title strength">💪 优势</div>
           ${data.aiAnalysis.strengths.length > 0 
-            ? data.aiAnalysis.strengths.map(s => `<div class="list-item">${s}</div>`).join("")
+            ? escapeHtmlArray(data.aiAnalysis.strengths).map(s => `<div class="list-item">${s}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>
         <div class="ai-box">
           <div class="ai-box-title weakness">⚠️ 劣势</div>
           ${data.aiAnalysis.weaknesses.length > 0 
-            ? data.aiAnalysis.weaknesses.map(w => `<div class="list-item">${w}</div>`).join("")
+            ? escapeHtmlArray(data.aiAnalysis.weaknesses).map(w => `<div class="list-item">${w}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>
         <div class="ai-box">
           <div class="ai-box-title suggestion">💡 建议</div>
           ${data.aiAnalysis.suggestions.length > 0 
-            ? data.aiAnalysis.suggestions.map(s => `<div class="list-item">${s}</div>`).join("")
+            ? escapeHtmlArray(data.aiAnalysis.suggestions).map(s => `<div class="list-item">${s}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>
         <div class="ai-box">
           <div class="ai-box-title risk">⚡ 风险</div>
           ${data.aiAnalysis.risks.length > 0 
-            ? data.aiAnalysis.risks.map(r => `<div class="list-item">${r}</div>`).join("")
+            ? escapeHtmlArray(data.aiAnalysis.risks).map(r => `<div class="list-item">${r}</div>`).join("")
             : '<div style="font-size: 9px; color: #9ca3af;">暂无数据</div>'
           }
         </div>

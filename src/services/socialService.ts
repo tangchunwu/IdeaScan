@@ -1,30 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Comment, Persona, CreateCommentInput } from "@/types/social";
 
-// Get all personas
+// Get all personas (only safe public fields, excludes sensitive system_prompt)
 export async function getPersonas(): Promise<Persona[]> {
-       const { data, error } = await supabase
-              .from("personas")
-              .select("*")
-              .eq("is_active", true);
+  const { data, error } = await supabase
+    .from("personas")
+    .select("id, name, role, avatar_url, personality, focus_areas, catchphrase, is_active, created_at")
+    .eq("is_active", true);
 
-       if (error) throw error;
-       return data || [];
+  if (error) throw error;
+  // Map to include system_prompt as empty string since it's not exposed to clients
+  return (data || []).map(p => ({ ...p, system_prompt: '' }));
 }
 
-// Get comments for a validation
+// Get comments for a validation (only safe persona fields)
 export async function getComments(validationId: string): Promise<Comment[]> {
-       const { data, error } = await supabase
-              .from("comments")
-              .select(`
+  const { data, error } = await supabase
+    .from("comments")
+    .select(`
       *,
-      persona:personas(*)
+      persona:personas(id, name, role, avatar_url, personality, focus_areas, catchphrase, is_active, created_at)
     `)
-              .eq("validation_id", validationId)
-              .order("created_at", { ascending: true });
+    .eq("validation_id", validationId)
+    .order("created_at", { ascending: true });
 
-       if (error) throw error;
-       return data || [];
+  if (error) throw error;
+  // Map persona data to include empty system_prompt
+  return (data || []).map(c => ({
+    ...c,
+    persona: c.persona ? { ...c.persona, system_prompt: '' } : undefined
+  }));
 }
 
 // Generate initial AI discussion
