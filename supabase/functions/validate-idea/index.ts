@@ -279,95 +279,96 @@ async function analyzeWithAI(
     ? competitorData.map((c, i) => `| ${i + 1} | ${sanitizeForPrompt(c.title.slice(0, 30))}... | ${sanitizeForPrompt(c.snippet.slice(0, 150))}... | ${c.source} |`).join("\n")
     : "未进行全网搜索或未找到相关竞品信息。";
 
-  const prompt = `Act as a **General Partner at a Top-Tier VC Firm** (e.g., Sequoia, Benchmark). Your job is to write a brutal, honest, and data-driven **Investment Memo** for an internal Investment Committee (IC) meeting.
+  const prompt = `你是一名**顶级VC基金的合伙人**（如红杉、高瓴）。你的任务是为内部投资委员会(IC)会议撰写一份**犀利、诚实、数据驱动的需求验证报告**。
 
-  **Target Startup**:
-  - Idea: "${sanitizedIdea}"
-  - Tags: ${sanitizedTags.join(", ")}
+  **待验证的创业想法**:
+  - 想法描述: "${sanitizedIdea}"
+  - 标签: ${sanitizedTags.join(", ")}
 
   ---
-  **EVIDENCE PACK (Use this data to justify EVERY score):**
+  **证据资料包（用这些数据支撑你的每一个评分）:**
 
-  **Source A: User Voice (Xiaohongshu/Social Media)**
-  - Market Volume: ${xiaohongshuData.totalNotes} notes found.
-  - Engagement: Avg ${xiaohongshuData.avgLikes} likes, ${xiaohongshuData.avgComments} comments.
+  **来源A: 用户真实声音（小红书/社交媒体）**
+  - 市场热度: 找到 ${xiaohongshuData.totalNotes} 条相关笔记
+  - 互动数据: 平均 ${xiaohongshuData.avgLikes} 点赞, ${xiaohongshuData.avgComments} 评论
   
-  ${sampleNotesText ? `**Key User Snippets (What users ACTUALLY care about):**
+  ${sampleNotesText ? `**用户真实关注点（摘录）:**
   ${sampleNotesText}` : ""}
   
-  ${sampleCommentsText ? `**Real User Complaints/Feedback:**
+  ${sampleCommentsText ? `**用户真实吐槽/反馈:**
   ${sampleCommentsText}` : ""}
 
-  **Source B: Competitive Landscape**
-  | # | Competitor | Snippet (Value Prop) | Source |
+  **来源B: 竞品格局**
+  | # | 竞品 | 摘要（价值主张） | 来源 |
   |---|---|---|---|
   ${competitorText}
 
   ---
 
-  **TASK:**
-  Analyze the above evidence and output a **strict JSON** report.
+  **你的任务:**
+  分析以上证据，输出一份**严格JSON格式**的需求验证报告。
 
-  **SCORING RUBRIC (0-100):**
-  - **90-100 (Unicorn)**: Monopoly potential, huge starving market, 10x better product.
-  - **70-89 (Investable)**: Strong traction, clear moat, good team/market fit.
-  - **40-69 (Watchlist)**: Crowded market, weak differentiation, or niche appeal.
-  - **0-39 (Pass)**: "Tar Pit" idea, solution looking for a problem, or fatal flaw.
+  **评分标准 (0-100):**
+  - **90-100 (独角兽潜力)**: 垄断潜力、巨大且饥渴的市场、产品10倍优于现有方案
+  - **70-89 (值得投资)**: 强劲增长、清晰护城河、良好的团队市场匹配
+  - **40-69 (观察名单)**: 拥挤市场、差异化不明显、或小众需求
+  - **0-39 (不推荐)**: "伪需求"、解决方案找问题、或存在致命缺陷
 
-  **CRITICAL INSTRUCTIONS:**
-  1. **BRUTAL HONESTY**: Do not be polite. If it's a bad idea, say it. If the market is crowded (see Source B), call it out.
-  2. **CITE EVIDENCE**: When analyzing "Market Demand", quote specific XHS comments (Source A). When analyzing "Competition", name specific competitors found (Source B).
-  3. **NO GENERIC ADVICE**: Don't say "improve UX". Say "Users in comment #3 complained about price, so lower CAC is key."
+  **关键要求:**
+  1. **残酷诚实**: 不要客气。如果是个烂主意就直说。如果市场拥挤（见来源B），点名批评。
+  2. **引用证据**: 分析"市场需求"时，引用具体的小红书评论（来源A）。分析"竞争"时，点名具体竞品（来源B）。
+  3. **禁止空话**: 不要说"优化用户体验"。要说"评论#3的用户抱怨价格太贵，所以降低获客成本是关键。"
+  4. **全部中文**: 所有分析内容必须用中文输出，不要用英文。
 
-  **Output ONLY valid JSON** with this structure (no markdown, no thinking text outside JSON):
+  **仅输出合法JSON**（无markdown、无JSON外的解释文字）:
   {
     "overallScore": 0,
-    "overallVerdict": "One-sentence brutal summary (e.g., 'A crowded space with no clear moat')",
+    "overallVerdict": "一句话犀利总结（如：'红海市场，缺乏护城河，不建议进入'）",
     "marketAnalysis": {
-      "targetAudience": "Specific persona (e.g. 'GenZ students in Tier 1 cities')",
-      "marketSize": "Tam/Sam/Som estimate or market vibe (e.g. 'Red Ocean')",
-      "competitionLevel": "Detailed competition analysis citing Source B competitors",
-      "trendDirection": "Rising/Falling/Stable",
-      "keywords": ["High intent keyword 1", "Keyword 2"]
+      "targetAudience": "具体用户画像（如：'一二线城市25-35岁白领女性'）",
+      "marketSize": "市场规模估计或市场状态（如：'红海'、'蓝海'、'百亿级市场'）",
+      "competitionLevel": "详细竞争分析，引用来源B的具体竞品",
+      "trendDirection": "上升/下降/稳定",
+      "keywords": ["高意向关键词1", "关键词2"]
     },
     "sentimentAnalysis": {
       "positive": 0,
       "neutral": 0,
       "negative": 0,
-      "topPositive": ["Specific praise from Source A"],
-      "topNegative": ["Specific complaint from Source A"]
+      "topPositive": ["来源A中的具体正面评价"],
+      "topNegative": ["来源A中的具体负面吐槽"]
     },
     "aiAnalysis": {
       "feasibilityScore": 0,
-      "strengths": ["Unfair Advantage 1", "Moat 2"],
-      "weaknesses": ["Deadly Flaw 1", "Risk 2"],
+      "strengths": ["独特优势1", "护城河2"],
+      "weaknesses": ["致命缺陷1", "风险2"],
       "suggestions": [
         {
-          "action": "Specific action to take",
-          "reference": "Reference case (e.g., 'Notion used PLG to grow without sales team')",
-          "expectedResult": "Expected outcome if this action is taken"
+          "action": "具体可执行的行动",
+          "reference": "参考案例（如：'Notion用PLG模式增长，无需销售团队'）",
+          "expectedResult": "预期结果"
         }
       ],
-      "risks": ["Pre-mortem risk 1", "Regulatory risk 2"]
+      "risks": ["事前验尸风险1", "政策监管风险2"]
     },
     "persona": {
-      "name": "User Persona Name (e.g. 'Stressed Sally')",
-      "role": "Job Title / Role",
-      "age": "Age Range",
-      "income": "Income Level",
-      "painPoints": ["Major pain point 1", "Major pain point 2"],
-      "goals": ["Goal 1", "Goal 2"],
+      "name": "用户画像名称（如：'焦虑的职场小白'）",
+      "role": "职位/身份",
+      "age": "年龄范围",
+      "income": "收入水平",
+      "painPoints": ["核心痛点1", "核心痛点2"],
+      "goals": ["目标1", "目标2"],
       "techSavviness": 80,
       "spendingCapacity": 60,
-      "description": "A short, vivid description of this user's daily life and struggles."
+      "description": "简短生动描述这类用户的日常生活和困扰"
     },
     "dimensions": [
-      {"dimension": "Market Pain (Urgency)", "score": 0, "reason": "Why this score - cite specific evidence from Source A/B"},
-      {"dimension": "Moat (Defensibility)", "score": 0, "reason": "Why this score - what competitors do better?"},
-      {"dimension": "Business Model (Unit Economics)", "score": 0, "reason": "Why this score - is monetization viable?"},
-      {"dimension": "Tech Feasibility", "score": 0, "reason": "Why this score - any technical blockers?"},
-      {"dimension": "Novelty (0-1)", "score": 0, "reason": "Why this score - what's truly new here?"},
-      {"dimension": "PMF Potential", "score": 0, "reason": "Why this score - does market want this?"}
+      {"dimension": "需求痛感", "score": 0, "reason": "评分理由 - 引用来源A/B的具体证据"},
+      {"dimension": "护城河", "score": 0, "reason": "评分理由 - 竞品有什么优势？"},
+      {"dimension": "商业模式", "score": 0, "reason": "评分理由 - 变现是否可行？"},
+      {"dimension": "技术可行性", "score": 0, "reason": "评分理由 - 有技术壁垒吗？"},
+      {"dimension": "创新程度", "score": 0, "reason": "评分理由 - 真正的创新点是什么？"},
+      {"dimension": "PMF潜力", "score": 0, "reason": "评分理由 - 市场真的需要这个吗？"}
     ]
   }`;
 
