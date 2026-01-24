@@ -1,6 +1,8 @@
 // Report HTML Generator
 // Generates complete, self-contained HTML documents for validation reports
 
+import { escapeHtml, escapeHtmlArray } from "./htmlEscape";
+
 interface DimensionData {
   dimension: string;
   score: number;
@@ -122,7 +124,7 @@ function generateRadarSVG(dimensions: DimensionData[]): string {
     const x = cx + labelRadius * Math.cos(angle);
     const y = cy + labelRadius * Math.sin(angle);
     const dim = dimensions[i];
-    labels += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#9ca3af" font-size="11">${dim.dimension}</text>`;
+    labels += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#9ca3af" font-size="11">${escapeHtml(dim.dimension)}</text>`;
   }
   
   // Generate data polygon
@@ -477,13 +479,13 @@ export function generateReportHTML(data: ReportData): string {
     return `
       <div class="dimension-item">
         <div class="dimension-header">
-          <span class="dimension-name">${d.dimension}</span>
+          <span class="dimension-name">${escapeHtml(d.dimension)}</span>
           <span class="dimension-score" style="color: ${color}">${d.score}</span>
         </div>
         <div class="dimension-bar">
           <div class="dimension-bar-fill" style="width: ${d.score}%; background: ${color}"></div>
         </div>
-        <div class="dimension-reason">${d.reason}</div>
+        <div class="dimension-reason">${escapeHtml(d.reason)}</div>
       </div>
     `;
   }).join("");
@@ -493,23 +495,23 @@ export function generateReportHTML(data: ReportData): string {
       <h2>👤 用户画像</h2>
       <div class="persona-grid">
         <div class="persona-info">
-          <div class="persona-name">${data.persona.name}</div>
-          <div class="persona-role">${data.persona.role}</div>
-          <div class="persona-detail">📅 年龄: ${data.persona.age}</div>
-          <div class="persona-detail">💰 收入: ${data.persona.income}</div>
-          <div class="persona-detail" style="margin-top: 12px; color: #9ca3af;">${data.persona.description}</div>
+          <div class="persona-name">${escapeHtml(data.persona.name)}</div>
+          <div class="persona-role">${escapeHtml(data.persona.role)}</div>
+          <div class="persona-detail">📅 年龄: ${escapeHtml(data.persona.age)}</div>
+          <div class="persona-detail">💰 收入: ${escapeHtml(data.persona.income)}</div>
+          <div class="persona-detail" style="margin-top: 12px; color: #9ca3af;">${escapeHtml(data.persona.description)}</div>
           
           <div class="list-section">
             <h4>😣 核心痛点</h4>
             <ul>
-              ${data.persona.painPoints.map(p => `<li>${p}</li>`).join("")}
+              ${escapeHtmlArray(data.persona.painPoints).map(p => `<li>${p}</li>`).join("")}
             </ul>
           </div>
           
           <div class="list-section">
             <h4>🎯 核心目标</h4>
             <ul>
-              ${data.persona.goals.map(g => `<li>${g}</li>`).join("")}
+              ${escapeHtmlArray(data.persona.goals).map(g => `<li>${g}</li>`).join("")}
             </ul>
           </div>
         </div>
@@ -543,7 +545,7 @@ export function generateReportHTML(data: ReportData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>需求验证报告 - ${data.idea}</title>
+  <title>需求验证报告 - ${escapeHtml(data.idea)}</title>
   <style>${styles}</style>
 </head>
 <body>
@@ -551,11 +553,11 @@ export function generateReportHTML(data: ReportData): string {
     <!-- Header -->
     <header class="header">
       <div class="tags">
-        ${data.tags.map(tag => `<span class="tag">#${tag}</span>`).join("")}
+        ${escapeHtmlArray(data.tags).map(tag => `<span class="tag">#${tag}</span>`).join("")}
       </div>
-      <h1>${data.idea}</h1>
+      <h1>${escapeHtml(data.idea)}</h1>
       <div class="meta">
-        📅 ${formatDate(data.createdAt)} · 报告ID: ${data.id.slice(0, 8)}
+        📅 ${formatDate(data.createdAt)} · 报告ID: ${escapeHtml(data.id.slice(0, 8))}
       </div>
     </header>
     
@@ -592,15 +594,15 @@ export function generateReportHTML(data: ReportData): string {
       <h2>📈 市场分析</h2>
       <div class="persona-grid">
         <div>
-          <div class="persona-detail"><strong>🎯 目标用户:</strong> ${data.marketAnalysis.targetAudience}</div>
-          <div class="persona-detail" style="margin-top: 12px;"><strong>📊 市场规模:</strong> ${data.marketAnalysis.marketSize}</div>
-          <div class="persona-detail" style="margin-top: 12px;"><strong>⚔️ 竞争程度:</strong> ${data.marketAnalysis.competitionLevel}</div>
-          <div class="persona-detail" style="margin-top: 12px;"><strong>📈 趋势方向:</strong> ${data.marketAnalysis.trendDirection}</div>
+          <div class="persona-detail"><strong>🎯 目标用户:</strong> ${escapeHtml(data.marketAnalysis.targetAudience)}</div>
+          <div class="persona-detail" style="margin-top: 12px;"><strong>📊 市场规模:</strong> ${escapeHtml(data.marketAnalysis.marketSize)}</div>
+          <div class="persona-detail" style="margin-top: 12px;"><strong>⚔️ 竞争程度:</strong> ${escapeHtml(data.marketAnalysis.competitionLevel)}</div>
+          <div class="persona-detail" style="margin-top: 12px;"><strong>📈 趋势方向:</strong> ${escapeHtml(data.marketAnalysis.trendDirection)}</div>
         </div>
         <div>
           <h4 style="font-size: 13px; color: #8b5cf6; margin-bottom: 8px;">🔑 关键词</h4>
           <div class="tags" style="justify-content: flex-start;">
-            ${data.marketAnalysis.keywords.map(k => `<span class="tag">${k}</span>`).join("")}
+            ${escapeHtmlArray(data.marketAnalysis.keywords).map(k => `<span class="tag">${k}</span>`).join("")}
           </div>
         </div>
       </div>
@@ -616,7 +618,7 @@ export function generateReportHTML(data: ReportData): string {
           <h4 class="strength">✅ 正面反馈</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.sentiment.topPositive.length > 0 
-              ? data.sentiment.topPositive.map(p => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0;">${p}</li>`).join("")
+              ? escapeHtmlArray(data.sentiment.topPositive).map(p => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0;">${p}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
@@ -625,7 +627,7 @@ export function generateReportHTML(data: ReportData): string {
           <h4 class="weakness">❌ 负面反馈</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.sentiment.topNegative.length > 0 
-              ? data.sentiment.topNegative.map(n => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0;">${n}</li>`).join("")
+              ? escapeHtmlArray(data.sentiment.topNegative).map(n => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0;">${n}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
@@ -659,14 +661,14 @@ export function generateReportHTML(data: ReportData): string {
     <!-- AI Deep Analysis -->
     <section class="section">
       <h2>🧠 AI 深度分析</h2>
-      <div class="verdict-text">${data.aiAnalysis.overallVerdict}</div>
+      <div class="verdict-text">${escapeHtml(data.aiAnalysis.overallVerdict)}</div>
       
       <div class="ai-list" style="margin-top: 24px;">
         <div class="ai-list-section">
           <h4 class="strength">💪 优势</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.aiAnalysis.strengths.length > 0 
-              ? data.aiAnalysis.strengths.map(s => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #22c55e;">•</span>${s}</li>`).join("")
+              ? escapeHtmlArray(data.aiAnalysis.strengths).map(s => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #22c55e;">•</span>${s}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
@@ -675,7 +677,7 @@ export function generateReportHTML(data: ReportData): string {
           <h4 class="weakness">⚠️ 劣势</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.aiAnalysis.weaknesses.length > 0 
-              ? data.aiAnalysis.weaknesses.map(w => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #ef4444;">•</span>${w}</li>`).join("")
+              ? escapeHtmlArray(data.aiAnalysis.weaknesses).map(w => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #ef4444;">•</span>${w}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
@@ -684,7 +686,7 @@ export function generateReportHTML(data: ReportData): string {
           <h4 class="suggestion">💡 建议</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.aiAnalysis.suggestions.length > 0 
-              ? data.aiAnalysis.suggestions.map(s => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #3b82f6;">•</span>${s}</li>`).join("")
+              ? escapeHtmlArray(data.aiAnalysis.suggestions).map(s => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #3b82f6;">•</span>${s}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
@@ -693,7 +695,7 @@ export function generateReportHTML(data: ReportData): string {
           <h4 class="risk">⚡ 风险</h4>
           <ul style="list-style: none; padding: 0;">
             ${data.aiAnalysis.risks.length > 0 
-              ? data.aiAnalysis.risks.map(r => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #f59e0b;">•</span>${r}</li>`).join("")
+              ? escapeHtmlArray(data.aiAnalysis.risks).map(r => `<li style="font-size: 13px; color: #d1d5db; padding: 6px 0; padding-left: 16px; position: relative;"><span style="position: absolute; left: 0; color: #f59e0b;">•</span>${r}</li>`).join("")
               : "<li style='font-size: 13px; color: #6b7280;'>暂无数据</li>"
             }
           </ul>
