@@ -16,6 +16,7 @@ import type {
   MultiChannelResult,
 } from './types.ts';
 import { XiaohongshuAdapter } from './xiaohongshu-adapter.ts';
+import { DouyinAdapter } from './douyin-adapter.ts';
 
 // ============ Channel Registry ============
 
@@ -26,9 +27,9 @@ class ChannelRegistry {
   private constructor() {
     // Register built-in adapters
     this.registerAdapter(new XiaohongshuAdapter());
+    this.registerAdapter(new DouyinAdapter());
     
     // Future adapters will be registered here:
-    // this.registerAdapter(new DouyinAdapter());
     // this.registerAdapter(new WeiboAdapter());
     // this.registerAdapter(new BilibiliAdapter());
   }

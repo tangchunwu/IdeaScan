@@ -5,7 +5,7 @@
  * 
  * Supported Channels:
  * - Xiaohongshu (小红书) ✅
- * - Douyin (抖音) - coming soon
+ * - Douyin (抖音) ✅
  * - Weibo (微博) - coming soon
  * - Bilibili (哔哩哔哩) - coming soon
  * 
@@ -40,6 +40,7 @@ export { BaseChannelAdapter } from './base-adapter.ts';
 
 // Channel adapters
 export { XiaohongshuAdapter } from './xiaohongshu-adapter.ts';
+export { DouyinAdapter } from './douyin-adapter.ts';
 
 // Registry and orchestrator
 export { 
@@ -62,6 +63,32 @@ export async function crawlXiaohongshu(
   tags?: string[]
 ): Promise<ChannelCrawlResult> {
   return multiChannelOrchestrator.crawlChannel('xiaohongshu', keyword, config, tags);
+}
+
+/**
+ * Crawl Douyin data
+ */
+export async function crawlDouyin(
+  keyword: string,
+  config: ChannelConfig,
+  tags?: string[]
+): Promise<ChannelCrawlResult> {
+  return multiChannelOrchestrator.crawlChannel('douyin', keyword, config, tags);
+}
+
+/**
+ * Crawl multiple channels in parallel
+ */
+export async function crawlMultipleChannels(
+  keyword: string,
+  channels: { type: 'xiaohongshu' | 'douyin'; config: ChannelConfig }[],
+  tags?: string[]
+) {
+  return multiChannelOrchestrator.crawlMultipleChannels({
+    keyword,
+    tags,
+    channels,
+  });
 }
 
 /**
@@ -103,6 +130,48 @@ export function toLegacyXhsFormat(result: ChannelCrawlResult): {
       like_count: c.metrics.likes,
       user_nickname: c.author,
       ip_location: c.location || '',
+    })),
+  };
+}
+
+/**
+ * Convert Douyin result to a similar legacy format
+ */
+export function toLegacyDouyinFormat(result: ChannelCrawlResult): {
+  totalVideos: number;
+  avgLikes: number;
+  avgComments: number;
+  avgShares: number;
+  totalEngagement: number;
+  weeklyTrend: { name: string; value: number }[];
+  contentTypes: { name: string; value: number }[];
+  sampleVideos: any[];
+  sampleComments: any[];
+} {
+  return {
+    totalVideos: result.stats.total_posts,
+    avgLikes: result.stats.avg_likes,
+    avgComments: result.stats.avg_comments,
+    avgShares: result.stats.avg_shares,
+    totalEngagement: result.stats.total_engagement,
+    weeklyTrend: result.stats.weekly_trend,
+    contentTypes: result.stats.content_types,
+    sampleVideos: result.posts.map(p => ({
+      aweme_id: p.post_id,
+      desc: p.content,
+      digg_count: p.metrics.likes,
+      comment_count: p.metrics.comments,
+      share_count: p.metrics.shares,
+      collect_count: p.metrics.collects,
+      play_count: p.metrics.views || 0,
+      author_nickname: p.author,
+    })),
+    sampleComments: result.comments.map(c => ({
+      cid: c.comment_id,
+      text: c.content,
+      digg_count: c.metrics.likes,
+      user_nickname: c.author,
+      ip_label: c.location || '',
     })),
   };
 }
