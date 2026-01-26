@@ -77,6 +77,49 @@ export interface ValidationReport {
   };
   persona?: Persona;
   dimensions: { dimension: string; score: number }[];
+  // Phase 1 new fields
+  data_summary?: {
+    painPointClusters: {
+      theme: string;
+      frequency: number;
+      sampleQuotes: string[];
+      type: 'complaint' | 'question' | 'recommendation' | 'comparison';
+    }[];
+    competitorMatrix: {
+      category: string;
+      count: number;
+      topPlayers: string[];
+      commonPricing?: string;
+    }[];
+    sentimentBreakdown: {
+      positive: number;
+      negative: number;
+      neutral: number;
+      topPositiveThemes: string[];
+      topNegativeThemes: string[];
+    };
+    marketSignals: {
+      signal: string;
+      evidence: string;
+      implication: string;
+      confidence: number;
+    }[];
+    dataQuality: {
+      score: number;
+      sampleSize: number;
+      diversityScore: number;
+      recencyScore: number;
+      recommendation: string;
+    };
+    keyInsights: string[];
+  };
+  data_quality_score?: number;
+  keywords_used?: {
+    coreKeywords?: string[];
+    userPhrases?: string[];
+    competitorQueries?: string[];
+    trendKeywords?: string[];
+  };
   created_at: string;
 }
 

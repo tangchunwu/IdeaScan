@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crawlRealXiaohongshuData, XhsNote, XhsComment } from "./tikhub.ts";
 import { searchCompetitors, SearchResult } from "./search.ts";
+import { expandKeywords, ExpandedKeywords } from "./keyword-expander.ts";
+import { summarizeRawData, DataSummary } from "./data-summarizer.ts";
 import {
   validateString,
   validateStringArray,
@@ -139,7 +141,11 @@ function parseJsonFromModelOutput<T = unknown>(text: string): T {
   }
 }
 
-type KeywordExtractionResult = { xhsKeywords: string[]; webQueries: string[] };
+type KeywordExtractionResult = { 
+  xhsKeywords: string[]; 
+  webQueries: string[];
+  expanded?: ExpandedKeywords;
+};
 
 type AIResult = {
   overallScore: number;
@@ -186,67 +192,26 @@ async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: 
   }
 }
 
-async function extractKeywords(idea: string, config?: RequestConfig): Promise<KeywordExtractionResult> {
-  const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
-  const model = config?.llmModel || "google/gemini-3-flash-preview";
-
-  if (!apiKey) {
-    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
-  }
-
-  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  if (cleanBaseUrl.endsWith("/chat/completions")) {
-    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-  }
-  const endpoint = `${cleanBaseUrl}/chat/completions`;
-
-  // Sanitize idea for prompt
-  const sanitizedIdea = sanitizeForPrompt(idea);
-
-  const prompt = `Based on the following business idea description, please extract keywords for different search purposes.
+async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
+  // Use the new expandKeywords function
+  const result = await expandKeywords(idea, tags || [], {
+    apiKey: config?.llmApiKey,
+    baseUrl: config?.llmBaseUrl,
+    model: config?.llmModel
+  });
   
-  Business Idea: "${sanitizedIdea}"
-  
-  Please provide:
-  1. Two short keywords (max 4 chars each) suitable for social media search (like Xiaohongshu/Instagram tags).
-  2. Two specific search queries for finding competitors or market reports on a search engine.
-  
-  Return ONLY valid JSON format:
-  {
-    "xhsKeywords": ["short_keyword1", "short_keyword2"],
-    "webQueries": ["competitor search query 1", "market report search query 2"]
-  }`;
+  console.log("Expanded keywords:", {
+    core: result.expanded.coreKeywords,
+    user: result.expanded.userPhrases,
+    competitor: result.expanded.competitorQueries,
+    trend: result.expanded.trendKeywords
+  });
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-      }),
-    });
-
-    if (!response.ok) return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content || "";
-
-    try {
-      return parseJsonFromModelOutput<KeywordExtractionResult>(content);
-    } catch (e) {
-      console.error("Keyword JSON parse failed:", e);
-      return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
-    }
-  } catch (e) {
-    console.error("Keyword extraction failed:", e);
-    return { xhsKeywords: [idea.slice(0, 10)], webQueries: [idea.slice(0, 20)] };
-  }
+  return {
+    xhsKeywords: result.xhsKeywords,
+    webQueries: result.webQueries,
+    expanded: result.expanded
+  };
 }
 
 async function analyzeWithAI(
@@ -254,6 +219,7 @@ async function analyzeWithAI(
   tags: string[],
   xiaohongshuData: any,
   competitorData: SearchResult[],
+  dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
   const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
@@ -284,6 +250,42 @@ async function analyzeWithAI(
     ? competitorData.map((c, i) => `| ${i + 1} | ${sanitizeForPrompt(c.title.slice(0, 30))}... | ${sanitizeForPrompt(c.snippet.slice(0, 150))}... | ${c.source} |`).join("\n")
     : "未进行全网搜索或未找到相关竞品信息。";
 
+  // Build enhanced context from data summary if available
+  let dataSummarySection = "";
+  if (dataSummary && dataSummary.dataQuality.score > 20) {
+    const painPointsText = dataSummary.painPointClusters
+      .slice(0, 5)
+      .map(p => `- **${p.theme}** (${p.type}, 频次: ${p.frequency}): ${p.sampleQuotes.slice(0, 2).map(q => `"${q.slice(0, 50)}..."`).join("; ")}`)
+      .join("\n");
+    
+    const competitorMatrixText = dataSummary.competitorMatrix
+      .slice(0, 4)
+      .map(c => `- **${c.category}** (${c.count}家): ${c.topPlayers.join(", ")}${c.commonPricing ? ` | 价格带: ${c.commonPricing}` : ""}`)
+      .join("\n");
+    
+    const signalsText = dataSummary.marketSignals
+      .slice(0, 3)
+      .map(s => `- ${s.signal} (置信度: ${s.confidence}%): ${s.implication}`)
+      .join("\n");
+
+    dataSummarySection = `
+  **来源C: 数据摘要（预处理结果，数据质量评分: ${dataSummary.dataQuality.score}/100）**
+  
+  **用户痛点聚类:**
+  ${painPointsText || "暂无数据"}
+  
+  **竞品矩阵:**
+  ${competitorMatrixText || "暂无数据"}
+  
+  **市场信号:**
+  ${signalsText || "暂无数据"}
+  
+  **情感分布:** 正面 ${dataSummary.sentimentBreakdown.positive}% / 负面 ${dataSummary.sentimentBreakdown.negative}% / 中性 ${dataSummary.sentimentBreakdown.neutral}%
+  
+  **关键洞察:** ${dataSummary.keyInsights.join(" | ")}
+  `;
+  }
+
   const prompt = `你是一名**顶级VC基金的合伙人**（如红杉、高瓴）。你的任务是为内部投资委员会(IC)会议撰写一份**犀利、诚实、数据驱动的需求验证报告**。
 
   **待验证的创业想法**:
@@ -307,7 +309,7 @@ async function analyzeWithAI(
   | # | 竞品 | 摘要（价值主张） | 来源 |
   |---|---|---|---|
   ${competitorText}
-
+  ${dataSummarySection}
   ---
 
   **你的任务:**
@@ -474,9 +476,9 @@ serve(async (req) => {
 
     console.log("Created validation:", validation.id);
 
-    // 1.5 Extract keywords
+    // 1.5 Extract keywords with multi-dimensional expansion
     console.log("Extracting keywords...");
-    const { xhsKeywords, webQueries } = await extractKeywords(idea, config);
+    const { xhsKeywords, webQueries, expanded } = await extractKeywords(idea, tags, config);
     console.log("Keywords extracted:", { xhsKeywords, webQueries });
 
     // 2. Crawl Xiaohongshu data
@@ -509,8 +511,19 @@ serve(async (req) => {
       console.log("No search keys provided, skipping competitor search.");
     }
 
-    // 3. AI Analysis
-    const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, config);
+    // 2.7 Data Summarization (new Phase 1 step)
+    console.log("Summarizing raw data...");
+    const dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
+      apiKey: config?.llmApiKey,
+      baseUrl: config?.llmBaseUrl,
+      model: config?.llmModel,
+      mode: config?.mode
+    });
+    console.log(`Data summary complete. Quality score: ${dataSummary.dataQuality.score}`);
+    console.log("Key insights:", dataSummary.keyInsights);
+
+    // 3. AI Analysis (now uses data summary for better context)
+    const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, dataSummary, config);
     console.log("AI analysis completed");
 
     // Debug: Log what we got from AI
@@ -613,6 +626,15 @@ serve(async (req) => {
       },
       dimensions: dimensionsData,
       persona: personaData,
+      // Phase 1 new fields
+      data_summary: dataSummary || {},
+      data_quality_score: dataSummary?.dataQuality?.score || null,
+      keywords_used: expanded ? {
+         coreKeywords: expanded.coreKeywords,
+         userPhrases: expanded.userPhrases,
+         competitorQueries: expanded.competitorQueries,
+         trendKeywords: expanded.trendKeywords
+      } : [],
    };
     
     let reportSaved = false;
