@@ -199,8 +199,11 @@ export type Database = {
           ai_analysis: Json | null
           competitor_data: Json | null
           created_at: string
+          data_quality_score: number | null
+          data_summary: Json | null
           dimensions: Json | null
           id: string
+          keywords_used: Json | null
           market_analysis: Json | null
           persona: Json | null
           sentiment_analysis: Json | null
@@ -211,8 +214,11 @@ export type Database = {
           ai_analysis?: Json | null
           competitor_data?: Json | null
           created_at?: string
+          data_quality_score?: number | null
+          data_summary?: Json | null
           dimensions?: Json | null
           id?: string
+          keywords_used?: Json | null
           market_analysis?: Json | null
           persona?: Json | null
           sentiment_analysis?: Json | null
@@ -223,8 +229,11 @@ export type Database = {
           ai_analysis?: Json | null
           competitor_data?: Json | null
           created_at?: string
+          data_quality_score?: number | null
+          data_summary?: Json | null
           dimensions?: Json | null
           id?: string
+          keywords_used?: Json | null
           market_analysis?: Json | null
           persona?: Json | null
           sentiment_analysis?: Json | null

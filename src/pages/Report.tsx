@@ -836,6 +836,10 @@ const Report = () => {
                 <BarChart3 className="w-4 h-4 mr-2" />
                 概览
               </TabsTrigger>
+              <TabsTrigger value="insights" className="rounded-lg">
+                <Sparkles className="w-4 h-4 mr-2" />
+                数据洞察
+              </TabsTrigger>
               <TabsTrigger value="market" className="rounded-lg">
                 <Target className="w-4 h-4 mr-2" />
                 市场分析
