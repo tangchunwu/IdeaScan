@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { crawlRealXiaohongshuData, XhsNote, XhsComment } from "./tikhub.ts";
 import { searchCompetitors, SearchResult } from "./search.ts";
 import { expandKeywords, ExpandedKeywords } from "./keyword-expander.ts";
 import { summarizeRawData, DataSummary } from "./data-summarizer.ts";
+// New multi-channel adapter architecture
+import { 
+  crawlXiaohongshu, 
+  toLegacyXhsFormat,
+  type ChannelCrawlResult 
+} from "./channels/index.ts";
 import {
   validateString,
   validateStringArray,
@@ -161,31 +166,55 @@ type AIResult = {
   risks?: string[];
 };
 
-async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string, mode: 'quick' | 'deep' = 'quick') {
+/**
+ * Crawl social media data using the multi-channel adapter architecture
+ * Currently supports: Xiaohongshu
+ * Future: Douyin, Weibo, Bilibili
+ */
+async function crawlSocialMediaData(idea: string, tags: string[], tikhubToken?: string, mode: 'quick' | 'deep' = 'quick') {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
   if (!token) {
-    console.log("No Tikhub token configured, skipping XHS data");
+    console.log("No Tikhub token configured, skipping social media data");
     return {
       totalNotes: 0,
       avgLikes: 0,
       avgComments: 0,
       avgCollects: 0,
+      totalEngagement: 0,
+      weeklyTrend: [],
+      contentTypes: [],
       sampleNotes: [],
       sampleComments: []
     };
   }
 
   try {
-    console.log(`Crawling XHS data with token (mode: ${mode})...`);
-    return await crawlRealXiaohongshuData(token, idea, tags, mode);
+    console.log(`[Multi-Channel] Crawling with mode: ${mode}`);
+    
+    // Use the new channel adapter architecture
+    const result: ChannelCrawlResult = await crawlXiaohongshu(
+      idea,
+      { auth_token: token, mode },
+      tags
+    );
+    
+    if (!result.success) {
+      console.warn(`[Multi-Channel] Crawl failed: ${result.error}`);
+    }
+    
+    // Convert to legacy format for backward compatibility
+    return toLegacyXhsFormat(result);
   } catch (e) {
-    console.error("XHS Crawl failed:", e);
+    console.error("[Multi-Channel] Crawl failed:", e);
     return {
       totalNotes: 0,
       avgLikes: 0,
       avgComments: 0,
       avgCollects: 0,
+      totalEngagement: 0,
+      weeklyTrend: [],
+      contentTypes: [],
       sampleNotes: [],
       sampleComments: []
     };
@@ -481,11 +510,12 @@ serve(async (req) => {
     const { xhsKeywords, webQueries, expanded } = await extractKeywords(idea, tags, config);
     console.log("Keywords extracted:", { xhsKeywords, webQueries });
 
-    // 2. Crawl Xiaohongshu data
+    // 2. Crawl social media data (using multi-channel adapter architecture)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
     const mode = config?.mode || 'quick';
-    const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags || [], config?.tikhubToken, mode);
-    console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm} (mode: ${mode})`);
+    const xiaohongshuData = await crawlSocialMediaData(xhsSearchTerm, tags || [], config?.tikhubToken, mode);
+    console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode})`);
+    console.log(`[Multi-Channel] Stats: ${xiaohongshuData.totalNotes} posts, ${xiaohongshuData.sampleComments.length} comments`);
 
     // 2.5 Search competitors
     let competitorData: SearchResult[] = [];
