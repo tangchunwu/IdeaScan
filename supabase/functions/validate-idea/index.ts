@@ -161,7 +161,7 @@ type AIResult = {
   risks?: string[];
 };
 
-async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string) {
+async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: string, mode: 'quick' | 'deep' = 'quick') {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
 
   if (!token) {
@@ -177,8 +177,8 @@ async function crawlXiaohongshuData(idea: string, tags: string[], tikhubToken?: 
   }
 
   try {
-    console.log("Crawling XHS data with token...");
-    return await crawlRealXiaohongshuData(token, idea, tags);
+    console.log(`Crawling XHS data with token (mode: ${mode})...`);
+    return await crawlRealXiaohongshuData(token, idea, tags, mode);
   } catch (e) {
     console.error("XHS Crawl failed:", e);
     return {
@@ -483,8 +483,9 @@ serve(async (req) => {
 
     // 2. Crawl Xiaohongshu data
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
-    const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags || [], config?.tikhubToken);
-    console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm}`);
+    const mode = config?.mode || 'quick';
+    const xiaohongshuData = await crawlXiaohongshuData(xhsSearchTerm, tags || [], config?.tikhubToken, mode);
+    console.log(`Crawled Xiaohongshu data for: ${xhsSearchTerm} (mode: ${mode})`);
 
     // 2.5 Search competitors
     let competitorData: SearchResult[] = [];

@@ -67,6 +67,7 @@ import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { Progress } from "@/components/ui/progress";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
+import { DataInsightsTab } from "@/components/report/DataInsightsTab";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -1019,6 +1020,15 @@ const Report = () => {
                   </div>
                 </GlassCard>
               </div>
+            </TabsContent>
+
+            {/* Data Insights Tab */}
+            <TabsContent value="insights" className="space-y-6">
+              <DataInsightsTab 
+                dataSummary={report?.data_summary as any}
+                dataQualityScore={report?.data_quality_score ?? undefined}
+                keywordsUsed={report?.keywords_used as any}
+              />
             </TabsContent>
 
             {/* Market Analysis Tab */}

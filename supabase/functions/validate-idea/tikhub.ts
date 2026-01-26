@@ -180,11 +180,13 @@ export async function getNoteComments(
 /**
  * Crawl real Xiaohongshu data using Tikhub API
  * Returns aggregated stats similar to mock data structure
+ * @param mode - 'quick' fetches fewer comments (20), 'deep' fetches more (50)
  */
 export async function crawlRealXiaohongshuData(
        authToken: string,
        idea: string,
-       _tags: string[]
+       _tags: string[],
+       mode: 'quick' | 'deep' = 'quick'
 ): Promise<{
        totalNotes: number;
        avgLikes: number;
@@ -196,7 +198,7 @@ export async function crawlRealXiaohongshuData(
        sampleNotes: XhsNote[];
        sampleComments: XhsComment[];
 }> {
-       console.log(`[Tikhub] Searching for: ${idea}`);
+       console.log(`[Tikhub] Searching for: ${idea} (mode: ${mode})`);
 
        // Search for notes (2 pages max to stay within Edge Function limits)
        const searchResult = await searchNotes(authToken, idea, 1);
@@ -214,15 +216,19 @@ export async function crawlRealXiaohongshuData(
 
        console.log(`[Tikhub] Found ${allNotes.length} notes`);
 
-       // Get comments for top 5 notes (to stay within time limits)
-       const topNotes = allNotes.slice(0, 5);
+       // Get comments based on mode: Quick=5 notes x 4 comments, Deep=10 notes x 5 comments
+       const notesToFetch = mode === 'deep' ? Math.min(allNotes.length, 10) : Math.min(allNotes.length, 5);
+       const commentsPerNote = mode === 'deep' ? 5 : 4;
+       const topNotes = allNotes.slice(0, notesToFetch);
        let allComments: XhsComment[] = [];
+
+       console.log(`[Tikhub] Fetching comments from ${notesToFetch} notes, ${commentsPerNote} each (target: ${notesToFetch * commentsPerNote})`);
 
        for (const note of topNotes) {
               try {
                      // Add delay between requests to avoid rate limiting
-                     await new Promise(resolve => setTimeout(resolve, 1000));
-                     const commentsResult = await getNoteComments(authToken, note.note_id, 10);
+                     await new Promise(resolve => setTimeout(resolve, 800));
+                     const commentsResult = await getNoteComments(authToken, note.note_id, commentsPerNote);
                      if (commentsResult.success) {
                             allComments = [...allComments, ...commentsResult.comments];
                      }
