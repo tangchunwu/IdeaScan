@@ -101,6 +101,85 @@ export type Database = {
           },
         ]
       }
+      mvp_landing_pages: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          is_published: boolean
+          slug: string
+          theme: string
+          updated_at: string
+          user_id: string
+          validation_id: string | null
+          view_count: number
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          slug: string
+          theme?: string
+          updated_at?: string
+          user_id: string
+          validation_id?: string | null
+          view_count?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          slug?: string
+          theme?: string
+          updated_at?: string
+          user_id?: string
+          validation_id?: string | null
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mvp_landing_pages_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mvp_leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          landing_page_id: string
+          metadata: Json | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          landing_page_id: string
+          metadata?: Json | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          landing_page_id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mvp_leads_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       niche_opportunities: {
         Row: {
           avg_opportunity_score: number | null
