@@ -97,3 +97,58 @@
 > 单元测试就像是给每个零件（函数）配备了专属的"质检机器人"。
 > 当我们修改代码（比如升级引擎）时，很容易不小心弄坏其他零件。如果没有测试，我们必须人工一遍遍点鼠标去试；有了测试，机器人会一秒钟跑完几百个检查点，立刻告诉你哪里坏了。
 > **优化目的**：给核心业务逻辑（如验证服务的API调用）加上这层保险，让我们敢于大胆重构代码而不用担心改崩了。
+
+---
+
+## Phase 5: 前端增强优化 (2026-01-27)
+
+本次优化基于 Phase 4 的评估反馈，针对"丢分项"进行了专项修复。
+
+### 1. 全局错误边界 (Error Boundary) ✅
+
+- **发现**：项目已存在 `SilentErrorBoundary` 和 `PageErrorBoundary` 组件。
+- **技术细节**：
+  - `SilentErrorBoundary`：静默降级，组件出错时返回 `null`，不影响其他部分。
+  - `PageErrorBoundary`：页面级错误捕获，显示友好的错误提示 + 重试按钮。
+- **用户价值**：防止单个组件崩溃导致整个页面白屏，提升应用稳定性。
+
+### 2. 测试覆盖率提升 ✅
+
+- **新增文件**：
+  - `src/test/useSettings.test.ts` - 5 个测试用例
+  - `src/test/useValidation.test.tsx` - 4 个测试用例
+- **测试范围**：
+  - 设置 Store 的状态管理 (Zustand)
+  - 云同步逻辑 (`syncFromCloud` / `syncToCloud`)
+  - 验证 Hooks 的数据获取与缓存
+- **结果**：12 个测试全部通过，核心 Hooks 覆盖率显著提升。
+
+### 3. 国际化 (i18n) 支持 ✅
+
+- **技术细节**：
+  - 引入 `react-i18next` + `i18next-browser-languagedetector`
+  - 创建 `src/i18n/index.ts` 配置文件
+  - 新增 `locales/zh.json` 和 `locales/en.json` 翻译文件
+- **覆盖范围**：通用文案、导航、验证页、报告页、历史记录、发现页、设置、认证
+- **用户价值**：为未来的多语言版本（出海）打下基础，文案与代码解耦。
+
+### 4. 发现页个性化推荐 ✅
+
+- **技术细节**：
+  - 新增 `getPersonalizedRecommendations()` 函数 (`discoverService.ts`)
+  - 算法逻辑：读取用户历史验证的 tags -> 计算频率 -> 匹配热点话题 -> 按相关度排序
+  - 新增 `PersonalizedSection.tsx` 组件，集成到 `Discover.tsx`
+- **用户价值**：让发现页"活起来"，用户能看到"基于你验证过的关键词推荐的话题"，提升转化率。
+
+### 验证结果
+
+| 项目 | 状态 |
+|------|------|
+| 构建 | ✅ 成功 (6.65s) |
+| 测试 | ✅ 12/12 通过 |
+| 代码推送 | ✅ `feature/frontend-enhancement-phase5` 分支 |
+
+### 分支信息
+
+- **分支名**: `feature/frontend-enhancement-phase5`
+- **PR 链接**: <https://github.com/tangchunwu/frontend-creator/pull/new/feature/frontend-enhancement-phase5>
