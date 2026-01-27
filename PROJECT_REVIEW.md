@@ -152,3 +152,158 @@
 
 - **分支名**: `feature/frontend-enhancement-phase5`
 - **PR 链接**: <https://github.com/tangchunwu/frontend-creator/pull/new/feature/frontend-enhancement-phase5>
+
+---
+
+## Phase 6-10: Core Deep Dive 核心攻坚 (2026-01-27)
+
+> **产品思维演变**: 我们意识到，光验证"别人给的 Idea"不够，用户最大的痛点是 **"我不知道做什么"**。于是我们将产品从一个「被动验证器」进化为「主动发现+快速落地」的全栈创业操作系统。
+
+### 产品方法论：Solo Founder OS
+
+我们重新定义了产品的核心概念词典，形成了一套完整的"创业黑话"：
+
+| 概念 | 代号 | 产品定位 | 解决的核心问题 |
+|:---|:---|:---|:---|
+| **Hunter** | 狩猎雷达 | **主动发现系统** | *"我不知道做什么"* → 全网扫描 Reddit/小红书，挖掘高频痛点 |
+| **Validator** | 验证器 | **被动分析系统** | *"这个 Idea 靠谱吗"* → 市场/竞品/搜索量深度体检 |
+| **Bridge** | 智能桥梁 | **连接层** | 消除从"发现"到"验证"的手动摩擦 (One-Click) |
+| **Generator** | 造物主 | **执行落地系统** | *"怎么低成本上线"* → 一键生成高转化落地页 |
+| **Real Brain** | 真实大脑 | **智能核心** | 接入 DeepSeek V3，让生成内容有情感、有逻辑 |
+| **Spy** | 竞品透视 | **情报系统** | 不触犯反爬，推断竞品定价策略 |
+| **Notifier** | 邮件通知 | **反馈闭环** | Waitlist 有人加入时自动通知 |
+
+### 💡 认知升级：邮件服务选型 (Notifier)
+
+> **核心洞察**：独立开发者发邮件不需要买服务器，也不需要用复杂的 SendGrid。**Resend** 是 2023 年专为开发者设计的现代邮件服务。
+
+**为什么选 Resend？**
+
+| 对比项 | SendGrid | Mailchimp | **Resend** |
+|:---|:---:|:---:|:---:|
+| 开发者体验 | 中 | 差 | **极佳** |
+| 免费额度 | 100封/天 | 500封/月 | **3000封/月** |
+| API 复杂度 | 高 | 高 | **超简单** |
+| React 组件 | ❌ | ❌ | ✅ (react-email) |
+
+**技术方案**：
+
+1. 注册 [resend.com](https://resend.com) 获取 API Key
+2. 创建 Edge Function: `send-welcome-email`
+3. 代码只需 10 行：
+
+```ts
+import { Resend } from 'resend';
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+await resend.emails.send({
+  from: 'noreply@yourdomain.com',
+  to: userEmail,
+  subject: '感谢加入 Waitlist!',
+  html: '<p>我们会在上线时第一时间通知您。</p>'
+});
+```
+
+**状态**: ⏳ Phase 11 待开发
+
+### 最终架构 (Mermaid)
+
+```mermaid
+graph TD
+    User["独立开发者"] --> |1 配置关键词| HunterUI["Hunter控制台"]
+    HunterUI --> |2 调度任务| Crawler["爬虫调度器"]
+    Crawler --> |3 抓取痛点| DB[("Vector DB")]
+    DB --> |4 AI评分| SignalProcessor["信号处理器"]
+    SignalProcessor --> |5 推荐机会| HunterUI
+    
+    HunterUI --> |6 一键验证| Validator["验证页"]
+    
+    Validator --> |7 深度分析| ReportEngine["验证引擎"]
+    ReportEngine --> |8 竞品透视| Spy["Competitor Spy"]
+    Spy --> |9 搜索推理| Tavily["Tavily API"]
+    ReportEngine --> |10 生成报告| Report["验证报告"]
+    
+    Report --> |11 生成MVP| Generator["Generator V2"]
+    Generator --> |12 注入灵魂| DeepSeek["DeepSeek V3"]
+    DeepSeek --> |13 输出页面| MVP["高转化落地页"]
+    
+    MVP --> |14 收集线索| Waitlist["Leads表"]
+```
+
+### 技术里程碑
+
+| Phase | 名称 | 核心产出 | 状态 |
+|:---:|:---|:---|:---:|
+| 6 | MVP Generator V1 | `mvp_landing_pages` 表 + Mock Edge Function | ✅ |
+| 7 | Hunter Backend | Vector DB + Crawler + Signal Processor | ✅ |
+| 8 | Hunter Frontend | `/discover/hunter` 仪表盘 | ✅ |
+| 9 | Intelligent Bridge | One-Click Verify 流转 | ✅ |
+| 10 | Real AI Brain | Generator V2 (DeepSeek) + Competitor Spy | ✅ |
+
+### 新增数据库表
+
+- `raw_market_signals` — 原始市场信号 (支持 pgvector)
+- `niche_opportunities` — AI 聚合后的商业机会
+- `scan_jobs` — 定时扫描任务配置
+
+### 新增边缘函数
+
+- `crawler-scheduler` — 爬虫调度器 (定时抓取 Reddit/小红书)
+- `signal-processor` — AI 信号打分器
+- `competitor-spy` — 竞品定价透视 (Tavily + DeepSeek)
+- `generate-mvp` (V2) — 真实 AI 文案生成
+
+### 验证结果
+
+| 项目 | 状态 |
+|------|------|
+| 构建 | ✅ 成功 (6.88s) |
+| 类型检查 | ✅ 无错误 |
+| 代码推送 | ✅ `main` 分支 |
+
+### 下一步 (Phase 11)
+
+系统内核已极其强大，下一阶段将聚焦 **外部增长 (Traffic)**：
+
+- SEO 自动化 (动态 Meta)
+- 社交分享卡片 (OG Image 生成)
+- 邮件营销 (Welcome Email)
+
+---
+
+## 💡 认知升级：UI/UX 核心术语
+
+> **这些是网页设计的"行话"，做产品必须知道。**
+
+### Hero 区域 (Hero Section)
+
+**定义**：网页打开后**第一眼看到的大区块**，通常占据整个屏幕高度。
+
+**作用**：
+
+- 抓住用户注意力
+- 用一句话说清楚"你是谁、你能解决什么问题"
+- 通常包含：大标题 + 副标题 + 主按钮
+
+**我们的例子**：`"你的创意是 真刚需 还是 伪需求？"`
+
+### 导航栏 (Navbar)
+
+**定义**：页面顶部的**横向菜单条**，让用户快速跳转。
+
+**标准组成**：
+
+- Logo (左侧)
+- 菜单链接 (中间)：首页、验证、发现...
+- CTA 按钮 (右侧)：登录/注册
+
+### CTA 按钮 (Call To Action)
+
+**定义**：**呼唤用户采取行动的按钮**。
+
+**特点**：
+
+- 颜色最醒目 (通常是主色调)
+- 文案有动词：「验证我的想法」「加入 Waitlist」
+- 一个页面通常只有 **1 个主 CTA**
+
+**我们的例子**：`验证我的想法 →` (绿色按钮)

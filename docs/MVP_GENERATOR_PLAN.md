@@ -62,18 +62,43 @@ supabase functions deploy signal-processor --no-verify-jwt
 3. 调用 `signal-processor` 函数对结果进行 AI 分析。
 4. 查询 `SELECT * FROM raw_market_signals ORDER BY opportunity_score DESC LIMIT 20;` 查看高价值机会。
 
+### D. Phase 9 & 10: 智能化 (Real AI & Bridge)
+
+> **边缘函数更新**
+
+您需要重新部署以下函数：
+
+```bash
+# 1. MVP 生成器 V2 (已升级为 Real AI)
+supabase functions deploy generate-mvp --no-verify-jwt
+
+# 2. 竞品透视 (新增)
+supabase functions deploy competitor-spy --no-verify-jwt
+```
+
+> **环境变量检查** (Supabase Dashboard -> Edge Functions -> Secrets)
+
+| 变量名 | 说明 | 必须 |
+| ------ | ---- | ---- |
+| `DEEPSEEK_API_KEY` 或 `LOVABLE_API_KEY` | AI 文案生成 | ✅ |
+| `TAVILY_API_KEY` | 竞品透视搜索 | ✅ |
+| `LLM_MODEL` | 默认 `deepseek/deepseek-chat` | 否 |
+| `LLM_BASE_URL` | 直连可设 `https://api.deepseek.com/v1` | 否 |
+
+> **新增功能说明**
+
+- **generate-mvp (V2)**: 不再返回 Mock 数据，而是调用 DeepSeek 生成走心文案
+- **competitor-spy**: 调用 Tavily 搜索竞品定价信息，再用 AI 推理其商业模式
+
 ---
 
 ## 1. 🤖 对接真实 AI (Real AI Integration)
 
-**现状**: 即使 Idea 不同，生成的文案都是一样的模板。
-**计划**:
+**现状**: ✅ **已完成** (Phase 10)
 
-- [ ] **Edge Function 改造**: 修改 `supabase/functions/generate-mvp/index.ts`。
-- [ ] **Prompt 工程**: 设计专用 Prompt，将 `validation_report` (痛点/受众/竞品) 转化为高转化率的 Landing Page Copy。
-  - *Input*: "SaaS, 痛点: 效率低, 受众: PM"
-  - *Output*: Hero Title: "不再被繁琐流程困扰", Features: ["自动化工作流", "智能报表"]。
-- [ ] **JSON 结构化输出**: 强制 LLM 返回标准 JSON 格式，并增加容错校验。
+- [x] **Edge Function 改造**: `generate-mvp` 已接入 DeepSeek
+- [x] **Prompt 工程**: 内置 "Growth Hacker" 角色
+- [x] **JSON 结构化输出**: 自动解析 + 容错回退
 
 ## 2. 📧 邮件通知服务 (Email Notifications)
 
