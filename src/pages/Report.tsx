@@ -641,7 +641,7 @@ const Report = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
-                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">需求真实度评分</span>
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">痛点真实度</span>
                 <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
                   <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">

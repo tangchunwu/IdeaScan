@@ -58,7 +58,7 @@ export function ShareCard({ idea, score, verdict, dimensions, tags }: ShareCardP
                             {/* Header */}
                             <div className="text-center mb-6">
                                    <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
-                                          VC-Grade Validation
+                                          综合得分
                                    </div>
                                    <h2 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">
                                           {idea}
