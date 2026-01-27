@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
 import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +37,7 @@ interface SettingsDialogProps {
 export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
        const {
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+              enableXiaohongshu, enableDouyin,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel,
               updateSettings, resetSettings,
@@ -59,6 +61,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+              enableXiaohongshu, enableDouyin,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel
        });
@@ -68,11 +71,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               if (open) {
                      setLocalSettings({
                             llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
+                            enableXiaohongshu, enableDouyin,
                             bochaApiKey, youApiKey, tavilyApiKey,
                             imageGenBaseUrl, imageGenApiKey, imageGenModel
                      });
               }
-       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
+       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, enableXiaohongshu, enableDouyin, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
 
        const handleProviderChange = (value: 'openai' | 'deepseek' | 'custom') => {
               const providerConfig = PROVIDERS[value];
@@ -126,6 +130,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             localSettings.llmProvider !== llmProvider ||
                             localSettings.llmModel !== llmModel ||
                             localSettings.tikhubToken !== tikhubToken ||
+                            localSettings.enableXiaohongshu !== enableXiaohongshu ||
+                            localSettings.enableDouyin !== enableDouyin ||
                             localSettings.bochaApiKey !== bochaApiKey ||
                             localSettings.youApiKey !== youApiKey ||
                             localSettings.tavilyApiKey !== tavilyApiKey ||
@@ -170,6 +176,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             llmApiKey: '',
                             llmModel: 'gpt-4o',
                             tikhubToken: '',
+                            enableXiaohongshu: true,
+                            enableDouyin: false,
                             bochaApiKey: '',
                             youApiKey: '',
                             tavilyApiKey: '',
@@ -237,6 +245,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    ...(settings.llmApiKey && { llmApiKey: settings.llmApiKey }),
                                    ...(settings.llmModel && { llmModel: settings.llmModel }),
                                    ...(settings.tikhubToken && { tikhubToken: settings.tikhubToken }),
+                                   ...(typeof settings.enableXiaohongshu === 'boolean' && { enableXiaohongshu: settings.enableXiaohongshu }),
+                                   ...(typeof settings.enableDouyin === 'boolean' && { enableDouyin: settings.enableDouyin }),
                                    ...(settings.bochaApiKey && { bochaApiKey: settings.bochaApiKey }),
                                    ...(settings.youApiKey && { youApiKey: settings.youApiKey }),
                                    ...(settings.tavilyApiKey && { tavilyApiKey: settings.tavilyApiKey }),
@@ -487,6 +497,47 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                  <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
                                                  <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                           </div>
+                                   </div>
+
+                                   {/* Data Source Toggles */}
+                                   <div className="space-y-3 pt-2">
+                                          <Label className="text-sm text-muted-foreground">选择数据源平台</Label>
+                                          
+                                          {/* Xiaohongshu Toggle */}
+                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+                                                 <div className="flex items-center gap-3">
+                                                        <span className="text-xl">📕</span>
+                                                        <div>
+                                                               <p className="font-medium text-sm">小红书</p>
+                                                               <p className="text-xs text-muted-foreground">时尚美妆、生活方式、种草内容</p>
+                                                        </div>
+                                                 </div>
+                                                 <Switch
+                                                        checked={localSettings.enableXiaohongshu}
+                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableXiaohongshu: checked }))}
+                                                 />
+                                          </div>
+
+                                          {/* Douyin Toggle */}
+                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+                                                 <div className="flex items-center gap-3">
+                                                        <span className="text-xl">🎵</span>
+                                                        <div>
+                                                               <p className="font-medium text-sm">抖音</p>
+                                                               <p className="text-xs text-muted-foreground">短视频、流量爆款、年轻用户</p>
+                                                        </div>
+                                                 </div>
+                                                 <Switch
+                                                        checked={localSettings.enableDouyin}
+                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableDouyin: checked }))}
+                                                 />
+                                          </div>
+
+                                          {!localSettings.enableXiaohongshu && !localSettings.enableDouyin && (
+                                                 <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                                                        ⚠️ 请至少启用一个数据源平台
+                                                 </p>
+                                          )}
                                    </div>
                             </div>
 
