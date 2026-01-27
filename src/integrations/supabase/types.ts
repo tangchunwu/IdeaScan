@@ -101,6 +101,54 @@ export type Database = {
           },
         ]
       }
+      niche_opportunities: {
+        Row: {
+          avg_opportunity_score: number | null
+          category: string | null
+          created_at: string
+          description: string | null
+          discovered_at: string
+          id: string
+          keyword: string
+          market_size_est: string | null
+          signal_count: number
+          title: string
+          top_sources: string[] | null
+          updated_at: string
+          urgency_score: number
+        }
+        Insert: {
+          avg_opportunity_score?: number | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          discovered_at?: string
+          id?: string
+          keyword: string
+          market_size_est?: string | null
+          signal_count?: number
+          title: string
+          top_sources?: string[] | null
+          updated_at?: string
+          urgency_score?: number
+        }
+        Update: {
+          avg_opportunity_score?: number | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          discovered_at?: string
+          id?: string
+          keyword?: string
+          market_size_est?: string | null
+          signal_count?: number
+          title?: string
+          top_sources?: string[] | null
+          updated_at?: string
+          urgency_score?: number
+        }
+        Relationships: []
+      }
       personas: {
         Row: {
           avatar_url: string | null
@@ -167,6 +215,105 @@ export type Database = {
           updated_at?: string
           user_id?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      raw_market_signals: {
+        Row: {
+          author_name: string | null
+          comments_count: number
+          content: string
+          content_hash: string | null
+          content_type: string
+          id: string
+          likes_count: number
+          opportunity_score: number | null
+          pain_level: string | null
+          processed_at: string | null
+          scanned_at: string
+          sentiment_score: number | null
+          source: string
+          source_id: string | null
+          source_url: string | null
+          topic_tags: string[] | null
+        }
+        Insert: {
+          author_name?: string | null
+          comments_count?: number
+          content: string
+          content_hash?: string | null
+          content_type?: string
+          id?: string
+          likes_count?: number
+          opportunity_score?: number | null
+          pain_level?: string | null
+          processed_at?: string | null
+          scanned_at?: string
+          sentiment_score?: number | null
+          source: string
+          source_id?: string | null
+          source_url?: string | null
+          topic_tags?: string[] | null
+        }
+        Update: {
+          author_name?: string | null
+          comments_count?: number
+          content?: string
+          content_hash?: string | null
+          content_type?: string
+          id?: string
+          likes_count?: number
+          opportunity_score?: number | null
+          pain_level?: string | null
+          processed_at?: string | null
+          scanned_at?: string
+          sentiment_score?: number | null
+          source?: string
+          source_id?: string | null
+          source_url?: string | null
+          topic_tags?: string[] | null
+        }
+        Relationships: []
+      }
+      scan_jobs: {
+        Row: {
+          created_at: string
+          created_by: string
+          frequency: string
+          id: string
+          keywords: string[]
+          last_run_at: string | null
+          next_run_at: string | null
+          platforms: string[]
+          signals_found: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          frequency?: string
+          id?: string
+          keywords: string[]
+          last_run_at?: string | null
+          next_run_at?: string | null
+          platforms?: string[]
+          signals_found?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          frequency?: string
+          id?: string
+          keywords?: string[]
+          last_run_at?: string | null
+          next_run_at?: string | null
+          platforms?: string[]
+          signals_found?: number
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
