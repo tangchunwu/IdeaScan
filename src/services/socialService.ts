@@ -26,7 +26,7 @@ export async function getComments(validationId: string): Promise<Comment[]> {
 
   if (error) throw error;
   // Map persona data to include empty system_prompt
-  return (data || []).map(c => ({
+  return (data || []).map((c: any) => ({
     ...c,
     persona: c.persona ? { ...c.persona, system_prompt: '' } : undefined
   }));
@@ -34,97 +34,97 @@ export async function getComments(validationId: string): Promise<Comment[]> {
 
 // Generate initial AI discussion
 export async function generateDiscussion(validationId: string): Promise<Comment[]> {
-       const { data: { session } } = await supabase.auth.getSession();
-       if (!session) throw new Error("Not authenticated");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
 
-       const response = await supabase.functions.invoke("generate-discussion", {
-              body: { validation_id: validationId },
-              headers: {
-                     Authorization: `Bearer ${session.access_token}`,
-              },
-       });
+  const response = await supabase.functions.invoke("generate-discussion", {
+    body: { validation_id: validationId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
 
-       if (response.error) throw response.error;
-       return response.data?.comments || [];
+  if (response.error) throw response.error;
+  return response.data?.comments || [];
 }
 
 // Reply to an AI comment
 export async function replyToComment(
-       commentId: string,
-       userReply: string
+  commentId: string,
+  userReply: string
 ): Promise<{ userComment: Comment; aiReply: Comment }> {
-       const { data: { session } } = await supabase.auth.getSession();
-       if (!session) throw new Error("Not authenticated");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
 
-       const response = await supabase.functions.invoke("reply-to-comment", {
-              body: { comment_id: commentId, user_reply: userReply },
-              headers: {
-                     Authorization: `Bearer ${session.access_token}`,
-              },
-       });
+  const response = await supabase.functions.invoke("reply-to-comment", {
+    body: { comment_id: commentId, user_reply: userReply },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
 
-       if (response.error) throw response.error;
-       return response.data;
+  if (response.error) throw response.error;
+  return response.data;
 }
 
 // Like/Unlike a comment
 export async function toggleCommentLike(commentId: string): Promise<boolean> {
-       const { data: { user } } = await supabase.auth.getUser();
-       if (!user) throw new Error("Not authenticated");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
 
-       // Check if already liked - use maybeSingle to avoid 406 error
-       const { data: existing, error: checkError } = await supabase
-              .from("comment_likes")
-              .select("id")
-              .eq("comment_id", commentId)
-              .eq("user_id", user.id)
-              .maybeSingle();
+  // Check if already liked - use maybeSingle to avoid 406 error
+  const { data: existing, error: checkError } = await supabase
+    .from("comment_likes")
+    .select("id")
+    .eq("comment_id", commentId)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-       if (checkError) {
-              console.error("Check like error:", checkError);
-              throw checkError;
-       }
+  if (checkError) {
+    console.error("Check like error:", checkError);
+    throw checkError;
+  }
 
-       if (existing) {
-              // Unlike
-              const { error: deleteError } = await supabase
-                     .from("comment_likes")
-                     .delete()
-                     .eq("id", existing.id);
-              if (deleteError) throw deleteError;
-              return false;
-       } else {
-              // Like - handle potential conflict gracefully
-              const { error: insertError } = await supabase
-                     .from("comment_likes")
-                     .insert({ comment_id: commentId, user_id: user.id });
-              
-              // If conflict (already liked), just return true
-              if (insertError?.code === '23505') {
-                     return true;
-              }
-              if (insertError) throw insertError;
-              return true;
-       }
+  if (existing) {
+    // Unlike
+    const { error: deleteError } = await supabase
+      .from("comment_likes")
+      .delete()
+      .eq("id", (existing as any).id);
+    if (deleteError) throw deleteError;
+    return false;
+  } else {
+    // Like - handle potential conflict gracefully
+    const { error: insertError } = await supabase
+      .from("comment_likes")
+      .insert({ comment_id: commentId, user_id: user.id } as any);
+    
+    // If conflict (already liked), just return true
+    if (insertError?.code === '23505') {
+      return true;
+    }
+    if (insertError) throw insertError;
+    return true;
+  }
 }
 
 // Create a user comment (not reply, just a standalone comment)
 export async function createUserComment(input: CreateCommentInput): Promise<Comment> {
-       const { data: { user } } = await supabase.auth.getUser();
-       if (!user) throw new Error("Not authenticated");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
 
-       const { data, error } = await supabase
-              .from("comments")
-              .insert({
-                     validation_id: input.validation_id,
-                     user_id: user.id,
-                     content: input.content,
-                     parent_id: input.parent_id || null,
-                     is_ai: false,
-              })
-              .select()
-              .single();
+  const { data, error } = await supabase
+    .from("comments")
+    .insert({
+      validation_id: input.validation_id,
+      user_id: user.id,
+      content: input.content,
+      parent_id: input.parent_id || null,
+      is_ai: false,
+    } as any)
+    .select()
+    .single();
 
-       if (error) throw error;
-       return data;
+  if (error) throw error;
+  return data as Comment;
 }

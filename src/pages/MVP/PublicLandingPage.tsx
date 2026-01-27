@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { getMVPBySlug, collectLeaf } from "@/services/mvpService";
+import { getMVPBySlug, collectLead } from "@/services/mvpService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,7 @@ export default function PublicLandingPage() {
         });
 
         const submitMutation = useMutation({
-                mutationFn: () => collectLeaf(page!.id, email),
+                mutationFn: () => collectLead(page!.id, email),
                 onSuccess: () => {
                         setIsSubmitted(true);
                         toast({ title: "已加入等待名单！🚀" });
