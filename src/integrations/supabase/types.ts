@@ -219,6 +219,182 @@ export type Database = {
         }
         Relationships: []
       }
+      raw_market_signals: {
+        Row: {
+          id: string
+          source: string
+          source_id: string | null
+          source_url: string | null
+          content: string
+          content_type: string
+          author_name: string | null
+          author_id: string | null
+          likes_count: number | null
+          comments_count: number | null
+          shares_count: number | null
+          sentiment_score: number | null
+          opportunity_score: number | null
+          topic_tags: Json | null
+          pain_level: string | null
+          embedding: string | null // vector type handled as string in JS
+          language: string | null
+          region: string | null
+          scanned_at: string
+          processed_at: string | null
+          created_at: string
+          content_hash: string | null
+        }
+        Insert: {
+          id?: string
+          source: string
+          source_id?: string | null
+          source_url?: string | null
+          content: string
+          content_type?: string
+          author_name?: string | null
+          author_id?: string | null
+          likes_count?: number | null
+          comments_count?: number | null
+          shares_count?: number | null
+          sentiment_score?: number | null
+          opportunity_score?: number | null
+          topic_tags?: Json | null
+          pain_level?: string | null
+          embedding?: string | null
+          language?: string | null
+          region?: string | null
+          scanned_at?: string
+          processed_at?: string | null
+          created_at?: string
+          content_hash?: string | null
+        }
+        Update: {
+          id?: string
+          source?: string
+          source_id?: string | null
+          source_url?: string | null
+          content?: string
+          content_type?: string
+          author_name?: string | null
+          author_id?: string | null
+          likes_count?: number | null
+          comments_count?: number | null
+          shares_count?: number | null
+          sentiment_score?: number | null
+          opportunity_score?: number | null
+          topic_tags?: Json | null
+          pain_level?: string | null
+          embedding?: string | null
+          language?: string | null
+          region?: string | null
+          scanned_at?: string
+          processed_at?: string | null
+          created_at?: string
+          content_hash?: string | null
+        }
+        Relationships: []
+      }
+      niche_opportunities: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          category: string | null
+          signal_count: number | null
+          sample_signals: Json | null
+          market_size_est: string | null
+          competition_level: string | null
+          urgency_score: number | null
+          status: string | null
+          assigned_to: string | null
+          validation_id: string | null
+          discovered_at: string
+          updated_at: string
+          source_keywords: string[] | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          category?: string | null
+          signal_count?: number | null
+          sample_signals?: Json | null
+          market_size_est?: string | null
+          competition_level?: string | null
+          urgency_score?: number | null
+          status?: string | null
+          assigned_to?: string | null
+          validation_id?: string | null
+          discovered_at?: string
+          updated_at?: string
+          source_keywords?: string[] | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          category?: string | null
+          signal_count?: number | null
+          sample_signals?: Json | null
+          market_size_est?: string | null
+          competition_level?: string | null
+          urgency_score?: number | null
+          status?: string | null
+          assigned_to?: string | null
+          validation_id?: string | null
+          discovered_at?: string
+          updated_at?: string
+          source_keywords?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "niche_opportunities_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      scan_jobs: {
+        Row: {
+          id: string
+          keywords: string[]
+          platforms: string[] | null
+          frequency: string | null
+          status: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          signals_found: number | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          keywords: string[]
+          platforms?: string[] | null
+          frequency?: string | null
+          status?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          signals_found?: number | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          keywords?: string[]
+          platforms?: string[] | null
+          frequency?: string | null
+          status?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          signals_found?: number | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       rate_limit_entries: {
         Row: {
           created_at: string

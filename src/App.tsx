@@ -1,3 +1,4 @@
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -15,6 +16,7 @@ const Report = lazy(() => import("./pages/Report"));
 const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
 const Discover = lazy(() => import("./pages/Discover"));
+const Hunter = lazy(() => import("./pages/Discover/Hunter"));
 const Auth = lazy(() => import("./pages/Auth"));
 const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
 const PublicLandingPage = lazy(() => import("./pages/MVP/PublicLandingPage"));
@@ -55,6 +57,7 @@ const App = () => (
                   <Route path="/history" element={<History />} />
                   <Route path="/compare" element={<Compare />} />
                   <Route path="/discover" element={<Discover />} />
+                  <Route path="/discover/hunter" element={<Hunter />} />
                   <Route path="/mvp/:id" element={<MVPGenerator />} />
                   <Route path="/p/:slug" element={<PublicLandingPage />} />
                   <Route path="*" element={<NotFound />} />
