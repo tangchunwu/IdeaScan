@@ -598,6 +598,101 @@ async function analyzeWithAI(
   }
 }
 
+/**
+ * Sync validation results to trending_topics table for the Trending Radar feature
+ * This automatically populates the discover page with validated market opportunities
+ */
+async function syncToTrendingTopics(
+  supabase: any,
+  idea: string,
+  tags: string[],
+  socialMediaData: any,
+  dataSummary: DataSummary | null,
+  aiResult: AIResult,
+  userId: string,
+  enableXiaohongshu?: boolean,
+  enableDouyin?: boolean
+): Promise<void> {
+  // Calculate heat score based on engagement
+  const totalEngagement = socialMediaData.totalEngagement || 0;
+  const avgLikes = socialMediaData.avgLikes || 0;
+  const avgComments = socialMediaData.avgComments || 0;
+  const sampleCount = socialMediaData.totalNotes || 0;
+  
+  // Heat score calculation (0-100)
+  const engagementScore = (avgLikes * 1) + (avgComments * 2);
+  const volumeScore = Math.min(sampleCount * 10, 500);
+  const heatScore = Math.min(100, Math.round((volumeScore + engagementScore / 10) / 10));
+  
+  // Only sync if heat score is meaningful (>= 30)
+  if (heatScore < 30) {
+    console.log(`[TrendingSync] Skipping - heat score too low: ${heatScore}`);
+    return;
+  }
+  
+  // Extract keyword from idea (first 20 chars or first tag)
+  const keyword = tags[0] || idea.slice(0, 30).replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "").slice(0, 20) || idea.slice(0, 20);
+  const category = tags.length > 1 ? tags[1] : null;
+  
+  // Extract pain points from data summary
+  const topPainPoints = dataSummary?.painPointClusters?.slice(0, 5).map(p => p.theme) || [];
+  
+  // Get sentiment from data summary or AI result
+  const sentimentPositive = dataSummary?.sentimentBreakdown?.positive || 
+    (aiResult.sentimentAnalysis as any)?.positive || 33;
+  const sentimentNegative = dataSummary?.sentimentBreakdown?.negative || 
+    (aiResult.sentimentAnalysis as any)?.negative || 33;
+  const sentimentNeutral = dataSummary?.sentimentBreakdown?.neutral || 
+    (aiResult.sentimentAnalysis as any)?.neutral || 34;
+  
+  // Build sources array
+  const sources: { platform: string; count: number }[] = [];
+  if (enableXiaohongshu !== false) {
+    const xhsCount = socialMediaData.sampleNotes?.filter((n: any) => n._platform !== 'douyin').length || sampleCount;
+    if (xhsCount > 0) sources.push({ platform: "xiaohongshu", count: xhsCount });
+  }
+  if (enableDouyin) {
+    const dyCount = socialMediaData.sampleNotes?.filter((n: any) => n._platform === 'douyin').length || 0;
+    if (dyCount > 0) sources.push({ platform: "douyin", count: dyCount });
+  }
+  
+  // Related keywords from tags
+  const relatedKeywords = tags.filter(t => t !== keyword).slice(0, 10);
+  
+  const topicData = {
+    keyword,
+    category,
+    heat_score: heatScore,
+    growth_rate: null, // Would need historical data
+    sample_count: sampleCount,
+    avg_engagement: Math.round(totalEngagement / Math.max(1, sampleCount)),
+    sentiment_positive: sentimentPositive,
+    sentiment_negative: sentimentNegative,
+    sentiment_neutral: sentimentNeutral,
+    top_pain_points: topPainPoints,
+    related_keywords: relatedKeywords,
+    sources,
+    created_by: userId,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  
+  console.log(`[TrendingSync] Syncing topic: ${keyword} (heat: ${heatScore})`);
+  
+  // Upsert - update if keyword exists, insert if new
+  const { error } = await supabase
+    .from("trending_topics")
+    .upsert(topicData, { onConflict: 'keyword' });
+  
+  if (error) {
+    console.error("[TrendingSync] Failed to sync:", error);
+    throw error;
+  }
+  
+  console.log(`[TrendingSync] Successfully synced topic: ${keyword}`);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -873,6 +968,24 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("Error updating validation:", updateError);
+    }
+
+    // 6. Sync to Trending Topics (if heat score is high enough)
+    try {
+      await syncToTrendingTopics(
+        supabase,
+        idea,
+        tags,
+        xiaohongshuData,
+        dataSummary,
+        aiResult,
+        user.id,
+        config?.enableXiaohongshu,
+        config?.enableDouyin
+      );
+    } catch (syncError) {
+      // Non-critical, log but don't fail the validation
+      console.error("Error syncing to trending topics:", syncError);
     }
 
     return new Response(
