@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingTopic, saveTopicInterest, removeTopicInterest } from "@/services/discoverService";
+import { TrendingTopic, saveTopicInterest, removeTopicInterest, trackTopicClick } from "@/services/discoverService";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,9 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange }: Tre
     }
   };
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
+    // 记录验证点击
+    await trackTopicClick(topic.id, topic.keyword, 'validate');
     // Navigate to validate page with pre-filled idea
     navigate(`/validate?idea=${encodeURIComponent(topic.keyword)}`);
   };

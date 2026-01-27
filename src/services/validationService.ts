@@ -112,6 +112,14 @@ export interface ValidationReport {
       recommendation: string;
     };
     keyInsights: string[];
+    crossPlatformResonance?: {
+      keyword: string;
+      platforms: string[];
+      totalMentions: number;
+      isHighIntensity: boolean;
+      sentiment: 'positive' | 'negative' | 'neutral';
+      sampleQuotes: { platform: string; quote: string }[];
+    }[];
   };
   data_quality_score?: number;
   keywords_used?: {
@@ -200,4 +208,91 @@ export async function deleteValidation(validationId: string): Promise<void> {
   if (response.error) {
     throw new Error(response.error.message || "删除失败");
   }
+}
+
+export interface SSEProgressEvent {
+  event: 'progress' | 'complete' | 'error';
+  stage?: string;
+  progress?: number;
+  message?: string;
+  result?: {
+    validationId: string;
+    overallScore: number;
+    overallVerdict?: string;
+  };
+  error?: string;
+}
+
+// 新增流式验证函数
+export function createValidationStream(
+  request: ValidationRequest,
+  onProgress: (event: SSEProgressEvent) => void,
+  onComplete: (result: ValidationResponse) => void,
+  onError: (error: string) => void
+): { abort: () => void } {
+  const controller = new AbortController();
+
+  (async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onError("请先登录");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-idea-stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) throw new Error('SSE 连接失败');
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const eventData: SSEProgressEvent = JSON.parse(line.slice(6));
+
+              if (eventData.event === 'progress') {
+                onProgress(eventData);
+              } else if (eventData.event === 'complete') {
+                onComplete({
+                  success: true,
+                  validationId: eventData.result!.validationId,
+                  overallScore: eventData.result!.overallScore,
+                });
+              } else if (eventData.event === 'error') {
+                onError(eventData.error || '验证失败');
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE event:", line, e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        onError((error as Error).message || '验证过程中发生错误');
+      }
+    }
+  })();
+
+  return { abort: () => controller.abort() };
 }

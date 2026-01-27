@@ -1,7 +1,7 @@
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertCircle, TrendingUp, Users, Zap, Database, MessageSquare } from "lucide-react";
+import { AlertCircle, TrendingUp, Users, Zap, Database, MessageSquare, Swords } from "lucide-react";
 
 interface DataInsightsTabProps {
   dataSummary?: {
@@ -24,6 +24,14 @@ interface DataInsightsTabProps {
       confidence: number;
     }[];
     keyInsights?: string[];
+    crossPlatformResonance?: {
+      keyword: string;
+      platforms: string[];
+      totalMentions: number;
+      isHighIntensity: boolean;
+      sentiment: 'positive' | 'negative' | 'neutral';
+      sampleQuotes: { platform: string; quote: string }[];
+    }[];
     dataQuality?: {
       score: number;
       sampleSize: number;
@@ -72,8 +80,8 @@ export function DataInsightsTab({ dataSummary, dataQualityScore, keywordsUsed }:
           </h3>
           <Badge variant="outline" className={
             (dataQualityScore || 0) >= 70 ? "border-green-500/50 text-green-500" :
-            (dataQualityScore || 0) >= 40 ? "border-yellow-500/50 text-yellow-500" :
-            "border-red-500/50 text-red-500"
+              (dataQualityScore || 0) >= 40 ? "border-yellow-500/50 text-yellow-500" :
+                "border-red-500/50 text-red-500"
           }>
             {dataQualityScore || 0}/100
           </Badge>
@@ -84,102 +92,154 @@ export function DataInsightsTab({ dataSummary, dataQualityScore, keywordsUsed }:
         </p>
       </GlassCard>
 
+      {/* Cross-Platform Resonance */}
+      {
+        dataSummary?.crossPlatformResonance?.length ? (
+          <GlassCard padding="md">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Swords className="w-5 h-5 text-accent" />
+              跨平台强刚需
+              <Badge variant="outline" className="ml-2 bg-accent/10 text-accent border-accent/20">
+                多平台验证
+              </Badge>
+            </h3>
+            <div className="space-y-4">
+              {dataSummary.crossPlatformResonance
+                .filter(r => r.isHighIntensity)
+                .slice(0, 5)
+                .map((resonance, i) => (
+                  <div key={i} className="p-3 bg-accent/5 rounded-lg border border-accent/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground">{resonance.keyword}</span>
+                        <Badge variant="secondary" className="text-xs">{resonance.totalMentions} 次提及</Badge>
+                      </div>
+                      <div className="flex gap-1">
+                        {resonance.platforms.map((p, j) => (
+                          <span key={j} className="text-lg" title={p === 'xiaohongshu' ? '小红书' : '抖音'}>
+                            {p === 'xiaohongshu' ? '📕' : p === 'douyin' ? '🎵' : '📱'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {resonance.sampleQuotes.slice(0, 2).map((q, j) => (
+                        <p key={j} className="text-xs text-muted-foreground italic">
+                          [{q.platform === 'xiaohongshu' ? '小红书' : '抖音'}] "{q.quote.slice(0, 60)}..."
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </GlassCard>
+        ) : null
+      }
+
       {/* Keywords Used */}
-      {keywordsUsed && Object.keys(keywordsUsed).length > 0 && (
-        <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-secondary" />
-            搜索关键词
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {keywordsUsed.coreKeywords?.length ? (
-              <div>
-                <span className="text-xs text-muted-foreground">核心关键词</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {keywordsUsed.coreKeywords.map((k, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">{k}</Badge>
-                  ))}
+      {
+        keywordsUsed && Object.keys(keywordsUsed).length > 0 && (
+          <GlassCard padding="md">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-secondary" />
+              搜索关键词
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {keywordsUsed.coreKeywords?.length ? (
+                <div>
+                  <span className="text-xs text-muted-foreground">核心关键词</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {keywordsUsed.coreKeywords.map((k, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">{k}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {keywordsUsed.userPhrases?.length ? (
-              <div>
-                <span className="text-xs text-muted-foreground">用户搜索词</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {keywordsUsed.userPhrases.map((k, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">{k}</Badge>
-                  ))}
+              ) : null}
+              {keywordsUsed.userPhrases?.length ? (
+                <div>
+                  <span className="text-xs text-muted-foreground">用户搜索词</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {keywordsUsed.userPhrases.map((k, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">{k}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        </GlassCard>
-      )}
+              ) : null}
+            </div>
+          </GlassCard>
+        )
+      }
 
       {/* Pain Point Clusters */}
-      {dataSummary?.painPointClusters?.length ? (
-        <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-accent" />
-            用户痛点聚类
-          </h3>
-          <div className="space-y-4">
-            {dataSummary.painPointClusters.slice(0, 5).map((p, i) => (
-              <div key={i} className="border-l-2 border-primary/30 pl-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium">{p.theme}</span>
-                  <Badge className={`text-xs ${typeLabels[p.type]?.color || ''}`}>
-                    {typeLabels[p.type]?.label || p.type}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">×{p.frequency}</span>
+      {
+        dataSummary?.painPointClusters?.length ? (
+          <GlassCard padding="md">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-accent" />
+              用户痛点聚类
+            </h3>
+            <div className="space-y-4">
+              {dataSummary.painPointClusters.slice(0, 5).map((p, i) => (
+                <div key={i} className="border-l-2 border-primary/30 pl-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium">{p.theme}</span>
+                    <Badge className={`text-xs ${typeLabels[p.type]?.color || ''}`}>
+                      {typeLabels[p.type]?.label || p.type}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">×{p.frequency}</span>
+                  </div>
+                  {p.sampleQuotes?.slice(0, 2).map((q, j) => (
+                    <p key={j} className="text-sm text-muted-foreground italic">"{q.slice(0, 80)}..."</p>
+                  ))}
                 </div>
-                {p.sampleQuotes?.slice(0, 2).map((q, j) => (
-                  <p key={j} className="text-sm text-muted-foreground italic">"{q.slice(0, 80)}..."</p>
-                ))}
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      ) : null}
+              ))}
+            </div>
+          </GlassCard>
+        ) : null
+      }
 
       {/* Market Signals */}
-      {dataSummary?.marketSignals?.length ? (
-        <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-warning" />
-            市场信号
-          </h3>
-          <div className="space-y-3">
-            {dataSummary.marketSignals.slice(0, 4).map((s, i) => (
-              <div key={i} className="p-3 rounded-lg bg-muted/30">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-medium text-sm">{s.signal}</span>
-                  <Badge variant="outline" className="text-xs">置信度 {s.confidence}%</Badge>
+      {
+        dataSummary?.marketSignals?.length ? (
+          <GlassCard padding="md">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-warning" />
+              市场信号
+            </h3>
+            <div className="space-y-3">
+              {dataSummary.marketSignals.slice(0, 4).map((s, i) => (
+                <div key={i} className="p-3 rounded-lg bg-muted/30">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-medium text-sm">{s.signal}</span>
+                    <Badge variant="outline" className="text-xs">置信度 {s.confidence}%</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{s.implication}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{s.implication}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      ) : null}
+              ))}
+            </div>
+          </GlassCard>
+        ) : null
+      }
 
       {/* Key Insights */}
-      {dataSummary?.keyInsights?.length ? (
-        <GlassCard padding="md">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            关键洞察
-          </h3>
-          <ul className="space-y-2">
-            {dataSummary.keyInsights.map((insight, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="text-primary">•</span>
-                <span>{insight}</span>
-              </li>
-            ))}
-          </ul>
-        </GlassCard>
-      ) : null}
-    </div>
+      {
+        dataSummary?.keyInsights?.length ? (
+          <GlassCard padding="md">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              关键洞察
+            </h3>
+            <ul className="space-y-2">
+              {dataSummary.keyInsights.map((insight, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-primary">•</span>
+                  <span>{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </GlassCard>
+        ) : null
+      }
+    </div >
   );
 }

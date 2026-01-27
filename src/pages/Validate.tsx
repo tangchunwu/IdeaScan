@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useCreateValidation } from "@/hooks/useValidation";
+import { validationKeys } from "@/hooks/useValidation";
+import { createValidationStream, getValidation } from "@/services/validationService";
+import { useSettings } from "@/hooks/useSettings";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { toUserFacingBackendError } from "@/lib/backendErrors";
 import {
@@ -44,16 +47,19 @@ const exampleIdeas = [
 
 const Validate = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const settings = useSettings();
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const createMutation = useCreateValidation();
+  const [progressMessage, setProgressMessage] = useState("");
+  const sseControllerRef = useRef<{ abort: () => void } | null>(null);
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
 
   const handleAddTag = (tag: string) => {
@@ -84,42 +90,24 @@ const Validate = () => {
     { id: 4, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
   ];
 
-  // Smooth progress animation
+  // Handle URL params for trending topics
   useEffect(() => {
-    if (isValidating && currentStep < validationSteps.length) {
-      const targetProgress = validationSteps[currentStep].targetProgress;
-
-      progressIntervalRef.current = setInterval(() => {
-        setProgress(prev => {
-          if (prev < targetProgress) {
-            // Smooth increment with slight randomization for natural feel
-            const increment = Math.random() * 2 + 0.5;
-            return Math.min(prev + increment, targetProgress);
-          }
-          return prev;
-        });
-      }, 100);
-
-      return () => {
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-        }
-      };
+    const ideaParam = searchParams.get('idea');
+    if (ideaParam && !idea) {
+      setIdea(decodeURIComponent(ideaParam));
+      toast({
+        title: "已填充热点关键词",
+        description: `"${ideaParam}" - 来自热点雷达`,
+      });
     }
-  }, [isValidating, currentStep]);
+  }, [searchParams]);
 
-  // Step progression timer
+  // Cleanup SSE on unmount
   useEffect(() => {
-    if (isValidating && currentStep < validationSteps.length - 1) {
-      const stepDurations = [800, 1500, 3000, 4000, 2000]; // Different duration per step
-      const timer = setTimeout(() => {
-        setCurrentStep(prev => prev + 1);
-        setProgressStage(validationSteps[currentStep + 1]?.description || "");
-      }, stepDurations[currentStep]);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isValidating, currentStep]);
+    return () => {
+      sseControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleValidate = async () => {
     if (!idea.trim()) return;
@@ -135,58 +123,79 @@ const Validate = () => {
     }
 
     setIsValidating(true);
-    setProgress(5);
+    setProgress(0);
     setCurrentStep(0);
-    setProgressStage(validationSteps[0].description);
+    setProgressMessage("");
 
-    try {
-      // Actual API Call
-      const result = await createMutation.mutateAsync({
+    // 使用 SSE 流式验证
+    sseControllerRef.current = createValidationStream(
+      {
         idea: idea.trim(),
         tags: selectedTags,
         mode: validationMode,
-      });
+        config: {
+          mode: validationMode,
+          llmProvider: settings.llmProvider,
+          llmBaseUrl: settings.llmBaseUrl,
+          llmApiKey: settings.llmApiKey,
+          llmModel: settings.llmModel,
+          tikhubToken: settings.tikhubToken,
+          enableXiaohongshu: settings.enableXiaohongshu,
+          enableDouyin: settings.enableDouyin,
+          searchKeys: {
+            bocha: settings.bochaApiKey,
+            you: settings.youApiKey,
+            tavily: settings.tavilyApiKey,
+          },
+          imageGen: {
+            baseUrl: settings.imageGenBaseUrl,
+            apiKey: settings.imageGenApiKey,
+            model: settings.imageGenModel,
+          }
+        },
+      },
+      // onProgress
+      (event) => {
+        if (event.progress !== undefined) setProgress(event.progress);
+        if (event.message) setProgressMessage(event.message);
 
-      // Cleanup
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
+        // 根据 stage 映射到 currentStep
+        const stageMap: Record<string, number> = {
+          init: 0,
+          keywords: 1,
+          crawl_start: 2, crawl_xhs: 2, crawl_dy: 2, crawl_done: 2, search: 2,
+          summarize: 3, analyze: 3,
+          save: 4,
+          complete: 5
+        };
+        if (event.stage && stageMap[event.stage] !== undefined) {
+          setCurrentStep(stageMap[event.stage]);
+        }
+      },
+      // onComplete
+      async (result) => {
+        setProgress(100);
+        setCurrentStep(validationSteps.length);
+
+        toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+
+        // 预加载报告数据
+        await queryClient.prefetchQuery({
+          queryKey: validationKeys.detail(result.validationId),
+          queryFn: () => getValidation(result.validationId),
+          staleTime: 1000 * 60 * 5,
+        });
+
+        setTimeout(() => navigate(`/report/${result.validationId}`), 500);
+      },
+      // onError
+      (error) => {
+        toast({ title: "验证失败", description: error, variant: "destructive" });
+        setIsValidating(false);
+        setProgress(0);
+        setCurrentStep(0);
       }
-
-      setProgress(100);
-      setCurrentStep(validationSteps.length);
-      setProgressStage("完成！正在跳转...");
-
-      toast({
-        title: "验证完成！",
-        description: `综合评分：${result.overallScore}分`,
-      });
-
-      // Small delay before navigation for user to see completion
-      setTimeout(() => {
-        navigate(`/report/${result.validationId}`);
-      }, 500);
-    } catch (error: unknown) {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-
-      const { title, description, isNetworkError } = toUserFacingBackendError(error);
-
-      toast({
-        title: title,
-        description,
-        variant: "destructive",
-        action: isNetworkError ? (
-          <ToastAction altText="重试" onClick={() => handleValidate()}>
-            重试
-          </ToastAction>
-        ) : undefined,
-      });
-
-      setIsValidating(false);
-      setProgress(0);
-      setCurrentStep(0);
-    }
+    );
   };
 
   // 未登录状态 - 直接跳转到登录页
@@ -371,8 +380,8 @@ const Validate = () => {
                 onClick={() => setValidationMode('quick')}
                 disabled={isValidating}
                 className={`relative p-5 rounded-2xl border-2 transition-all duration-300 text-left ${validationMode === 'quick'
-                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                    : 'border-border/40 bg-white/40 hover:border-primary/30 hover:bg-white/60'
+                  ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                  : 'border-border/40 bg-white/40 hover:border-primary/30 hover:bg-white/60'
                   } disabled:opacity-50`}
               >
                 <div className="flex items-start gap-3">
@@ -403,8 +412,8 @@ const Validate = () => {
                 onClick={() => setValidationMode('deep')}
                 disabled={isValidating}
                 className={`relative p-5 rounded-2xl border-2 transition-all duration-300 text-left ${validationMode === 'deep'
-                    ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
-                    : 'border-border/40 bg-white/40 hover:border-secondary/30 hover:bg-white/60'
+                  ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
+                  : 'border-border/40 bg-white/40 hover:border-secondary/30 hover:bg-white/60'
                   } disabled:opacity-50`}
               >
                 <div className="flex items-start gap-3">
@@ -500,7 +509,7 @@ const Validate = () => {
                             </p>
                             {isActive && (
                               <p className="text-xs text-muted-foreground mt-0.5 animate-fade-in">
-                                {step.description}
+                                {progressMessage || step.description}
                               </p>
                             )}
                           </div>

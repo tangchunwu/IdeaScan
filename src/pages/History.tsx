@@ -4,6 +4,7 @@ import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptySt
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { Validation } from "@/services/validationService";
 import { useValidations, useDeleteValidation } from "@/hooks/useValidation";
@@ -19,6 +20,7 @@ import {
   SortDesc,
   LogIn,
   AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 
 const History = () => {
@@ -32,6 +34,8 @@ const History = () => {
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
   const deleteMutation = useDeleteValidation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
@@ -62,7 +66,8 @@ const History = () => {
       }
     });
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation(); // Prevent card click
     setDeletingId(id);
     try {
       await deleteMutation.mutateAsync(id);
@@ -70,6 +75,11 @@ const History = () => {
         title: "删除成功",
         description: "验证记录已删除",
       });
+      if (selectedIds.has(id)) {
+        const next = new Set(selectedIds);
+        next.delete(id);
+        setSelectedIds(next);
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "删除失败";
       toast({
@@ -79,6 +89,46 @@ const History = () => {
       });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    setIsBatchDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
+      toast({
+        title: "批量删除成功",
+        description: `已删除 ${selectedIds.size} 条记录`,
+      });
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast({
+        title: "部分删除失败",
+        description: "请刷新重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filteredItems.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredItems.map(i => i.id)));
     }
   };
 
@@ -178,12 +228,25 @@ const History = () => {
                   查看和管理你的验证记录
                 </p>
               </div>
-              <Button asChild className="rounded-xl">
-                <Link to="/validate">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  新建验证
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                {selectedIds.size > 0 && (
+                  <Button
+                    variant="destructive"
+                    className="rounded-xl animate-fade-in"
+                    onClick={handleBatchDelete}
+                    disabled={isBatchDeleting}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    删除已选 ({selectedIds.size})
+                  </Button>
+                )}
+                <Button asChild className="rounded-xl">
+                  <Link to="/validate">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    新建验证
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -225,8 +288,25 @@ const History = () => {
                   <option value="date-desc">最新优先</option>
                   <option value="date-asc">最早优先</option>
                   <option value="score-desc">高分优先</option>
-                  <option value="score-asc">低分优先</option>
                 </select>
+
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl md:hidden" onClick={toggleAll}>
+                  {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <div className="w-4 h-4 border-2 border-muted rounded" />}
+                </Button>
+
+                <Button variant="outline" size="sm" className="hidden md:flex rounded-xl" onClick={toggleAll}>
+                  {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2 text-primary" />
+                      取消全选
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 border-2 border-muted rounded mr-2" />
+                      全选
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </GlassCard>
@@ -257,12 +337,21 @@ const History = () => {
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        {/* Checkbox */}
+                        <div className="flex items-center justify-center pl-2">
+                          <Checkbox
+                            checked={selectedIds.has(item.id)}
+                            onCheckedChange={() => toggleSelection(item.id)}
+                            className="w-5 h-5 rounded-md border-muted-foreground/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                        </div>
+
                         {/* Score */}
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0" onClick={() => navigate(`/report/${item.id}`)}>
                           {item.overall_score ? (
                             <ScoreCircle score={item.overall_score} size="sm" />
                           ) : (
-                            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+                            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center cursor-pointer">
                               <span className="text-xs text-muted-foreground">
                                 {item.status === 'processing' ? '分析中' : '待处理'}
                               </span>
@@ -271,7 +360,7 @@ const History = () => {
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/report/${item.id}`)}>
                           <h3 className="font-semibold text-foreground mb-1 truncate">
                             {item.idea}
                           </h3>
@@ -319,7 +408,7 @@ const History = () => {
                             variant="ghost"
                             size="sm"
                             className="rounded-lg text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(item.id)}
+                            onClick={(e) => handleDelete(item.id, e)}
                             disabled={deletingId === item.id}
                           >
                             <Trash2 className="w-4 h-4" />

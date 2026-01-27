@@ -178,3 +178,28 @@ export async function getDiscoverStats(): Promise<{
 
   return { totalTopics, avgHeatScore, topCategories };
 }
+
+// 新增：记录用户点击行为
+export async function trackTopicClick(
+  topicId: string | null,
+  keyword: string,
+  clickType: 'view' | 'expand' | 'validate'
+): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return; // 未登录用户不记录
+
+  try {
+    await supabase
+      .from('user_topic_clicks')
+      .insert({
+        user_id: session.user.id,
+        topic_id: topicId,
+        keyword: keyword,
+        click_type: clickType,
+      });
+  } catch (error) {
+    // 静默失败，不影响用户体验
+    console.warn('Failed to track topic click:', error);
+  }
+}
+
