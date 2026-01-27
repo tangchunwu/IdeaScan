@@ -1,0 +1,84 @@
+{
+        "common": {
+                "loading": "加载中...",
+                "error": "出错了",
+                "retry": "重试",
+                "cancel": "取消",
+                "confirm": "确认",
+                "save": "保存",
+                "delete": "删除",
+                "edit": "编辑",
+                "back": "返回",
+                "next": "下一步",
+                "submit": "提交",
+                "search": "搜索",
+                "noData": "暂无数据"
+        },
+        "nav": {
+                "home": "首页",
+                "validate": "验证需求",
+                "history": "历史记录",
+                "discover": "发现",
+                "compare": "对比",
+                "settings": "设置",
+                "login": "登录",
+                "logout": "退出登录"
+        },
+        "validate": {
+                "title": "需求验证",
+                "placeholder": "描述你的产品创意或需求...",
+                "tags": "标签",
+                "tagsPlaceholder": "添加标签（回车确认）",
+                "startValidation": "开始验证",
+                "validating": "验证中...",
+                "quickMode": "快速验证",
+                "deepMode": "深度验证"
+        },
+        "report": {
+                "title": "验证报告",
+                "overallScore": "综合评分",
+                "dimensions": "多维度分析",
+                "persona": "用户画像",
+                "market": "市场分析",
+                "sentiment": "情感分析",
+                "competitors": "竞品分析",
+                "ai": "AI 分析",
+                "download": "下载报告",
+                "share": "分享"
+        },
+        "history": {
+                "title": "历史记录",
+                "empty": "暂无验证记录",
+                "selectAll": "全选",
+                "deleteSelected": "删除所选",
+                "confirmDelete": "确认删除？"
+        },
+        "discover": {
+                "title": "发现热点",
+                "trending": "热门话题",
+                "recommended": "为你推荐",
+                "viewAll": "查看全部",
+                "validate": "立即验证"
+        },
+        "settings": {
+                "title": "设置",
+                "llm": "大语言模型",
+                "provider": "服务商",
+                "apiKey": "API 密钥",
+                "model": "模型",
+                "dataSources": "数据源",
+                "xiaohongshu": "小红书",
+                "douyin": "抖音",
+                "sync": "同步设置",
+                "reset": "重置"
+        },
+        "auth": {
+                "login": "登录",
+                "register": "注册",
+                "email": "邮箱",
+                "password": "密码",
+                "forgotPassword": "忘记密码？",
+                "noAccount": "还没有账号？",
+                "hasAccount": "已有账号？"
+        }
+}

@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { TrendingTopicCard } from "@/components/discover/TrendingTopicCard";
 import { DiscoverFilters } from "@/components/discover/DiscoverFilters";
 import { DiscoverStats } from "@/components/discover/DiscoverStats";
+import { PersonalizedSection } from "@/components/discover/PersonalizedSection";
 import {
   getTrendingTopics,
   getCategories,
@@ -19,12 +20,12 @@ import { Compass, Radar, Sparkles } from "lucide-react";
 
 export default function Discover() {
   const { user } = useAuth();
-  
+
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [minHeatScore, setMinHeatScore] = useState(0);
   const [sortBy, setSortBy] = useState<'heat_score' | 'growth_rate' | 'discovered_at'>('heat_score');
-  
+
   // User interests map
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
 
@@ -106,6 +107,9 @@ export default function Discover() {
             isLoading={statsLoading}
           />
         </div>
+
+        {/* Personalized Recommendations */}
+        <PersonalizedSection />
 
         {/* Filters */}
         <div className="mb-6">

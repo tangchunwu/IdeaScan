@@ -24,9 +24,11 @@ interface TrendingTopicCardProps {
   topic: TrendingTopic;
   userInterest?: 'saved' | 'validated' | 'dismissed' | null;
   onInterestChange?: (topicId: string, interest: 'saved' | 'validated' | 'dismissed' | null) => void;
+  onValidate?: () => void;
+  isPersonalized?: boolean;
 }
 
-export function TrendingTopicCard({ topic, userInterest, onInterestChange }: TrendingTopicCardProps) {
+export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized }: TrendingTopicCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
@@ -75,8 +77,12 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange }: Tre
   const handleValidate = async () => {
     // 记录验证点击
     await trackTopicClick(topic.id, topic.keyword, 'validate');
-    // Navigate to validate page with pre-filled idea
-    navigate(`/validate?idea=${encodeURIComponent(topic.keyword)}`);
+    // Use custom handler or default navigation
+    if (onValidate) {
+      onValidate();
+    } else {
+      navigate(`/validate?idea=${encodeURIComponent(topic.keyword)}`);
+    }
   };
 
   return (

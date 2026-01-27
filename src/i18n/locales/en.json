@@ -1,0 +1,84 @@
+{
+        "common": {
+                "loading": "Loading...",
+                "error": "Error",
+                "retry": "Retry",
+                "cancel": "Cancel",
+                "confirm": "Confirm",
+                "save": "Save",
+                "delete": "Delete",
+                "edit": "Edit",
+                "back": "Back",
+                "next": "Next",
+                "submit": "Submit",
+                "search": "Search",
+                "noData": "No data"
+        },
+        "nav": {
+                "home": "Home",
+                "validate": "Validate",
+                "history": "History",
+                "discover": "Discover",
+                "compare": "Compare",
+                "settings": "Settings",
+                "login": "Login",
+                "logout": "Logout"
+        },
+        "validate": {
+                "title": "Demand Validation",
+                "placeholder": "Describe your product idea or demand...",
+                "tags": "Tags",
+                "tagsPlaceholder": "Add tags (press Enter)",
+                "startValidation": "Start Validation",
+                "validating": "Validating...",
+                "quickMode": "Quick Mode",
+                "deepMode": "Deep Mode"
+        },
+        "report": {
+                "title": "Validation Report",
+                "overallScore": "Overall Score",
+                "dimensions": "Multi-dimensional Analysis",
+                "persona": "User Persona",
+                "market": "Market Analysis",
+                "sentiment": "Sentiment Analysis",
+                "competitors": "Competitor Analysis",
+                "ai": "AI Analysis",
+                "download": "Download Report",
+                "share": "Share"
+        },
+        "history": {
+                "title": "History",
+                "empty": "No validation records",
+                "selectAll": "Select All",
+                "deleteSelected": "Delete Selected",
+                "confirmDelete": "Confirm delete?"
+        },
+        "discover": {
+                "title": "Discover Trends",
+                "trending": "Trending Topics",
+                "recommended": "Recommended for You",
+                "viewAll": "View All",
+                "validate": "Validate Now"
+        },
+        "settings": {
+                "title": "Settings",
+                "llm": "Large Language Model",
+                "provider": "Provider",
+                "apiKey": "API Key",
+                "model": "Model",
+                "dataSources": "Data Sources",
+                "xiaohongshu": "Xiaohongshu",
+                "douyin": "Douyin",
+                "sync": "Sync Settings",
+                "reset": "Reset"
+        },
+        "auth": {
+                "login": "Login",
+                "register": "Register",
+                "email": "Email",
+                "password": "Password",
+                "forgotPassword": "Forgot password?",
+                "noAccount": "Don't have an account?",
+                "hasAccount": "Already have an account?"
+        }
+}

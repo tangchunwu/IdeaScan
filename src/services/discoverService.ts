@@ -203,3 +203,85 @@ export async function trackTopicClick(
   }
 }
 
+// 新增：获取个性化推荐 (基于用户历史验证的tags)
+export async function getPersonalizedRecommendations(limit = 6): Promise<TrendingTopic[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  try {
+    // 1. 获取用户历史验证的 tags
+    const { data: validations, error: validationError } = await supabase
+      .from('validations')
+      .select('tags')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (validationError || !validations?.length) {
+      return [];
+    }
+
+    // 2. 提取所有 tags 并计算频率
+    const tagFrequency = new Map<string, number>();
+    validations.forEach(v => {
+      const tags = v.tags as string[] || [];
+      tags.forEach(tag => {
+        tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
+      });
+    });
+
+    if (tagFrequency.size === 0) return [];
+
+    // 3. 获取用户最常验证的 top 5 tags
+    const topTags = Array.from(tagFrequency.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag]) => tag);
+
+    // 4. 查找与这些 tags 相关的热点话题
+    const { data: topics, error: topicsError } = await supabase
+      .from('trending_topics')
+      .select('*')
+      .eq('is_active', true)
+      .order('heat_score', { ascending: false })
+      .limit(100);
+
+    if (topicsError || !topics?.length) return [];
+
+    // 5. 根据 tag 匹配度排序
+    const scoredTopics = topics.map(topic => {
+      let matchScore = 0;
+      const keyword = topic.keyword?.toLowerCase() || '';
+      const relatedKeywords = (topic.related_keywords as string[] || []).map(k => k.toLowerCase());
+      const category = topic.category?.toLowerCase() || '';
+
+      topTags.forEach((tag, index) => {
+        const tagLower = tag.toLowerCase();
+        const weight = 5 - index; // 越靠前的 tag 权重越高
+
+        if (keyword.includes(tagLower)) matchScore += weight * 3;
+        if (category.includes(tagLower)) matchScore += weight * 2;
+        if (relatedKeywords.some(k => k.includes(tagLower))) matchScore += weight;
+      });
+
+      return { topic, matchScore };
+    });
+
+    // 6. 返回匹配度最高的话题
+    const recommended = scoredTopics
+      .filter(item => item.matchScore > 0)
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, limit)
+      .map(item => ({
+        ...item.topic,
+        top_pain_points: item.topic.top_pain_points || [],
+        related_keywords: item.topic.related_keywords || [],
+        sources: (item.topic.sources as { platform: string; count: number }[]) || [],
+      }));
+
+    return recommended;
+  } catch (error) {
+    console.error('Error fetching personalized recommendations:', error);
+    return [];
+  }
+}
