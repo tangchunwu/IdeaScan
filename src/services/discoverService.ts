@@ -53,7 +53,7 @@ export async function getTrendingTopics(filters: DiscoverFilters = {}): Promise<
   }
 
   // Type assertion for the JSONB fields
-  return (data || []).map(topic => ({
+  return (data || []).map((topic: any) => ({
     ...topic,
     top_pain_points: topic.top_pain_points || [],
     related_keywords: topic.related_keywords || [],
@@ -77,7 +77,7 @@ export async function getUserTopicInterests(): Promise<Map<string, 'saved' | 'va
   }
 
   const interestMap = new Map<string, 'saved' | 'validated' | 'dismissed'>();
-  data?.forEach(item => {
+  (data || []).forEach((item: any) => {
     interestMap.set(item.topic_id, item.interest_type as 'saved' | 'validated' | 'dismissed');
   });
 
@@ -98,7 +98,7 @@ export async function saveTopicInterest(
       user_id: session.user.id,
       topic_id: topicId,
       interest_type: interestType,
-    }, {
+    } as any, {
       onConflict: 'user_id,topic_id',
     });
 
@@ -138,7 +138,7 @@ export async function getCategories(): Promise<string[]> {
     return [];
   }
 
-  const categories = [...new Set(data?.map(d => d.category).filter(Boolean) as string[])];
+  const categories = [...new Set((data || []).map((d: any) => d.category).filter(Boolean) as string[])];
   return categories.sort();
 }
 
@@ -158,14 +158,15 @@ export async function getDiscoverStats(): Promise<{
     return { totalTopics: 0, avgHeatScore: 0, topCategories: [] };
   }
 
-  const totalTopics = data?.length || 0;
+  const topics = (data || []) as { heat_score: number; category: string | null }[];
+  const totalTopics = topics.length;
   const avgHeatScore = totalTopics > 0
-    ? Math.round(data.reduce((sum, t) => sum + (t.heat_score || 0), 0) / totalTopics)
+    ? Math.round(topics.reduce((sum, t) => sum + (t.heat_score || 0), 0) / totalTopics)
     : 0;
 
   // Count by category
   const categoryCount = new Map<string, number>();
-  data?.forEach(t => {
+  topics.forEach(t => {
     if (t.category) {
       categoryCount.set(t.category, (categoryCount.get(t.category) || 0) + 1);
     }
@@ -196,7 +197,7 @@ export async function trackTopicClick(
         topic_id: topicId,
         keyword: keyword,
         click_type: clickType,
-      });
+      } as any);
   } catch (error) {
     // 静默失败，不影响用户体验
     console.warn('Failed to track topic click:', error);
@@ -223,7 +224,7 @@ export async function getPersonalizedRecommendations(limit = 6): Promise<Trendin
 
     // 2. 提取所有 tags 并计算频率
     const tagFrequency = new Map<string, number>();
-    validations.forEach(v => {
+    validations.forEach((v: any) => {
       const tags = v.tags as string[] || [];
       tags.forEach(tag => {
         tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
@@ -249,10 +250,10 @@ export async function getPersonalizedRecommendations(limit = 6): Promise<Trendin
     if (topicsError || !topics?.length) return [];
 
     // 5. 根据 tag 匹配度排序
-    const scoredTopics = topics.map(topic => {
+    const scoredTopics = (topics as any[]).map(topic => {
       let matchScore = 0;
       const keyword = topic.keyword?.toLowerCase() || '';
-      const relatedKeywords = (topic.related_keywords as string[] || []).map(k => k.toLowerCase());
+      const relatedKeywords = (topic.related_keywords as string[] || []).map((k: string) => k.toLowerCase());
       const category = topic.category?.toLowerCase() || '';
 
       topTags.forEach((tag, index) => {
@@ -261,7 +262,7 @@ export async function getPersonalizedRecommendations(limit = 6): Promise<Trendin
 
         if (keyword.includes(tagLower)) matchScore += weight * 3;
         if (category.includes(tagLower)) matchScore += weight * 2;
-        if (relatedKeywords.some(k => k.includes(tagLower))) matchScore += weight;
+        if (relatedKeywords.some((k: string) => k.includes(tagLower))) matchScore += weight;
       });
 
       return { topic, matchScore };

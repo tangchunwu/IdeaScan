@@ -121,11 +121,12 @@ Required JSON Format:
                         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                 )
 
-        } catch (error) {
-                console.error("Error:", error);
-                return new Response(
-                        JSON.stringify({ error: error.message }),
-                        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-                )
+	} catch (error) {
+		console.error("Error:", error);
+		const message = error instanceof Error ? error.message : 'Unknown error';
+		return new Response(
+			JSON.stringify({ error: message }),
+			{ headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+		)
         }
 })
