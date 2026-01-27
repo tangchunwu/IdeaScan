@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
 import {
         Radar, Plus, Search, Filter, RefreshCw, Radio,
-        MessageSquare, ExternalLink, TrendingUp, AlertTriangle
+        MessageSquare, ExternalLink, TrendingUp, AlertTriangle, Rocket
 } from "lucide-react";
 import { hunterService, RawMarketSignal, ScanJob, NicheOpportunity } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -16,29 +17,52 @@ import { Label } from "@/components/ui/label";
 
 // === Components ===
 
-const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => (
-        <GlassCard className="h-full hover:border-primary/50 transition-colors cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                        <Badge variant="outline" className={`${opp.urgency_score && opp.urgency_score >= 80 ? 'border-red-500 text-red-500' : 'text-muted-foreground'
-                                }`}>
-                                {opp.urgency_score ? `🔥 ${opp.urgency_score} 紧迫度` : 'New'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(opp.discovered_at).toLocaleDateString()}</span>
-                </div>
-                <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{opp.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{opp.description}</p>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-auto">
-                        <div className="flex items-center gap-1">
-                                <MessageSquare className="w-3 h-3" />
-                                {opp.signal_count} 信号
+const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
+        const navigate = useNavigate();
+
+        const handleVerify = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                // Combine title and description for a rich context
+                const ideaContext = `【${opp.title}】\n${opp.description || ""}`;
+                navigate(`/validate?idea=${encodeURIComponent(ideaContext)}&auto=true`);
+        };
+
+        return (
+                <GlassCard className="h-full hover:border-primary/50 transition-colors cursor-pointer group flex flex-col relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                                <Badge variant="outline" className={`${opp.urgency_score && opp.urgency_score >= 80 ? 'border-red-500 text-red-500' : 'text-muted-foreground'
+                                        }`}>
+                                        {opp.urgency_score ? `🔥 ${opp.urgency_score} 紧迫度` : 'New'}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{new Date(opp.discovered_at).toLocaleDateString()}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" />
-                                {opp.market_size_est || "未知规模"}
+
+                        <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors relative z-10">{opp.title}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1 relative z-10">{opp.description}</p>
+
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 relative z-10">
+                                <div className="flex items-center gap-1">
+                                        <MessageSquare className="w-3 h-3" />
+                                        {opp.signal_count} 信号
+                                </div>
+                                <div className="flex items-center gap-1">
+                                        <TrendingUp className="w-3 h-3" />
+                                        {opp.market_size_est || "未知规模"}
+                                </div>
                         </div>
-                </div>
-        </GlassCard>
-);
+
+                        <div className="mt-auto pt-4 border-t border-white/5 flex justify-end relative z-10">
+                                <Button size="sm" className="gap-2 bg-gradient-to-r from-primary to-secondary hover:shadow-lg transition-all" onClick={handleVerify}>
+                                        <Rocket className="w-4 h-4" />
+                                        立即验证
+                                </Button>
+                        </div>
+
+                        {/* Decorative gradient */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
+                </GlassCard>
+        );
+};
 
 const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
         const platform = hunterService.getPlatformInfo(signal.source);
@@ -54,7 +78,7 @@ const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
                                 </div>
                                 {signal.opportunity_score && (
                                         <span className={`text-xs font-bold ${signal.opportunity_score >= 80 ? 'text-green-500' :
-                                                        signal.opportunity_score >= 50 ? 'text-yellow-500' : 'text-muted-foreground'
+                                                signal.opportunity_score >= 50 ? 'text-yellow-500' : 'text-muted-foreground'
                                                 }`}>
                                                 {signal.opportunity_score}分
                                         </span>

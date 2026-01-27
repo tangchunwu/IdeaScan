@@ -90,17 +90,33 @@ const Validate = () => {
     { id: 4, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
   ];
 
-  // Handle URL params for trending topics
+  // Handle URL params for trending topics and auto-start
   useEffect(() => {
     const ideaParam = searchParams.get('idea');
+    const autoParam = searchParams.get('auto');
+
     if (ideaParam && !idea) {
       setIdea(decodeURIComponent(ideaParam));
-      toast({
-        title: "已填充热点关键词",
-        description: `"${ideaParam}" - 来自热点雷达`,
-      });
+
+      // If auto-start is requested (and user is logged in)
+      if (autoParam === 'true' && user && !isValidating) {
+        toast({
+          title: "正在启动验证...",
+          description: "来自 Hunter 的自动分析请求",
+        });
+        // Small delay to allow state to settle
+        setTimeout(() => {
+          const startButton = document.getElementById('validate-start-btn');
+          if (startButton) startButton.click();
+        }, 500);
+      } else {
+        toast({
+          title: "已填充热点关键词",
+          description: `"${ideaParam}" - 来自热点雷达`,
+        });
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, user]); // Added user dependency to ensuring auto-start only when logged in
 
   // Cleanup SSE on unmount
   useEffect(() => {
