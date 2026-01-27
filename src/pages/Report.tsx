@@ -1,4 +1,5 @@
-import { useParams, Link } from "react-router-dom";
+import { Image as ImageIcon, FileText, FileCode, ChevronDown, Rocket } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,6 @@ import { useValidation } from "@/hooks/useValidation";
 import { exportToPdf, exportToImage, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
-import { Image as ImageIcon, FileText, FileCode, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,7 @@ const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
@@ -582,6 +583,16 @@ const Report = () => {
                   {isReanalyzing ? "分析中..." : "补充分析"}
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full h-9 border-purple-500/50 text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20 mr-2"
+                onClick={() => navigate(`/mvp/${id}`)}
+              >
+                <Rocket className="w-4 h-4 mr-2" />
+                生成 MVP 落地页
+                <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-600 rounded-full font-bold">New</span>
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed">

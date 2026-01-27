@@ -16,6 +16,8 @@ const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Auth = lazy(() => import("./pages/Auth"));
+const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
+const PublicLandingPage = lazy(() => import("./pages/MVP/PublicLandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -53,6 +55,8 @@ const App = () => (
                   <Route path="/history" element={<History />} />
                   <Route path="/compare" element={<Compare />} />
                   <Route path="/discover" element={<Discover />} />
+                  <Route path="/mvp/:id" element={<MVPGenerator />} />
+                  <Route path="/p/:slug" element={<PublicLandingPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

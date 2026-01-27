@@ -6,6 +6,7 @@ interface PageBackgroundProps {
   className?: string;
   showClouds?: boolean;
   variant?: "default" | "subtle" | "vibrant";
+  short?: boolean;
 }
 
 // 生成随机但稳定的云朵配置
@@ -22,14 +23,15 @@ const generateClouds = (count: number) => {
   }));
 };
 
-export const PageBackground = ({ 
-  children, 
+export const PageBackground = ({
+  children,
   className,
   showClouds = true,
-  variant = "default"
+  variant = "default",
+  short = false
 }: PageBackgroundProps) => {
   const clouds = useMemo(() => generateClouds(6), []);
-  
+
   const gradientClass = {
     default: "ghibli-gradient",
     subtle: "bg-gradient-to-b from-background via-background to-muted/30",
@@ -37,18 +39,18 @@ export const PageBackground = ({
   }[variant];
 
   return (
-    <div className={cn("min-h-screen relative overflow-hidden", className)}>
+    <div className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}>
       {/* 宫崎骏风格渐变背景 */}
       <div className={cn("fixed inset-0 -z-10", gradientClass)} />
-      
+
       {/* 装饰性云朵 - 增加层次感 */}
       {showClouds && (
         <div className="fixed inset-0 -z-5 pointer-events-none overflow-hidden">
           {clouds.map((cloud) => (
-            <div 
+            <div
               key={cloud.id}
               className="absolute rounded-full bg-ghibli-cloud/40 blur-sm"
-              style={{ 
+              style={{
                 width: cloud.width,
                 height: cloud.height,
                 top: cloud.top,
@@ -61,14 +63,14 @@ export const PageBackground = ({
           ))}
         </div>
       )}
-      
+
       {/* 底部渐变 - 模拟地面 */}
       <div className="fixed bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-ghibli-forest/10 to-transparent -z-10" />
-      
+
       {/* 顶部柔和光晕 */}
       <div className="fixed top-0 left-1/4 w-96 h-96 bg-ghibli-sky/20 rounded-full blur-3xl -z-10" />
       <div className="fixed top-20 right-1/4 w-64 h-64 bg-ghibli-sunset/10 rounded-full blur-3xl -z-10" />
-      
+
       {/* 内容 */}
       <div className="relative z-10 page-enter">
         {children}
