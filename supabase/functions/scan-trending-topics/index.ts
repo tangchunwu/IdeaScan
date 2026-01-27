@@ -363,6 +363,74 @@ async function scanKeyword(
   };
 }
 
+/**
+ * Get high-priority keywords from user behavior data
+ */
+async function getHighPriorityKeywords(supabase: any): Promise<string[]> {
+  try {
+    // Get keywords that users have validated or frequently clicked
+    const { data: topKeywords, error } = await supabase
+      .from('user_topic_clicks')
+      .select('keyword')
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.warn('[Scan] Failed to fetch user keywords:', error);
+      return [];
+    }
+
+    // Count keyword frequency
+    const keywordCounts = new Map<string, number>();
+    for (const row of topKeywords || []) {
+      if (row.keyword) {
+        keywordCounts.set(row.keyword, (keywordCounts.get(row.keyword) || 0) + 1);
+      }
+    }
+
+    // Get related keywords from trending topics with high validate_count
+    const { data: hotTopics } = await supabase
+      .from('trending_topics')
+      .select('keyword, related_keywords, validate_count')
+      .gt('validate_count', 0)
+      .order('validate_count', { ascending: false })
+      .limit(10);
+
+    const dynamicKeywords: string[] = [];
+    for (const topic of hotTopics || []) {
+      // Add the main keyword
+      if (topic.keyword && !dynamicKeywords.includes(topic.keyword)) {
+        dynamicKeywords.push(topic.keyword);
+      }
+      // Add related keywords
+      for (const related of topic.related_keywords || []) {
+        if (!dynamicKeywords.includes(related)) {
+          dynamicKeywords.push(related);
+        }
+      }
+    }
+
+    // Add frequently clicked keywords
+    const sortedUserKeywords = Array.from(keywordCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([kw]) => kw);
+
+    for (const kw of sortedUserKeywords) {
+      if (!dynamicKeywords.includes(kw)) {
+        dynamicKeywords.push(kw);
+      }
+    }
+
+    console.log(`[Scan] Found ${dynamicKeywords.length} dynamic keywords from user behavior`);
+    return dynamicKeywords.slice(0, 20);
+  } catch (e) {
+    console.error('[Scan] Error fetching dynamic keywords:', e);
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -383,7 +451,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     const body = await req.json().catch(() => ({}));
-    const { categories, maxPerCategory = 2 } = body;
+    const { categories, maxPerCategory = 2, includeDynamicKeywords = true } = body;
     
     // Determine which categories to scan
     const categoriesToScan = categories && Array.isArray(categories)
@@ -392,9 +460,15 @@ Deno.serve(async (req) => {
     
     console.log(`[Scan] Starting scan for categories: ${categoriesToScan.join(", ")}`);
     
+    // Get dynamic keywords from user behavior
+    let dynamicKeywords: string[] = [];
+    if (includeDynamicKeywords) {
+      dynamicKeywords = await getHighPriorityKeywords(supabase);
+    }
+    
     const newTopics: TrendingTopicData[] = [];
     
-    // Scan each category
+    // Scan seed keywords by category
     for (const category of categoriesToScan) {
       const keywords = SEED_KEYWORDS_BY_CATEGORY[category] || [];
       const selectedKeywords = keywords.slice(0, maxPerCategory);
@@ -410,6 +484,23 @@ Deno.serve(async (req) => {
           await new Promise(r => setTimeout(r, 1000));
         } catch (e) {
           console.error(`[Scan] Error scanning ${keyword}:`, e);
+        }
+      }
+    }
+    
+    // Scan dynamic keywords from user behavior
+    if (dynamicKeywords.length > 0) {
+      console.log(`[Scan] Scanning ${dynamicKeywords.length} dynamic keywords from user behavior`);
+      for (const keyword of dynamicKeywords.slice(0, 5)) { // Limit to 5 dynamic keywords per scan
+        try {
+          const topicData = await scanKeyword(keyword, "用户关注", tikhubToken);
+          if (topicData && topicData.heat_score >= 10) { // Lower threshold for user-driven keywords
+            newTopics.push(topicData);
+          }
+          
+          await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+          console.error(`[Scan] Error scanning dynamic keyword ${keyword}:`, e);
         }
       }
     }
@@ -457,6 +548,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         added: newTopics.length,
+        dynamicKeywordsUsed: dynamicKeywords.length,
         topics: newTopics.map(t => ({ keyword: t.keyword, heat_score: t.heat_score }))
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

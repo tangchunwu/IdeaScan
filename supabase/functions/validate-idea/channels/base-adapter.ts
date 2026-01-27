@@ -150,26 +150,104 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
   }
   
   /**
-   * Retry utility with exponential backoff
+   * Enhanced retry utility with exponential backoff and 429 special handling
    */
   protected async withRetry<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelayMs: number = 1000
+    options: {
+      maxRetries?: number;
+      baseDelayMs?: number;
+      maxDelayMs?: number;
+      onRateLimited?: () => void;
+    } = {}
   ): Promise<T> {
+    const {
+      maxRetries = 3,
+      baseDelayMs = 1000,
+      maxDelayMs = 30000,
+      onRateLimited
+    } = options;
+
     let lastError: Error | null = null;
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        const delay = baseDelayMs * Math.pow(2, attempt);
-        console.warn(`[${this.channel}] Retry ${attempt + 1}/${maxRetries} after ${delay}ms:`, lastError.message);
-        await this.sleep(delay);
+
+        // Check for 429 rate limit error
+        const is429 = lastError.message.includes('429') ||
+                      lastError.message.toLowerCase().includes('rate limit') ||
+                      lastError.message.includes('too many requests');
+
+        if (is429) {
+          onRateLimited?.();
+          // Use longer delays for rate limiting (exponential with base 3)
+          const delay = Math.min(baseDelayMs * Math.pow(3, attempt), maxDelayMs);
+          console.warn(`[${this.channel}] Rate limited (429). Waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}...`);
+          await this.sleep(delay);
+        } else if (attempt < maxRetries) {
+          // Standard exponential backoff for other errors
+          const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
+          console.warn(`[${this.channel}] Retry ${attempt + 1}/${maxRetries} after ${delay}ms: ${lastError.message}`);
+          await this.sleep(delay);
+        }
       }
     }
-    
+
     throw lastError || new Error('Unknown error during retry');
+  }
+
+  /**
+   * Batch processor with rate limiting between requests
+   * Useful for processing multiple items with mandatory delays
+   */
+  protected async rateLimitedBatch<T, R>(
+    items: T[],
+    processor: (item: T) => Promise<R>,
+    options: { delayBetweenMs?: number; concurrency?: number } = {}
+  ): Promise<R[]> {
+    const { delayBetweenMs = 800, concurrency = 1 } = options;
+    const results: R[] = [];
+
+    for (let i = 0; i < items.length; i += concurrency) {
+      const batch = items.slice(i, i + concurrency);
+      const batchResults = await Promise.all(batch.map(processor));
+      results.push(...batchResults);
+
+      // Add delay between batches (not after the last one)
+      if (i + concurrency < items.length) {
+        await this.sleep(delayBetweenMs);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Check if an error is a rate limit (429) error
+   */
+  protected isRateLimitError(error: unknown): boolean {
+    if (error instanceof Error) {
+      return error.message.includes('429') ||
+             error.message.toLowerCase().includes('rate limit') ||
+             error.message.includes('too many requests');
+    }
+    return false;
+  }
+
+  /**
+   * Check if an error is a server (5xx) error
+   */
+  protected isServerError(error: unknown): boolean {
+    if (error instanceof Error) {
+      return error.message.includes('500') ||
+             error.message.includes('502') ||
+             error.message.includes('503') ||
+             error.message.includes('504') ||
+             error.message.toLowerCase().includes('server error');
+    }
+    return false;
   }
 }

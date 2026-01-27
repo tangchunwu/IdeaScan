@@ -174,6 +174,7 @@ export type Database = {
         Row: {
           avg_engagement: number | null
           category: string | null
+          click_count: number | null
           created_by: string | null
           discovered_at: string
           expires_at: string
@@ -182,6 +183,7 @@ export type Database = {
           id: string
           is_active: boolean
           keyword: string
+          priority_score: number | null
           related_keywords: string[] | null
           sample_count: number
           sentiment_negative: number | null
@@ -190,10 +192,12 @@ export type Database = {
           sources: Json | null
           top_pain_points: string[] | null
           updated_at: string
+          validate_count: number | null
         }
         Insert: {
           avg_engagement?: number | null
           category?: string | null
+          click_count?: number | null
           created_by?: string | null
           discovered_at?: string
           expires_at?: string
@@ -202,6 +206,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword: string
+          priority_score?: number | null
           related_keywords?: string[] | null
           sample_count?: number
           sentiment_negative?: number | null
@@ -210,10 +215,12 @@ export type Database = {
           sources?: Json | null
           top_pain_points?: string[] | null
           updated_at?: string
+          validate_count?: number | null
         }
         Update: {
           avg_engagement?: number | null
           category?: string | null
+          click_count?: number | null
           created_by?: string | null
           discovered_at?: string
           expires_at?: string
@@ -222,6 +229,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword?: string
+          priority_score?: number | null
           related_keywords?: string[] | null
           sample_count?: number
           sentiment_negative?: number | null
@@ -230,6 +238,7 @@ export type Database = {
           sources?: Json | null
           top_pain_points?: string[] | null
           updated_at?: string
+          validate_count?: number | null
         }
         Relationships: []
       }
@@ -256,6 +265,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_topic_clicks: {
+        Row: {
+          click_type: string
+          created_at: string | null
+          id: string
+          keyword: string
+          topic_id: string | null
+          user_id: string
+        }
+        Insert: {
+          click_type: string
+          created_at?: string | null
+          id?: string
+          keyword: string
+          topic_id?: string | null
+          user_id: string
+        }
+        Update: {
+          click_type?: string
+          created_at?: string | null
+          id?: string
+          keyword?: string
+          topic_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_topic_clicks_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "trending_topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_topic_interests: {
         Row: {

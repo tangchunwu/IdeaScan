@@ -1,6 +1,13 @@
 /**
  * Data Summarizer Module
  * Pre-processes raw data into structured summary before AI deep analysis
+ * 
+ * Features:
+ * - Pain point clustering
+ * - Competitor matrix analysis
+ * - Sentiment breakdown
+ * - Cross-platform resonance analysis (NEW)
+ * - Market signal detection
  */
 
 import { XhsNote, XhsComment } from "./tikhub.ts";
@@ -36,6 +43,21 @@ export interface DataQuality {
   recommendation: string;
 }
 
+/**
+ * Cross-platform resonance analysis - identifies pain points
+ * that appear across multiple platforms (high-intensity needs)
+ */
+export interface CrossPlatformResonance {
+  keyword: string;
+  platforms: string[];
+  totalMentions: number;
+  xhsMentions: number;
+  douyinMentions: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  isHighIntensity: boolean;
+  sampleQuotes: { platform: string; quote: string }[];
+}
+
 export interface DataSummary {
   painPointClusters: PainPointCluster[];
   competitorMatrix: CompetitorCategory[];
@@ -49,6 +71,16 @@ export interface DataSummary {
   marketSignals: MarketSignal[];
   dataQuality: DataQuality;
   keyInsights: string[];
+  /** Cross-platform resonance analysis - pain points validated across multiple platforms */
+  crossPlatformResonance?: CrossPlatformResonance[];
+}
+
+interface CommentWithPlatform {
+  content?: string;
+  text?: string;
+  _platform?: string;
+  user_nickname?: string;
+  ip_location?: string;
 }
 
 interface XhsData {
@@ -57,7 +89,7 @@ interface XhsData {
   avgComments: number;
   avgCollects: number;
   sampleNotes: XhsNote[];
-  sampleComments: XhsComment[];
+  sampleComments: (XhsComment & { _platform?: string })[];
 }
 
 /**
@@ -180,6 +212,9 @@ ${competitorText || "暂无竞品数据"}
     try {
       const parsed = parseSummaryJson(content);
       
+      // Analyze cross-platform resonance if we have multi-platform data
+      const crossPlatformResonance = analyzeCrossPlatformResonance(xhsData.sampleComments);
+      
       return {
         painPointClusters: parsed.painPointClusters || [],
         competitorMatrix: parsed.competitorMatrix || [],
@@ -192,7 +227,8 @@ ${competitorText || "暂无竞品数据"}
         },
         marketSignals: parsed.marketSignals || [],
         dataQuality,
-        keyInsights: parsed.keyInsights || []
+        keyInsights: parsed.keyInsights || [],
+        crossPlatformResonance: crossPlatformResonance.length > 0 ? crossPlatformResonance : undefined
       };
     } catch (e) {
       console.error("Summary JSON parse failed:", e);
@@ -378,4 +414,186 @@ function parseSummaryJson(text: string): Partial<DataSummary> {
 
   const jsonStr = cleaned.slice(first, last + 1);
   return JSON.parse(jsonStr);
+}
+
+// ============ Cross-Platform Resonance Analysis ============
+
+/**
+ * Pain point keywords for detection
+ */
+const PAIN_KEYWORDS = {
+  complaint: ["困扰", "太难", "差", "坑", "失望", "难用", "垃圾", "骗", "后悔", "问题", "不好", "不行"],
+  question: ["怎么", "如何", "求", "有没有", "谁知道", "想问", "请问", "为什么"],
+  recommendation: ["推荐", "好用", "必买", "神器", "宝藏", "种草"],
+  comparison: ["比较", "对比", "还是", "哪个好", "选择"]
+};
+
+/**
+ * Analyze cross-platform resonance to identify pain points 
+ * that appear across multiple platforms (high-intensity needs)
+ */
+export function analyzeCrossPlatformResonance(
+  comments: CommentWithPlatform[]
+): CrossPlatformResonance[] {
+  // Group comments by platform
+  const xhsComments = comments.filter(c => c._platform === 'xiaohongshu');
+  const dyComments = comments.filter(c => c._platform === 'douyin');
+
+  // If we don't have multi-platform data, skip analysis
+  if (xhsComments.length === 0 || dyComments.length === 0) {
+    return [];
+  }
+
+  // Extract key phrases from each platform
+  const xhsPhrases = extractKeyPhrases(xhsComments, 'xiaohongshu');
+  const dyPhrases = extractKeyPhrases(dyComments, 'douyin');
+
+  // Find common phrases across platforms
+  const resonanceMap = new Map<string, CrossPlatformResonance>();
+
+  // Process XHS phrases
+  for (const [phrase, data] of xhsPhrases.entries()) {
+    if (!resonanceMap.has(phrase)) {
+      resonanceMap.set(phrase, {
+        keyword: phrase,
+        platforms: ['xiaohongshu'],
+        totalMentions: data.count,
+        xhsMentions: data.count,
+        douyinMentions: 0,
+        sentiment: data.sentiment,
+        isHighIntensity: false,
+        sampleQuotes: data.quotes.map(q => ({ platform: 'xiaohongshu', quote: q }))
+      });
+    }
+  }
+
+  // Process Douyin phrases and merge with XHS
+  for (const [phrase, data] of dyPhrases.entries()) {
+    const existing = resonanceMap.get(phrase);
+    if (existing) {
+      // Found in both platforms - this is a high-intensity resonance
+      existing.platforms.push('douyin');
+      existing.totalMentions += data.count;
+      existing.douyinMentions = data.count;
+      existing.isHighIntensity = true;
+      existing.sampleQuotes.push(...data.quotes.map(q => ({ platform: 'douyin', quote: q })));
+    } else {
+      resonanceMap.set(phrase, {
+        keyword: phrase,
+        platforms: ['douyin'],
+        totalMentions: data.count,
+        xhsMentions: 0,
+        douyinMentions: data.count,
+        sentiment: data.sentiment,
+        isHighIntensity: false,
+        sampleQuotes: data.quotes.map(q => ({ platform: 'douyin', quote: q }))
+      });
+    }
+  }
+
+  // Sort by high-intensity first, then by total mentions
+  const results = Array.from(resonanceMap.values())
+    .filter(r => r.totalMentions >= 2) // At least 2 mentions
+    .sort((a, b) => {
+      if (a.isHighIntensity !== b.isHighIntensity) {
+        return a.isHighIntensity ? -1 : 1;
+      }
+      return b.totalMentions - a.totalMentions;
+    })
+    .slice(0, 10); // Top 10 resonance points
+
+  return results;
+}
+
+interface PhraseData {
+  count: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  quotes: string[];
+}
+
+/**
+ * Extract key pain point phrases from comments
+ */
+function extractKeyPhrases(
+  comments: CommentWithPlatform[],
+  platform: string
+): Map<string, PhraseData> {
+  const phrases = new Map<string, PhraseData>();
+
+  for (const comment of comments) {
+    const content = comment.content || comment.text || "";
+    if (content.length < 5 || content.length > 200) continue;
+
+    // Detect pain point type and extract phrase
+    for (const [type, keywords] of Object.entries(PAIN_KEYWORDS)) {
+      for (const keyword of keywords) {
+        if (content.includes(keyword)) {
+          // Use the keyword as the phrase key
+          const existing = phrases.get(keyword);
+          const sentiment = type === 'recommendation' ? 'positive' 
+                         : (type === 'complaint' ? 'negative' : 'neutral');
+          
+          if (existing) {
+            existing.count++;
+            if (existing.quotes.length < 3) {
+              existing.quotes.push(content.slice(0, 80));
+            }
+          } else {
+            phrases.set(keyword, {
+              count: 1,
+              sentiment,
+              quotes: [content.slice(0, 80)]
+            });
+          }
+          break; // Only count once per comment
+        }
+      }
+    }
+  }
+
+  return phrases;
+}
+
+/**
+ * Prioritize negative/complaint comments for pain point mining
+ * Returns sorted comments with complaints first
+ */
+export function prioritizeNegativeComments<T extends CommentWithPlatform>(
+  comments: T[]
+): T[] {
+  const negativeKeywords = ["差", "坑", "失望", "不好", "难用", "垃圾", "骗", "后悔", "问题", "困扰"];
+  const questionKeywords = ["怎么", "如何", "求", "有没有", "谁知道"];
+
+  return [...comments].sort((a, b) => {
+    const aContent = a.content || a.text || "";
+    const bContent = b.content || b.text || "";
+
+    const aScore = calculatePriorityScore(aContent, negativeKeywords, questionKeywords);
+    const bScore = calculatePriorityScore(bContent, negativeKeywords, questionKeywords);
+
+    return bScore - aScore; // Higher score first
+  });
+}
+
+function calculatePriorityScore(
+  content: string,
+  negativeKeywords: string[],
+  questionKeywords: string[]
+): number {
+  let score = 0;
+  
+  for (const kw of negativeKeywords) {
+    if (content.includes(kw)) score += 3;
+  }
+  
+  for (const kw of questionKeywords) {
+    if (content.includes(kw)) score += 2;
+  }
+  
+  // Questions with ? get extra points
+  if (content.includes("?") || content.includes("？")) {
+    score += 1;
+  }
+  
+  return score;
 }
