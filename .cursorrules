@@ -1,0 +1,17 @@
+# Global Agent Rules
+
+## 1. Environment & Shell Compatibility
+- **OS**: Windows (PowerShell context).
+- **CRITICAL**: Do NOT use `&&` or `||` command chaining operators. These are not supported in standard Windows PowerShell 5.1.
+- **Protocol**:
+  - Execute commands sequentially using separate `run_command` calls.
+  - If chaining is absolutely necessary, use `;` (semicolon), but be aware it ignores errors.
+  - PREFER separate tool calls to handle errors gracefully.
+
+## 2. Language & Communication
+- **Language**: Chinese (Simplified) for all interactions, thoughts, and documentation (except strict code/technical terms).
+- **Style**: Concise, First Principles, Fact-based.
+
+## 3. Workflow
+- **Development**: Planning -> Review -> Execution -> Verification.
+- **Tools**: Always update `task.md` and `PROJECT_JOURNAL.md` to reflect progress.

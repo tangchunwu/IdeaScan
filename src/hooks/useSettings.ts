@@ -20,7 +20,7 @@ export interface UserSettings {
   bochaApiKey: string;
   youApiKey: string;
   tavilyApiKey: string;
-  
+
   // Image Generation Settings (OpenAI Compatible)
   imageGenBaseUrl: string;
   imageGenApiKey: string;
@@ -32,11 +32,11 @@ interface SettingsState extends UserSettings {
   isLoading: boolean;
   isSynced: boolean;
   lastSyncError: string | null;
-  
+
   // Actions
   updateSettings: (settings: Partial<UserSettings>) => void;
   resetSettings: () => void;
-  
+
   // Cloud sync actions
   syncFromCloud: () => Promise<void>;
   syncToCloud: () => Promise<void>;
@@ -60,7 +60,7 @@ const defaultSettings: UserSettings = {
 
 // Extract only settings fields (not state/actions)
 const extractSettingsOnly = (state: Partial<SettingsState>): Partial<UserSettings> => {
-  const { isLoading, isSynced, lastSyncError, updateSettings, resetSettings, syncFromCloud, syncToCloud, ...settings } = state as any;
+  const { isLoading, isSynced, lastSyncError, updateSettings, resetSettings, syncFromCloud, syncToCloud, ...settings } = state;
   return settings;
 };
 
@@ -71,14 +71,14 @@ export const useSettings = create<SettingsState>()(
       isLoading: false,
       isSynced: false,
       lastSyncError: null,
-      
+
       updateSettings: (newSettings) => set((state) => ({ ...state, ...newSettings, isSynced: false })),
-      
+
       resetSettings: () => set({ ...defaultSettings, isSynced: false }),
-      
+
       syncFromCloud: async () => {
         set({ isLoading: true, lastSyncError: null });
-        
+
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
@@ -97,11 +97,11 @@ export const useSettings = create<SettingsState>()(
           if (data?.settings) {
             // Merge cloud settings with defaults (in case new fields were added)
             const cloudSettings = { ...defaultSettings, ...data.settings };
-            set({ 
-              ...cloudSettings, 
-              isLoading: false, 
+            set({
+              ...cloudSettings,
+              isLoading: false,
               isSynced: true,
-              lastSyncError: null 
+              lastSyncError: null
             });
             console.log('Settings synced from cloud');
           } else {
@@ -109,19 +109,19 @@ export const useSettings = create<SettingsState>()(
           }
         } catch (error) {
           console.error('Failed to sync settings from cloud:', error);
-          set({ 
-            isLoading: false, 
-            lastSyncError: error instanceof Error ? error.message : 'Sync failed' 
+          set({
+            isLoading: false,
+            lastSyncError: error instanceof Error ? error.message : 'Sync failed'
           });
         }
       },
-      
+
       syncToCloud: async () => {
         const state = get();
         if (state.isSynced) return; // Already synced
-        
+
         set({ isLoading: true, lastSyncError: null });
-        
+
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
@@ -130,7 +130,7 @@ export const useSettings = create<SettingsState>()(
           }
 
           const settingsToSync = extractSettingsOnly(state);
-          
+
           const { error } = await supabase.functions.invoke('user-settings', {
             method: 'POST',
             body: { settings: settingsToSync },
@@ -144,9 +144,9 @@ export const useSettings = create<SettingsState>()(
           console.log('Settings synced to cloud');
         } catch (error) {
           console.error('Failed to sync settings to cloud:', error);
-          set({ 
-            isLoading: false, 
-            lastSyncError: error instanceof Error ? error.message : 'Sync failed' 
+          set({
+            isLoading: false,
+            lastSyncError: error instanceof Error ? error.message : 'Sync failed'
           });
         }
       },

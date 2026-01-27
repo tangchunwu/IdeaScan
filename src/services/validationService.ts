@@ -1,10 +1,31 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export interface ValidationConfig {
+  mode: 'quick' | 'deep';
+  llmProvider: string;
+  llmBaseUrl: string;
+  llmApiKey: string;
+  llmModel: string;
+  tikhubToken: string;
+  enableXiaohongshu: boolean;
+  enableDouyin: boolean;
+  searchKeys: {
+    bocha: string;
+    you: string;
+    tavily: string;
+  };
+  imageGen: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  };
+}
+
 export interface ValidationRequest {
   idea: string;
   tags: string[];
   mode?: 'quick' | 'deep';
-  config?: any;
+  config?: Partial<ValidationConfig>;
 }
 
 export interface ValidationResponse {
@@ -36,6 +57,64 @@ export interface Validation {
   updated_at: string;
 }
 
+export interface CompetitorData {
+  title: string;
+  url: string;
+  snippet: string;
+  source: string;
+}
+
+export interface DataSummary {
+  painPointClusters: {
+    theme: string;
+    frequency: number;
+    sampleQuotes: string[];
+    type: 'complaint' | 'question' | 'recommendation' | 'comparison';
+  }[];
+  competitorMatrix: {
+    category: string;
+    count: number;
+    topPlayers: string[];
+    commonPricing?: string;
+  }[];
+  sentimentBreakdown: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    topPositiveThemes: string[];
+    topNegativeThemes: string[];
+  };
+  marketSignals: {
+    signal: string;
+    evidence: string;
+    implication: string;
+    confidence: number;
+  }[];
+  dataQuality: {
+    score: number;
+    sampleSize: number;
+    diversityScore: number;
+    recencyScore: number;
+    recommendation: string;
+  };
+  keyInsights: string[];
+  crossPlatformResonance?: {
+    keyword: string;
+    platforms: string[];
+    totalMentions: number;
+    isHighIntensity: boolean;
+    sentiment: 'positive' | 'negative' | 'neutral';
+    sampleQuotes: { platform: string; quote: string }[];
+  }[];
+}
+
+export interface KeywordsUsed {
+  coreKeywords?: string[];
+  userPhrases?: string[];
+  competitorQueries?: string[];
+  trendKeywords?: string[];
+}
+
 export interface ValidationReport {
   id: string;
   validation_id: string;
@@ -55,12 +134,7 @@ export interface ValidationReport {
     weeklyTrend: { name: string; value: number }[];
     contentTypes: { name: string; value: number }[];
   };
-  competitor_data?: {
-    title: string;
-    url: string;
-    snippet: string;
-    source: string;
-  }[];
+  competitor_data?: CompetitorData[];
   sentiment_analysis: {
     positive: number;
     neutral: number;
@@ -70,64 +144,18 @@ export interface ValidationReport {
   };
   ai_analysis: {
     feasibilityScore: number;
+    overallVerdict?: string;
     strengths: string[];
     weaknesses: string[];
-    suggestions: string[];
+    suggestions: (string | { action: string; reference?: string; expectedResult?: string })[];
     risks: string[];
   };
   persona?: Persona;
-  dimensions: { dimension: string; score: number }[];
+  dimensions: { dimension: string; score: number; reason?: string }[];
   // Phase 1 new fields
-  data_summary?: {
-    painPointClusters: {
-      theme: string;
-      frequency: number;
-      sampleQuotes: string[];
-      type: 'complaint' | 'question' | 'recommendation' | 'comparison';
-    }[];
-    competitorMatrix: {
-      category: string;
-      count: number;
-      topPlayers: string[];
-      commonPricing?: string;
-    }[];
-    sentimentBreakdown: {
-      positive: number;
-      negative: number;
-      neutral: number;
-      topPositiveThemes: string[];
-      topNegativeThemes: string[];
-    };
-    marketSignals: {
-      signal: string;
-      evidence: string;
-      implication: string;
-      confidence: number;
-    }[];
-    dataQuality: {
-      score: number;
-      sampleSize: number;
-      diversityScore: number;
-      recencyScore: number;
-      recommendation: string;
-    };
-    keyInsights: string[];
-    crossPlatformResonance?: {
-      keyword: string;
-      platforms: string[];
-      totalMentions: number;
-      isHighIntensity: boolean;
-      sentiment: 'positive' | 'negative' | 'neutral';
-      sampleQuotes: { platform: string; quote: string }[];
-    }[];
-  };
+  data_summary?: DataSummary;
   data_quality_score?: number;
-  keywords_used?: {
-    coreKeywords?: string[];
-    userPhrases?: string[];
-    competitorQueries?: string[];
-    trendKeywords?: string[];
-  };
+  keywords_used?: KeywordsUsed;
   created_at: string;
 }
 
