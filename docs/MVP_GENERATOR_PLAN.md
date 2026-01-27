@@ -26,6 +26,42 @@ supabase functions deploy generate-mvp --no-verify-jwt
 - **注意**: 目前该函数使用 Mock 数据，不需要额外的环境变量。
 - **未来**: 一旦对接真实 AI，需要在 Supabase 后台配置 `OPENAI_API_KEY` 或 `DEEPSEEK_API_KEY`。
 
+### C. Phase 7: 狩猎雷达 (Idea Discovery)
+
+> **Phase 7 数据库迁移**
+
+- 文件: `supabase/migrations/20260127210000_add_hunter_discovery_tables.sql`
+- 作用: 创建以下表:
+  - `raw_market_signals` (原始市场信号，支持 pgvector 向量搜索)
+  - `niche_opportunities` (聚合后的商业机会)
+  - `scan_jobs` (定时扫描任务配置)
+
+> **Phase 7 边缘函数部署**
+
+```bash
+# 1. 爬虫调度器 (定时抓取 Reddit/小红书)
+supabase functions deploy crawler-scheduler --no-verify-jwt
+
+# 2. AI 信号处理器 (分析并打分)
+supabase functions deploy signal-processor --no-verify-jwt
+```
+
+> **Phase 7 环境变量** (Supabase Dashboard -> Edge Functions -> Secrets)
+
+| 变量名 | 说明 | 必须 |
+|--------|------|------|
+| `TIKHUB_TOKEN` | 小红书爬虫凭证 | 是 (如果启用 XHS) |
+| `DEEPSEEK_API_KEY` 或 `LOVABLE_API_KEY` | AI 分析用 | 是 |
+| `LLM_BASE_URL` | 可选，默认使用 Lovable Gateway | 否 |
+| `LLM_MODEL` | 可选，默认使用 `deepseek/deepseek-chat` | 否 |
+
+> **使用方法**
+
+1. 在 `scan_jobs` 表插入一条记录: `INSERT INTO scan_jobs (keywords, platforms)VALUES (ARRAY['宠物洗澡', '独立开发'], ARRAY['xiaohongshu', 'reddit']);`
+2. 手动调用 `crawler-scheduler` 函数触发抓取。
+3. 调用 `signal-processor` 函数对结果进行 AI 分析。
+4. 查询 `SELECT * FROM raw_market_signals ORDER BY opportunity_score DESC LIMIT 20;` 查看高价值机会。
+
 ---
 
 ## 1. 🤖 对接真实 AI (Real AI Integration)
