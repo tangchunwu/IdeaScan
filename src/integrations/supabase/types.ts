@@ -170,6 +170,69 @@ export type Database = {
         }
         Relationships: []
       }
+      trending_topics: {
+        Row: {
+          avg_engagement: number | null
+          category: string | null
+          created_by: string | null
+          discovered_at: string
+          expires_at: string
+          growth_rate: number | null
+          heat_score: number
+          id: string
+          is_active: boolean
+          keyword: string
+          related_keywords: string[] | null
+          sample_count: number
+          sentiment_negative: number | null
+          sentiment_neutral: number | null
+          sentiment_positive: number | null
+          sources: Json | null
+          top_pain_points: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          avg_engagement?: number | null
+          category?: string | null
+          created_by?: string | null
+          discovered_at?: string
+          expires_at?: string
+          growth_rate?: number | null
+          heat_score?: number
+          id?: string
+          is_active?: boolean
+          keyword: string
+          related_keywords?: string[] | null
+          sample_count?: number
+          sentiment_negative?: number | null
+          sentiment_neutral?: number | null
+          sentiment_positive?: number | null
+          sources?: Json | null
+          top_pain_points?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          avg_engagement?: number | null
+          category?: string | null
+          created_by?: string | null
+          discovered_at?: string
+          expires_at?: string
+          growth_rate?: number | null
+          heat_score?: number
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          related_keywords?: string[] | null
+          sample_count?: number
+          sentiment_negative?: number | null
+          sentiment_neutral?: number | null
+          sentiment_positive?: number | null
+          sources?: Json | null
+          top_pain_points?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           created_at: string
@@ -193,6 +256,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_topic_interests: {
+        Row: {
+          created_at: string
+          id: string
+          interest_type: string
+          topic_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interest_type: string
+          topic_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interest_type?: string
+          topic_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_topic_interests_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "trending_topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       validation_reports: {
         Row: {

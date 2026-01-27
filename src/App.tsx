@@ -14,6 +14,7 @@ const Validate = lazy(() => import("./pages/Validate"));
 const Report = lazy(() => import("./pages/Report"));
 const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
+const Discover = lazy(() => import("./pages/Discover"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -51,6 +52,7 @@ const App = () => (
                   <Route path="/report/:id" element={<Report />} />
                   <Route path="/history" element={<History />} />
                   <Route path="/compare" element={<Compare />} />
+                  <Route path="/discover" element={<Discover />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

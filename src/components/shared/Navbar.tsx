@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings } from "lucide-react";
+import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { SettingsDialog } from "./SettingsDialog";
 
 const navItems = [
   { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true },
+  { path: "/discover", label: "热点雷达", icon: Radar, requireAuth: false },
   { path: "/history", label: "历史记录", icon: History, requireAuth: true },
   { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true },
 ];
