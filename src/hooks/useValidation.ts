@@ -51,6 +51,8 @@ export const useCreateValidation = () => {
                             llmApiKey: settings.llmApiKey,
                             llmModel: settings.llmModel,
                             tikhubToken: settings.tikhubToken,
+                            enableXiaohongshu: settings.enableXiaohongshu,
+                            enableDouyin: settings.enableDouyin,
                             searchKeys: {
                                    bocha: settings.bochaApiKey,
                                    you: settings.youApiKey,

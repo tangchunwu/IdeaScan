@@ -6,7 +6,9 @@ import { summarizeRawData, DataSummary } from "./data-summarizer.ts";
 // New multi-channel adapter architecture
 import { 
   crawlXiaohongshu, 
+  crawlDouyin,
   toLegacyXhsFormat,
+  toLegacyDouyinFormat,
   type ChannelCrawlResult 
 } from "./channels/index.ts";
 import {
@@ -31,6 +33,8 @@ interface RequestConfig {
   llmApiKey?: string;
   llmModel?: string;
   tikhubToken?: string;
+  enableXiaohongshu?: boolean;
+  enableDouyin?: boolean;
   searchKeys?: {
     bocha?: string;
     you?: string;
@@ -55,6 +59,8 @@ function validateConfig(config: unknown): RequestConfig {
     llmApiKey: validateString(c.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     llmModel: validateString(c.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+    enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
+    enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -168,56 +174,191 @@ type AIResult = {
 
 /**
  * Crawl social media data using the multi-channel adapter architecture
- * Currently supports: Xiaohongshu
- * Future: Douyin, Weibo, Bilibili
+ * Supports: Xiaohongshu, Douyin
+ * Future: Weibo, Bilibili
  */
-async function crawlSocialMediaData(idea: string, tags: string[], tikhubToken?: string, mode: 'quick' | 'deep' = 'quick') {
+async function crawlSocialMediaData(
+  idea: string, 
+  tags: string[], 
+  tikhubToken?: string, 
+  mode: 'quick' | 'deep' = 'quick',
+  enableXiaohongshu: boolean = true,
+  enableDouyin: boolean = false
+) {
   const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
+
+  const emptyResult = {
+    totalNotes: 0,
+    avgLikes: 0,
+    avgComments: 0,
+    avgCollects: 0,
+    totalEngagement: 0,
+    weeklyTrend: [],
+    contentTypes: [],
+    sampleNotes: [],
+    sampleComments: []
+  };
 
   if (!token) {
     console.log("No Tikhub token configured, skipping social media data");
-    return {
-      totalNotes: 0,
-      avgLikes: 0,
-      avgComments: 0,
-      avgCollects: 0,
-      totalEngagement: 0,
-      weeklyTrend: [],
-      contentTypes: [],
-      sampleNotes: [],
-      sampleComments: []
-    };
+    return emptyResult;
+  }
+
+  // Must have at least one platform enabled
+  if (!enableXiaohongshu && !enableDouyin) {
+    console.log("No social media platform enabled, skipping social media data");
+    return emptyResult;
   }
 
   try {
-    console.log(`[Multi-Channel] Crawling with mode: ${mode}`);
+    console.log(`[Multi-Channel] Crawling with mode: ${mode}, platforms: XHS=${enableXiaohongshu}, DY=${enableDouyin}`);
     
-    // Use the new channel adapter architecture
-    const result: ChannelCrawlResult = await crawlXiaohongshu(
-      idea,
-      { auth_token: token, mode },
-      tags
-    );
-    
-    if (!result.success) {
-      console.warn(`[Multi-Channel] Crawl failed: ${result.error}`);
+    const results: ChannelCrawlResult[] = [];
+    const crawlPromises: Promise<ChannelCrawlResult>[] = [];
+
+    // Crawl enabled platforms in parallel
+    if (enableXiaohongshu) {
+      crawlPromises.push(
+        crawlXiaohongshu(idea, { auth_token: token, mode }, tags)
+          .catch(e => {
+            console.error("[Multi-Channel] Xiaohongshu crawl failed:", e);
+            return { success: false, error: e.message, channel: 'xiaohongshu', posts: [], comments: [], stats: { total_posts: 0, total_comments: 0, avg_likes: 0, avg_comments: 0, avg_collects: 0, avg_shares: 0, total_engagement: 0, weekly_trend: [], content_types: [] } } as ChannelCrawlResult;
+          })
+      );
     }
+
+    if (enableDouyin) {
+      crawlPromises.push(
+        crawlDouyin(idea, { auth_token: token, mode }, tags)
+          .catch(e => {
+            console.error("[Multi-Channel] Douyin crawl failed:", e);
+            return { success: false, error: e.message, channel: 'douyin', posts: [], comments: [], stats: { total_posts: 0, total_comments: 0, avg_likes: 0, avg_comments: 0, avg_collects: 0, avg_shares: 0, total_engagement: 0, weekly_trend: [], content_types: [] } } as ChannelCrawlResult;
+          })
+      );
+    }
+
+    const crawlResults = await Promise.all(crawlPromises);
     
-    // Convert to legacy format for backward compatibility
-    return toLegacyXhsFormat(result);
-  } catch (e) {
-    console.error("[Multi-Channel] Crawl failed:", e);
-    return {
+    // Merge results from all platforms
+    let mergedResult = {
       totalNotes: 0,
       avgLikes: 0,
       avgComments: 0,
       avgCollects: 0,
       totalEngagement: 0,
-      weeklyTrend: [],
-      contentTypes: [],
-      sampleNotes: [],
-      sampleComments: []
+      weeklyTrend: [] as { name: string; value: number }[],
+      contentTypes: [] as { name: string; value: number }[],
+      sampleNotes: [] as any[],
+      sampleComments: [] as any[]
     };
+
+    let successfulResults = 0;
+    const contentTypeMap = new Map<string, number>();
+    const weeklyTrendMap = new Map<string, number>();
+
+    for (const result of crawlResults) {
+      if (!result.success) {
+        console.warn(`[Multi-Channel] ${result.channel} failed: ${result.error}`);
+        continue;
+      }
+
+      successfulResults++;
+      
+      // Handle different return types for different platforms
+      if (result.channel === 'douyin') {
+        const douyinLegacy = toLegacyDouyinFormat(result);
+        
+        // Aggregate stats
+        mergedResult.totalNotes += douyinLegacy.totalVideos || 0;
+        mergedResult.avgLikes += douyinLegacy.avgLikes || 0;
+        mergedResult.avgComments += douyinLegacy.avgComments || 0;
+        mergedResult.totalEngagement += douyinLegacy.totalEngagement || 0;
+
+        // Merge sample content
+        mergedResult.sampleNotes.push(...(douyinLegacy.sampleVideos || []).map((v: any) => ({
+          ...v,
+          title: '[抖音] ' + (v.desc || '').slice(0, 30),
+          desc: v.desc,
+          note_id: v.aweme_id,
+          liked_count: v.digg_count,
+          collected_count: v.collect_count,
+          comments_count: v.comment_count,
+          shared_count: v.share_count,
+          user_nickname: v.author_nickname,
+          _platform: 'douyin'
+        })));
+        mergedResult.sampleComments.push(...(douyinLegacy.sampleComments || []).map((c: any) => ({
+          ...c,
+          content: c.text,
+          comment_id: c.cid,
+          like_count: c.digg_count,
+          ip_location: c.ip_label,
+          _platform: 'douyin'
+        })));
+
+        // Merge content types and weekly trends
+        for (const ct of douyinLegacy.contentTypes || []) {
+          const existing = contentTypeMap.get(ct.name) || 0;
+          contentTypeMap.set(ct.name, existing + ct.value);
+        }
+        for (const wt of douyinLegacy.weeklyTrend || []) {
+          const existing = weeklyTrendMap.get(wt.name) || 0;
+          weeklyTrendMap.set(wt.name, existing + wt.value);
+        }
+      } else {
+        const xhsLegacy = toLegacyXhsFormat(result);
+        
+        // Aggregate stats
+        mergedResult.totalNotes += xhsLegacy.totalNotes || 0;
+        mergedResult.avgLikes += xhsLegacy.avgLikes || 0;
+        mergedResult.avgComments += xhsLegacy.avgComments || 0;
+        mergedResult.avgCollects += xhsLegacy.avgCollects || 0;
+        mergedResult.totalEngagement += xhsLegacy.totalEngagement || 0;
+
+        // Merge sample content
+        mergedResult.sampleNotes.push(...(xhsLegacy.sampleNotes || []).map((n: any) => ({
+          ...n,
+          title: '[小红书] ' + (n.title || ''),
+          _platform: 'xiaohongshu'
+        })));
+        mergedResult.sampleComments.push(...(xhsLegacy.sampleComments || []).map((c: any) => ({
+          ...c,
+          _platform: 'xiaohongshu'
+        })));
+
+        // Merge content types and weekly trends
+        for (const ct of xhsLegacy.contentTypes || []) {
+          const existing = contentTypeMap.get(ct.name) || 0;
+          contentTypeMap.set(ct.name, existing + ct.value);
+        }
+        for (const wt of xhsLegacy.weeklyTrend || []) {
+          const existing = weeklyTrendMap.get(wt.name) || 0;
+          weeklyTrendMap.set(wt.name, existing + wt.value);
+        }
+      }
+    }
+
+    // Calculate averages if we have successful results
+    if (successfulResults > 0) {
+      mergedResult.avgLikes = Math.round(mergedResult.avgLikes / successfulResults);
+      mergedResult.avgComments = Math.round(mergedResult.avgComments / successfulResults);
+      mergedResult.avgCollects = Math.round(mergedResult.avgCollects / successfulResults);
+    }
+
+    // Convert maps to arrays
+    mergedResult.contentTypes = Array.from(contentTypeMap.entries()).map(([name, value]) => ({ name, value }));
+    mergedResult.weeklyTrend = Array.from(weeklyTrendMap.entries()).map(([name, value]) => ({ name, value }));
+
+    // Limit sample sizes
+    mergedResult.sampleNotes = mergedResult.sampleNotes.slice(0, 10);
+    mergedResult.sampleComments = mergedResult.sampleComments.slice(0, 20);
+
+    console.log(`[Multi-Channel] Merged ${successfulResults} platform(s): ${mergedResult.totalNotes} notes, ${mergedResult.sampleComments.length} comments`);
+    
+    return mergedResult;
+  } catch (e) {
+    console.error("[Multi-Channel] Crawl failed:", e);
+    return emptyResult;
   }
 }
 
@@ -513,9 +654,19 @@ serve(async (req) => {
     // 2. Crawl social media data (using multi-channel adapter architecture)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
     const mode = config?.mode || 'quick';
-    const xiaohongshuData = await crawlSocialMediaData(xhsSearchTerm, tags || [], config?.tikhubToken, mode);
-    console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode})`);
-    console.log(`[Multi-Channel] Stats: ${xiaohongshuData.totalNotes} posts, ${xiaohongshuData.sampleComments.length} comments`);
+    const enableXiaohongshu = config?.enableXiaohongshu ?? true;
+    const enableDouyin = config?.enableDouyin ?? false;
+    
+    const xiaohongshuData = await crawlSocialMediaData(
+      xhsSearchTerm, 
+      tags || [], 
+      config?.tikhubToken, 
+      mode,
+      enableXiaohongshu,
+      enableDouyin
+    );
+    console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
+    console.log(`[Multi-Channel] Stats: ${xiaohongshuData?.totalNotes || 0} posts, ${xiaohongshuData?.sampleComments?.length || 0} comments`);
 
     // 2.5 Search competitors
     let competitorData: SearchResult[] = [];

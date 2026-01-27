@@ -12,6 +12,10 @@ export interface UserSettings {
   // Tikhub Settings
   tikhubToken: string;
 
+  // Data Source Settings
+  enableXiaohongshu: boolean;
+  enableDouyin: boolean;
+
   // Search Settings
   bochaApiKey: string;
   youApiKey: string;
@@ -44,6 +48,8 @@ const defaultSettings: UserSettings = {
   llmApiKey: '',
   llmModel: 'gpt-4o',
   tikhubToken: '',
+  enableXiaohongshu: true,
+  enableDouyin: false,
   bochaApiKey: '',
   youApiKey: '',
   tavilyApiKey: '',
@@ -152,6 +158,8 @@ export const useSettings = create<SettingsState>()(
         llmProvider: state.llmProvider,
         llmBaseUrl: state.llmBaseUrl,
         llmModel: state.llmModel,
+        enableXiaohongshu: state.enableXiaohongshu,
+        enableDouyin: state.enableDouyin,
         imageGenBaseUrl: state.imageGenBaseUrl,
         imageGenModel: state.imageGenModel,
         // API keys are NOT persisted locally for security
