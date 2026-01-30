@@ -18,6 +18,12 @@ export interface TrendingTopic {
   updated_at: string;
   is_active: boolean;
   created_by: string | null;
+  // New quality tracking fields
+  validation_count?: number;
+  avg_validation_score?: number;
+  confidence_level?: 'high' | 'medium' | 'low';
+  quality_score?: number;
+  source_type?: 'user_validation' | 'scheduled_scan' | 'manual';
   // User interaction state
   user_interest?: 'saved' | 'validated' | 'dismissed' | null;
 }
@@ -25,7 +31,7 @@ export interface TrendingTopic {
 export interface DiscoverFilters {
   category?: string;
   minHeatScore?: number;
-  sortBy?: 'heat_score' | 'growth_rate' | 'discovered_at';
+  sortBy?: 'heat_score' | 'growth_rate' | 'discovered_at' | 'quality_score' | 'validation_count';
   limit?: number;
 }
 

@@ -1,5 +1,4 @@
-import { Image as ImageIcon, FileText, FileCode, ChevronDown, Rocket } from "lucide-react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -49,11 +48,13 @@ import {
   Loader2,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
+import { DevPanel } from "@/components/report/DevPanel";
 import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
-import { exportToPdf, exportToImage, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
+import { exportToPdf, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
+import { FileText, FileCode, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,7 +76,6 @@ const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
@@ -89,14 +89,14 @@ const Report = () => {
 
     // Check persona
     const personaIncomplete = !report.persona ||
-      !report.persona.name ||
-      !report.persona.role ||
-      (report.persona.description?.includes("分析中"));
+      !(report.persona as any)?.name ||
+      !(report.persona as any)?.role ||
+      ((report.persona as any)?.description?.includes("分析中"));
 
     // Check dimensions
     const dimensions = Array.isArray(report.dimensions) ? report.dimensions : [];
     const dimensionsIncomplete = dimensions.length === 0 ||
-      dimensions.some((d) =>
+      dimensions.some((d: any) =>
         !d.reason ||
         d.reason === "待AI分析" ||
         d.reason.includes("数据加载中") ||
@@ -158,71 +158,70 @@ const Report = () => {
   };
 
   // Prepare report data for HTML export
-  // Prepare report data for HTML export
   const prepareReportData = (): ReportData | null => {
     if (!data?.validation || !data?.report) return null;
 
     const { validation, report } = data;
-    const marketAnalysis = report.market_analysis;
-    const xiaohongshuData = report.xiaohongshu_data;
-    const sentimentAnalysis = report.sentiment_analysis;
-    const aiAnalysis = report.ai_analysis;
-    const rawDimensions = Array.isArray(report.dimensions) ? report.dimensions : [];
-    const rawPersona = report.persona;
+    const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
+    const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
+    const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
+    const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
+    const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
+    const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
 
     return {
       id: validation.id,
       idea: validation.idea,
-      score: aiAnalysis.feasibilityScore ?? validation.overall_score ?? 0,
-      verdict: "综合评估中...", // Removed incorrect cast causing issues
+      score: (aiAnalysisRaw.feasibilityScore as number) ?? validation.overall_score ?? 0,
+      verdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
       tags: validation.tags || [],
       createdAt: validation.created_at,
       dimensions: rawDimensions.length > 0
-        ? rawDimensions.map((d) => ({
+        ? rawDimensions.map((d: any) => ({
           dimension: d.dimension || "未知维度",
           score: typeof d.score === 'number' ? d.score : 50,
-          reason: "基于市场数据的综合评估" // Simplified as reason is not in interface
+          reason: d.reason || "基于市场数据的综合评估"
         }))
         : [],
       persona: rawPersona && rawPersona.name ? {
-        name: rawPersona.name || "目标用户",
-        role: rawPersona.role || "潜在用户",
-        age: rawPersona.age || "25-45岁",
-        income: rawPersona.income || "中等收入",
-        painPoints: rawPersona.painPoints || [],
-        goals: rawPersona.goals || [],
+        name: String(rawPersona.name || "目标用户"),
+        role: String(rawPersona.role || "潜在用户"),
+        age: String(rawPersona.age || "25-45岁"),
+        income: String(rawPersona.income || "中等收入"),
+        painPoints: Array.isArray(rawPersona.painPoints) ? rawPersona.painPoints as string[] : [],
+        goals: Array.isArray(rawPersona.goals) ? rawPersona.goals as string[] : [],
         techSavviness: Number(rawPersona.techSavviness) || 65,
         spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
-        description: rawPersona.description || ""
+        description: String(rawPersona.description || "")
       } : null,
       marketAnalysis: {
-        targetAudience: marketAnalysis.targetAudience ?? "目标用户群体分析中...",
-        marketSize: marketAnalysis.marketSize ?? "未知",
-        competitionLevel: marketAnalysis.competitionLevel ?? "未知",
-        trendDirection: marketAnalysis.trendDirection ?? "未知",
-        keywords: Array.isArray(marketAnalysis.keywords) ? marketAnalysis.keywords : [],
+        targetAudience: (marketAnalysisRaw.targetAudience as string) ?? "目标用户群体分析中...",
+        marketSize: (marketAnalysisRaw.marketSize as string) ?? "未知",
+        competitionLevel: (marketAnalysisRaw.competitionLevel as string) ?? "未知",
+        trendDirection: (marketAnalysisRaw.trendDirection as string) ?? "未知",
+        keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
       },
       sentiment: {
-        positive: sentimentAnalysis.positive || 33,
-        neutral: sentimentAnalysis.neutral || 33,
-        negative: sentimentAnalysis.negative || 34,
-        topPositive: sentimentAnalysis.topPositive || [],
-        topNegative: sentimentAnalysis.topNegative || []
+        positive: (sentimentAnalysisRaw.positive as number) || 33,
+        neutral: (sentimentAnalysisRaw.neutral as number) || 34,
+        negative: (sentimentAnalysisRaw.negative as number) || 33,
+        topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
+        topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
       },
       xiaohongshu: {
-        totalNotes: xiaohongshuData.totalNotes || 0,
-        totalEngagement: xiaohongshuData.totalEngagement || 0,
-        avgLikes: xiaohongshuData.avgLikes || 0,
-        avgComments: xiaohongshuData.avgComments || 0,
-        avgCollects: xiaohongshuData.avgCollects || 0,
+        totalNotes: (xiaohongshuDataRaw.totalNotes as number) ?? 0,
+        totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ?? 0,
+        avgLikes: (xiaohongshuDataRaw.avgLikes as number) ?? 0,
+        avgComments: (xiaohongshuDataRaw.avgComments as number) ?? 0,
+        avgCollects: (xiaohongshuDataRaw.avgCollects as number) ?? 0,
       },
       aiAnalysis: {
-        feasibilityScore: aiAnalysis.feasibilityScore || 0,
-        overallVerdict: aiAnalysis.overallVerdict || "综合评估中...",
-        strengths: aiAnalysis.strengths || [],
-        weaknesses: aiAnalysis.weaknesses || [],
-        suggestions: aiAnalysis.suggestions?.map(s => typeof s === 'string' ? s : s.action) || [],
-        risks: aiAnalysis.risks || [],
+        feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
+        overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+        strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
+        weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
+        suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
+        risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
       }
     };
   };
@@ -286,21 +285,7 @@ const Report = () => {
     }
   };
 
-  const handleExportImage = async () => {
-    try {
-      await exportToImage("report-content", `report-${id}`);
-      toast({
-        title: "导出成功",
-        description: "图片报告已下载",
-      });
-    } catch (error) {
-      toast({
-        title: "导出失败",
-        description: "请稍后重试",
-        variant: "destructive",
-      });
-    }
-  };
+
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -494,7 +479,7 @@ const Report = () => {
   // Map dimensions with enhanced fallbacks
   const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
   const dimensions = rawDimensions.length > 0
-    ? rawDimensions.map((d) => ({
+    ? rawDimensions.map((d: any) => ({
       dimension: d.dimension || "未知维度",
       score: typeof d.score === 'number' ? d.score : 50,
       reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
@@ -508,7 +493,7 @@ const Report = () => {
     }));
 
   // Prepare radar chart data from dimensions
-  const radarData = dimensions.map((d) => ({
+  const radarData = dimensions.map((d: any) => ({
     subject: d.dimension || "未知",
     A: typeof d.score === 'number' ? d.score : 50,
     fullMark: 100,
@@ -583,16 +568,6 @@ const Report = () => {
                   {isReanalyzing ? "分析中..." : "补充分析"}
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full h-9 border-purple-500/50 text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20 mr-2"
-                onClick={() => navigate(`/mvp/${id}`)}
-              >
-                <Rocket className="w-4 h-4 mr-2" />
-                生成 MVP 落地页
-                <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-600 rounded-full font-bold">New</span>
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed">
@@ -617,13 +592,6 @@ const Report = () => {
                       <span className="text-xs text-muted-foreground">多页完整报告</span>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportImage} className="cursor-pointer">
-                    <ImageIcon className="w-4 h-4 mr-2 text-blue-500" />
-                    <div className="flex flex-col">
-                      <span>保存为图片</span>
-                      <span className="text-xs text-muted-foreground">PNG 格式截图</span>
-                    </div>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button variant="default" size="sm" className="rounded-full h-9 shadow-lg shadow-primary/20" onClick={handleShare}>
@@ -641,7 +609,7 @@ const Report = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
-                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">痛点真实度</span>
+                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">需求真实度评分</span>
                 <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
                   <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -731,7 +699,7 @@ const Report = () => {
                 需求真伪分析
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                {dimensions.map((d, i) => (
+                {dimensions.map((d: any, i: number) => (
                   <div key={i} className="space-y-2 group">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground font-medium group-hover:text-foreground transition-colors">{d.dimension}</span>
@@ -1037,9 +1005,9 @@ const Report = () => {
             {/* Data Insights Tab */}
             <TabsContent value="insights" className="space-y-6">
               <DataInsightsTab
-                dataSummary={report?.data_summary}
+                dataSummary={report?.data_summary as any}
                 dataQualityScore={report?.data_quality_score ?? undefined}
-                keywordsUsed={report?.keywords_used}
+                keywordsUsed={report?.keywords_used as any}
               />
             </TabsContent>
 
@@ -1216,8 +1184,8 @@ const Report = () => {
             {/* Competitors Tab */}
             <TabsContent value="competitors" className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
-                {(Array.isArray(report?.competitor_data) && report?.competitor_data.length > 0) ? (
-                  report?.competitor_data.map((comp, i) => (
+                {(Array.isArray((report?.competitor_data)) && (report?.competitor_data as any[]).length > 0) ? (
+                  (report?.competitor_data as any[]).map((comp: any, i: number) => (
                     <GlassCard key={i} className="animate-slide-up" style={{ animationDelay: `${i * 50}ms` }}>
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
@@ -1272,7 +1240,7 @@ const Report = () => {
                       Six-Dimension Evaluation
                     </h3>
                     <div className="space-y-3">
-                      {dimensions.map((d, i) => (
+                      {dimensions.map((d: any, i: number) => (
                         <div key={i} className="space-y-1">
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">{d.dimension}</span>
@@ -1338,7 +1306,7 @@ const Report = () => {
                   Strategic Roadmap (GTM & Product)
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
-                  {aiAnalysis.suggestions?.map((item, i) => (
+                  {aiAnalysis.suggestions?.map((item: any, i: number) => (
                     <div key={i} className="flex gap-4 p-4 rounded-lg bg-card/50 border border-white/5">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                         {i + 1}
@@ -1417,6 +1385,9 @@ const Report = () => {
               </GlassCard>
             </TabsContent>
           </Tabs>
+
+          {/* 开发者调试面板 - 仅管理员可见 */}
+          <DevPanel report={report} validationId={validation.id} />
         </div>
       </main>
     </PageBackground>

@@ -24,7 +24,7 @@ export default function Discover() {
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [minHeatScore, setMinHeatScore] = useState(0);
-  const [sortBy, setSortBy] = useState<'heat_score' | 'growth_rate' | 'discovered_at'>('heat_score');
+  const [sortBy, setSortBy] = useState<'heat_score' | 'growth_rate' | 'discovered_at' | 'quality_score' | 'validation_count'>('quality_score');
 
   // User interests map
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
@@ -73,7 +73,7 @@ export default function Discover() {
   const handleResetFilters = () => {
     setSelectedCategory(null);
     setMinHeatScore(0);
-    setSortBy('heat_score');
+    setSortBy('quality_score');
   };
 
   return (

@@ -4,12 +4,12 @@ import { searchCompetitors, SearchResult } from "./search.ts";
 import { expandKeywords, ExpandedKeywords } from "./keyword-expander.ts";
 import { summarizeRawData, DataSummary } from "./data-summarizer.ts";
 // New multi-channel adapter architecture
-import { 
-  crawlXiaohongshu, 
+import {
+  crawlXiaohongshu,
   crawlDouyin,
   toLegacyXhsFormat,
   toLegacyDouyinFormat,
-  type ChannelCrawlResult 
+  type ChannelCrawlResult
 } from "./channels/index.ts";
 import {
   validateString,
@@ -152,8 +152,8 @@ function parseJsonFromModelOutput<T = unknown>(text: string): T {
   }
 }
 
-type KeywordExtractionResult = { 
-  xhsKeywords: string[]; 
+type KeywordExtractionResult = {
+  xhsKeywords: string[];
   webQueries: string[];
   expanded?: ExpandedKeywords;
 };
@@ -178,9 +178,9 @@ type AIResult = {
  * Future: Weibo, Bilibili
  */
 async function crawlSocialMediaData(
-  idea: string, 
-  tags: string[], 
-  tikhubToken?: string, 
+  idea: string,
+  tags: string[],
+  tikhubToken?: string,
   mode: 'quick' | 'deep' = 'quick',
   enableXiaohongshu: boolean = true,
   enableDouyin: boolean = false
@@ -212,7 +212,7 @@ async function crawlSocialMediaData(
 
   try {
     console.log(`[Multi-Channel] Crawling with mode: ${mode}, platforms: XHS=${enableXiaohongshu}, DY=${enableDouyin}`);
-    
+
     const results: ChannelCrawlResult[] = [];
     const crawlPromises: Promise<ChannelCrawlResult>[] = [];
 
@@ -238,7 +238,7 @@ async function crawlSocialMediaData(
     }
 
     const crawlResults = await Promise.all(crawlPromises);
-    
+
     // Merge results from all platforms
     let mergedResult = {
       totalNotes: 0,
@@ -263,11 +263,11 @@ async function crawlSocialMediaData(
       }
 
       successfulResults++;
-      
+
       // Handle different return types for different platforms
       if (result.channel === 'douyin') {
         const douyinLegacy = toLegacyDouyinFormat(result);
-        
+
         // Aggregate stats
         mergedResult.totalNotes += douyinLegacy.totalVideos || 0;
         mergedResult.avgLikes += douyinLegacy.avgLikes || 0;
@@ -307,7 +307,7 @@ async function crawlSocialMediaData(
         }
       } else {
         const xhsLegacy = toLegacyXhsFormat(result);
-        
+
         // Aggregate stats
         mergedResult.totalNotes += xhsLegacy.totalNotes || 0;
         mergedResult.avgLikes += xhsLegacy.avgLikes || 0;
@@ -354,7 +354,7 @@ async function crawlSocialMediaData(
     mergedResult.sampleComments = mergedResult.sampleComments.slice(0, 20);
 
     console.log(`[Multi-Channel] Merged ${successfulResults} platform(s): ${mergedResult.totalNotes} notes, ${mergedResult.sampleComments.length} comments`);
-    
+
     return mergedResult;
   } catch (e) {
     console.error("[Multi-Channel] Crawl failed:", e);
@@ -369,7 +369,7 @@ async function extractKeywords(idea: string, tags: string[], config?: RequestCon
     baseUrl: config?.llmBaseUrl,
     model: config?.llmModel
   });
-  
+
   console.log("Expanded keywords:", {
     core: result.expanded.coreKeywords,
     user: result.expanded.userPhrases,
@@ -427,12 +427,12 @@ async function analyzeWithAI(
       .slice(0, 5)
       .map(p => `- **${p.theme}** (${p.type}, 频次: ${p.frequency}): ${p.sampleQuotes.slice(0, 2).map(q => `"${q.slice(0, 50)}..."`).join("; ")}`)
       .join("\n");
-    
+
     const competitorMatrixText = dataSummary.competitorMatrix
       .slice(0, 4)
       .map(c => `- **${c.category}** (${c.count}家): ${c.topPlayers.join(", ")}${c.commonPricing ? ` | 价格带: ${c.commonPricing}` : ""}`)
       .join("\n");
-    
+
     const signalsText = dataSummary.marketSignals
       .slice(0, 3)
       .map(s => `- ${s.signal} (置信度: ${s.confidence}%): ${s.implication}`)
@@ -574,12 +574,12 @@ async function analyzeWithAI(
 
   try {
     const parsed = parseJsonFromModelOutput<any>(content);
-    
+
     // Log parsed structure for debugging
     console.log("Parsed AI result keys:", Object.keys(parsed));
     console.log("Parsed dimensions length:", Array.isArray(parsed.dimensions) ? parsed.dimensions.length : 'not array');
     console.log("Parsed persona:", parsed.persona ? 'exists' : 'null');
-    
+
     // Validate and normalize the result
     const result: AIResult = {
       overallScore: typeof parsed.overallScore === 'number' ? parsed.overallScore : 0,
@@ -590,7 +590,7 @@ async function analyzeWithAI(
       persona: parsed.persona || {},
       dimensions: Array.isArray(parsed.dimensions) ? parsed.dimensions : [],
     };
-    
+
     return result;
   } catch (e) {
     console.error("AI JSON parse failed. Raw (first 1200 chars):", content.slice(0, 1200));
@@ -601,6 +601,8 @@ async function analyzeWithAI(
 /**
  * Sync validation results to trending_topics table for the Trending Radar feature
  * This automatically populates the discover page with validated market opportunities
+ * 
+ * Enhanced: Now tracks validation count, average score, and calculates quality score
  */
 async function syncToTrendingTopics(
   supabase: any,
@@ -618,33 +620,81 @@ async function syncToTrendingTopics(
   const avgLikes = socialMediaData.avgLikes || 0;
   const avgComments = socialMediaData.avgComments || 0;
   const sampleCount = socialMediaData.totalNotes || 0;
-  
+
   // Heat score calculation (0-100)
   const engagementScore = (avgLikes * 1) + (avgComments * 2);
   const volumeScore = Math.min(sampleCount * 10, 500);
   const heatScore = Math.min(100, Math.round((volumeScore + engagementScore / 10) / 10));
-  
-  // Only sync if heat score is meaningful (>= 30)
-  if (heatScore < 30) {
-    console.log(`[TrendingSync] Skipping - heat score too low: ${heatScore}`);
-    return;
-  }
-  
-  // Extract keyword from idea (first 20 chars or first tag)
+
+  // Extract keyword from idea (first tag or first 20 chars of idea)
   const keyword = tags[0] || idea.slice(0, 30).replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "").slice(0, 20) || idea.slice(0, 20);
   const category = tags.length > 1 ? tags[1] : null;
-  
+
+  // Get AI validation score
+  const validationScore = aiResult.overallScore || 0;
+
+  // Check if this topic already exists
+  const { data: existingTopic } = await supabase
+    .from("trending_topics")
+    .select("id, validation_count, avg_validation_score, heat_score")
+    .eq("keyword", keyword)
+    .single();
+
+  // Calculate new validation count and average score
+  let newValidationCount = 1;
+  let newAvgValidationScore = validationScore;
+  let newHeatScore = heatScore;
+
+  if (existingTopic) {
+    // Accumulate validation data
+    const oldCount = existingTopic.validation_count || 0;
+    const oldAvgScore = existingTopic.avg_validation_score || 0;
+
+    newValidationCount = oldCount + 1;
+    // Calculate running average
+    newAvgValidationScore = Math.round(((oldAvgScore * oldCount) + validationScore) / newValidationCount);
+    // Take the higher heat score (topics can grow hotter)
+    newHeatScore = Math.max(heatScore, existingTopic.heat_score || 0);
+
+    console.log(`[TrendingSync] Updating existing topic: ${keyword} (validation #${newValidationCount})`);
+  } else {
+    // Only create new topics if heat score is meaningful (>= 20) or validation score is good (>= 50)
+    if (heatScore < 20 && validationScore < 50) {
+      console.log(`[TrendingSync] Skipping new topic - score too low: heat=${heatScore}, validation=${validationScore}`);
+      return;
+    }
+    console.log(`[TrendingSync] Creating new topic: ${keyword}`);
+  }
+
+  // Determine confidence level based on validation count
+  let confidenceLevel: 'high' | 'medium' | 'low' = 'low';
+  if (newValidationCount >= 3) {
+    confidenceLevel = 'high';
+  } else if (newValidationCount >= 1) {
+    confidenceLevel = 'medium';
+  }
+
+  // Calculate quality score: heat(40%) + validation(30%) + count_bonus(20%) + freshness(10%)
+  const countBonus = Math.min(newValidationCount * 10, 100); // Max 100 for 10+ validations
+  const freshnessScore = 100; // New/updated topics get full freshness
+  const qualityScore = Math.round(
+    (newHeatScore * 0.4) +
+    (newAvgValidationScore * 0.3) +
+    (countBonus * 0.2) +
+    (freshnessScore * 0.1)
+  );
+
   // Extract pain points from data summary
   const topPainPoints = dataSummary?.painPointClusters?.slice(0, 5).map(p => p.theme) || [];
-  
+
   // Get sentiment from data summary or AI result
-  const sentimentPositive = dataSummary?.sentimentBreakdown?.positive || 
+  const sentimentPositive = dataSummary?.sentimentBreakdown?.positive ||
     (aiResult.sentimentAnalysis as any)?.positive || 33;
-  const sentimentNegative = dataSummary?.sentimentBreakdown?.negative || 
+  const sentimentNegative = dataSummary?.sentimentBreakdown?.negative ||
     (aiResult.sentimentAnalysis as any)?.negative || 33;
-  const sentimentNeutral = dataSummary?.sentimentBreakdown?.neutral || 
+  const sentimentNeutral = dataSummary?.sentimentBreakdown?.neutral ||
     (aiResult.sentimentAnalysis as any)?.neutral || 34;
-  
+
   // Build sources array
   const sources: { platform: string; count: number }[] = [];
   if (enableXiaohongshu !== false) {
@@ -655,16 +705,16 @@ async function syncToTrendingTopics(
     const dyCount = socialMediaData.sampleNotes?.filter((n: any) => n._platform === 'douyin').length || 0;
     if (dyCount > 0) sources.push({ platform: "douyin", count: dyCount });
   }
-  
+
   // Related keywords from tags
   const relatedKeywords = tags.filter(t => t !== keyword).slice(0, 10);
-  
+
   const topicData = {
     keyword,
     category,
-    heat_score: heatScore,
+    heat_score: newHeatScore,
     growth_rate: null, // Would need historical data
-    sample_count: sampleCount,
+    sample_count: Math.max(sampleCount, existingTopic?.sample_count || 0),
     avg_engagement: Math.round(totalEngagement / Math.max(1, sampleCount)),
     sentiment_positive: sentimentPositive,
     sentiment_negative: sentimentNegative,
@@ -672,25 +722,33 @@ async function syncToTrendingTopics(
     top_pain_points: topPainPoints,
     related_keywords: relatedKeywords,
     sources,
-    created_by: userId,
+    created_by: existingTopic ? undefined : userId, // Don't overwrite original creator
     is_active: true,
     updated_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days for validated topics
+    // New fields for quality tracking
+    validation_count: newValidationCount,
+    avg_validation_score: newAvgValidationScore,
+    confidence_level: confidenceLevel,
+    quality_score: qualityScore,
+    source_type: 'user_validation',
+    last_crawled_at: new Date().toISOString(),
   };
-  
-  console.log(`[TrendingSync] Syncing topic: ${keyword} (heat: ${heatScore})`);
-  
+
+  console.log(`[TrendingSync] Topic data: heat=${newHeatScore}, validation=${newAvgValidationScore}, quality=${qualityScore}, confidence=${confidenceLevel}`);
+
   // Upsert - update if keyword exists, insert if new
   const { error } = await supabase
     .from("trending_topics")
     .upsert(topicData, { onConflict: 'keyword' });
-  
+
   if (error) {
     console.error("[TrendingSync] Failed to sync:", error);
-    throw error;
+    // Don't throw - this is non-critical
+    return;
   }
-  
-  console.log(`[TrendingSync] Successfully synced topic: ${keyword}`);
+
+  console.log(`[TrendingSync] Successfully synced topic: ${keyword} (quality: ${qualityScore})`);
 }
 
 serve(async (req) => {
@@ -751,11 +809,11 @@ serve(async (req) => {
     const mode = config?.mode || 'quick';
     const enableXiaohongshu = config?.enableXiaohongshu ?? true;
     const enableDouyin = config?.enableDouyin ?? false;
-    
+
     const xiaohongshuData = await crawlSocialMediaData(
-      xhsSearchTerm, 
-      tags || [], 
-      config?.tikhubToken, 
+      xhsSearchTerm,
+      tags || [],
+      config?.tikhubToken,
       mode,
       enableXiaohongshu,
       enableDouyin
@@ -810,8 +868,8 @@ serve(async (req) => {
     console.log("AI Result overallScore:", aiResult.overallScore);
     console.log("AI Result overallVerdict:", aiResult.overallVerdict?.slice(0, 50));
 
-   // Default dimension reasons for meaningful fallbacks
-   const defaultDimensionReasons: Record<string, string> = {
+    // Default dimension reasons for meaningful fallbacks
+    const defaultDimensionReasons: Record<string, string> = {
       "需求痛感": "基于用户反馈和市场调研的需求强度评估",
       "PMF潜力": "产品与市场匹配度的综合分析",
       "市场规模": "目标市场容量和增长趋势评估",
@@ -822,84 +880,86 @@ serve(async (req) => {
       "商业模式": "商业模式的可行性和盈利评估",
       "技术可行性": "技术实现难度和资源需求",
       "创新程度": "创新性和市场差异化程度"
-   };
+    };
 
-   // Ensure dimensions is an array with meaningful default values
-   let dimensionsData = Array.isArray(aiResult.dimensions) && aiResult.dimensions.length > 0
+    // Ensure dimensions is an array with meaningful default values
+    let dimensionsData = Array.isArray(aiResult.dimensions) && aiResult.dimensions.length > 0
       ? aiResult.dimensions.map((d: any) => ({
-           dimension: d.dimension || "未知维度",
-           score: typeof d.score === 'number' ? Math.min(100, Math.max(0, d.score)) : 50,
-           reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
-              ? d.reason
-              : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
-        }))
+        dimension: d.dimension || "未知维度",
+        score: typeof d.score === 'number' ? Math.min(100, Math.max(0, d.score)) : 50,
+        reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
+          ? d.reason
+          : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
+      }))
       : [
-          { dimension: "需求痛感", score: 50, reason: defaultDimensionReasons["需求痛感"] },
-          { dimension: "PMF潜力", score: 50, reason: defaultDimensionReasons["PMF潜力"] },
-          { dimension: "市场规模", score: 50, reason: defaultDimensionReasons["市场规模"] },
-          { dimension: "差异化", score: 50, reason: defaultDimensionReasons["差异化"] },
-          { dimension: "可行性", score: 50, reason: defaultDimensionReasons["可行性"] },
-          { dimension: "盈利能力", score: 50, reason: defaultDimensionReasons["盈利能力"] },
-        ];
+        { dimension: "需求痛感", score: 50, reason: defaultDimensionReasons["需求痛感"] },
+        { dimension: "PMF潜力", score: 50, reason: defaultDimensionReasons["PMF潜力"] },
+        { dimension: "市场规模", score: 50, reason: defaultDimensionReasons["市场规模"] },
+        { dimension: "差异化", score: 50, reason: defaultDimensionReasons["差异化"] },
+        { dimension: "可行性", score: 50, reason: defaultDimensionReasons["可行性"] },
+        { dimension: "盈利能力", score: 50, reason: defaultDimensionReasons["盈利能力"] },
+      ];
 
-   console.log("[Dimensions] Final data:", JSON.stringify(dimensionsData.slice(0, 2)));
+    console.log("[Dimensions] Final data:", JSON.stringify(dimensionsData.slice(0, 2)));
 
-   // Ensure persona has valid data with meaningful defaults
-   let personaData = null;
-   if (aiResult.persona && aiResult.persona.name && aiResult.persona.role) {
+    // Ensure persona has valid data with meaningful defaults
+    let personaData = null;
+    if (aiResult.persona && aiResult.persona.name && aiResult.persona.role) {
       personaData = {
-         name: aiResult.persona.name,
-         role: aiResult.persona.role,
-         age: aiResult.persona.age || "25-45岁",
-         income: aiResult.persona.income || "中等收入",
-         painPoints: Array.isArray(aiResult.persona.painPoints) && aiResult.persona.painPoints.length > 0
-            ? aiResult.persona.painPoints
-            : ["需要更高效的解决方案", "现有选择无法满足需求"],
-         goals: Array.isArray(aiResult.persona.goals) && aiResult.persona.goals.length > 0
-            ? aiResult.persona.goals
-            : ["找到更好的产品体验", "提升生活/工作效率"],
-         techSavviness: typeof aiResult.persona.techSavviness === 'number' ? aiResult.persona.techSavviness : 65,
-         spendingCapacity: typeof aiResult.persona.spendingCapacity === 'number' ? aiResult.persona.spendingCapacity : 60,
-         description: aiResult.persona.description || `对"${idea.slice(0, 30)}..."有需求的核心用户群体`
+        name: aiResult.persona.name,
+        role: aiResult.persona.role,
+        age: aiResult.persona.age || "25-45岁",
+        income: aiResult.persona.income || "中等收入",
+        painPoints: Array.isArray(aiResult.persona.painPoints) && aiResult.persona.painPoints.length > 0
+          ? aiResult.persona.painPoints
+          : ["需要更高效的解决方案", "现有选择无法满足需求"],
+        goals: Array.isArray(aiResult.persona.goals) && aiResult.persona.goals.length > 0
+          ? aiResult.persona.goals
+          : ["找到更好的产品体验", "提升生活/工作效率"],
+        techSavviness: typeof aiResult.persona.techSavviness === 'number' ? aiResult.persona.techSavviness : 65,
+        spendingCapacity: typeof aiResult.persona.spendingCapacity === 'number' ? aiResult.persona.spendingCapacity : 60,
+        description: aiResult.persona.description || `对"${idea.slice(0, 30)}..."有需求的核心用户群体`
       };
-  } else if (aiResult.marketAnalysis?.targetAudience) {
+    } else if (aiResult.marketAnalysis?.targetAudience) {
       // Generate persona from market analysis if AI didn't provide one
       const targetAudience = String(aiResult.marketAnalysis.targetAudience || "");
       personaData = {
-         name: "目标用户",
-         role: targetAudience.split(/[、,，]/)[0]?.slice(0, 20) || "潜在用户",
-         age: "25-45岁",
-         income: "中等收入",
-         painPoints: ["需要更高效的解决方案", "现有选择无法满足需求"],
-         goals: ["找到更好的产品体验", "提升生活/工作效率"],
-         techSavviness: 65,
-         spendingCapacity: 60,
-         description: `对"${idea.slice(0, 30)}..."感兴趣的${targetAudience.slice(0, 50)}`
+        name: "目标用户",
+        role: targetAudience.split(/[、,，]/)[0]?.slice(0, 20) || "潜在用户",
+        age: "25-45岁",
+        income: "中等收入",
+        painPoints: ["需要更高效的解决方案", "现有选择无法满足需求"],
+        goals: ["找到更好的产品体验", "提升生活/工作效率"],
+        techSavviness: 65,
+        spendingCapacity: 60,
+        description: `对"${idea.slice(0, 30)}..."感兴趣的${targetAudience.slice(0, 50)}`
       };
-   }
+    }
 
-   console.log("[Persona] Final data:", personaData ? "exists" : "null");
+    console.log("[Persona] Final data:", personaData ? "exists" : "null");
 
-   // 4. Save report with robust retry logic for connection issues
-   const reportData = {
+    // 4. Save report with robust retry logic for connection issues
+    const reportData = {
       validation_id: validation.id,
       market_analysis: aiResult.marketAnalysis || {},
       xiaohongshu_data: xiaohongshuData,
       competitor_data: competitorData,
       sentiment_analysis: aiResult.sentimentAnalysis || {
-         positive: 33,
-         neutral: 34,
-         negative: 33,
-         topPositive: [],
-         topNegative: []
+        positive: 33,
+        neutral: 34,
+        negative: 33,
+        topPositive: [],
+        topNegative: []
       },
       ai_analysis: {
-         ...(aiResult.aiAnalysis || {}),
-         overallVerdict: aiResult.overallVerdict || "AI分析完成",
-         strengths: aiResult.strengths || aiResult.aiAnalysis?.strengths || [],
-         weaknesses: aiResult.weaknesses || aiResult.aiAnalysis?.weaknesses || [],
-         suggestions: aiResult.suggestions || aiResult.aiAnalysis?.suggestions || [],
-         risks: aiResult.risks || aiResult.aiAnalysis?.risks || [],
+        ...(aiResult.aiAnalysis || {}),
+        // 确保 feasibilityScore 与 overallScore 保持一致
+        feasibilityScore: aiResult.overallScore || aiResult.aiAnalysis?.feasibilityScore || 0,
+        overallVerdict: aiResult.overallVerdict || "AI分析完成",
+        strengths: aiResult.strengths || aiResult.aiAnalysis?.strengths || [],
+        weaknesses: aiResult.weaknesses || aiResult.aiAnalysis?.weaknesses || [],
+        suggestions: aiResult.suggestions || aiResult.aiAnalysis?.suggestions || [],
+        risks: aiResult.risks || aiResult.aiAnalysis?.risks || [],
       },
       dimensions: dimensionsData,
       persona: personaData,
@@ -907,22 +967,22 @@ serve(async (req) => {
       data_summary: dataSummary || {},
       data_quality_score: dataSummary?.dataQuality?.score || null,
       keywords_used: expanded ? {
-         coreKeywords: expanded.coreKeywords,
-         userPhrases: expanded.userPhrases,
-         competitorQueries: expanded.competitorQueries,
-         trendKeywords: expanded.trendKeywords
+        coreKeywords: expanded.coreKeywords,
+        userPhrases: expanded.userPhrases,
+        competitorQueries: expanded.competitorQueries,
+        trendKeywords: expanded.trendKeywords
       } : [],
-   };
-    
+    };
+
     let reportSaved = false;
     let lastReportError: unknown = null;
     const maxRetries = 5;
     const retryDelays = [500, 1000, 2000, 3000, 5000]; // Exponential backoff
-    
+
     for (let attempt = 0; attempt < maxRetries && !reportSaved; attempt++) {
       try {
         console.log(`Saving report (attempt ${attempt + 1}/${maxRetries})...`);
-        
+
         const { error: reportError } = await supabase
           .from("validation_reports")
           .insert(reportData);
@@ -933,7 +993,7 @@ serve(async (req) => {
         } else {
           lastReportError = reportError;
           console.error(`Report save attempt ${attempt + 1} failed:`, reportError.message || reportError);
-          
+
           if (attempt < maxRetries - 1) {
             const delay = retryDelays[attempt];
             console.log(`Waiting ${delay}ms before retry...`);
@@ -943,7 +1003,7 @@ serve(async (req) => {
       } catch (saveError) {
         lastReportError = saveError;
         console.error(`Report save attempt ${attempt + 1} threw error:`, saveError);
-        
+
         if (attempt < maxRetries - 1) {
           const delay = retryDelays[attempt];
           console.log(`Waiting ${delay}ms before retry...`);
