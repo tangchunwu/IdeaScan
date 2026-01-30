@@ -48,6 +48,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { FullValidation } from "@/services/validationService";
+import { DevPanel } from "@/components/report/DevPanel";
 import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
 import { exportToPdf, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
@@ -1384,6 +1385,9 @@ const Report = () => {
               </GlassCard>
             </TabsContent>
           </Tabs>
+
+          {/* 开发者调试面板 - 仅管理员可见 */}
+          <DevPanel report={report} validationId={validation.id} />
         </div>
       </main>
     </PageBackground>
