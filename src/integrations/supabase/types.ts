@@ -399,8 +399,10 @@ export type Database = {
       trending_topics: {
         Row: {
           avg_engagement: number | null
+          avg_validation_score: number | null
           category: string | null
           click_count: number | null
+          confidence_level: string | null
           created_by: string | null
           discovered_at: string
           expires_at: string
@@ -409,21 +411,27 @@ export type Database = {
           id: string
           is_active: boolean
           keyword: string
+          last_crawled_at: string | null
           priority_score: number | null
+          quality_score: number | null
           related_keywords: string[] | null
           sample_count: number
           sentiment_negative: number | null
           sentiment_neutral: number | null
           sentiment_positive: number | null
+          source_type: string | null
           sources: Json | null
           top_pain_points: string[] | null
           updated_at: string
           validate_count: number | null
+          validation_count: number | null
         }
         Insert: {
           avg_engagement?: number | null
+          avg_validation_score?: number | null
           category?: string | null
           click_count?: number | null
+          confidence_level?: string | null
           created_by?: string | null
           discovered_at?: string
           expires_at?: string
@@ -432,21 +440,27 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword: string
+          last_crawled_at?: string | null
           priority_score?: number | null
+          quality_score?: number | null
           related_keywords?: string[] | null
           sample_count?: number
           sentiment_negative?: number | null
           sentiment_neutral?: number | null
           sentiment_positive?: number | null
+          source_type?: string | null
           sources?: Json | null
           top_pain_points?: string[] | null
           updated_at?: string
           validate_count?: number | null
+          validation_count?: number | null
         }
         Update: {
           avg_engagement?: number | null
+          avg_validation_score?: number | null
           category?: string | null
           click_count?: number | null
+          confidence_level?: string | null
           created_by?: string | null
           discovered_at?: string
           expires_at?: string
@@ -455,16 +469,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           keyword?: string
+          last_crawled_at?: string | null
           priority_score?: number | null
+          quality_score?: number | null
           related_keywords?: string[] | null
           sample_count?: number
           sentiment_negative?: number | null
           sentiment_neutral?: number | null
           sentiment_positive?: number | null
+          source_type?: string | null
           sources?: Json | null
           top_pain_points?: string[] | null
           updated_at?: string
           validate_count?: number | null
+          validation_count?: number | null
         }
         Relationships: []
       }
