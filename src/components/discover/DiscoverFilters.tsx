@@ -15,6 +15,8 @@ import {
   Clock,
   Filter,
   X,
+  Star,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +24,10 @@ interface DiscoverFiltersProps {
   categories: string[];
   selectedCategory: string | null;
   minHeatScore: number;
-  sortBy: 'heat_score' | 'growth_rate' | 'discovered_at';
+  sortBy: 'heat_score' | 'growth_rate' | 'discovered_at' | 'quality_score' | 'validation_count';
   onCategoryChange: (category: string | null) => void;
   onHeatScoreChange: (score: number) => void;
-  onSortChange: (sort: 'heat_score' | 'growth_rate' | 'discovered_at') => void;
+  onSortChange: (sort: 'heat_score' | 'growth_rate' | 'discovered_at' | 'quality_score' | 'validation_count') => void;
   onReset: () => void;
 }
 
@@ -41,12 +43,14 @@ export function DiscoverFilters({
 }: DiscoverFiltersProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const hasActiveFilters = selectedCategory || minHeatScore > 0 || sortBy !== 'heat_score';
+  const hasActiveFilters = selectedCategory || minHeatScore > 0 || sortBy !== 'quality_score';
 
   const sortOptions = [
+    { value: 'quality_score', label: '质量优先', icon: Star },
     { value: 'heat_score', label: '热度优先', icon: Flame },
-    { value: 'growth_rate', label: '增长优先', icon: TrendingUp },
+    { value: 'validation_count', label: '已验证', icon: CheckCircle },
     { value: 'discovered_at', label: '最新发现', icon: Clock },
+    { value: 'growth_rate', label: '增长优先', icon: TrendingUp },
   ];
 
   return (

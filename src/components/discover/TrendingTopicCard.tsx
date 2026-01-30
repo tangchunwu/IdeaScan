@@ -17,6 +17,8 @@ import {
   ThumbsDown,
   Sparkles,
   ArrowRight,
+  CheckCircle,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +94,19 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange }: Tre
               <Flame className="w-3 h-3 mr-1" />
               {topic.heat_score}°
             </Badge>
+            {/* 显示验证次数和置信度 */}
+            {topic.validation_count && topic.validation_count > 0 && (
+              <Badge className="text-xs bg-green-500/10 text-green-500 border-0">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                {topic.validation_count}次验证
+              </Badge>
+            )}
+            {topic.quality_score && topic.quality_score >= 60 && (
+              <Badge className="text-xs bg-amber-500/10 text-amber-500 border-0">
+                <Star className="w-3 h-3 mr-1" />
+                优质
+              </Badge>
+            )}
           </div>
           <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
             {topic.keyword}

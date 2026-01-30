@@ -601,6 +601,8 @@ async function analyzeWithAI(
 /**
  * Sync validation results to trending_topics table for the Trending Radar feature
  * This automatically populates the discover page with validated market opportunities
+ * 
+ * Enhanced: Now tracks validation count, average score, and calculates quality score
  */
 async function syncToTrendingTopics(
   supabase: any,
@@ -624,15 +626,63 @@ async function syncToTrendingTopics(
   const volumeScore = Math.min(sampleCount * 10, 500);
   const heatScore = Math.min(100, Math.round((volumeScore + engagementScore / 10) / 10));
 
-  // Only sync if heat score is meaningful (>= 30)
-  if (heatScore < 30) {
-    console.log(`[TrendingSync] Skipping - heat score too low: ${heatScore}`);
-    return;
-  }
-
-  // Extract keyword from idea (first 20 chars or first tag)
+  // Extract keyword from idea (first tag or first 20 chars of idea)
   const keyword = tags[0] || idea.slice(0, 30).replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "").slice(0, 20) || idea.slice(0, 20);
   const category = tags.length > 1 ? tags[1] : null;
+
+  // Get AI validation score
+  const validationScore = aiResult.overallScore || 0;
+
+  // Check if this topic already exists
+  const { data: existingTopic } = await supabase
+    .from("trending_topics")
+    .select("id, validation_count, avg_validation_score, heat_score")
+    .eq("keyword", keyword)
+    .single();
+
+  // Calculate new validation count and average score
+  let newValidationCount = 1;
+  let newAvgValidationScore = validationScore;
+  let newHeatScore = heatScore;
+
+  if (existingTopic) {
+    // Accumulate validation data
+    const oldCount = existingTopic.validation_count || 0;
+    const oldAvgScore = existingTopic.avg_validation_score || 0;
+
+    newValidationCount = oldCount + 1;
+    // Calculate running average
+    newAvgValidationScore = Math.round(((oldAvgScore * oldCount) + validationScore) / newValidationCount);
+    // Take the higher heat score (topics can grow hotter)
+    newHeatScore = Math.max(heatScore, existingTopic.heat_score || 0);
+
+    console.log(`[TrendingSync] Updating existing topic: ${keyword} (validation #${newValidationCount})`);
+  } else {
+    // Only create new topics if heat score is meaningful (>= 20) or validation score is good (>= 50)
+    if (heatScore < 20 && validationScore < 50) {
+      console.log(`[TrendingSync] Skipping new topic - score too low: heat=${heatScore}, validation=${validationScore}`);
+      return;
+    }
+    console.log(`[TrendingSync] Creating new topic: ${keyword}`);
+  }
+
+  // Determine confidence level based on validation count
+  let confidenceLevel: 'high' | 'medium' | 'low' = 'low';
+  if (newValidationCount >= 3) {
+    confidenceLevel = 'high';
+  } else if (newValidationCount >= 1) {
+    confidenceLevel = 'medium';
+  }
+
+  // Calculate quality score: heat(40%) + validation(30%) + count_bonus(20%) + freshness(10%)
+  const countBonus = Math.min(newValidationCount * 10, 100); // Max 100 for 10+ validations
+  const freshnessScore = 100; // New/updated topics get full freshness
+  const qualityScore = Math.round(
+    (newHeatScore * 0.4) +
+    (newAvgValidationScore * 0.3) +
+    (countBonus * 0.2) +
+    (freshnessScore * 0.1)
+  );
 
   // Extract pain points from data summary
   const topPainPoints = dataSummary?.painPointClusters?.slice(0, 5).map(p => p.theme) || [];
@@ -662,9 +712,9 @@ async function syncToTrendingTopics(
   const topicData = {
     keyword,
     category,
-    heat_score: heatScore,
+    heat_score: newHeatScore,
     growth_rate: null, // Would need historical data
-    sample_count: sampleCount,
+    sample_count: Math.max(sampleCount, existingTopic?.sample_count || 0),
     avg_engagement: Math.round(totalEngagement / Math.max(1, sampleCount)),
     sentiment_positive: sentimentPositive,
     sentiment_negative: sentimentNegative,
@@ -672,13 +722,20 @@ async function syncToTrendingTopics(
     top_pain_points: topPainPoints,
     related_keywords: relatedKeywords,
     sources,
-    created_by: userId,
+    created_by: existingTopic ? undefined : userId, // Don't overwrite original creator
     is_active: true,
     updated_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days for validated topics
+    // New fields for quality tracking
+    validation_count: newValidationCount,
+    avg_validation_score: newAvgValidationScore,
+    confidence_level: confidenceLevel,
+    quality_score: qualityScore,
+    source_type: 'user_validation',
+    last_crawled_at: new Date().toISOString(),
   };
 
-  console.log(`[TrendingSync] Syncing topic: ${keyword} (heat: ${heatScore})`);
+  console.log(`[TrendingSync] Topic data: heat=${newHeatScore}, validation=${newAvgValidationScore}, quality=${qualityScore}, confidence=${confidenceLevel}`);
 
   // Upsert - update if keyword exists, insert if new
   const { error } = await supabase
@@ -687,10 +744,11 @@ async function syncToTrendingTopics(
 
   if (error) {
     console.error("[TrendingSync] Failed to sync:", error);
-    throw error;
+    // Don't throw - this is non-critical
+    return;
   }
 
-  console.log(`[TrendingSync] Successfully synced topic: ${keyword}`);
+  console.log(`[TrendingSync] Successfully synced topic: ${keyword} (quality: ${qualityScore})`);
 }
 
 serve(async (req) => {
