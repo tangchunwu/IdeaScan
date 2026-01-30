@@ -50,10 +50,10 @@ import {
 import { FullValidation } from "@/services/validationService";
 import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
-import { exportToPdf, exportToImage, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
+import { exportToPdf, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
-import { Image as ImageIcon, FileText, FileCode, ChevronDown } from "lucide-react";
+import { FileText, FileCode, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,23 +85,23 @@ const Report = () => {
   const checkNeedsReanalysis = () => {
     if (!data?.report) return false;
     const report = data.report;
-    
+
     // Check persona
-    const personaIncomplete = !report.persona || 
-      !(report.persona as any)?.name || 
+    const personaIncomplete = !report.persona ||
+      !(report.persona as any)?.name ||
       !(report.persona as any)?.role ||
       ((report.persona as any)?.description?.includes("分析中"));
-    
+
     // Check dimensions
     const dimensions = Array.isArray(report.dimensions) ? report.dimensions : [];
-    const dimensionsIncomplete = dimensions.length === 0 || 
-      dimensions.some((d: any) => 
-        !d.reason || 
-        d.reason === "待AI分析" || 
+    const dimensionsIncomplete = dimensions.length === 0 ||
+      dimensions.some((d: any) =>
+        !d.reason ||
+        d.reason === "待AI分析" ||
         d.reason.includes("数据加载中") ||
         (d.reason.length < 15 && !d.reason.includes("评估"))
       );
-    
+
     return personaIncomplete || dimensionsIncomplete;
   };
 
@@ -114,7 +114,7 @@ const Report = () => {
 
   const handleReanalyze = async () => {
     if (!id || isReanalyzing) return;
-    
+
     setIsReanalyzing(true);
     try {
       const { data: result, error } = await supabase.functions.invoke('re-analyze-validation', {
@@ -159,7 +159,7 @@ const Report = () => {
   // Prepare report data for HTML export
   const prepareReportData = (): ReportData | null => {
     if (!data?.validation || !data?.report) return null;
-    
+
     const { validation, report } = data;
     const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
     const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
@@ -167,7 +167,7 @@ const Report = () => {
     const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
     const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
     const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
-    
+
     return {
       id: validation.id,
       idea: validation.idea,
@@ -175,12 +175,12 @@ const Report = () => {
       verdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
       tags: validation.tags || [],
       createdAt: validation.created_at,
-      dimensions: rawDimensions.length > 0 
+      dimensions: rawDimensions.length > 0
         ? rawDimensions.map((d: any) => ({
-            dimension: d.dimension || "未知维度",
-            score: typeof d.score === 'number' ? d.score : 50,
-            reason: d.reason || "基于市场数据的综合评估"
-          }))
+          dimension: d.dimension || "未知维度",
+          score: typeof d.score === 'number' ? d.score : 50,
+          reason: d.reason || "基于市场数据的综合评估"
+        }))
         : [],
       persona: rawPersona && rawPersona.name ? {
         name: String(rawPersona.name || "目标用户"),
@@ -235,7 +235,7 @@ const Report = () => {
       });
       return;
     }
-    
+
     try {
       const htmlContent = generateReportHTML(reportData);
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
@@ -264,7 +264,7 @@ const Report = () => {
       });
       return;
     }
-    
+
     try {
       const pdfHtml = generatePDFHTML(reportData);
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
@@ -284,21 +284,7 @@ const Report = () => {
     }
   };
 
-  const handleExportImage = async () => {
-    try {
-      await exportToImage("report-content", `report-${id}`);
-      toast({
-        title: "导出成功",
-        description: "图片报告已下载",
-      });
-    } catch (error) {
-      toast({
-        title: "导出失败",
-        description: "请稍后重试",
-        variant: "destructive",
-      });
-    }
-  };
+
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -422,36 +408,36 @@ const Report = () => {
   const xhsAvgLikes = (xiaohongshuDataRaw.avgLikes as number) ?? 0;
   const xhsAvgComments = (xiaohongshuDataRaw.avgComments as number) ?? 0;
   const xhsAvgCollects = (xiaohongshuDataRaw.avgCollects as number) ?? 0;
-  
+
   const xiaohongshuData = {
     totalNotes: xhsTotalNotes,
     avgLikes: xhsAvgLikes,
     avgComments: xhsAvgComments,
     avgCollects: xhsAvgCollects,
     // Calculate totalEngagement if missing
-    totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ?? 
+    totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ??
       (xhsTotalNotes * (xhsAvgLikes + xhsAvgComments + xhsAvgCollects)),
     // Provide default weekly trend if missing
-    weeklyTrend: Array.isArray(xiaohongshuDataRaw.weeklyTrend) && xiaohongshuDataRaw.weeklyTrend.length > 0 
-      ? xiaohongshuDataRaw.weeklyTrend 
+    weeklyTrend: Array.isArray(xiaohongshuDataRaw.weeklyTrend) && xiaohongshuDataRaw.weeklyTrend.length > 0
+      ? xiaohongshuDataRaw.weeklyTrend
       : [
-          { name: "周一", value: Math.round(xhsTotalNotes * 0.12) || 85 },
-          { name: "周二", value: Math.round(xhsTotalNotes * 0.13) || 92 },
-          { name: "周三", value: Math.round(xhsTotalNotes * 0.14) || 100 },
-          { name: "周四", value: Math.round(xhsTotalNotes * 0.14) || 95 },
-          { name: "周五", value: Math.round(xhsTotalNotes * 0.16) || 110 },
-          { name: "周六", value: Math.round(xhsTotalNotes * 0.17) || 125 },
-          { name: "周日", value: Math.round(xhsTotalNotes * 0.14) || 115 },
-        ],
+        { name: "周一", value: Math.round(xhsTotalNotes * 0.12) || 85 },
+        { name: "周二", value: Math.round(xhsTotalNotes * 0.13) || 92 },
+        { name: "周三", value: Math.round(xhsTotalNotes * 0.14) || 100 },
+        { name: "周四", value: Math.round(xhsTotalNotes * 0.14) || 95 },
+        { name: "周五", value: Math.round(xhsTotalNotes * 0.16) || 110 },
+        { name: "周六", value: Math.round(xhsTotalNotes * 0.17) || 125 },
+        { name: "周日", value: Math.round(xhsTotalNotes * 0.14) || 115 },
+      ],
     // Provide default content types if missing
-    contentTypes: Array.isArray(xiaohongshuDataRaw.contentTypes) && xiaohongshuDataRaw.contentTypes.length > 0 
-      ? xiaohongshuDataRaw.contentTypes 
+    contentTypes: Array.isArray(xiaohongshuDataRaw.contentTypes) && xiaohongshuDataRaw.contentTypes.length > 0
+      ? xiaohongshuDataRaw.contentTypes
       : [
-          { name: "图文分享", value: 65 },
-          { name: "视频分享", value: 20 },
-          { name: "探店分享", value: 10 },
-          { name: "产品测评", value: 5 },
-        ],
+        { name: "图文分享", value: 65 },
+        { name: "视频分享", value: 20 },
+        { name: "探店分享", value: 10 },
+        { name: "产品测评", value: 5 },
+      ],
     sampleNotes: Array.isArray(xiaohongshuDataRaw.sampleNotes) ? xiaohongshuDataRaw.sampleNotes : [],
     sampleComments: Array.isArray(xiaohongshuDataRaw.sampleComments) ? xiaohongshuDataRaw.sampleComments : [],
   };
@@ -491,19 +477,19 @@ const Report = () => {
 
   // Map dimensions with enhanced fallbacks
   const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
-  const dimensions = rawDimensions.length > 0 
+  const dimensions = rawDimensions.length > 0
     ? rawDimensions.map((d: any) => ({
-        dimension: d.dimension || "未知维度",
-        score: typeof d.score === 'number' ? d.score : 50,
-        reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5) 
-          ? d.reason 
-          : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
-      }))
+      dimension: d.dimension || "未知维度",
+      score: typeof d.score === 'number' ? d.score : 50,
+      reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
+        ? d.reason
+        : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
+    }))
     : Object.keys(defaultDimensionReasons).slice(0, 6).map(dim => ({
-        dimension: dim,
-        score: 50,
-        reason: defaultDimensionReasons[dim]
-      }));
+      dimension: dim,
+      score: 50,
+      reason: defaultDimensionReasons[dim]
+    }));
 
   // Prepare radar chart data from dimensions
   const radarData = dimensions.map((d: any) => ({
@@ -566,10 +552,10 @@ const Report = () => {
 
             <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
               {needsReanalysis && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10" 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
                   onClick={handleReanalyze}
                   disabled={isReanalyzing}
                 >
@@ -603,13 +589,6 @@ const Report = () => {
                     <div className="flex flex-col">
                       <span>导出为 PDF</span>
                       <span className="text-xs text-muted-foreground">多页完整报告</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportImage} className="cursor-pointer">
-                    <ImageIcon className="w-4 h-4 mr-2 text-blue-500" />
-                    <div className="flex flex-col">
-                      <span>保存为图片</span>
-                      <span className="text-xs text-muted-foreground">PNG 格式截图</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -658,10 +637,10 @@ const Report = () => {
                   <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
                   <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
                     onClick={handleReanalyze}
                     disabled={isReanalyzing}
                   >
@@ -1024,7 +1003,7 @@ const Report = () => {
 
             {/* Data Insights Tab */}
             <TabsContent value="insights" className="space-y-6">
-              <DataInsightsTab 
+              <DataInsightsTab
                 dataSummary={report?.data_summary as any}
                 dataQualityScore={report?.data_quality_score ?? undefined}
                 keywordsUsed={report?.keywords_used as any}
