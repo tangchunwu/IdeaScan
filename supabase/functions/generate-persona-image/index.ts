@@ -51,10 +51,7 @@ serve(async (req) => {
       personaDescription, 
       personaName, 
       personaRole, 
-      age,
-      imageGenBaseUrl,
-      imageGenApiKey,
-      imageGenModel 
+      age
     } = body;
 
     if (!personaDescription || !personaName) {
@@ -64,13 +61,15 @@ serve(async (req) => {
       );
     }
 
-    // 检查是否有用户配置的图片生成API，或使用 Lovable API Key
-    const userApiKey = imageGenApiKey;
+    // Always use system image generation configuration
+    const imageGenApiKey = Deno.env.get("IMAGE_GEN_API_KEY");
+    const imageGenBaseUrl = Deno.env.get("IMAGE_GEN_BASE_URL");
+    const imageGenModel = Deno.env.get("IMAGE_GEN_MODEL") || "dall-e-3";
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
-    // 决定使用哪个 API
-    const useUserConfig = userApiKey && imageGenBaseUrl;
-    const apiKey = useUserConfig ? userApiKey : lovableApiKey;
+    // 决定使用哪个 API - 优先使用系统配置的 Image Gen API
+    const useSystemImageGen = imageGenApiKey && imageGenBaseUrl;
+    const apiKey = useSystemImageGen ? imageGenApiKey : lovableApiKey;
     
     if (!apiKey) {
       return new Response(
@@ -90,47 +89,62 @@ ${personaDescription}
 高质量数字艺术，居中构图，柔和光线，正方形头像。`;
 
     console.log("Generating image for persona:", personaName);
-    console.log("Using Lovable AI:", !useUserConfig);
+    console.log("Using system Image Gen API:", useSystemImageGen);
 
     let imageUrl: string | null = null;
     let customProviderError: string | null = null;
 
-    if (useUserConfig) {
-      // 用户自定义的图片生成 API (期望 OpenAI 兼容: /images/generations)
-      // 注意：很多第三方 "Gemini" 网关并不实现 OpenAI 的图片接口，
-      // 所以这里失败时会自动回退到内置图片生成，避免前端一直生成失败。
+    if (useSystemImageGen) {
+      // 使用系统配置的图片生成 API (优先尝试 chat/completions 方式，适配 Gemini)
       const baseUrl = imageGenBaseUrl!.replace(/\/$/, "");
-      const model = imageGenModel || "dall-e-3";
 
-      console.log("Using custom image API:", baseUrl);
+      console.log("Using system image API:", baseUrl, "model:", imageGenModel);
 
       try {
-        const imageResponse = await fetch(`${baseUrl}/images/generations`, {
+        // 尝试使用 chat completions 方式（适配 Gemini 图片生成）
+        const chatEndpoint = baseUrl.endsWith('/chat/completions') 
+          ? baseUrl 
+          : `${baseUrl}/chat/completions`;
+          
+        const imageResponse = await fetch(chatEndpoint, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model,
-            prompt,
-            n: 1,
-            size: "256x256",
-            response_format: "url",
+            model: imageGenModel,
+            messages: [{ role: "user", content: prompt }],
+            modalities: ["image", "text"],
           }),
         });
 
         if (!imageResponse.ok) {
           const errorText = await imageResponse.text();
-          customProviderError = `Custom provider error (${imageResponse.status}): ${errorText}`;
-          console.error("Custom image API error:", customProviderError);
+          customProviderError = `System image API error (${imageResponse.status}): ${errorText}`;
+          console.error("System image API error:", customProviderError);
         } else {
-          const imageData = await imageResponse.json();
-          imageUrl = imageData.data?.[0]?.url;
+          const data = await imageResponse.json();
+          console.log("System image API response:", JSON.stringify(data).slice(0, 500));
+          
+          // 从响应中提取图片
+          const message = data.choices?.[0]?.message;
+          if (message?.images && Array.isArray(message.images) && message.images.length > 0) {
+            const img = message.images[0];
+            imageUrl = img?.image_url?.url || img?.url || img;
+          }
+          
+          // OpenAI 格式的 data 数组
+          if (!imageUrl && data.data && Array.isArray(data.data) && data.data.length > 0) {
+            imageUrl = data.data[0]?.url;
+            if (data.data[0]?.b64_json) {
+              imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+            }
+          }
         }
       } catch (e: unknown) {
-        customProviderError = `Custom provider request failed: ${e instanceof Error ? e.message : String(e)}`;
-        console.error("Custom image API exception:", customProviderError);
+        customProviderError = `System image API request failed: ${e instanceof Error ? e.message : String(e)}`;
+        console.error("System image API exception:", customProviderError);
       }
     }
 

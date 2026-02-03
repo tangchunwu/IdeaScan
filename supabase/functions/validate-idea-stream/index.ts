@@ -218,11 +218,17 @@ Deno.serve(async (req) => {
 
       // ============ Competitor Search (Always use system keys) ============
       let competitorData: any[] = [];
-      const tavilyKey = Deno.env.get("TAVILY_API_KEY");
+      const searchKeys = {
+        tavily: Deno.env.get("TAVILY_API_KEY"),
+        bocha: Deno.env.get("BOCHA_API_KEY"),
+        you: Deno.env.get("YOU_API_KEY"),
+      };
+      
+      const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
-      if (tavilyKey) {
+      if (hasAnySearchKey) {
         await sendProgress('SEARCH');
-        competitorData = await searchCompetitorsSimple(idea, { tavily: tavilyKey });
+        competitorData = await searchCompetitorsSimple(idea, searchKeys);
       }
 
       await sendProgress('SUMMARIZE');
@@ -389,31 +395,100 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
 
 async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]> {
   const results: any[] = [];
+  const searchPromises: Promise<any[]>[] = [];
   
+  // Tavily search
   if (keys.tavily) {
-    try {
-      const res = await fetch("https://api.tavily.com/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: keys.tavily,
-          query: query,
-          search_depth: "basic",
-          max_results: 5
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        results.push(...(data.results || []).map((r: any) => ({
-          title: r.title,
-          url: r.url,
-          snippet: r.content || "",
-          source: "Tavily"
-        })));
+    searchPromises.push((async () => {
+      try {
+        const res = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: keys.tavily,
+            query: query,
+            search_depth: "basic",
+            max_results: 5
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return (data.results || []).map((r: any) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.content || "",
+            source: "Tavily"
+          }));
+        }
+      } catch (e) {
+        console.error("[Tavily Simple] Error:", e);
       }
-    } catch (e) {
-      console.error("[Tavily Simple] Error:", e);
-    }
+      return [];
+    })());
+  }
+
+  // Bocha search
+  if (keys.bocha) {
+    searchPromises.push((async () => {
+      try {
+        const res = await fetch("https://api.bochaai.com/v1/web-search", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${keys.bocha}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: query,
+            freshness: "noLimit",
+            summary: true,
+            count: 5,
+            market: "zh-CN",
+            language: "zh"
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return (data.data?.webPages?.value || []).map((r: any) => ({
+            title: r.name || r.title,
+            url: r.url,
+            snippet: r.snippet || r.description || "",
+            source: "Bocha"
+          }));
+        }
+      } catch (e) {
+        console.error("[Bocha Simple] Error:", e);
+      }
+      return [];
+    })());
+  }
+
+  // You.com search
+  if (keys.you) {
+    searchPromises.push((async () => {
+      try {
+        const res = await fetch(`https://ydc-index.io/v1/search?query=${encodeURIComponent(query)}&count=5&country=CN`, {
+          headers: { "X-API-Key": keys.you }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return (data.results?.web || []).map((r: any) => ({
+            title: r.title || "",
+            url: r.url || "",
+            snippet: r.description || r.snippets?.[0] || "",
+            source: "You.com"
+          }));
+        }
+      } catch (e) {
+        console.error("[You.com Simple] Error:", e);
+      }
+      return [];
+    })());
+  }
+
+  // Run all searches in parallel
+  const allResults = await Promise.all(searchPromises);
+  for (const r of allResults) {
+    results.push(...r);
   }
 
   return results;
