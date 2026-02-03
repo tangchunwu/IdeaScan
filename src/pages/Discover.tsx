@@ -8,6 +8,8 @@ import { TrendingTopicCard } from "@/components/discover/TrendingTopicCard";
 import { DiscoverFilters } from "@/components/discover/DiscoverFilters";
 import { DiscoverStats } from "@/components/discover/DiscoverStats";
 import { PersonalizedSection } from "@/components/discover/PersonalizedSection";
+import { OpportunityBubbleChart } from "@/components/discover/OpportunityBubbleChart";
+import { Button } from "@/components/ui/button";
 import {
   getTrendingTopics,
   getCategories,
@@ -16,10 +18,15 @@ import {
   TrendingTopic,
 } from "@/services/discoverService";
 import { useAuth } from "@/hooks/useAuth";
-import { Compass, Radar, Sparkles } from "lucide-react";
+import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Discover() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // View mode state
+  const [viewMode, setViewMode] = useState<"cards" | "bubble">("cards");
 
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -76,6 +83,21 @@ export default function Discover() {
     setSortBy('quality_score');
   };
 
+  // Transform topics for bubble chart
+  const bubbleData = (topics || []).map(topic => ({
+    id: topic.id,
+    name: topic.keyword,
+    heatScore: topic.heat_score || 0,
+    growthRate: topic.growth_rate || 0,
+    sampleSize: topic.sample_count || 100,
+    category: topic.category,
+  }));
+
+  const handleBubbleClick = (item: any) => {
+    // Navigate to validation page with topic
+    navigate(`/validate?topic=${encodeURIComponent(item.name)}`);
+  };
+
   return (
     <PageBackground>
       <Navbar />
@@ -111,36 +133,65 @@ export default function Discover() {
         {/* Personalized Recommendations */}
         <PersonalizedSection />
 
-        {/* Filters */}
-        <div className="mb-6">
-          <DiscoverFilters
-            categories={categories}
-            selectedCategory={selectedCategory}
-            minHeatScore={minHeatScore}
-            sortBy={sortBy}
-            onCategoryChange={setSelectedCategory}
-            onHeatScoreChange={setMinHeatScore}
-            onSortChange={setSortBy}
-            onReset={handleResetFilters}
-          />
+        {/* Filters + View Toggle */}
+        <div className="mb-6 flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex-1">
+            <DiscoverFilters
+              categories={categories}
+              selectedCategory={selectedCategory}
+              minHeatScore={minHeatScore}
+              sortBy={sortBy}
+              onCategoryChange={setSelectedCategory}
+              onHeatScoreChange={setMinHeatScore}
+              onSortChange={setSortBy}
+              onReset={handleResetFilters}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "cards" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("cards")}
+              className="gap-2"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              卡片
+            </Button>
+            <Button
+              variant={viewMode === "bubble" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("bubble")}
+              className="gap-2"
+            >
+              <ScatterChart className="w-4 h-4" />
+              气泡图
+            </Button>
+          </div>
         </div>
 
-        {/* Topics Grid */}
+        {/* Topics Display */}
         {topicsLoading ? (
           <div className="flex items-center justify-center py-20">
             <LoadingSpinner size="lg" />
           </div>
         ) : topics && topics.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topics.map(topic => (
-              <TrendingTopicCard
-                key={topic.id}
-                topic={topic}
-                userInterest={userInterests.get(topic.id)}
-                onInterestChange={handleInterestChange}
-              />
-            ))}
-          </div>
+          viewMode === "cards" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {topics.map(topic => (
+                <TrendingTopicCard
+                  key={topic.id}
+                  topic={topic}
+                  userInterest={userInterests.get(topic.id)}
+                  onInterestChange={handleInterestChange}
+                />
+              ))}
+            </div>
+          ) : (
+            <OpportunityBubbleChart
+              data={bubbleData}
+              onBubbleClick={handleBubbleClick}
+            />
+          )
         ) : (
           <EmptyState
             icon={Compass}

@@ -24,7 +24,7 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
 // Hook for tracking page views in SPA
 export const usePageView = () => {
   const location = useLocation();
-  
+
   useEffect(() => {
     if (apiKey) {
       posthog.capture('$pageview', {
