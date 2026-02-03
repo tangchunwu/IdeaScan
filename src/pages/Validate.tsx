@@ -86,13 +86,15 @@ const Validate = () => {
 
   const [progressStage, setProgressStage] = useState<string>("初始化...");
 
-  // Validation steps configuration
+  // Validation steps configuration - 优化版流程
   const validationSteps = [
-    { id: 0, label: "解析想法", description: "正在理解你的商业想法...", icon: Brain, targetProgress: 15 },
-    { id: 1, label: "提炼关键词", description: "正在智能提炼搜索关键词...", icon: Sparkles, targetProgress: 30 },
-    { id: 2, label: "抓取真实数据", description: "小红书痛点 + 全网竞品情报...", icon: Globe, targetProgress: 55 },
-    { id: 3, label: "需求真伪分析", description: "AI 正在判断是否为伪需求...", icon: Brain, targetProgress: 80 },
-    { id: 4, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
+    { id: 0, label: "解析想法", description: "正在理解你的商业想法...", icon: Brain, targetProgress: 12 },
+    { id: 1, label: "提炼关键词", description: "正在智能提炼搜索关键词...", icon: Sparkles, targetProgress: 20 },
+    { id: 2, label: "抓取真实数据", description: "小红书/抖音 + 全网竞品情报...", icon: Globe, targetProgress: 45 },
+    { id: 3, label: "数据清洗提炼", description: "Jina清洗 + 竞品提取 + 深度搜索...", icon: Microscope, targetProgress: 65 },
+    { id: 4, label: "智能摘要", description: "分层摘要 + 洞察聚合...", icon: Sparkles, targetProgress: 78 },
+    { id: 5, label: "需求真伪分析", description: "AI 正在判断是否为伪需求...", icon: Brain, targetProgress: 88 },
+    { id: 6, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
   ];
 
   // Handle URL params for trending topics and auto-start
@@ -174,14 +176,17 @@ const Validate = () => {
         if (event.progress !== undefined) setProgress(event.progress);
         if (event.message) setProgressMessage(event.message);
 
-        // 根据 stage 映射到 currentStep
+        // 根据 stage 映射到 currentStep - 优化后的进度阶段
         const stageMap: Record<string, number> = {
           init: 0,
           keywords: 1,
+          cache_check: 1,
           crawl_start: 2, crawl_xhs: 2, crawl_dy: 2, crawl_done: 2, search: 2,
-          summarize: 3, analyze: 3,
-          save: 4,
-          complete: 5
+          jina_clean: 3, extract_competitors: 3, deep_search: 3,
+          summarize_l1: 4, summarize_l2: 4,
+          analyze: 5,
+          save: 6,
+          complete: 7
         };
         if (event.stage && stageMap[event.stage] !== undefined) {
           setCurrentStep(stageMap[event.stage]);
