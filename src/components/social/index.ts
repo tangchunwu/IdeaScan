@@ -2,3 +2,4 @@ export { PersonaAvatar } from "./PersonaAvatar";
 export { FeedItem } from "./FeedItem";
 export { VCFeed } from "./VCFeed";
 export { ShareCard } from "./ShareCard";
+export { SocialProofCounter } from "./SocialProofCounter";
