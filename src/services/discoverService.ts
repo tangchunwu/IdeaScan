@@ -210,6 +210,28 @@ export async function trackTopicClick(
   }
 }
 
+// 新增：获取热门趋势（用于首页展示，替代 PopularValidations）
+export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
+  const { data, error } = await supabase
+    .from('trending_topics')
+    .select('*')
+    .eq('is_active', true)
+    .order('quality_score', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching hot trends:', error);
+    return [];
+  }
+
+  return (data || []).map((topic: any) => ({
+    ...topic,
+    top_pain_points: topic.top_pain_points || [],
+    related_keywords: topic.related_keywords || [],
+    sources: (topic.sources as { platform: string; count: number }[]) || [],
+  }));
+}
+
 // 新增：获取个性化推荐 (基于用户历史验证的tags)
 export async function getPersonalizedRecommendations(limit = 6): Promise<TrendingTopic[]> {
   const { data: { session } } = await supabase.auth.getSession();
