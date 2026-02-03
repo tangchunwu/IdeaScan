@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
 import { SocialProofCounter } from "@/components/social";
+import { PopularValidations } from "@/components/discover/PopularValidations";
 import {
   Sparkles,
   TrendingUp,
@@ -186,6 +187,21 @@ const Index = () => {
                   </GlassCard>
                 );
               })}
+            </div>
+          </section>
+
+          {/* Popular Validations - 解决冷启动 */}
+          <section className="mb-24 section-breathe">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
+                看看大家都在验证什么
+              </h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">
+                从热门验证中获取灵感，发现市场机会
+              </p>
+            </div>
+            <div className="max-w-2xl mx-auto">
+              <PopularValidations limit={5} />
             </div>
           </section>
 
