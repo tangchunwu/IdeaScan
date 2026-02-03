@@ -140,9 +140,28 @@
     background-color: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
   }
+
+  /* 自定义滚动条 - 更加精致 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full transition-colors;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
 }
 
 @layer components {
+
   /* 玻璃拟态卡片 - 增强层级感 */
   .glass-card {
     @apply relative overflow-hidden rounded-2xl;
@@ -150,7 +169,7 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid hsl(var(--glass-border));
-    box-shadow: 
+    box-shadow:
       0 8px 32px hsl(var(--glass-shadow)),
       inset 0 1px 0 hsl(0 0% 100% / 0.1);
   }
@@ -158,7 +177,7 @@
   /* 增强玻璃卡片 - 更明显的悬浮感 */
   .glass-card-elevated {
     @apply glass-card;
-    box-shadow: 
+    box-shadow:
       0 12px 40px hsl(var(--glass-shadow)),
       0 4px 16px hsl(var(--primary) / 0.08),
       inset 0 1px 0 hsl(0 0% 100% / 0.15);
@@ -180,12 +199,10 @@
 
   /* 宫崎骏风格渐变背景 */
   .ghibli-gradient {
-    background: linear-gradient(
-      180deg,
-      hsl(var(--sky-blue)) 0%,
-      hsl(var(--background)) 50%,
-      hsl(var(--forest-green) / 0.2) 100%
-    );
+    background: linear-gradient(180deg,
+        hsl(var(--sky-blue)) 0%,
+        hsl(var(--background)) 50%,
+        hsl(var(--forest-green) / 0.2) 100%);
   }
 
   /* 动态云朵装饰 */
@@ -199,9 +216,12 @@
   }
 
   @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
       transform: translateY(0) translateX(0);
     }
+
     50% {
       transform: translateY(-20px) translateX(10px);
     }
@@ -209,7 +229,7 @@
 
   /* 柔和发光效果 */
   .ghibli-glow {
-    box-shadow: 
+    box-shadow:
       0 0 40px hsl(var(--primary) / 0.2),
       0 0 80px hsl(var(--primary) / 0.1);
   }
@@ -222,12 +242,12 @@
   /* ========================================
      UX 增强：交互反馈与微动画
      ======================================== */
-  
+
   /* 按钮涟漪效果容器 */
   .btn-ripple {
     @apply relative overflow-hidden;
   }
-  
+
   .btn-ripple::after {
     content: '';
     @apply absolute inset-0 pointer-events-none;
@@ -238,7 +258,7 @@
     opacity: 0;
     transition: transform 0.5s, opacity 0.5s;
   }
-  
+
   .btn-ripple:active::after {
     transform: scale(0, 0);
     opacity: 0.3;
@@ -251,21 +271,30 @@
     transform-style: preserve-3d;
     perspective: 1000px;
   }
-  
+
   .card-interactive:hover {
     transform: translateY(-6px) scale(1.01);
-    box-shadow: 
+    box-shadow:
       0 20px 60px hsl(var(--glass-shadow)),
       0 8px 24px hsl(var(--primary) / 0.12);
+  }
+
+  /* 通用悬浮上浮效果 */
+  .hover-lift {
+    @apply transition-transform duration-300 ease-out;
+  }
+
+  .hover-lift:hover {
+    @apply -translate-y-1;
   }
 
   /* 输入框聚焦状态增强 */
   .input-enhanced {
     @apply transition-all duration-300;
   }
-  
+
   .input-enhanced:focus {
-    box-shadow: 
+    box-shadow:
       0 0 0 3px hsl(var(--primary) / 0.15),
       0 4px 16px hsl(var(--primary) / 0.1);
   }
@@ -274,17 +303,16 @@
   .focus-indicator {
     @apply relative;
   }
-  
+
   .focus-indicator::before {
     content: '';
     @apply absolute -inset-1 rounded-2xl opacity-0 transition-opacity duration-300;
-    background: linear-gradient(45deg, 
-      hsl(var(--primary) / 0.2), 
-      hsl(var(--secondary) / 0.2)
-    );
+    background: linear-gradient(45deg,
+        hsl(var(--primary) / 0.2),
+        hsl(var(--secondary) / 0.2));
     z-index: -1;
   }
-  
+
   .focus-indicator:focus-within::before {
     @apply opacity-100;
   }
@@ -292,12 +320,12 @@
   /* ========================================
      呼吸感设计：间距与节奏
      ======================================== */
-  
+
   /* 章节分隔 - 增加呼吸感 */
   .section-breathe {
     @apply py-16 md:py-24;
   }
-  
+
   /* 内容容器 - 舒适阅读宽度 */
   .content-comfortable {
     @apply max-w-3xl mx-auto px-4 md:px-6;
@@ -306,26 +334,50 @@
   /* ========================================
      Stagger 动画组件
      ======================================== */
-  
-  .stagger-container > * {
+
+  .stagger-container>* {
     @apply opacity-0;
     animation: stagger-in 0.6s ease-out forwards;
   }
-  
-  .stagger-container > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger-container > *:nth-child(2) { animation-delay: 80ms; }
-  .stagger-container > *:nth-child(3) { animation-delay: 160ms; }
-  .stagger-container > *:nth-child(4) { animation-delay: 240ms; }
-  .stagger-container > *:nth-child(5) { animation-delay: 320ms; }
-  .stagger-container > *:nth-child(6) { animation-delay: 400ms; }
-  .stagger-container > *:nth-child(7) { animation-delay: 480ms; }
-  .stagger-container > *:nth-child(8) { animation-delay: 560ms; }
-  
+
+  .stagger-container>*:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .stagger-container>*:nth-child(2) {
+    animation-delay: 80ms;
+  }
+
+  .stagger-container>*:nth-child(3) {
+    animation-delay: 160ms;
+  }
+
+  .stagger-container>*:nth-child(4) {
+    animation-delay: 240ms;
+  }
+
+  .stagger-container>*:nth-child(5) {
+    animation-delay: 320ms;
+  }
+
+  .stagger-container>*:nth-child(6) {
+    animation-delay: 400ms;
+  }
+
+  .stagger-container>*:nth-child(7) {
+    animation-delay: 480ms;
+  }
+
+  .stagger-container>*:nth-child(8) {
+    animation-delay: 560ms;
+  }
+
   @keyframes stagger-in {
     0% {
       opacity: 0;
       transform: translateY(20px) scale(0.98);
     }
+
     100% {
       opacity: 1;
       transform: translateY(0) scale(1);
@@ -335,16 +387,17 @@
   /* ========================================
      页面过渡动画
      ======================================== */
-  
+
   .page-enter {
     animation: page-enter 0.4s ease-out;
   }
-  
+
   @keyframes page-enter {
     0% {
       opacity: 0;
       transform: translateY(12px);
     }
+
     100% {
       opacity: 1;
       transform: translateY(0);
@@ -354,11 +407,11 @@
   /* ========================================
      空状态与加载状态
      ======================================== */
-  
+
   .empty-state {
     @apply flex flex-col items-center justify-center py-16 text-center;
   }
-  
+
   .empty-state-icon {
     @apply w-20 h-20 text-muted-foreground/40 mb-6;
   }
@@ -367,77 +420,84 @@
   .skeleton-shimmer {
     @apply relative overflow-hidden bg-muted/50 rounded-lg;
   }
-  
+
   .skeleton-shimmer::after {
     content: '';
     @apply absolute inset-0;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      hsl(var(--muted) / 0.4),
-      transparent
-    );
+    background: linear-gradient(90deg,
+        transparent,
+        hsl(var(--muted) / 0.4),
+        transparent);
     animation: shimmer 1.5s infinite;
   }
-  
+
   @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
   }
 
   /* ========================================
      状态标签样式
      ======================================== */
-  
+
   .status-badge {
     @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
   }
-  
+
   .status-badge-success {
     @apply status-badge bg-secondary/15 text-secondary;
   }
-  
+
   .status-badge-warning {
     @apply status-badge bg-accent/15 text-accent-foreground;
   }
-  
+
   .status-badge-error {
     @apply status-badge bg-destructive/15 text-destructive;
   }
-  
+
   .status-badge-info {
     @apply status-badge bg-primary/15 text-primary;
   }
 }
 
 @layer utilities {
+
   /* 文字渐变效果 */
   .text-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--secondary)) 50%,
-      hsl(var(--accent)) 100%
-    );
+    background-image: linear-gradient(135deg,
+        hsl(var(--primary)) 0%,
+        hsl(var(--secondary)) 50%,
+        hsl(var(--accent)) 100%);
   }
 
   /* 增强文字渐变 - 动态效果 */
   .text-gradient-animated {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--secondary)) 50%,
-      hsl(var(--accent)) 100%
-    );
+    background-image: linear-gradient(135deg,
+        hsl(var(--primary)) 0%,
+        hsl(var(--secondary)) 50%,
+        hsl(var(--accent)) 100%);
     background-size: 200% 200%;
     animation: gradient-shift 4s ease-in-out infinite;
   }
-  
+
   @keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
   }
 
   /* 景深模糊层 */
@@ -476,7 +536,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -488,7 +548,7 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  
+
   .truncate-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;

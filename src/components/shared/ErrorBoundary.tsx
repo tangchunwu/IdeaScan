@@ -1,6 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GlassCard } from './GlassCard';
+import { BrandLogo } from './BrandLogo';
 
 interface Props {
   children: ReactNode;
@@ -37,40 +39,61 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-[400px] flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
-            <AlertTriangle className="w-8 h-8 text-destructive" />
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-muted/20">
+          <div className="mb-8 scale-110">
+            <BrandLogo size="lg" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            页面出了点问题
-          </h2>
-          <p className="text-muted-foreground mb-6 max-w-md">
-            抱歉，页面遇到了意外错误。您可以尝试刷新页面或返回首页。
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => window.location.href = '/'}
-            >
-              返回首页
-            </Button>
-            <Button onClick={this.handleRetry}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              重试
-            </Button>
-          </div>
-          {process.env.NODE_ENV === 'development' && this.state.error && (
-            <details className="mt-6 text-left w-full max-w-2xl">
-              <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
-                错误详情 (仅开发环境可见)
-              </summary>
-              <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto text-red-500">
-                {this.state.error.message}
-                {'\n\n'}
-                {this.state.error.stack}
-              </pre>
-            </details>
-          )}
+
+          <GlassCard className="max-w-lg w-full p-8 text-center border-destructive/20 shadow-2xl">
+            <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6 ring-8 ring-destructive/5">
+              <AlertTriangle className="w-10 h-10 text-destructive" />
+            </div>
+
+            <h2 className="text-2xl font-bold text-foreground mb-3">
+              遇到了一些问题
+            </h2>
+
+            <p className="text-muted-foreground mb-8 text-lg">
+              抱歉，页面运行过程中发生了意外错误。<br />
+              您可以尝试重试或返回首页。
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                onClick={this.handleRetry}
+                size="lg"
+                className="rounded-full shadow-lg shadow-primary/20"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                重新加载
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-full"
+                onClick={() => window.location.href = '/'}
+              >
+                <Home className="w-4 h-4 mr-2" />
+                返回首页
+              </Button>
+            </div>
+
+            {process.env.NODE_ENV === 'development' && this.state.error && (
+              <div className="mt-8 text-left">
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium transition-colors">
+                    查看错误详情 (Dev Mode)
+                  </summary>
+                  <div className="mt-2 p-4 bg-muted/50 rounded-xl overflow-auto max-h-60 border border-border/50">
+                    <p className="font-mono text-xs text-destructive mb-2 font-bold">{this.state.error.message}</p>
+                    <pre className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                      {this.state.error.stack}
+                    </pre>
+                  </div>
+                </details>
+              </div>
+            )}
+          </GlassCard>
         </div>
       );
     }
@@ -142,7 +165,7 @@ export class PageErrorBoundary extends Component<PageErrorBoundaryProps, PageErr
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-[400px] flex flex-col items-center justify-center p-8 text-center">
+        <GlassCard className="min-h-[400px] flex flex-col items-center justify-center p-8 text-center mx-auto max-w-3xl my-8">
           <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
             <AlertTriangle className="w-8 h-8 text-destructive" />
           </div>
@@ -150,21 +173,22 @@ export class PageErrorBoundary extends Component<PageErrorBoundaryProps, PageErr
             页面加载出错
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md">
-            抱歉，页面遇到了意外错误。请尝试刷新或返回首页。
+            抱歉，此区域内容暂时无法加载。
           </p>
           <div className="flex gap-3">
             <Button
               variant="outline"
+              className="rounded-full"
               onClick={() => window.location.href = '/'}
             >
               返回首页
             </Button>
-            <Button onClick={this.handleRetry}>
+            <Button onClick={this.handleRetry} className="rounded-full">
               <RefreshCw className="w-4 h-4 mr-2" />
               重试
             </Button>
           </div>
-        </div>
+        </GlassCard>
       );
     }
 
