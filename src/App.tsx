@@ -9,7 +9,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Suspense, lazy } from "react";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
-import { AnalyticsProvider } from "@/lib/posthog";
+import { AnalyticsProvider, usePageView } from "@/lib/posthog";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -32,6 +32,9 @@ const queryClient = new QueryClient();
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  
+  // Track page views for analytics
+  usePageView();
 
   return (
     <AnimatePresence mode="wait">

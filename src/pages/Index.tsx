@@ -235,29 +235,17 @@ const Index = () => {
             <h4 className="font-bold mb-6 text-foreground">产品</h4>
             <ul className="space-y-4">
               <li><Link to="/validate" className="text-muted-foreground hover:text-primary transition-colors">开始验证</Link></li>
-              <li><Link to="/history" className="text-muted-foreground hover:text-primary transition-colors">历史记录</Link></li>
-              <li><Link to="/compare" className="text-muted-foreground hover:text-primary transition-colors">对比分析</Link></li>
+              <li><Link to="/discover" className="text-muted-foreground hover:text-primary transition-colors">发现机会</Link></li>
+              <li><Link to="/pricing" className="text-muted-foreground hover:text-primary transition-colors">定价方案</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">数据来源</h4>
+            <h4 className="font-bold mb-6 text-foreground">支持</h4>
             <ul className="space-y-4">
-              <li>
-                <a href="https://tikhub.io/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                  Tikhub (小红书数据) <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                <a href="https://open.bochaai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                  Bocha (全网搜索) <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                <a href="https://platform.openai.com/" target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                  OpenAI / DeepSeek <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
+              <li><Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors">常见问题</Link></li>
+              <li><Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">隐私政策</Link></li>
+              <li><Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">服务条款</Link></li>
             </ul>
           </div>
         </div>
