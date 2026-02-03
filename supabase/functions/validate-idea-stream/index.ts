@@ -153,11 +153,33 @@ Deno.serve(async (req) => {
       const xhsKeywords = await expandKeywordsSimple(idea, tags, config);
       const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
 
-      // ============ Crawl Social Media ============
+      // ============ TikHub Quota Check ============
       const mode = config?.mode || 'quick';
       const enableXhs = config?.enableXiaohongshu ?? true;
       const enableDy = config?.enableDouyin ?? false;
-      const tikhubToken = config?.tikhubToken || Deno.env.get("TIKHUB_TOKEN");
+      
+      // Check if user provided their own TikHub token
+      const userProvidedTikhub = !!config?.tikhubToken;
+      let tikhubToken = config?.tikhubToken;
+      
+      if (!userProvidedTikhub) {
+        // Check quota before using system token
+        const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
+          p_user_id: user.id
+        });
+        
+        if (quotaError) {
+          console.error('Quota check error:', quotaError);
+        }
+        
+        const quota = quotaResult?.[0];
+        if (!quota?.can_use) {
+          throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
+        }
+        
+        // Use system TikHub token
+        tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+      }
 
       let socialData = {
         totalNotes: 0,
@@ -194,21 +216,21 @@ Deno.serve(async (req) => {
 
       await sendProgress('CRAWL_DONE');
 
-      // ============ Competitor Search ============
+      // ============ Competitor Search (Always use system keys) ============
       let competitorData: any[] = [];
-      const searchKeys = config?.searchKeys;
+      const tavilyKey = Deno.env.get("TAVILY_API_KEY");
 
-      if (searchKeys && (searchKeys.bocha || searchKeys.you || searchKeys.tavily)) {
+      if (tavilyKey) {
         await sendProgress('SEARCH');
-        competitorData = await searchCompetitorsSimple(idea, searchKeys);
+        competitorData = await searchCompetitorsSimple(idea, { tavily: tavilyKey });
       }
 
       await sendProgress('SUMMARIZE');
 
-      // ============ AI Analysis ============
+      // ============ AI Analysis (Always use system LLM) ============
       await sendProgress('ANALYZE');
 
-      const aiResult = await analyzeWithAISimple(idea, tags || [], socialData, competitorData, config);
+      const aiResult = await analyzeWithAISimple(idea, tags || [], socialData, competitorData);
 
       await sendProgress('SAVE');
 
@@ -235,6 +257,16 @@ Deno.serve(async (req) => {
       }
 
       if (!saved) throw new Error("Failed to save report");
+
+      // ============ Consume TikHub Quota (if using system token) ============
+      if (!userProvidedTikhub) {
+        const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
+          p_user_id: user.id
+        });
+        if (consumeError) {
+          console.error('Failed to consume quota:', consumeError);
+        }
+      }
 
       // Update validation status
       await supabase
@@ -387,10 +419,11 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]>
   return results;
 }
 
-async function analyzeWithAISimple(idea: string, tags: string[], socialData: any, competitors: any[], config: RequestConfig) {
-  const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
-  const model = config?.llmModel || "google/gemini-3-flash-preview";
+async function analyzeWithAISimple(idea: string, tags: string[], socialData: any, competitors: any[]) {
+  // Always use system LLM configuration
+  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
+  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
 
   let cleanBaseUrl = baseUrl.replace(/\/$/, "").replace(/\/chat\/completions$/, "");
   const endpoint = `${cleanBaseUrl}/chat/completions`;

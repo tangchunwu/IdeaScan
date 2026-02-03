@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog, QuotaExhaustedDialog } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserQuota } from "@/hooks/useUserQuota";
 import { validationKeys } from "@/hooks/useValidation";
 import { createValidationStream, getValidation } from "@/services/validationService";
 import { useSettings } from "@/hooks/useSettings";
@@ -30,7 +31,8 @@ import {
   Globe,
   FileBarChart,
   Zap,
-  Microscope
+  Microscope,
+  AlertTriangle
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -52,6 +54,7 @@ const Validate = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
+  const { freeRemaining, canValidate, hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -61,6 +64,8 @@ const Validate = () => {
   const [progressMessage, setProgressMessage] = useState("");
   const sseControllerRef = useRef<{ abort: () => void } | null>(null);
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
+  const [showQuotaDialog, setShowQuotaDialog] = useState(false);
+  const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
 
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
@@ -138,6 +143,12 @@ const Validate = () => {
       return;
     }
 
+    // Check quota before starting
+    if (!canValidate) {
+      setShowQuotaDialog(true);
+      return;
+    }
+
     setIsValidating(true);
     setProgress(0);
     setCurrentStep(0);
@@ -151,23 +162,11 @@ const Validate = () => {
         mode: validationMode,
         config: {
           mode: validationMode,
-          llmProvider: settings.llmProvider,
-          llmBaseUrl: settings.llmBaseUrl,
-          llmApiKey: settings.llmApiKey,
-          llmModel: settings.llmModel,
-          tikhubToken: settings.tikhubToken,
+          // Only pass TikHub token if user has configured their own
+          tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: settings.enableDouyin,
-          searchKeys: {
-            bocha: settings.bochaApiKey,
-            you: settings.youApiKey,
-            tavily: settings.tavilyApiKey,
-          },
-          imageGen: {
-            baseUrl: settings.imageGenBaseUrl,
-            apiKey: settings.imageGenApiKey,
-            model: settings.imageGenModel,
-          }
+          // LLM and search keys are now handled by the backend using system config
         },
       },
       // onProgress
@@ -195,6 +194,9 @@ const Validate = () => {
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
 
+        // Refresh quota after successful validation
+        refetchQuota();
+
         // 预加载报告数据
         await queryClient.prefetchQuery({
           queryKey: validationKeys.detail(result.validationId),
@@ -206,7 +208,12 @@ const Validate = () => {
       },
       // onError
       (error) => {
-        toast({ title: "验证失败", description: error, variant: "destructive" });
+        // Check if it's a quota exceeded error
+        if (error.includes('FREE_QUOTA_EXCEEDED') || error.includes('免费验证次数已用完')) {
+          setShowQuotaDialog(true);
+        } else {
+          toast({ title: "验证失败", description: error, variant: "destructive" });
+        }
         setIsValidating(false);
         setProgress(0);
         setCurrentStep(0);
@@ -539,15 +546,34 @@ const Validate = () => {
                 </div>
               </GlassCard>
             ) : (
-              <Button
-                onClick={handleValidate}
-                disabled={!idea.trim()}
-                size="lg"
-                className="text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-              >
-                <Target className="w-5 h-5 mr-2" />
-                验证我的想法
-              </Button>
+              <div className="space-y-3">
+                {/* Quota Indicator */}
+                {!hasOwnTikhub && (
+                  <div className="flex items-center justify-center gap-2 text-sm">
+                    {freeRemaining > 0 ? (
+                      <span className="text-muted-foreground">
+                        免费验证次数剩余: <span className="font-semibold text-primary">{freeRemaining}</span>/1
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-warning">
+                        <AlertTriangle className="w-4 h-4" />
+                        免费次数已用完
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                <Button
+                  id="validate-start-btn"
+                  onClick={handleValidate}
+                  disabled={!idea.trim()}
+                  size="lg"
+                  className="text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                >
+                  <Target className="w-5 h-5 mr-2" />
+                  验证我的想法
+                </Button>
+              </div>
             )}
           </div>
 
@@ -568,6 +594,24 @@ const Validate = () => {
           </GlassCard>
         </div>
       </main>
+
+      {/* Quota Exhausted Dialog */}
+      <QuotaExhaustedDialog
+        open={showQuotaDialog}
+        onOpenChange={setShowQuotaDialog}
+        onOpenSettings={() => {
+          setShowQuotaDialog(false);
+          setShowSettingsFromQuota(true);
+        }}
+      />
+
+      {/* Settings Dialog triggered from quota dialog */}
+      {showSettingsFromQuota && (
+        <SettingsDialog 
+          open={showSettingsFromQuota} 
+          onOpenChange={(open) => !open && setShowSettingsFromQuota(false)} 
+        />
+      )}
     </PageBackground>
   );
 };

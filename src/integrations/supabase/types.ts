@@ -354,6 +354,41 @@ export type Database = {
         }
         Relationships: []
       }
+      sample_reports: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          title: string | null
+          validation_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          title?: string | null
+          validation_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          title?: string | null
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sample_reports_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_jobs: {
         Row: {
           created_at: string
@@ -483,6 +518,33 @@ export type Database = {
           updated_at?: string
           validate_count?: number | null
           validation_count?: number | null
+        }
+        Relationships: []
+      }
+      user_quotas: {
+        Row: {
+          created_at: string
+          free_tikhub_limit: number
+          free_tikhub_used: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          free_tikhub_limit?: number
+          free_tikhub_used?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          free_tikhub_limit?: number
+          free_tikhub_used?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -680,7 +742,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_tikhub_quota: {
+        Args: { p_user_id: string }
+        Returns: {
+          can_use: boolean
+          total: number
+          used: number
+        }[]
+      }
       is_validation_owner: { Args: { validation_id: string }; Returns: boolean }
+      use_tikhub_quota: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       validation_status: "pending" | "processing" | "completed" | "failed"
