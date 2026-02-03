@@ -7,8 +7,9 @@ import { SilentErrorBoundary, PageErrorBoundary, BrandLoader, PageTransition } f
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Suspense, lazy } from "react";
+import FeedbackWidget from "@/components/shared/FeedbackWidget";
+import { AnalyticsProvider } from "@/lib/posthog";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -21,6 +22,10 @@ const Hunter = lazy(() => import("./pages/Discover/Hunter"));
 const Auth = lazy(() => import("./pages/Auth"));
 const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
 const PublicLandingPage = lazy(() => import("./pages/MVP/PublicLandingPage"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -41,6 +46,10 @@ const AnimatedRoutes = () => {
         <Route path="/discover/hunter" element={<PageTransition><Hunter /></PageTransition>} />
         <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
         <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
+        <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
+        <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
+        <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
+        <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
@@ -49,32 +58,35 @@ const AnimatedRoutes = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      {/* TooltipProvider 使用静默错误边界 - 出错时降级而非白屏 */}
-      <SilentErrorBoundary name="TooltipProvider">
-        <TooltipProvider>
-          {/* Toaster 组件使用静默错误边界 */}
-          <SilentErrorBoundary name="Toaster">
-            <Toaster />
-          </SilentErrorBoundary>
+    <AnalyticsProvider>
+      <AuthProvider>
+        {/* TooltipProvider 使用静默错误边界 - 出错时降级而非白屏 */}
+        <SilentErrorBoundary name="TooltipProvider">
+          <TooltipProvider>
+            {/* Toaster 组件使用静默错误边界 */}
+            <SilentErrorBoundary name="Toaster">
+              <Toaster />
+            </SilentErrorBoundary>
 
-          <SilentErrorBoundary name="Sonner">
-            <Sonner />
-          </SilentErrorBoundary>
+            <SilentErrorBoundary name="Sonner">
+              <Sonner />
+            </SilentErrorBoundary>
 
-          <BrowserRouter>
-            {/* 页面路由使用页面级错误边界 */}
-            <PageErrorBoundary name="Routes">
-              <Suspense
-                fallback={<BrandLoader fullScreen text="正在加载创意空间..." />}
-              >
-                <AnimatedRoutes />
-              </Suspense>
-            </PageErrorBoundary>
-          </BrowserRouter>
-        </TooltipProvider>
-      </SilentErrorBoundary>
-    </AuthProvider>
+            <BrowserRouter>
+              {/* 页面路由使用页面级错误边界 */}
+              <PageErrorBoundary name="Routes">
+                <Suspense
+                  fallback={<BrandLoader fullScreen text="正在加载创意空间..." />}
+                >
+                  <AnimatedRoutes />
+                  <FeedbackWidget />
+                </Suspense>
+              </PageErrorBoundary>
+            </BrowserRouter>
+          </TooltipProvider>
+        </SilentErrorBoundary>
+      </AuthProvider>
+    </AnalyticsProvider>
   </QueryClientProvider>
 );
 

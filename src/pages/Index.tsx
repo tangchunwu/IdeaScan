@@ -261,8 +261,12 @@ const Index = () => {
             </ul>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-4 pt-8 border-t border-border/10 text-center md:text-left text-sm text-muted-foreground">
-          © {new Date().getFullYear()} 需求验证器. All rights reserved.
+        <div className="max-w-6xl mx-auto px-4 pt-8 border-t border-border/10 flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground">
+          <div>© {new Date().getFullYear()} IdeaScan. All rights reserved.</div>
+          <div className="flex gap-6 mt-4 md:mt-0">
+            <Link to="/privacy" className="hover:text-primary transition-colors">隐私政策</Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">服务条款</Link>
+          </div>
         </div>
       </footer>
       <OnboardingTour />
