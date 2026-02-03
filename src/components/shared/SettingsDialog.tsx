@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ExportDataButton } from "./ExportDataButton";
+import { ImportDataButton } from "./ImportDataButton";
 const PROVIDERS = {
        openai: {
               name: "OpenAI",
@@ -696,15 +697,16 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    </Button>
                             </div>
                             
-                            {/* Data export for migration */}
+                            {/* Data export/import for migration */}
                             {user && (
-                                   <div className="pt-2 border-t border-border/50">
-                                          <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <Database className="w-4 h-4" />
-                                                        <span>迁移数据到其他项目</span>
-                                                 </div>
+                                   <div className="pt-2 border-t border-border/50 space-y-2">
+                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                 <Database className="w-4 h-4" />
+                                                 <span>数据迁移</span>
+                                          </div>
+                                          <div className="flex gap-2">
                                                  <ExportDataButton />
+                                                 <ImportDataButton />
                                           </div>
                                    </div>
                             )}
