@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, ChartSkeleton } from "@/components/shared";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +23,10 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  Area,
+  AreaChart,
 } from "recharts";
+
 import {
   TrendingUp,
   Users,
@@ -355,38 +359,58 @@ const Report = () => {
       <PageBackground showClouds={false}>
         <Navbar />
         <main className="pt-28 pb-16 px-4">
-          <div className="max-w-6xl mx-auto animate-pulse">
+          <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
             {/* Header Skeleton */}
-            <div className="mb-8">
-              <div className="h-4 w-24 bg-muted rounded mb-4" />
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                <div className="w-full">
-                  <div className="h-8 w-64 bg-muted rounded mb-4" />
-                  <div className="h-6 w-96 bg-muted rounded mb-3" />
-                  <div className="flex items-center gap-4 mt-3">
-                    <div className="h-4 w-24 bg-muted rounded" />
-                    <div className="h-5 w-20 bg-muted rounded-full" />
-                    <div className="h-5 w-16 bg-muted rounded-full" />
-                  </div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-full" />
+                  <Skeleton className="h-4 w-32 rounded" />
                 </div>
-                <div className="flex gap-3">
-                  <div className="h-10 w-28 bg-muted rounded-xl" />
-                  <div className="h-10 w-24 bg-muted rounded-xl" />
+                <Skeleton className="h-10 w-64 md:w-96 rounded-lg" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16 rounded" />
+                  <Skeleton className="h-6 w-16 rounded" />
                 </div>
+              </div>
+              <div className="flex gap-3">
+                <Skeleton className="h-9 w-28 rounded-full" />
+                <Skeleton className="h-9 w-24 rounded-full" />
               </div>
             </div>
 
-            {/* Score Card Skeleton */}
-            <div className="h-40 w-full bg-muted/30 rounded-xl mb-8" />
-
-            {/* Tabs Skeleton */}
-            <div className="w-full h-10 bg-muted/20 rounded-lg mb-6" />
-
-            {/* Content Skeleton */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="h-80 w-full bg-muted/30 rounded-xl" />
-              <div className="h-80 w-full bg-muted/30 rounded-xl" />
+            {/* Top Bento Row Skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-4">
+                <GlassCard className="h-full min-h-[300px] flex flex-col justify-center items-center">
+                  <Skeleton className="w-32 h-32 rounded-full mb-6" />
+                  <Skeleton className="h-8 w-24 mb-2" />
+                  <Skeleton className="h-4 w-40" />
+                </GlassCard>
+              </div>
+              <Skeleton className="lg:col-span-8 h-[300px] rounded-3xl" />
             </div>
+
+            {/* Middle Bento Row Skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1 h-[300px]">
+                <ChartSkeleton />
+              </div>
+              <GlassCard className="lg:col-span-2 h-[300px] p-6 space-y-4">
+                <div className="flex justify-between">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-6 w-12" />
+                </div>
+                <div className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* Bottom Skeleton */}
+            <Skeleton className="h-[200px] w-full rounded-2xl" />
           </div>
         </main>
       </PageBackground>
@@ -874,20 +898,40 @@ const Report = () => {
                   <div className="h-64">
                     {xiaohongshuData.weeklyTrend.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={xiaohongshuData.weeklyTrend}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                          <YAxis stroke="hsl(var(--muted-foreground))" />
-                          <Tooltip content={<CustomTooltip />} />
-
-                          <Line
+                        <AreaChart data={xiaohongshuData.weeklyTrend}>
+                          <defs>
+                            <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis
+                            dataKey="name"
+                            stroke="hsl(var(--muted-foreground))"
+                            tick={{ fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="hsl(var(--muted-foreground))"
+                            tick={{ fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <Tooltip
+                            content={<CustomTooltip />}
+                            cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '5 5' }}
+                          />
+                          <Area
                             type="monotone"
                             dataKey="value"
                             stroke="hsl(var(--primary))"
                             strokeWidth={3}
-                            dot={{ fill: "hsl(var(--primary))" }}
+                            fillOpacity={1}
+                            fill="url(#colorTrend)"
                           />
-                        </LineChart>
+                        </AreaChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="h-full flex items-center justify-center text-muted-foreground">

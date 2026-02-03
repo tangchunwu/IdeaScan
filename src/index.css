@@ -215,6 +215,26 @@
     pointer-events: none;
   }
 
+  /* 移动端触控优化 */
+  @media (max-width: 768px) {
+
+    button,
+    a,
+    [role="button"],
+    input,
+    select {
+      min-height: 44px;
+      /* Apple Human Interface Guidelines */
+      touch-action: manipulation;
+    }
+  }
+
+  /* 微交互增强：点击反馈 */
+  .active-scale:active {
+    transform: scale(0.98);
+    transition: transform 0.1s;
+  }
+
   @keyframes float {
 
     0%,
