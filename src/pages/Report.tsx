@@ -73,6 +73,7 @@ import { Progress } from "@/components/ui/progress";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { DataInsightsTab } from "@/components/report/DataInsightsTab";
+import { captureEvent } from "@/lib/posthog";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -132,6 +133,17 @@ const Report = () => {
   };
 
   const needsReanalysis = data?.report ? checkNeedsReanalysis() : false;
+
+  // Track report view event
+  useEffect(() => {
+    if (data?.validation && !loading) {
+      captureEvent('report_viewed', {
+        validation_id: id,
+        score: data.validation.overall_score,
+        idea_preview: data.validation.idea.substring(0, 50),
+      });
+    }
+  }, [data?.validation?.id, loading]);
 
   // No explicit useEffect needed for fetching anymore
 
@@ -267,6 +279,13 @@ const Report = () => {
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
+      
+      // Track export event
+      captureEvent('report_exported', {
+        validation_id: id,
+        format: 'html',
+      });
+      
       toast({
         title: "导出成功",
         description: "HTML 完整报告已下载，可离线查看",
@@ -296,6 +315,13 @@ const Report = () => {
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
+      
+      // Track export event
+      captureEvent('report_exported', {
+        validation_id: id,
+        format: 'pdf',
+      });
+      
       toast({
         title: "导出成功",
         description: "多页 PDF 报告已下载",
@@ -325,6 +351,13 @@ const Report = () => {
           text: shareText,
           url: shareUrl,
         });
+        
+        // Track share event
+        captureEvent('report_shared', {
+          validation_id: id,
+          method: 'native_share',
+        });
+        
         toast({
           title: "分享成功",
           description: "报告已分享",
@@ -341,6 +374,13 @@ const Report = () => {
     // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl);
+      
+      // Track share event
+      captureEvent('report_shared', {
+        validation_id: id,
+        method: 'clipboard',
+      });
+      
       toast({
         title: "链接已复制",
         description: "报告链接已复制到剪贴板",

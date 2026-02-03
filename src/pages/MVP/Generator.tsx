@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { generateMVP, updateMVP, publishMVP, MVPLandingPage } from "@/services/mvpService";
 import { ArrowLeft, Save, Globe, Eye, Code, Rocket } from "lucide-react";
+import { captureEvent } from "@/lib/posthog";
 
 export default function MVPGenerator() {
         const { id: validationId } = useParams();
@@ -30,11 +31,18 @@ export default function MVPGenerator() {
         // Local state for editing to avoid constant re-renders/ API calls
         const [editedContent, setEditedContent] = useState<any>(null);
 
-        useEffect(() => {
-                if (mvpPage?.content) {
-                        setEditedContent(mvpPage.content);
-                }
-        }, [mvpPage]);
+	useEffect(() => {
+		if (mvpPage?.content) {
+			setEditedContent(mvpPage.content);
+			
+			// Track MVP page generated/viewed
+			captureEvent('mvp_page_viewed', {
+				validation_id: validationId,
+				mvp_id: mvpPage.id,
+				is_published: mvpPage.is_published,
+			});
+		}
+	}, [mvpPage]);
 
         const updateMutation = useMutation({
                 mutationFn: (updates: Partial<MVPLandingPage>) => updateMVP(mvpPage!.id, updates),
@@ -45,16 +53,24 @@ export default function MVPGenerator() {
                 onError: () => toast({ title: "保存失败", variant: "destructive" }),
         });
 
-        const publishMutation = useMutation({
-                mutationFn: (isPublished: boolean) => publishMVP(mvpPage!.id, isPublished),
-                onSuccess: (_, isPublished) => {
-                        queryClient.invalidateQueries({ queryKey: ['mvp', validationId] });
-                        toast({
-                                title: isPublished ? "发布成功" : "已下架",
-                                description: isPublished ? "您的落地页现在可以公开访问了" : "落地页已转为私有"
-                        });
-                },
-        });
+	const publishMutation = useMutation({
+		mutationFn: (isPublished: boolean) => publishMVP(mvpPage!.id, isPublished),
+		onSuccess: (_, isPublished) => {
+			queryClient.invalidateQueries({ queryKey: ['mvp', validationId] });
+			
+			// Track MVP publish/unpublish
+			captureEvent(isPublished ? 'mvp_published' : 'mvp_unpublished', {
+				validation_id: validationId,
+				mvp_id: mvpPage?.id,
+				slug: mvpPage?.slug,
+			});
+			
+			toast({
+				title: isPublished ? "发布成功" : "已下架",
+				description: isPublished ? "您的落地页现在可以公开访问了" : "落地页已转为私有"
+			});
+		},
+	});
 
         const handleSave = () => {
                 if (!mvpPage) return;

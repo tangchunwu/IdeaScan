@@ -15,6 +15,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { toUserFacingBackendError } from "@/lib/backendErrors";
+import { captureEvent } from "@/lib/posthog";
 import {
   Sparkles,
   Search,
@@ -151,6 +152,14 @@ const Validate = () => {
       return;
     }
 
+    // Track validation start event
+    captureEvent('validation_started', {
+      idea_length: idea.trim().length,
+      tags_count: selectedTags.length,
+      mode: validationMode,
+      has_own_tikhub: hasOwnTikhub,
+    });
+
     setIsValidating(true);
     setProgress(0);
     setCurrentStep(0);
@@ -197,6 +206,13 @@ const Validate = () => {
         setProgress(100);
         setCurrentStep(validationSteps.length);
 
+        // Track validation completed event
+        captureEvent('validation_completed', {
+          validation_id: result.validationId,
+          score: result.overallScore,
+          mode: validationMode,
+        });
+
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
 
         // Refresh quota after successful validation
@@ -213,6 +229,12 @@ const Validate = () => {
       },
       // onError
       (error) => {
+        // Track validation error
+        captureEvent('validation_failed', {
+          error: error.substring(0, 100),
+          mode: validationMode,
+        });
+
         // Check if it's a quota exceeded error
         if (error.includes('FREE_QUOTA_EXCEEDED') || error.includes('免费验证次数已用完')) {
           setShowQuotaDialog(true);
