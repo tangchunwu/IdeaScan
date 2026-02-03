@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
+import { captureEvent } from "@/lib/posthog";
 
 const FeedbackWidget = () => {
        const [isOpen, setIsOpen] = useState(false);
@@ -12,28 +13,33 @@ const FeedbackWidget = () => {
        const [feedback, setFeedback] = useState("");
        const [isSubmitting, setIsSubmitting] = useState(false);
 
-       const handleSubmit = async () => {
-              if (rating === 0) {
-                     toast.error("请选择一个评分");
-                     return;
-              }
+	const handleSubmit = async () => {
+		if (rating === 0) {
+			toast.error("请选择一个评分");
+			return;
+		}
 
-              setIsSubmitting(true);
+		setIsSubmitting(true);
 
-              // Simulate API call
-              console.log("Submitting feedback:", { rating, feedback, url: window.location.href });
+		// Track feedback submitted event
+		captureEvent('feedback_submitted', {
+			rating,
+			has_feedback_text: feedback.length > 0,
+			feedback_length: feedback.length,
+			page_url: window.location.pathname,
+		});
 
-              // TODO: Implement actual Supabase insertion here
-              // const { error } = await supabase.from('user_feedback').insert({ ... })
+		// TODO: Implement actual Supabase insertion here
+		// const { error } = await supabase.from('user_feedback').insert({ ... })
 
-              await new Promise(resolve => setTimeout(resolve, 1000));
+		await new Promise(resolve => setTimeout(resolve, 1000));
 
-              toast.success("感谢您的反馈！");
-              setIsSubmitting(false);
-              setIsOpen(false);
-              setRating(0);
-              setFeedback("");
-       };
+		toast.success("感谢您的反馈！");
+		setIsSubmitting(false);
+		setIsOpen(false);
+		setRating(0);
+		setFeedback("");
+	};
 
        return (
               <>
