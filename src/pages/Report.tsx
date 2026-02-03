@@ -73,6 +73,8 @@ import { Progress } from "@/components/ui/progress";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { DataInsightsTab } from "@/components/report/DataInsightsTab";
+import { ActionRecommendation } from "@/components/report/ActionRecommendation";
+import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { captureEvent } from "@/lib/posthog";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
@@ -279,13 +281,13 @@ const Report = () => {
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
-      
+
       // Track export event
       captureEvent('report_exported', {
         validation_id: id,
         format: 'html',
       });
-      
+
       toast({
         title: "导出成功",
         description: "HTML 完整报告已下载，可离线查看",
@@ -315,13 +317,13 @@ const Report = () => {
       const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
-      
+
       // Track export event
       captureEvent('report_exported', {
         validation_id: id,
         format: 'pdf',
       });
-      
+
       toast({
         title: "导出成功",
         description: "多页 PDF 报告已下载",
@@ -351,13 +353,13 @@ const Report = () => {
           text: shareText,
           url: shareUrl,
         });
-        
+
         // Track share event
         captureEvent('report_shared', {
           validation_id: id,
           method: 'native_share',
         });
-        
+
         toast({
           title: "分享成功",
           description: "报告已分享",
@@ -374,13 +376,13 @@ const Report = () => {
     // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl);
-      
+
       // Track share event
       captureEvent('report_shared', {
         validation_id: id,
         method: 'clipboard',
       });
-      
+
       toast({
         title: "链接已复制",
         description: "报告链接已复制到剪贴板",
@@ -739,6 +741,40 @@ const Report = () => {
                   </Button>
                 </GlassCard>
               )}
+            </div>
+          </div>
+
+          {/* NEW: Action Recommendation & Data Confidence */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* AI Action Recommendation (2 cols) */}
+            <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
+              <ActionRecommendation
+                score={validation.overall_score || 0}
+                strengths={aiAnalysis.strengths || []}
+                weaknesses={aiAnalysis.weaknesses || []}
+                sentiment={{
+                  positive: sentimentAnalysis.positive,
+                  negative: sentimentAnalysis.negative,
+                }}
+                onValidateMore={() => window.location.href = '/validate'}
+                onStartBuilding={() => {
+                  captureEvent('start_building_clicked', { validation_id: validation.id });
+                  window.open('https://lovable.dev', '_blank');
+                }}
+              />
+            </div>
+
+            {/* Data Confidence (1 col) */}
+            <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: "200ms" }}>
+              <DataConfidenceCard
+                sampleSize={xiaohongshuData.totalNotes || 0}
+                platforms={[
+                  { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
+                  ...(report?.douyin_data ? [{ name: "抖音", count: (report.douyin_data as any)?.totalVideos || 0 }] : []),
+                ]}
+                dataFreshness="fresh"
+                className="h-full"
+              />
             </div>
           </div>
 

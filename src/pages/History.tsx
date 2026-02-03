@@ -21,7 +21,9 @@ import {
   LogIn,
   AlertCircle,
   CheckCircle2,
+  Scale,
 } from "lucide-react";
+import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 
 const History = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -467,6 +469,20 @@ const History = () => {
                     </div>
                   </div>
                 </GlassCard>
+              )}
+
+              {/* Idea Comparison - 想法对比功能 */}
+              {validations.filter(v => v.overall_score && v.status === 'completed').length >= 2 && (
+                <div className="mt-8 animate-slide-up" style={{ animationDelay: "400ms" }}>
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Scale className="w-5 h-5 text-primary" />
+                    想法对比
+                    <span className="text-xs text-muted-foreground font-normal">
+                      选择 2-3 个想法进行并排对比
+                    </span>
+                  </h3>
+                  <IdeaComparison />
+                </div>
               )}
             </>
           )}
