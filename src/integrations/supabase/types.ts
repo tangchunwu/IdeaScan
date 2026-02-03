@@ -587,6 +587,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           created_at: string
@@ -798,11 +819,19 @@ export type Database = {
           topic_id: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_cache_hit: { Args: { p_topic_id: string }; Returns: undefined }
       is_validation_owner: { Args: { validation_id: string }; Returns: boolean }
       use_tikhub_quota: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       validation_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
@@ -931,6 +960,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       validation_status: ["pending", "processing", "completed", "failed"],
     },
   },
