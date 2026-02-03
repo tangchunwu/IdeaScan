@@ -15,6 +15,8 @@ import {
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo, OnboardingTour } from "@/components/shared";
+import { SocialProofCounter } from "@/components/social/SocialProofCounter";
 
 const features = [
   {
@@ -103,6 +105,12 @@ const Index = () => {
                 </Link>
               </Button>
             </div>
+
+            {/* Social Proof */}
+            <div className="mt-12 flex justify-center animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+              <SocialProofCounter count={10258} label="个创意已通过验证" />
+            </div>
+
           </section>
 
           {/* Features Grid - 功能层级清晰 */}
@@ -217,10 +225,7 @@ const Index = () => {
         <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2.5 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-lg">需求验证器</span>
+              <BrandLogo size="md" variant="full" theme="color" />
             </div>
             <p className="text-muted-foreground leading-relaxed max-w-sm">
               抓取小红书用户痛点和全网竞品数据，让4位AI专家辩论你的想法。在写第一行代码前，验证你的创意是真刚需还是伪需求。
@@ -261,6 +266,7 @@ const Index = () => {
           © {new Date().getFullYear()} 需求验证器. All rights reserved.
         </div>
       </footer>
+      <OnboardingTour />
     </PageBackground>
   );
 };

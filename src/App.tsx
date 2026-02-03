@@ -1,8 +1,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
-import { SilentErrorBoundary, PageErrorBoundary } from "@/components/shared";
+import { SilentErrorBoundary, PageErrorBoundary, BrandLoader, PageTransition } from "@/components/shared";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,6 +25,28 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PageTransition><Index /></PageTransition>} />
+        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+        <Route path="/validate" element={<PageTransition><Validate /></PageTransition>} />
+        <Route path="/report/:id" element={<PageTransition><Report /></PageTransition>} />
+        <Route path="/history" element={<PageTransition><History /></PageTransition>} />
+        <Route path="/compare" element={<PageTransition><Compare /></PageTransition>} />
+        <Route path="/discover" element={<PageTransition><Discover /></PageTransition>} />
+        <Route path="/discover/hunter" element={<PageTransition><Hunter /></PageTransition>} />
+        <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
+        <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -43,25 +66,9 @@ const App = () => (
             {/* 页面路由使用页面级错误边界 */}
             <PageErrorBoundary name="Routes">
               <Suspense
-                fallback={
-                  <div className="flex h-screen w-full items-center justify-center">
-                    <LoadingSpinner size="lg" />
-                  </div>
-                }
+                fallback={<BrandLoader fullScreen text="正在加载创意空间..." />}
               >
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/validate" element={<Validate />} />
-                  <Route path="/report/:id" element={<Report />} />
-                  <Route path="/history" element={<History />} />
-                  <Route path="/compare" element={<Compare />} />
-                  <Route path="/discover" element={<Discover />} />
-                  <Route path="/discover/hunter" element={<Hunter />} />
-                  <Route path="/mvp/:id" element={<MVPGenerator />} />
-                  <Route path="/p/:slug" element={<PublicLandingPage />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <AnimatedRoutes />
               </Suspense>
             </PageErrorBoundary>
           </BrowserRouter>

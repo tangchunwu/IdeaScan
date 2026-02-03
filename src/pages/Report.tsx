@@ -73,6 +73,44 @@ import { DataInsightsTab } from "@/components/report/DataInsightsTab";
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="glass-card p-3 border border-border/50 shadow-xl backdrop-blur-md bg-card/80">
+        {label && <p className="font-medium text-sm mb-2 text-foreground">{label}</p>}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-xs mb-1 last:mb-0">
+            <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color || entry.payload.fill }} />
+            <span className="text-muted-foreground">{entry.name}:</span>
+            <span className="font-medium text-foreground">{entry.value}</span>
+            {entry.unit && <span className="text-muted-foreground text-[10px]">{entry.unit}</span>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="glass-card p-3 border border-border/50 shadow-xl backdrop-blur-md bg-card/80">
+        {label && <p className="font-medium text-sm mb-2 text-foreground">{label}</p>}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-xs mb-1 last:mb-0">
+            <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color || entry.payload.fill }} />
+            <span className="text-muted-foreground">{entry.name}:</span>
+            <span className="font-medium text-foreground">{entry.value}</span>
+            {entry.unit && <span className="text-muted-foreground text-[10px]">{entry.unit}</span>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -679,14 +717,8 @@ const Report = () => {
                       fill="hsl(var(--primary))"
                       fillOpacity={0.2}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        borderColor: "hsl(var(--border))",
-                        borderRadius: "12px",
-                        boxShadow: "0 10px 40px rgba(0,0,0,0.1)"
-                      }}
-                    />
+                    <Tooltip content={<CustomTooltip />} />
+
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -863,13 +895,8 @@ const Report = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                           <YAxis stroke="hsl(var(--muted-foreground))" />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "12px"
-                            }}
-                          />
+                          <Tooltip content={<CustomTooltip />} />
+
                           <Line
                             type="monotone"
                             dataKey="value"
@@ -943,13 +970,8 @@ const Report = () => {
                                 <Cell key={`cell-${index}`} fill={CONTENT_COLORS[index % CONTENT_COLORS.length]} />
                               ))}
                             </Pie>
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "12px"
-                              }}
-                            />
+                            <Tooltip content={<CustomTooltip />} />
+
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="space-y-2">
@@ -1081,13 +1103,8 @@ const Report = () => {
                             <Cell key={`cell-${index}`} fill={color} />
                           ))}
                         </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "12px"
-                          }}
-                        />
+                        <Tooltip content={<CustomTooltip />} />
+
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-3">
@@ -1124,13 +1141,8 @@ const Report = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
                         <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "12px"
-                          }}
-                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
+
                         <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                           {SENTIMENT_COLORS.map((color, index) => (
                             <Cell key={`cell-${index}`} fill={color} />

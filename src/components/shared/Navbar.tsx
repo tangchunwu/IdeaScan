@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "./BrandLogo";
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -36,9 +37,7 @@ export const Navbar = () => {
         <div className="glass-card-elevated px-4 md:px-6 py-3 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg shadow-primary/20">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <BrandLogo size="md" variant="icon" />
             <div className="hidden sm:block">
               <span className="font-bold text-lg text-foreground block leading-tight">
                 创意验证器
