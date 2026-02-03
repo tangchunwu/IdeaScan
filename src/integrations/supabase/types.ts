@@ -533,6 +533,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feedback: {
+        Row: {
+          created_at: string
+          feedback_text: string | null
+          id: string
+          page_url: string | null
+          rating: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          page_url?: string | null
+          rating: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          page_url?: string | null
+          rating?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_quotas: {
         Row: {
           created_at: string
