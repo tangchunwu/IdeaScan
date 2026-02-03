@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { ExportDataButton } from "./ExportDataButton";
 const PROVIDERS = {
        openai: {
               name: "OpenAI",
@@ -694,6 +695,19 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           导出配置
                                    </Button>
                             </div>
+                            
+                            {/* Data export for migration */}
+                            {user && (
+                                   <div className="pt-2 border-t border-border/50">
+                                          <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                        <Database className="w-4 h-4" />
+                                                        <span>迁移数据到其他项目</span>
+                                                 </div>
+                                                 <ExportDataButton />
+                                          </div>
+                                   </div>
+                            )}
                             
                             {/* Main action buttons */}
                             <div className="flex justify-between">
