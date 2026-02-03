@@ -556,3 +556,48 @@
     overflow: hidden;
   }
 }
+
+/* ========================================
+   Driver.js 自定义主题
+   ======================================== */
+
+.driverjs-theme-custom .driver-popover {
+  @apply glass-card border-primary/20 shadow-2xl;
+  background: hsl(var(--card) / 0.95) !important;
+  backdrop-filter: blur(20px);
+  border-radius: 1rem !important;
+}
+
+.driverjs-theme-custom .driver-popover-title {
+  @apply text-foreground font-bold text-lg;
+}
+
+.driverjs-theme-custom .driver-popover-description {
+  @apply text-muted-foreground text-sm leading-relaxed;
+}
+
+.driverjs-theme-custom .driver-popover-progress-text {
+  @apply text-xs text-muted-foreground;
+}
+
+.driverjs-theme-custom .driver-popover-prev-btn,
+.driverjs-theme-custom .driver-popover-next-btn {
+  @apply rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200;
+}
+
+.driverjs-theme-custom .driver-popover-prev-btn {
+  @apply bg-muted text-muted-foreground hover:bg-muted/80;
+}
+
+.driverjs-theme-custom .driver-popover-next-btn {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25;
+}
+
+.driverjs-theme-custom .driver-overlay {
+  background: hsl(var(--background) / 0.7) !important;
+}
+
+.driverjs-theme-custom .driver-active-element {
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3) !important;
+  border-radius: 0.75rem !important;
+}

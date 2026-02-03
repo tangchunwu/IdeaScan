@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
+import { SocialProofCounter } from "@/components/social";
 import {
   Sparkles,
   TrendingUp,
@@ -15,8 +16,6 @@ import {
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BrandLogo, OnboardingTour } from "@/components/shared";
-import { SocialProofCounter } from "@/components/social/SocialProofCounter";
 
 const features = [
   {
