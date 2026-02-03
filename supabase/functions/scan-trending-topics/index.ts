@@ -27,6 +27,8 @@ interface TrendingTopicData {
   top_pain_points: string[];
   related_keywords: string[];
   sources: { platform: string; count: number }[];
+  // 新增: 缓存评论用于验证加速
+  comments?: { content: string; user_nickname?: string; platform?: string }[];
 }
 
 interface CrawlResult {
@@ -360,6 +362,11 @@ async function scanKeyword(
     top_pain_points: painPoints,
     related_keywords: allRelatedTags.slice(0, 10),
     sources,
+    // 保存评论用于缓存加速
+    comments: allComments.slice(0, 30).map((c, i) => ({
+      ...c,
+      platform: validResults[i % validResults.length]?.platform || 'unknown'
+    })),
   };
 }
 
@@ -514,7 +521,7 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Upsert topics (update if keyword exists, insert if new)
+    // Upsert topics with cache data (update if keyword exists, insert if new)
     const upsertData = newTopics.map(t => ({
       keyword: t.keyword,
       category: t.category,
@@ -531,6 +538,16 @@ Deno.serve(async (req) => {
       is_active: true,
       updated_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      // 新增: 缓存社媒数据用于验证流程加速
+      cached_social_data: {
+        comments: (t as any).comments || [],
+        totalPosts: t.sample_count,
+        avgLikes: Math.round(t.avg_engagement / 3),
+        avgComments: Math.round(t.avg_engagement / 3),
+        avgCollects: Math.round(t.avg_engagement / 3),
+      },
+      cache_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      last_crawled_at: new Date().toISOString(),
     }));
     
     const { error: upsertError } = await supabase

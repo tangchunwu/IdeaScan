@@ -1,3 +1,12 @@
+/**
+ * Non-Streaming Validation Edge Function
+ * 
+ * 已同步流式版本的优化:
+ * - Jina Reader 网页清洗
+ * - 分层摘要系统
+ * - 竞品名称提取 + 二次深度搜索
+ * - 热门话题缓存
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { searchCompetitors, SearchResult } from "./search.ts";
@@ -21,6 +30,15 @@ import {
   LIMITS
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
+// 新增优化模块
+import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
+import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
+import { 
+  extractCompetitorNames, 
+  searchCompetitorDetails, 
+  mergeSearchResults,
+  type LLMConfig 
+} from "../_shared/competitor-extractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -849,28 +867,147 @@ serve(async (req) => {
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
     console.log(`[Multi-Channel] Stats: ${xiaohongshuData?.totalNotes || 0} posts, ${xiaohongshuData?.sampleComments?.length || 0} comments`);
 
-    // 2.5 Search competitors (always use system keys)
+    // 2.5 Search competitors with enhanced pipeline
     let competitorData: SearchResult[] = [];
+    let extractedCompetitors: any[] = [];
     const tavilyKey = Deno.env.get("TAVILY_API_KEY");
+    const bochaKey = Deno.env.get("BOCHA_API_KEY");
+    const youKey = Deno.env.get("YOU_API_KEY");
+    const searchKeys = { tavily: tavilyKey, bocha: bochaKey, you: youKey };
+    const hasAnySearchKey = tavilyKey || bochaKey || youKey;
 
-    if (tavilyKey) {
-      console.log(`Searching competitors using Tavily...`);
+    if (hasAnySearchKey) {
+      console.log(`Searching competitors...`);
 
+      // Initial search
       const searchPromises = webQueries.map(q => searchCompetitors(q, {
-        providers: ['tavily'],
-        keys: { tavily: tavilyKey },
+        providers: tavilyKey ? ['tavily'] : (bochaKey ? ['bocha'] : ['you']),
+        keys: searchKeys,
         mode: config?.mode
       }));
 
       const results = await Promise.all(searchPromises);
-      competitorData = results.flat();
-      console.log(`Found ${competitorData.length} competitor results`);
+      const rawCompetitors = results.flat();
+      console.log(`Found ${rawCompetitors.length} competitor results`);
+
+      // Jina Reader 清洗
+      const cleanableUrls = rawCompetitors
+        .filter((c: any) => c.url && isCleanableUrl(c.url))
+        .slice(0, 6)
+        .map((c: any) => c.url);
+
+      let cleanedPages: any[] = [];
+      if (cleanableUrls.length > 0) {
+        try {
+          console.log('[Jina] Cleaning', cleanableUrls.length, 'pages...');
+          cleanedPages = await cleanCompetitorPages(cleanableUrls, 3, 4000);
+          console.log('[Jina] Cleaned', cleanedPages.filter((p: any) => p.success).length, 'pages');
+        } catch (e) {
+          console.error('[Jina] Clean error:', e);
+        }
+      }
+
+      // 合并清洗后的内容
+      competitorData = rawCompetitors.map((comp: any) => {
+        const cleaned = cleanedPages.find((p: any) => p.url === comp.url);
+        return {
+          ...comp,
+          cleanedContent: cleaned?.success ? cleaned.markdown : comp.snippet,
+          hasCleanedContent: cleaned?.success || false
+        };
+      });
+
+      // 竞品名称提取
+      const llmConfig: LLMConfig = {
+        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+        baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
+        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+      };
+
+      if (llmConfig.apiKey) {
+        try {
+          extractedCompetitors = await extractCompetitorNames(competitorData, idea, llmConfig);
+          console.log('[Competitors] Extracted:', extractedCompetitors.map((c: any) => c.name));
+        } catch (e) {
+          console.error('[Competitors] Extract error:', e);
+        }
+      }
+
+      // 二次深度搜索
+      if (extractedCompetitors.length > 0) {
+        try {
+          const deepResults = await searchCompetitorDetails(extractedCompetitors, searchKeys);
+          competitorData = mergeSearchResults(competitorData, deepResults);
+          console.log('[DeepSearch] Added', deepResults.length, 'results');
+        } catch (e) {
+          console.error('[DeepSearch] Error:', e);
+        }
+      }
     } else {
-      console.log("No TAVILY_API_KEY configured, skipping competitor search.");
+      console.log("No search API keys configured, skipping competitor search.");
     }
 
-    // 2.7 Data Summarization (new Phase 1 step, uses system LLM)
-    console.log("Summarizing raw data...");
+    // 2.7 Enhanced Data Summarization with tiered approach
+    console.log("Summarizing raw data with tiered approach...");
+    
+    const summaryConfig: SummaryConfig = {
+      apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+      baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
+      model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+    };
+
+    let socialSummaries: string[] = [];
+    let competitorSummaries: string[] = [];
+    let aggregatedInsights = { marketInsight: '', competitiveInsight: '', keyFindings: [] as string[] };
+
+    if (summaryConfig.apiKey) {
+      // Layer 1: 单条摘要
+      const socialItems = (xiaohongshuData.sampleNotes || [])
+        .slice(0, 8)
+        .map((note: any) => ({
+          content: `${note.title || ''}\n${note.desc || ''}`.trim(),
+          type: 'social_post' as const
+        }))
+        .filter((item: any) => item.content.length > 20);
+
+      const competitorItems = competitorData
+        .slice(0, 5)
+        .map((comp: any) => ({
+          content: comp.cleanedContent || comp.snippet || '',
+          type: 'competitor_page' as const
+        }))
+        .filter((item: any) => item.content.length > 50);
+
+      if (socialItems.length > 0 || competitorItems.length > 0) {
+        try {
+          const allItems = [...socialItems, ...competitorItems];
+          const summaries = await summarizeBatch(allItems, summaryConfig, 4);
+          
+          socialSummaries = summaries
+            .filter((s: any) => s.type === 'social_post')
+            .map((s: any) => s.content);
+          competitorSummaries = summaries
+            .filter((s: any) => s.type === 'competitor_page')
+            .map((s: any) => s.content);
+
+          console.log('[Summarizer] L1 done:', socialSummaries.length, 'social,', competitorSummaries.length, 'competitor');
+        } catch (e) {
+          console.error('[Summarizer] L1 error:', e);
+        }
+      }
+
+      // Layer 2: 聚合摘要
+      if (socialSummaries.length > 0 || competitorSummaries.length > 0) {
+        try {
+          aggregatedInsights = await aggregateSummaries(socialSummaries, competitorSummaries, summaryConfig);
+          console.log('[Summarizer] L2 done');
+        } catch (e) {
+          console.error('[Summarizer] L2 error:', e);
+        }
+      }
+    }
+
+    // Also do the original data summary for backwards compatibility
     const dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
       apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
       baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
@@ -878,7 +1015,6 @@ serve(async (req) => {
       mode: config?.mode
     });
     console.log(`Data summary complete. Quality score: ${dataSummary.dataQuality.score}`);
-    console.log("Key insights:", dataSummary.keyInsights);
 
     // 3. AI Analysis (now uses data summary for better context)
     const aiResult = await analyzeWithAI(idea, tags, xiaohongshuData, competitorData, dataSummary, config);
