@@ -363,11 +363,15 @@ async function crawlSocialMediaData(
 }
 
 async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
-  // Use the new expandKeywords function
+  // Always use system LLM configuration
+  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
+  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  
   const result = await expandKeywords(idea, tags || [], {
-    apiKey: config?.llmApiKey,
-    baseUrl: config?.llmBaseUrl,
-    model: config?.llmModel
+    apiKey,
+    baseUrl,
+    model
   });
 
   console.log("Expanded keywords:", {
@@ -392,9 +396,10 @@ async function analyzeWithAI(
   dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
-  const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
-  const model = config?.llmModel || "google/gemini-3-flash-preview";
+  // Always use system LLM configuration
+  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
+  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
 
   let cleanBaseUrl = baseUrl.replace(/\/$/, "");
   if (cleanBaseUrl.endsWith("/chat/completions")) {
@@ -780,6 +785,29 @@ serve(async (req) => {
     // Check rate limit
     await checkRateLimit(supabase, user.id, "validate-idea");
 
+    // ============ TikHub Quota Check ============
+    const userProvidedTikhub = !!config?.tikhubToken;
+    let tikhubToken = config?.tikhubToken;
+    
+    if (!userProvidedTikhub) {
+      // Check quota before using system token
+      const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
+        p_user_id: user.id
+      });
+      
+      if (quotaError) {
+        console.error('Quota check error:', quotaError);
+      }
+      
+      const quota = quotaResult?.[0];
+      if (!quota?.can_use) {
+        throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
+      }
+      
+      // Use system TikHub token
+      tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+    }
+
     // 1. Create validation record
     const { data: validation, error: createError } = await supabase
       .from("validations")
@@ -799,7 +827,7 @@ serve(async (req) => {
 
     console.log("Created validation:", validation.id);
 
-    // 1.5 Extract keywords with multi-dimensional expansion
+    // 1.5 Extract keywords with multi-dimensional expansion (uses system LLM)
     console.log("Extracting keywords...");
     const { xhsKeywords, webQueries, expanded } = await extractKeywords(idea, tags, config);
     console.log("Keywords extracted:", { xhsKeywords, webQueries });
@@ -813,7 +841,7 @@ serve(async (req) => {
     const xiaohongshuData = await crawlSocialMediaData(
       xhsSearchTerm,
       tags || [],
-      config?.tikhubToken,
+      tikhubToken,
       mode,
       enableXiaohongshu,
       enableDouyin
@@ -821,21 +849,16 @@ serve(async (req) => {
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
     console.log(`[Multi-Channel] Stats: ${xiaohongshuData?.totalNotes || 0} posts, ${xiaohongshuData?.sampleComments?.length || 0} comments`);
 
-    // 2.5 Search competitors
+    // 2.5 Search competitors (always use system keys)
     let competitorData: SearchResult[] = [];
-    const searchKeys = config?.searchKeys;
+    const tavilyKey = Deno.env.get("TAVILY_API_KEY");
 
-    if (searchKeys && (searchKeys.bocha || searchKeys.you || searchKeys.tavily)) {
-      const providers: ('bocha' | 'you' | 'tavily')[] = [];
-      if (searchKeys.bocha) providers.push('bocha');
-      if (searchKeys.you) providers.push('you');
-      if (searchKeys.tavily) providers.push('tavily');
-
-      console.log(`Searching competitors using ${providers.join(', ')}...`);
+    if (tavilyKey) {
+      console.log(`Searching competitors using Tavily...`);
 
       const searchPromises = webQueries.map(q => searchCompetitors(q, {
-        providers: providers,
-        keys: searchKeys,
+        providers: ['tavily'],
+        keys: { tavily: tavilyKey },
         mode: config?.mode
       }));
 
@@ -843,15 +866,15 @@ serve(async (req) => {
       competitorData = results.flat();
       console.log(`Found ${competitorData.length} competitor results`);
     } else {
-      console.log("No search keys provided, skipping competitor search.");
+      console.log("No TAVILY_API_KEY configured, skipping competitor search.");
     }
 
-    // 2.7 Data Summarization (new Phase 1 step)
+    // 2.7 Data Summarization (new Phase 1 step, uses system LLM)
     console.log("Summarizing raw data...");
     const dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-      apiKey: config?.llmApiKey,
-      baseUrl: config?.llmBaseUrl,
-      model: config?.llmModel,
+      apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
+      baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
+      model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
       mode: config?.mode
     });
     console.log(`Data summary complete. Quality score: ${dataSummary.dataQuality.score}`);
@@ -1015,6 +1038,16 @@ serve(async (req) => {
     if (!reportSaved) {
       console.error("Error saving report after all retries:", lastReportError);
       throw new Error("Failed to save report after multiple attempts");
+    }
+
+    // 4.5. Consume TikHub Quota (if using system token)
+    if (!userProvidedTikhub) {
+      const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
+        p_user_id: user.id
+      });
+      if (consumeError) {
+        console.error('Failed to consume quota:', consumeError);
+      }
     }
 
     // 5. Update validation status

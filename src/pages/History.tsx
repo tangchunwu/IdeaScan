@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, SampleReports } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -318,6 +318,17 @@ const History = () => {
             </GlassCard>
           ) : (
             <>
+              {/* Sample Reports Section */}
+              <SampleReports />
+
+              {/* My Reports Header */}
+              {filteredItems.length > 0 && (
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-muted-foreground" />
+                  我的验证记录
+                </h3>
+              )}
+
               {/* History List */}
               <div className="space-y-4">
                 {filteredItems.length === 0 ? (
