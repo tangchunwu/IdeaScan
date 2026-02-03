@@ -1,45 +1,59 @@
 import { useState } from "react";
-import { MessageSquare, X, Send, Star } from "lucide-react";
+import { MessageSquare, Send, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import { captureEvent } from "@/lib/posthog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const FeedbackWidget = () => {
-       const [isOpen, setIsOpen] = useState(false);
-       const [rating, setRating] = useState(0);
-       const [feedback, setFeedback] = useState("");
-       const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const handleSubmit = async () => {
-		if (rating === 0) {
-			toast.error("请选择一个评分");
-			return;
-		}
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      toast.error("请选择一个评分");
+      return;
+    }
 
-		setIsSubmitting(true);
+    setIsSubmitting(true);
 
-		// Track feedback submitted event
-		captureEvent('feedback_submitted', {
-			rating,
-			has_feedback_text: feedback.length > 0,
-			feedback_length: feedback.length,
-			page_url: window.location.pathname,
-		});
+    try {
+      // Insert feedback into database
+      const { error } = await supabase.from('user_feedback').insert({
+        user_id: user?.id || null,
+        rating,
+        feedback_text: feedback || null,
+        page_url: window.location.pathname,
+      });
 
-		// TODO: Implement actual Supabase insertion here
-		// const { error } = await supabase.from('user_feedback').insert({ ... })
+      if (error) throw error;
 
-		await new Promise(resolve => setTimeout(resolve, 1000));
+      // Track feedback submitted event
+      captureEvent('feedback_submitted', {
+        rating,
+        has_feedback_text: feedback.length > 0,
+        feedback_length: feedback.length,
+        page_url: window.location.pathname,
+      });
 
-		toast.success("感谢您的反馈！");
-		setIsSubmitting(false);
-		setIsOpen(false);
-		setRating(0);
-		setFeedback("");
-	};
+      toast.success("感谢您的反馈！");
+      setIsOpen(false);
+      setRating(0);
+      setFeedback("");
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      toast.error("提交失败，请稍后重试");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
        return (
               <>
