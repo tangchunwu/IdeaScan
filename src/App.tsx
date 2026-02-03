@@ -18,7 +18,6 @@ const Report = lazy(() => import("./pages/Report"));
 const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
 const Discover = lazy(() => import("./pages/Discover"));
-const Hunter = lazy(() => import("./pages/Discover/Hunter"));
 const Auth = lazy(() => import("./pages/Auth"));
 const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
 const PublicLandingPage = lazy(() => import("./pages/MVP/PublicLandingPage"));
@@ -33,7 +32,7 @@ const queryClient = new QueryClient();
 
 const AnimatedRoutes = () => {
   const location = useLocation();
-  
+
   // Track page views for analytics
   usePageView();
 
@@ -47,7 +46,6 @@ const AnimatedRoutes = () => {
         <Route path="/history" element={<PageTransition><History /></PageTransition>} />
         <Route path="/compare" element={<PageTransition><Compare /></PageTransition>} />
         <Route path="/discover" element={<PageTransition><Discover /></PageTransition>} />
-        <Route path="/discover/hunter" element={<PageTransition><Hunter /></PageTransition>} />
         <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
         <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
         <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
