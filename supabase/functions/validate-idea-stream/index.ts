@@ -1,9 +1,11 @@
 /**
- * Streaming Validation Edge Function
+ * Streaming Validation Edge Function (v2)
  * 
- * Provides real-time progress updates via Server-Sent Events (SSE)
- * This is a simplified streaming wrapper that calls the main validate-idea function
- * and provides progress updates.
+ * 优化版本 - 集成:
+ * - Jina Reader 网页清洗
+ * - 分层摘要系统
+ * - 竞品名称提取 + 二次深度搜索
+ * - 热门话题缓存
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -15,6 +17,15 @@ import {
   LIMITS
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
+import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
+import { 
+  extractCompetitorNames, 
+  searchCompetitorDetails, 
+  mergeSearchResults,
+  type SearchResult,
+  type LLMConfig 
+} from "../_shared/competitor-extractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,16 +82,21 @@ function validateConfig(config: unknown): RequestConfig {
   };
 }
 
-// Progress stages with weights
+// 优化后的进度阶段
 const STAGES = {
   INIT: { progress: 5, message: '初始化验证...' },
-  KEYWORDS: { progress: 15, message: '智能扩展关键词...' },
-  CRAWL_START: { progress: 25, message: '开始抓取社媒数据...' },
-  CRAWL_XHS: { progress: 35, message: '抓取小红书数据...' },
-  CRAWL_DY: { progress: 45, message: '抓取抖音数据...' },
-  CRAWL_DONE: { progress: 55, message: '社媒数据抓取完成' },
-  SEARCH: { progress: 65, message: '搜索竞品信息...' },
-  SUMMARIZE: { progress: 75, message: '汇总分析数据...' },
+  KEYWORDS: { progress: 10, message: '智能扩展关键词...' },
+  CACHE_CHECK: { progress: 12, message: '检查缓存数据...' },
+  CRAWL_START: { progress: 18, message: '开始抓取社媒数据...' },
+  CRAWL_XHS: { progress: 25, message: '抓取小红书数据...' },
+  CRAWL_DY: { progress: 32, message: '抓取抖音数据...' },
+  CRAWL_DONE: { progress: 38, message: '社媒数据抓取完成' },
+  SEARCH: { progress: 45, message: '搜索竞品信息...' },
+  JINA_CLEAN: { progress: 52, message: '清洗网页内容...' },
+  EXTRACT_COMPETITORS: { progress: 58, message: '提取竞品名称...' },
+  DEEP_SEARCH: { progress: 64, message: '二次深度搜索...' },
+  SUMMARIZE_L1: { progress: 72, message: '生成数据摘要...' },
+  SUMMARIZE_L2: { progress: 78, message: '聚合分析洞察...' },
   ANALYZE: { progress: 88, message: 'AI深度分析中...' },
   SAVE: { progress: 95, message: '保存验证报告...' },
   COMPLETE: { progress: 100, message: '验证完成' },
@@ -149,21 +165,41 @@ Deno.serve(async (req) => {
 
       await sendProgress('KEYWORDS');
 
-      // ============ Inline Keyword Expansion ============
+      // ============ Keyword Expansion ============
       const xhsKeywords = await expandKeywordsSimple(idea, tags, config);
       const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
+
+      // ============ Cache Check ============
+      await sendProgress('CACHE_CHECK');
+      let usedCache = false;
+      let cachedTopicId: string | null = null;
+
+      try {
+        const { data: cacheResult } = await supabase.rpc('get_cached_topic_data', {
+          p_keyword: xhsSearchTerm
+        });
+
+        if (cacheResult?.[0]?.is_valid) {
+          console.log('[Cache] Hit for keyword:', xhsSearchTerm);
+          usedCache = true;
+          cachedTopicId = cacheResult[0].topic_id;
+          
+          // 更新命中计数
+          await supabase.rpc('increment_cache_hit', { p_topic_id: cachedTopicId });
+        }
+      } catch (e) {
+        console.log('[Cache] Check failed, proceeding without cache:', e);
+      }
 
       // ============ TikHub Quota Check ============
       const mode = config?.mode || 'quick';
       const enableXhs = config?.enableXiaohongshu ?? true;
       const enableDy = config?.enableDouyin ?? false;
       
-      // Check if user provided their own TikHub token
       const userProvidedTikhub = !!config?.tikhubToken;
       let tikhubToken = config?.tikhubToken;
       
-      if (!userProvidedTikhub) {
-        // Check quota before using system token
+      if (!userProvidedTikhub && !usedCache) {
         const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
           p_user_id: user.id
         });
@@ -177,7 +213,6 @@ Deno.serve(async (req) => {
           throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
         }
         
-        // Use system TikHub token
         tikhubToken = Deno.env.get("TIKHUB_TOKEN");
       }
 
@@ -190,7 +225,8 @@ Deno.serve(async (req) => {
         sampleComments: [] as any[]
       };
 
-      if (tikhubToken && (enableXhs || enableDy)) {
+      // ============ Social Media Crawling ============
+      if (!usedCache && tikhubToken && (enableXhs || enableDy)) {
         await sendProgress('CRAWL_START');
 
         if (enableXhs) {
@@ -216,8 +252,10 @@ Deno.serve(async (req) => {
 
       await sendProgress('CRAWL_DONE');
 
-      // ============ Competitor Search (Always use system keys) ============
-      let competitorData: any[] = [];
+      // ============ Competitor Search + Jina Clean + Deep Search ============
+      let competitorData: SearchResult[] = [];
+      let extractedCompetitors: any[] = [];
+      
       const searchKeys = {
         tavily: Deno.env.get("TAVILY_API_KEY"),
         bocha: Deno.env.get("BOCHA_API_KEY"),
@@ -226,17 +264,139 @@ Deno.serve(async (req) => {
       
       const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
-      if (hasAnySearchKey) {
+      if (hasAnySearchKey && !usedCache) {
+        // 初次搜索
         await sendProgress('SEARCH');
-        competitorData = await searchCompetitorsSimple(idea, searchKeys);
+        const rawCompetitors = await searchCompetitorsSimple(idea, searchKeys);
+
+        // Jina Reader 清洗
+        await sendProgress('JINA_CLEAN');
+        const cleanableUrls = rawCompetitors
+          .filter(c => c.url && isCleanableUrl(c.url))
+          .slice(0, 6)
+          .map(c => c.url);
+
+        let cleanedPages: any[] = [];
+        if (cleanableUrls.length > 0) {
+          try {
+            cleanedPages = await cleanCompetitorPages(cleanableUrls, 3, 4000);
+          } catch (e) {
+            console.error('[Jina] Batch clean error:', e);
+          }
+        }
+
+        // 合并清洗后的内容
+        competitorData = rawCompetitors.map(comp => {
+          const cleaned = cleanedPages.find(p => p.url === comp.url);
+          return {
+            ...comp,
+            cleanedContent: cleaned?.success ? cleaned.markdown : comp.snippet,
+            hasCleanedContent: cleaned?.success || false
+          };
+        });
+
+        // 提取竞品名称
+        await sendProgress('EXTRACT_COMPETITORS');
+        const llmConfig: LLMConfig = {
+          apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+          baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
+          model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+        };
+
+        if (llmConfig.apiKey) {
+          try {
+            extractedCompetitors = await extractCompetitorNames(competitorData, idea, llmConfig);
+            console.log('[Competitors] Extracted:', extractedCompetitors.map(c => c.name));
+          } catch (e) {
+            console.error('[Competitors] Extract error:', e);
+          }
+        }
+
+        // 二次深度搜索
+        if (extractedCompetitors.length > 0) {
+          await sendProgress('DEEP_SEARCH');
+          try {
+            const deepResults = await searchCompetitorDetails(extractedCompetitors, searchKeys);
+            competitorData = mergeSearchResults(competitorData, deepResults);
+            console.log('[DeepSearch] Added', deepResults.length, 'results');
+          } catch (e) {
+            console.error('[DeepSearch] Error:', e);
+          }
+        }
       }
 
-      await sendProgress('SUMMARIZE');
+      // ============ Tiered Summarization ============
+      await sendProgress('SUMMARIZE_L1');
+      
+      const summaryConfig: SummaryConfig = {
+        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+        baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
+        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+      };
 
-      // ============ AI Analysis (Always use system LLM) ============
+      let socialSummaries: string[] = [];
+      let competitorSummaries: string[] = [];
+      let aggregatedInsights = { marketInsight: '', competitiveInsight: '', keyFindings: [] as string[] };
+
+      if (summaryConfig.apiKey) {
+        // Layer 1: 单条摘要
+        const socialItems = socialData.sampleNotes
+          .slice(0, 8)
+          .map(note => ({
+            content: `${note.title || ''}\n${note.desc || ''}`.trim(),
+            type: 'social_post' as const
+          }))
+          .filter(item => item.content.length > 20);
+
+        const competitorItems = competitorData
+          .slice(0, 5)
+          .map(comp => ({
+            content: comp.cleanedContent || comp.snippet || '',
+            type: 'competitor_page' as const
+          }))
+          .filter(item => item.content.length > 50);
+
+        if (socialItems.length > 0 || competitorItems.length > 0) {
+          try {
+            const allItems = [...socialItems, ...competitorItems];
+            const summaries = await summarizeBatch(allItems, summaryConfig, 4);
+            
+            socialSummaries = summaries
+              .filter(s => s.type === 'social_post')
+              .map(s => s.content);
+            competitorSummaries = summaries
+              .filter(s => s.type === 'competitor_page')
+              .map(s => s.content);
+
+            console.log('[Summarizer] L1 done:', socialSummaries.length, 'social,', competitorSummaries.length, 'competitor');
+          } catch (e) {
+            console.error('[Summarizer] L1 error:', e);
+          }
+        }
+
+        // Layer 2: 聚合摘要
+        await sendProgress('SUMMARIZE_L2');
+        if (socialSummaries.length > 0 || competitorSummaries.length > 0) {
+          try {
+            aggregatedInsights = await aggregateSummaries(socialSummaries, competitorSummaries, summaryConfig);
+            console.log('[Summarizer] L2 done');
+          } catch (e) {
+            console.error('[Summarizer] L2 error:', e);
+          }
+        }
+      }
+
+      // ============ AI Analysis ============
       await sendProgress('ANALYZE');
 
-      const aiResult = await analyzeWithAISimple(idea, tags || [], socialData, competitorData);
+      const aiResult = await analyzeWithAIEnhanced(
+        idea, 
+        tags || [], 
+        socialData, 
+        competitorData,
+        aggregatedInsights,
+        extractedCompetitors
+      );
 
       await sendProgress('SAVE');
 
@@ -250,8 +410,13 @@ Deno.serve(async (req) => {
         ai_analysis: aiResult.aiAnalysis || {},
         dimensions: aiResult.dimensions || [],
         persona: aiResult.persona || null,
-        data_summary: {},
-        data_quality_score: null,
+        data_summary: {
+          socialSummaries,
+          competitorSummaries,
+          aggregatedInsights,
+          extractedCompetitors: extractedCompetitors.map(c => c.name)
+        },
+        data_quality_score: calculateDataQualityScore(socialData, competitorData),
         keywords_used: { coreKeywords: xhsKeywords },
       };
 
@@ -264,8 +429,8 @@ Deno.serve(async (req) => {
 
       if (!saved) throw new Error("Failed to save report");
 
-      // ============ Consume TikHub Quota (if using system token) ============
-      if (!userProvidedTikhub) {
+      // ============ Consume TikHub Quota ============
+      if (!userProvidedTikhub && !usedCache) {
         const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
           p_user_id: user.id
         });
@@ -306,10 +471,9 @@ Deno.serve(async (req) => {
   return new Response(stream.readable, { headers: corsHeaders });
 });
 
-// ============ Simplified Helper Functions ============
+// ============ Helper Functions ============
 
 async function expandKeywordsSimple(idea: string, tags: string[], config: RequestConfig): Promise<string[]> {
-  // Simple keyword extraction - just use first tag or idea prefix
   const keywords: string[] = [];
   if (tags && tags.length > 0) {
     keywords.push(tags[0]);
@@ -344,7 +508,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
     const totalLikes = notes.reduce((sum: number, n: any) => sum + n.liked_count, 0);
 
     return {
-      totalNotes: notes.length * 100, // Estimate
+      totalNotes: notes.length * 100,
       avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
       avgComments: 0,
       sampleNotes: notes,
@@ -393,11 +557,10 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
   }
 }
 
-async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]> {
-  const results: any[] = [];
-  const searchPromises: Promise<any[]>[] = [];
+async function searchCompetitorsSimple(query: string, keys: any): Promise<SearchResult[]> {
+  const results: SearchResult[] = [];
+  const searchPromises: Promise<SearchResult[]>[] = [];
   
-  // Tavily search
   if (keys.tavily) {
     searchPromises.push((async () => {
       try {
@@ -427,7 +590,6 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]>
     })());
   }
 
-  // Bocha search
   if (keys.bocha) {
     searchPromises.push((async () => {
       try {
@@ -462,7 +624,6 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]>
     })());
   }
 
-  // You.com search
   if (keys.you) {
     searchPromises.push((async () => {
       try {
@@ -485,7 +646,6 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]>
     })());
   }
 
-  // Run all searches in parallel
   const allResults = await Promise.all(searchPromises);
   for (const r of allResults) {
     results.push(...r);
@@ -494,8 +654,15 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<any[]>
   return results;
 }
 
-async function analyzeWithAISimple(idea: string, tags: string[], socialData: any, competitors: any[]) {
-  // Always use system LLM configuration
+// 增强版 AI 分析 - 使用聚合摘要
+async function analyzeWithAIEnhanced(
+  idea: string, 
+  tags: string[], 
+  socialData: any, 
+  competitors: SearchResult[],
+  aggregatedInsights: { marketInsight: string; competitiveInsight: string; keyFindings: string[] },
+  extractedCompetitors: any[]
+) {
   const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
   const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
   const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
@@ -503,23 +670,60 @@ async function analyzeWithAISimple(idea: string, tags: string[], socialData: any
   let cleanBaseUrl = baseUrl.replace(/\/$/, "").replace(/\/chat\/completions$/, "");
   const endpoint = `${cleanBaseUrl}/chat/completions`;
 
-  const prompt = `你是一名VC合伙人。分析以下创业想法，评分0-100，输出JSON。
+  // 构建更丰富的上下文
+  const competitorNames = extractedCompetitors.map(c => c.name).join(', ') || '未识别';
+  const marketInsight = aggregatedInsights.marketInsight || '待分析';
+  const competitiveInsight = aggregatedInsights.competitiveInsight || '待分析';
 
-**想法**: "${idea}"
-**数据**: ${socialData.totalNotes}条内容, ${socialData.avgLikes}平均赞
+  const prompt = `你是一名资深VC合伙人。基于以下经过整理的市场数据，评估创业想法的可行性。
 
-仅输出JSON:
+**创业想法**: "${idea}"
+**标签**: ${tags.join(', ') || '无'}
+
+**市场数据摘要**:
+- 社媒内容数量: ${socialData.totalNotes}条
+- 平均互动量: ${socialData.avgLikes}赞
+
+**市场需求洞察**:
+${marketInsight}
+
+**竞争格局洞察**:
+${competitiveInsight}
+
+**识别的竞品**: ${competitorNames}
+
+**关键发现**:
+${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '暂无'}
+
+请输出JSON格式的评估报告:
 {
-  "overallScore": 50,
-  "overallVerdict": "一句话评价",
-  "marketAnalysis": {"targetAudience": "", "marketSize": "", "competitionLevel": ""},
+  "overallScore": 0-100,
+  "overallVerdict": "一句话总结",
+  "marketAnalysis": {
+    "targetAudience": "目标用户群",
+    "marketSize": "市场规模评估",
+    "competitionLevel": "竞争程度"
+  },
   "sentimentAnalysis": {"positive": 33, "neutral": 34, "negative": 33},
-  "aiAnalysis": {"strengths": [], "weaknesses": [], "risks": []},
-  "persona": {"name": "", "role": "", "painPoints": [], "goals": []},
+  "aiAnalysis": {
+    "feasibilityScore": 0-100,
+    "strengths": ["优势1", "优势2"],
+    "weaknesses": ["劣势1", "劣势2"],
+    "risks": ["风险1", "风险2"],
+    "suggestions": ["建议1", "建议2"]
+  },
+  "persona": {
+    "name": "典型用户名",
+    "role": "职业/角色",
+    "age": "年龄段",
+    "painPoints": ["痛点1", "痛点2"],
+    "goals": ["目标1", "目标2"]
+  },
   "dimensions": [
-    {"dimension": "需求痛感", "score": 50, "reason": ""},
-    {"dimension": "护城河", "score": 50, "reason": ""},
-    {"dimension": "PMF潜力", "score": 50, "reason": ""}
+    {"dimension": "需求痛感", "score": 50, "reason": "理由"},
+    {"dimension": "市场规模", "score": 50, "reason": "理由"},
+    {"dimension": "竞争壁垒", "score": 50, "reason": "理由"},
+    {"dimension": "PMF潜力", "score": 50, "reason": "理由"}
   ]
 }`;
 
@@ -542,7 +746,6 @@ async function analyzeWithAISimple(idea: string, tags: string[], socialData: any
     const data = await res.json();
     const content = data.choices[0]?.message?.content || "";
     
-    // Parse JSON
     const cleaned = content.replace(/```json/gi, "```").replace(/```/g, "").trim();
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
@@ -550,7 +753,7 @@ async function analyzeWithAISimple(idea: string, tags: string[], socialData: any
     
     return JSON.parse(cleaned.slice(first, last + 1));
   } catch (e) {
-    console.error("[AI Simple] Error:", e);
+    console.error("[AI Enhanced] Error:", e);
     return {
       overallScore: 50,
       overallVerdict: "AI分析服务暂时不可用",
@@ -560,9 +763,38 @@ async function analyzeWithAISimple(idea: string, tags: string[], socialData: any
       persona: null,
       dimensions: [
         { dimension: "需求痛感", score: 50, reason: "待分析" },
-        { dimension: "护城河", score: 50, reason: "待分析" },
+        { dimension: "市场规模", score: 50, reason: "待分析" },
+        { dimension: "竞争壁垒", score: 50, reason: "待分析" },
         { dimension: "PMF潜力", score: 50, reason: "待分析" }
       ]
     };
   }
+}
+
+// 计算数据质量分数
+function calculateDataQualityScore(socialData: any, competitorData: any[]): number {
+  let score = 0;
+  
+  // 社媒数据质量 (最高 50 分)
+  if (socialData.sampleNotes.length >= 5) score += 20;
+  else if (socialData.sampleNotes.length >= 2) score += 10;
+  
+  if (socialData.totalNotes >= 100) score += 15;
+  else if (socialData.totalNotes >= 20) score += 8;
+  
+  if (socialData.avgLikes >= 100) score += 15;
+  else if (socialData.avgLikes >= 20) score += 8;
+  
+  // 竞品数据质量 (最高 50 分)
+  const cleanedCompetitors = competitorData.filter((c: any) => c.hasCleanedContent);
+  if (cleanedCompetitors.length >= 3) score += 25;
+  else if (cleanedCompetitors.length >= 1) score += 12;
+  
+  if (competitorData.length >= 5) score += 15;
+  else if (competitorData.length >= 2) score += 8;
+  
+  const deepSearchResults = competitorData.filter((c: any) => c.source?.includes('Deep'));
+  if (deepSearchResults.length >= 2) score += 10;
+  
+  return Math.min(100, score);
 }

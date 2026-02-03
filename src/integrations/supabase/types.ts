@@ -435,6 +435,10 @@ export type Database = {
         Row: {
           avg_engagement: number | null
           avg_validation_score: number | null
+          cache_expires_at: string | null
+          cache_hit_count: number | null
+          cached_competitor_data: Json | null
+          cached_social_data: Json | null
           category: string | null
           click_count: number | null
           confidence_level: string | null
@@ -464,6 +468,10 @@ export type Database = {
         Insert: {
           avg_engagement?: number | null
           avg_validation_score?: number | null
+          cache_expires_at?: string | null
+          cache_hit_count?: number | null
+          cached_competitor_data?: Json | null
+          cached_social_data?: Json | null
           category?: string | null
           click_count?: number | null
           confidence_level?: string | null
@@ -493,6 +501,10 @@ export type Database = {
         Update: {
           avg_engagement?: number | null
           avg_validation_score?: number | null
+          cache_expires_at?: string | null
+          cache_hit_count?: number | null
+          cached_competitor_data?: Json | null
+          cached_social_data?: Json | null
           category?: string | null
           click_count?: number | null
           confidence_level?: string | null
@@ -750,6 +762,16 @@ export type Database = {
           used: number
         }[]
       }
+      get_cached_topic_data: {
+        Args: { p_keyword: string }
+        Returns: {
+          cached_competitor_data: Json
+          cached_social_data: Json
+          is_valid: boolean
+          topic_id: string
+        }[]
+      }
+      increment_cache_hit: { Args: { p_topic_id: string }; Returns: undefined }
       is_validation_owner: { Args: { validation_id: string }; Returns: boolean }
       use_tikhub_quota: { Args: { p_user_id: string }; Returns: undefined }
     }
