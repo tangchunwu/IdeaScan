@@ -770,7 +770,7 @@ const Report = () => {
                 sampleSize={xiaohongshuData.totalNotes || 0}
                 platforms={[
                   { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
-                  ...(report?.douyin_data ? [{ name: "抖音", count: (report.douyin_data as any)?.totalVideos || 0 }] : []),
+                  ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
                 ]}
                 dataFreshness="fresh"
                 className="h-full"
