@@ -87,12 +87,33 @@ export async function publishMVP(id: string, isPublished: boolean): Promise<void
 }
 
 export async function collectLead(landingPageId: string, email: string): Promise<void> {
+	// Client-side email validation
+	const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+	if (!email || typeof email !== 'string' || email.length > 254 || !emailRegex.test(email)) {
+		throw new Error('Invalid email address');
+	}
+
+	// Check rate limit from localStorage (client-side protection)
+	const rateLimitKey = `lead_submit_${landingPageId}`;
+	const lastSubmits = JSON.parse(localStorage.getItem(rateLimitKey) || '[]') as number[];
+	const now = Date.now();
+	const oneHourAgo = now - (60 * 60 * 1000);
+	const recentSubmits = lastSubmits.filter(t => t > oneHourAgo);
+	
+	if (recentSubmits.length >= 3) {
+		throw new Error('Too many submissions. Please try again later.');
+	}
+
 	const { error } = await fromTable('mvp_leads')
 		.insert({
 			landing_page_id: landingPageId,
-			email: email,
-			metadata: { source: 'web_form', user_agent: navigator.userAgent }
+			email: email.toLowerCase().trim(),
+			metadata: { source: 'web_form', user_agent: navigator.userAgent.slice(0, 200) }
 		});
 
 	if (error) throw error;
+
+	// Update client-side rate limit
+	recentSubmits.push(now);
+	localStorage.setItem(rateLimitKey, JSON.stringify(recentSubmits));
 }

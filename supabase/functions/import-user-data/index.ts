@@ -7,19 +7,150 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Schema for validating import data structure
+// Helper to sanitize text content - removes potential XSS vectors
+function sanitizeText(text: unknown, maxLength = 10000): string {
+  if (typeof text !== 'string') return '';
+  // Remove script tags, event handlers, and limit length
+  return text
+    .slice(0, maxLength)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+// Strict UUID validation
+const uuidSchema = z.string().uuid();
+
+// Validation schema
+const ValidationSchema = z.object({
+  id: z.string().uuid(),
+  idea: z.string().min(1).max(2000),
+  tags: z.array(z.string().max(100)).max(20).optional(),
+  status: z.enum(["pending", "processing", "completed", "failed"]).optional(),
+  overall_score: z.number().int().min(0).max(100).nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+// Validation report schema (JSONB fields have size limits)
+const ValidationReportSchema = z.object({
+  id: z.string().uuid(),
+  validation_id: z.string().uuid(),
+  market_analysis: z.record(z.any()).optional(),
+  xiaohongshu_data: z.record(z.any()).optional(),
+  competitor_data: z.array(z.any()).max(50).optional(),
+  sentiment_analysis: z.record(z.any()).optional(),
+  ai_analysis: z.record(z.any()).optional(),
+  persona: z.record(z.any()).optional(),
+  dimensions: z.array(z.any()).max(20).optional(),
+  data_summary: z.record(z.any()).optional(),
+  data_quality_score: z.number().int().min(0).max(100).nullable().optional(),
+  keywords_used: z.array(z.string().max(100)).max(50).optional(),
+  created_at: z.string().optional(),
+});
+
+// Comment schema with content sanitization
+const CommentSchema = z.object({
+  id: z.string().uuid(),
+  validation_id: z.string().uuid(),
+  content: z.string().min(1).max(5000).transform((text) => sanitizeText(text)),
+  user_id: z.string().uuid().nullable().optional(),
+  is_ai: z.boolean().optional(),
+  persona_id: z.string().uuid().nullable().optional(),
+  parent_id: z.string().uuid().nullable().optional(),
+  likes_count: z.number().int().min(0).max(100000).optional(),
+  created_at: z.string().optional(),
+});
+
+// Trending topic schema
+const TrendingTopicSchema = z.object({
+  id: z.string().uuid(),
+  keyword: z.string().min(1).max(200),
+  category: z.string().max(100).nullable().optional(),
+  heat_score: z.number().int().min(0).max(10000).optional(),
+  growth_rate: z.number().min(-100).max(1000).nullable().optional(),
+  sample_count: z.number().int().min(0).max(100000).optional(),
+  avg_engagement: z.number().int().min(0).max(10000000).nullable().optional(),
+  sentiment_positive: z.number().int().min(0).max(100).nullable().optional(),
+  sentiment_negative: z.number().int().min(0).max(100).nullable().optional(),
+  sentiment_neutral: z.number().int().min(0).max(100).nullable().optional(),
+  top_pain_points: z.array(z.string().max(500)).max(20).optional(),
+  related_keywords: z.array(z.string().max(100)).max(50).optional(),
+  sources: z.record(z.any()).nullable().optional(),
+  validation_count: z.number().int().min(0).optional(),
+  avg_validation_score: z.number().min(0).max(100).nullable().optional(),
+  quality_score: z.number().int().min(0).max(100).optional(),
+  confidence_level: z.string().max(50).nullable().optional(),
+  source_type: z.string().max(50).optional(),
+  discovered_at: z.string().optional(),
+});
+
+// User topic interest schema
+const UserTopicInterestSchema = z.object({
+  id: z.string().uuid(),
+  topic_id: z.string().uuid(),
+  interest_type: z.string().min(1).max(50),
+  created_at: z.string().optional(),
+});
+
+// Scan job schema
+const ScanJobSchema = z.object({
+  id: z.string().uuid(),
+  keywords: z.array(z.string().max(100)).min(1).max(50),
+  platforms: z.array(z.string().max(50)).max(10).optional(),
+  frequency: z.enum(["hourly", "daily", "weekly"]).optional(),
+  status: z.string().max(50).optional(),
+  created_at: z.string().optional(),
+});
+
+// MVP landing page schema
+const MVPLandingPageSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1).max(200),
+  content: z.record(z.any()),
+  theme: z.string().max(50).optional(),
+  is_published: z.boolean().optional(),
+  view_count: z.number().int().min(0).optional(),
+  validation_id: z.string().uuid().nullable().optional(),
+  created_at: z.string().optional(),
+});
+
+// MVP lead schema
+const MVPLeadSchema = z.object({
+  id: z.string().uuid(),
+  landing_page_id: z.string().uuid(),
+  email: z.string().email().max(254),
+  metadata: z.record(z.any()).optional(),
+  created_at: z.string().optional(),
+});
+
+// Define table data schemas
+const TableDataSchema = z.object({
+  count: z.number().int().min(0).max(10000),
+  data: z.array(z.record(z.any())).max(10000),
+});
+
+// Schema for validating import data structure with strict validation
 const ImportDataSchema = z.object({
-  exportedAt: z.string(),
-  userId: z.string(),
-  tables: z.record(z.object({
-    count: z.number(),
-    data: z.array(z.record(z.any())),
-  })),
+  exportedAt: z.string().max(100),
+  userId: z.string().uuid(),
+  tables: z.object({
+    validations: TableDataSchema.optional(),
+    validation_reports: TableDataSchema.optional(),
+    comments: TableDataSchema.optional(),
+    trending_topics: TableDataSchema.optional(),
+    user_topic_interests: TableDataSchema.optional(),
+    scan_jobs: TableDataSchema.optional(),
+    mvp_landing_pages: TableDataSchema.optional(),
+    mvp_leads: TableDataSchema.optional(),
+  }),
   summary: z.object({
-    totalRecords: z.number(),
-    tablesExported: z.number(),
+    totalRecords: z.number().int().min(0).max(100000),
+    tablesExported: z.number().int().min(0).max(20),
   }),
 });
+
+// Size limit for entire import payload (5MB)
+const MAX_IMPORT_SIZE_BYTES = 5 * 1024 * 1024;
 
 interface ImportResult {
   success: boolean;
@@ -125,14 +256,22 @@ serve(async (req) => {
 
       for (const validation of tables.validations.data) {
         try {
-          const oldId = validation.id;
+          // Validate each validation record with strict schema
+          const validatedData = ValidationSchema.safeParse(validation);
+          if (!validatedData.success) {
+            result.tables.validations.errors.push(`Validation: Invalid data format`);
+            result.tables.validations.skipped++;
+            continue;
+          }
+          
+          const oldId = validatedData.data.id;
           const newValidation = {
-            idea: validation.idea,
-            tags: validation.tags || [],
-            status: validation.status || "completed",
-            overall_score: validation.overall_score,
+            idea: sanitizeText(validatedData.data.idea, 2000),
+            tags: (validatedData.data.tags || []).map((t: string) => sanitizeText(t, 100)),
+            status: validatedData.data.status || "completed",
+            overall_score: validatedData.data.overall_score,
             user_id: user.id, // Replace with new user ID
-            created_at: validation.created_at,
+            created_at: validatedData.data.created_at,
             updated_at: new Date().toISOString(),
           };
 
