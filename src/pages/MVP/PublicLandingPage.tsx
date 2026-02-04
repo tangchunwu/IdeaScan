@@ -27,22 +27,30 @@ export default function PublicLandingPage() {
                 retry: false
         });
 
-        const submitMutation = useMutation({
-                mutationFn: () => collectLead(page!.id, email),
-                onSuccess: () => {
-                        setIsSubmitted(true);
-                        toast({ title: "已加入等待名单！🚀" });
-                },
-                onError: () => {
-                        toast({ title: "提交失败，请重试", variant: "destructive" });
-                }
-        });
+	const submitMutation = useMutation({
+		mutationFn: () => collectLead(page!.id, email),
+		onSuccess: () => {
+			setIsSubmitted(true);
+			toast({ title: "已加入等待名单！🚀" });
+		},
+		onError: (error: Error) => {
+			const message = error.message?.includes('Too many') 
+				? "提交过于频繁，请稍后再试" 
+				: error.message?.includes('Invalid email')
+				? "请输入有效的邮箱地址"
+				: "提交失败，请重试";
+			toast({ title: message, variant: "destructive" });
+		}
+	});
 
-        const handleSubmit = (e: React.FormEvent) => {
-                e.preventDefault();
-                if (!email) return;
-                submitMutation.mutate();
-        };
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!email || !email.includes('@')) {
+			toast({ title: "请输入有效的邮箱地址", variant: "destructive" });
+			return;
+		}
+		submitMutation.mutate();
+	};
 
         if (isLoading) return (
                 <div className="min-h-screen flex items-center justify-center bg-white">
