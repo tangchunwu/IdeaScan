@@ -63,13 +63,27 @@ serve(async (req) => {
       throw new ValidationError("Validation ID is required");
     }
 
-    // Get validation record
-    const { data: validation, error: validationError } = await supabase
+    // Check if this is a sample report (publicly viewable)
+    const { data: sampleReport } = await supabase
+      .from("sample_reports")
+      .select("id")
+      .eq("validation_id", validationId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const isSample = !!sampleReport;
+
+    // Get validation record - skip user_id check for sample reports
+    const query = supabase
       .from("validations")
       .select("*")
-      .eq("id", validationId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("id", validationId);
+
+    if (!isSample) {
+      query.eq("user_id", user.id);
+    }
+
+    const { data: validation, error: validationError } = await query.maybeSingle();
 
     if (validationError) {
       console.error("Error fetching validation:", validationError);
