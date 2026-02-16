@@ -167,7 +167,7 @@ serve(async (req) => {
         .single();
 
       if (createExpError) throw createExpError;
-      experiment = { data: createdExp, error: null };
+      experiment = { data: createdExp, error: null, count: null, status: 200, statusText: "OK" } as typeof experiment;
     }
 
     const exp = experiment.data!;
