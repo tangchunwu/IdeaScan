@@ -645,6 +645,7 @@ async function crawlFromSelfSignals(
     desc: String(s.content || "").slice(0, 300),
     liked_count: Number(s.likes_count || 0),
     comments_count: Number(s.comments_count || 0),
+    scanned_at: s.scanned_at,
     _platform: s.source,
   }));
 
@@ -658,6 +659,7 @@ async function crawlFromSelfSignals(
       like_count: 0,
       user_nickname: "market_signal",
       ip_location: "",
+      created_at: rows[i]?.scanned_at || null,
       _platform: rows[i]?.source || "unknown",
     }));
 
@@ -699,6 +701,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
       liked_count: item.note?.liked_count || 0,
       comments_count: item.note?.comments_count || 0,
       collected_count: item.note?.collected_count || 0,
+      publish_time: item.note?.time || item.note?.publish_time || item.note?.last_update_time || null,
       _platform: 'xiaohongshu'
     }));
 
@@ -720,6 +723,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
           like_count: c.like_count || 0,
           user_nickname: c.user?.nickname || '',
           ip_location: c.ip_location || '',
+          create_time: c.create_time || c.time || null,
           _platform: 'xiaohongshu',
         })));
       } catch (_commentError) {
@@ -768,6 +772,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
       desc: item.desc || '',
       digg_count: item.statistics?.digg_count || 0,
       comment_count: item.statistics?.comment_count || 0,
+      create_time: item.create_time || null,
       _platform: 'douyin'
     }));
 
@@ -789,6 +794,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
           like_count: c.digg_count || 0,
           user_nickname: c.user?.nickname || '',
           ip_location: c.ip_label || '',
+          create_time: c.create_time || null,
           _platform: 'douyin',
         })));
       } catch (_commentError) {

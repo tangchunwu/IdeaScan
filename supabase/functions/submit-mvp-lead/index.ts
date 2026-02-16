@@ -171,23 +171,25 @@ serve(async (req) => {
     }
 
     const exp = experiment.data!;
-    const eventTypes = ["waitlist_submit"] as string[];
-    if (exp.cta_type === "paid_intent") {
-      eventTypes.push("paid_intent");
-    }
+    if (!existingLead) {
+      const eventTypes = ["waitlist_submit"] as string[];
+      if (exp.cta_type === "paid_intent") {
+        eventTypes.push("paid_intent");
+      }
 
-    for (const eventType of eventTypes) {
-      await supabase.from("experiment_events").insert({
-        experiment_id: exp.id,
-        event_type: eventType,
-        metadata: {
-          source: "lead_submit",
-          landing_page_id: landingPageId,
-          deduped: !!existingLead,
-        },
-        anon_id: anonId || `ip:${clientIp}`,
-        session_id: sessionId,
-      });
+      for (const eventType of eventTypes) {
+        await supabase.from("experiment_events").insert({
+          experiment_id: exp.id,
+          event_type: eventType,
+          metadata: {
+            source: "lead_submit",
+            landing_page_id: landingPageId,
+            deduped: false,
+          },
+          anon_id: anonId || `ip:${clientIp}`,
+          session_id: sessionId,
+        });
+      }
     }
 
     const counters = {
@@ -261,4 +263,3 @@ serve(async (req) => {
     });
   }
 });
-

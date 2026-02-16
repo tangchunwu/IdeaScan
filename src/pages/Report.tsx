@@ -559,6 +559,15 @@ const Report = () => {
     sampleUv: Number(proofResultRaw.sample_uv || 0),
     verdict: String(proofResultRaw.verdict || "pending_experiment"),
   };
+  const costBreakdownRaw = (report?.cost_breakdown ?? {}) as Record<string, unknown>;
+  const costBreakdown = {
+    llmCalls: Number(costBreakdownRaw.llm_calls || 0),
+    promptTokens: Number(costBreakdownRaw.prompt_tokens || 0),
+    completionTokens: Number(costBreakdownRaw.completion_tokens || 0),
+    externalApiCalls: Number(costBreakdownRaw.external_api_calls || 0),
+    estCost: Number(costBreakdownRaw.est_cost || 0),
+    latencyMs: Number(costBreakdownRaw.latency_ms || 0),
+  };
 
   // Default dimension reasons for better UX
   const defaultDimensionReasons: Record<string, string> = {
@@ -939,7 +948,7 @@ const Report = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
                     <div className="text-sm font-medium">{aiAnalysis.overallVerdict || "待分析"}</div>
@@ -948,6 +957,15 @@ const Report = () => {
                     <div className="text-xs text-muted-foreground mb-1">商业可用性结论（付费意图）</div>
                     <div className="text-sm font-medium">
                       {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}% · UV {proofResult.sampleUv}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                    <div className="text-xs text-muted-foreground mb-1">本次分析成本</div>
+                    <div className="text-sm font-medium">
+                      ${costBreakdown.estCost.toFixed(4)} · LLM {costBreakdown.llmCalls} 次 · API {costBreakdown.externalApiCalls} 次
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Prompt {costBreakdown.promptTokens} · Completion {costBreakdown.completionTokens} · {Math.round(costBreakdown.latencyMs / 1000)}s
                     </div>
                   </div>
                 </div>

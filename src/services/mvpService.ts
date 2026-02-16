@@ -53,6 +53,9 @@ function getOrCreateAnonId(): string {
 	return next;
 }
 
+const EVENT_THROTTLE_MS = 5000;
+const eventLastSentAt = new Map<string, number>();
+
 export async function generateMVP(validationId: string): Promise<MVPLandingPage> {
 	const { data, error } = await supabase.functions.invoke('generate-mvp', {
 		body: { validationId },
@@ -127,6 +130,14 @@ export async function trackExperimentEvent(
 	metadata?: Record<string, unknown>
 ): Promise<void> {
 	try {
+		const now = Date.now();
+		const eventKey = `${landingPageId}:${eventType}`;
+		const lastSent = eventLastSentAt.get(eventKey) || 0;
+		if (now - lastSent < EVENT_THROTTLE_MS) {
+			return;
+		}
+		eventLastSentAt.set(eventKey, now);
+
 		await supabase.functions.invoke('track-experiment-event', {
 			body: {
 				landingPageId,

@@ -309,6 +309,7 @@ async function crawlSocialMediaData(
           comments_count: v.comment_count,
           shared_count: v.share_count,
           user_nickname: v.author_nickname,
+          create_time: v.create_time || v.publish_time || null,
           _platform: 'douyin'
         })));
         mergedResult.sampleComments.push(...(douyinLegacy.sampleComments || []).map((c: any) => ({
@@ -317,6 +318,7 @@ async function crawlSocialMediaData(
           comment_id: c.cid,
           like_count: c.digg_count,
           ip_location: c.ip_label,
+          create_time: c.create_time || c.time || null,
           _platform: 'douyin'
         })));
 
@@ -343,10 +345,12 @@ async function crawlSocialMediaData(
         mergedResult.sampleNotes.push(...(xhsLegacy.sampleNotes || []).map((n: any) => ({
           ...n,
           title: '[小红书] ' + (n.title || ''),
+          publish_time: n.publish_time || n.time || n.last_update_time || null,
           _platform: 'xiaohongshu'
         })));
         mergedResult.sampleComments.push(...(xhsLegacy.sampleComments || []).map((c: any) => ({
           ...c,
+          create_time: c.create_time || c.time || null,
           _platform: 'xiaohongshu'
         })));
 
@@ -428,6 +432,7 @@ async function crawlFromSelfSignals(
     liked_count: Number(s.likes_count || 0),
     comments_count: Number(s.comments_count || 0),
     collected_count: 0,
+    scanned_at: s.scanned_at,
     _platform: s.source,
   }));
   const sampleComments = rows
@@ -440,6 +445,7 @@ async function crawlFromSelfSignals(
       like_count: 0,
       user_nickname: "market_signal",
       ip_location: "",
+      created_at: rows[i]?.scanned_at || null,
       _platform: rows[i]?.source || "unknown",
     }));
 

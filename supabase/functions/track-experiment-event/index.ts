@@ -27,6 +27,12 @@ function toAnonId(input: unknown, req: Request): string {
   return `ip:${clientIp}|ua:${ua.slice(0, 80)}`;
 }
 
+function dedupeWindowHours(eventType: ExperimentEventType): number {
+  if (eventType === "view") return 24;
+  if (eventType === "cta_click" || eventType === "checkout_start") return 1;
+  return 12; // paid_intent / waitlist_submit
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -126,29 +132,29 @@ serve(async (req) => {
       });
     }
 
-    let shouldCount = true;
-    if (eventType === "view") {
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: dupView } = await supabase
+    const dedupeHours = dedupeWindowHours(eventType);
+    const since = new Date(Date.now() - dedupeHours * 60 * 60 * 1000).toISOString();
+    const { data: dupEvent } = await supabase
         .from("experiment_events")
         .select("id")
         .eq("experiment_id", experiment.id)
-        .eq("event_type", "view")
+        .eq("event_type", eventType)
         .eq("anon_id", anonId)
         .gte("created_at", since)
         .limit(1)
         .maybeSingle();
-      shouldCount = !dupView;
-    }
+    const shouldCount = !dupEvent;
 
-    await supabase.from("experiment_events").insert({
-      experiment_id: experiment.id,
-      event_type: eventType,
-      metadata,
-      session_id: sessionId,
-      anon_id: anonId,
-      user_id: userId,
-    });
+    if (shouldCount) {
+      await supabase.from("experiment_events").insert({
+        experiment_id: experiment.id,
+        event_type: eventType,
+        metadata,
+        session_id: sessionId,
+        anon_id: anonId,
+        user_id: userId,
+      });
+    }
 
     const counters = {
       uv_count: Number(experiment.uv_count || 0),
