@@ -33,6 +33,12 @@ import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_sha
 // 新增优化模块
 import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
 import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
+import { applyContextBudget } from "../_shared/context-budgeter.ts";
+import {
+  calculateEvidenceGrade,
+  estimateCostBreakdown,
+  createDefaultProofResult,
+} from "../_shared/report-metrics.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -378,6 +384,115 @@ async function crawlSocialMediaData(
     console.error("[Multi-Channel] Crawl failed:", e);
     return emptyResult;
   }
+}
+
+function shouldUseSelfCrawler(userId: string, keyword: string, ratio: number): boolean {
+  const safeRatio = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0.2;
+  const seed = `${userId}:${keyword}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const bucket = (hash % 1000) / 1000;
+  return bucket < safeRatio;
+}
+
+async function crawlFromSelfSignals(
+  supabase: any,
+  keyword: string,
+  enableXhs: boolean,
+  enableDy: boolean,
+  mode: "quick" | "deep"
+) {
+  const platforms: string[] = [];
+  if (enableXhs) platforms.push("xiaohongshu");
+  if (enableDy) platforms.push("douyin");
+  if (platforms.length === 0) {
+    return { totalNotes: 0, avgLikes: 0, avgComments: 0, avgCollects: 0, totalEngagement: 0, weeklyTrend: [], contentTypes: [], sampleNotes: [], sampleComments: [] };
+  }
+
+  const limit = mode === "deep" ? 50 : 24;
+  const { data: signals } = await supabase
+    .from("raw_market_signals")
+    .select("id, content, source, likes_count, comments_count, scanned_at")
+    .in("source", platforms)
+    .ilike("content", `%${keyword}%`)
+    .order("scanned_at", { ascending: false })
+    .limit(limit);
+
+  const rows = Array.isArray(signals) ? signals : [];
+  const sampleNotes = rows.slice(0, mode === "deep" ? 14 : 8).map((s: any) => ({
+    note_id: s.id,
+    title: `[${s.source}] ${String(s.content || "").slice(0, 40)}`,
+    desc: String(s.content || "").slice(0, 280),
+    liked_count: Number(s.likes_count || 0),
+    comments_count: Number(s.comments_count || 0),
+    collected_count: 0,
+    _platform: s.source,
+  }));
+  const sampleComments = rows
+    .map((s: any) => String(s.content || "").trim())
+    .filter((v: string) => v.length > 10)
+    .slice(0, mode === "deep" ? 30 : 16)
+    .map((content, i) => ({
+      comment_id: `self-${i}`,
+      content: content.slice(0, 180),
+      like_count: 0,
+      user_nickname: "market_signal",
+      ip_location: "",
+      _platform: rows[i]?.source || "unknown",
+    }));
+
+  const avgLikes = Math.round(sampleNotes.reduce((sum: number, n: any) => sum + (n.liked_count || 0), 0) / Math.max(1, sampleNotes.length));
+  const avgComments = Math.round(sampleNotes.reduce((sum: number, n: any) => sum + (n.comments_count || 0), 0) / Math.max(1, sampleNotes.length));
+  const totalEngagement = rows.reduce((sum: number, r: any) => sum + Number(r.likes_count || 0) + Number(r.comments_count || 0), 0);
+
+  return {
+    totalNotes: rows.length,
+    avgLikes,
+    avgComments,
+    avgCollects: 0,
+    totalEngagement,
+    weeklyTrend: [],
+    contentTypes: [],
+    sampleNotes,
+    sampleComments,
+  };
+}
+
+function createLightweightDataSummary(
+  aggregatedInsights: { marketInsight: string; competitiveInsight: string; keyFindings: string[] },
+  socialData: any,
+  competitorData: SearchResult[]
+): DataSummary {
+  const sampleSize = Number(socialData?.sampleNotes?.length || 0) +
+    Number(socialData?.sampleComments?.length || 0) +
+    Number(competitorData?.length || 0);
+  const qualityScore = Math.min(100, sampleSize * 4);
+
+  return {
+    painPointClusters: [],
+    competitorMatrix: [],
+    sentimentBreakdown: {
+      positive: 33,
+      negative: 33,
+      neutral: 34,
+      topPositiveThemes: [],
+      topNegativeThemes: [],
+    },
+    marketSignals: [],
+    dataQuality: {
+      score: qualityScore,
+      sampleSize,
+      diversityScore: 0,
+      recencyScore: 0,
+      recommendation: aggregatedInsights.marketInsight
+        ? "已使用预算化摘要，建议深度模式下补充结构化聚类。"
+        : "样本偏少，建议补充关键词和数据源后再验证。",
+    },
+    keyInsights: aggregatedInsights.keyFindings || [],
+    crossPlatformResonance: undefined,
+  };
 }
 
 async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
@@ -808,21 +923,7 @@ serve(async (req) => {
     let tikhubToken = config?.tikhubToken;
     
     if (!userProvidedTikhub) {
-      // Check quota before using system token
-      const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
-        p_user_id: user.id
-      });
-      
-      if (quotaError) {
-        console.error('Quota check error:', quotaError);
-      }
-      
-      const quota = quotaResult?.[0];
-      if (!quota?.can_use) {
-        throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
-      }
-      
-      // Use system TikHub token
+      // Delay quota enforcement until we actually need third-party crawling.
       tikhubToken = Deno.env.get("TIKHUB_TOKEN");
     }
 
@@ -844,6 +945,8 @@ serve(async (req) => {
     }
 
     console.log("Created validation:", validation.id);
+    const startedAt = Date.now();
+    let externalApiCalls = 0;
 
     // 1.5 Extract keywords with multi-dimensional expansion (uses system LLM)
     console.log("Extracting keywords...");
@@ -855,15 +958,52 @@ serve(async (req) => {
     const mode = config?.mode || 'quick';
     const enableXiaohongshu = config?.enableXiaohongshu ?? true;
     const enableDouyin = config?.enableDouyin ?? false;
+    let usedThirdPartyCrawler = false;
 
-    const xiaohongshuData = await crawlSocialMediaData(
-      xhsSearchTerm,
-      tags || [],
-      tikhubToken,
-      mode,
-      enableXiaohongshu,
-      enableDouyin
-    );
+    let xiaohongshuData = {
+      totalNotes: 0,
+      avgLikes: 0,
+      avgComments: 0,
+      avgCollects: 0,
+      totalEngagement: 0,
+      weeklyTrend: [],
+      contentTypes: [],
+      sampleNotes: [],
+      sampleComments: []
+    } as any;
+
+    const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
+    if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
+      xiaohongshuData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXiaohongshu, enableDouyin, mode);
+      externalApiCalls += 1;
+    }
+
+    if ((xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8) {
+      if (!userProvidedTikhub && tikhubToken) {
+        const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
+          p_user_id: user.id
+        });
+        if (quotaError) {
+          console.error('Quota check error:', quotaError);
+        }
+        const quota = quotaResult?.[0];
+        if (!quota?.can_use) {
+          throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
+        }
+      }
+
+      xiaohongshuData = await crawlSocialMediaData(
+        xhsSearchTerm,
+        tags || [],
+        tikhubToken,
+        mode,
+        enableXiaohongshu,
+        enableDouyin
+      );
+      usedThirdPartyCrawler = !!tikhubToken;
+      externalApiCalls += 1;
+    }
+
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
     console.log(`[Multi-Channel] Stats: ${xiaohongshuData?.totalNotes || 0} posts, ${xiaohongshuData?.sampleComments?.length || 0} comments`);
 
@@ -888,6 +1028,7 @@ serve(async (req) => {
 
       const results = await Promise.all(searchPromises);
       const rawCompetitors = results.flat();
+      externalApiCalls += Math.max(1, webQueries.length);
       console.log(`Found ${rawCompetitors.length} competitor results`);
 
       // Jina Reader 清洗
@@ -901,6 +1042,7 @@ serve(async (req) => {
         try {
           console.log('[Jina] Cleaning', cleanableUrls.length, 'pages...');
           cleanedPages = await cleanCompetitorPages(cleanableUrls, 3, 4000);
+          externalApiCalls += cleanableUrls.length;
           console.log('[Jina] Cleaned', cleanedPages.filter((p: any) => p.success).length, 'pages');
         } catch (e) {
           console.error('[Jina] Clean error:', e);
@@ -938,6 +1080,7 @@ serve(async (req) => {
         try {
           const deepResults = await searchCompetitorDetails(extractedCompetitors, searchKeys);
           competitorData = mergeSearchResults(competitorData, deepResults);
+          externalApiCalls += deepResults.length > 0 ? 1 : 0;
           console.log('[DeepSearch] Added', deepResults.length, 'results');
         } catch (e) {
           console.error('[DeepSearch] Error:', e);
@@ -946,6 +1089,11 @@ serve(async (req) => {
     } else {
       console.log("No search API keys configured, skipping competitor search.");
     }
+
+    const budgeted = applyContextBudget(xiaohongshuData, competitorData, mode);
+    xiaohongshuData = budgeted.socialData;
+    competitorData = budgeted.competitorData;
+    console.log(`[Budget] chars ${budgeted.stats.char_before} -> ${budgeted.stats.char_after}, notes ${budgeted.stats.notes_before}/${budgeted.stats.notes_after}, comments ${budgeted.stats.comments_before}/${budgeted.stats.comments_after}, competitors ${budgeted.stats.competitors_before}/${budgeted.stats.competitors_after}`);
 
     // 2.7 Enhanced Data Summarization with tiered approach
     console.log("Summarizing raw data with tiered approach...");
@@ -1007,13 +1155,18 @@ serve(async (req) => {
       }
     }
 
-    // Also do the original data summary for backwards compatibility
-    const dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-      apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
-      baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
-      model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
-      mode: config?.mode
-    });
+    // Only run full legacy summarization in deep mode to control LLM cost.
+    let dataSummary: DataSummary;
+    if (mode === "deep") {
+      dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
+        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
+        baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
+        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+        mode: config?.mode
+      });
+    } else {
+      dataSummary = createLightweightDataSummary(aggregatedInsights, xiaohongshuData, competitorData);
+    }
     console.log(`Data summary complete. Quality score: ${dataSummary.dataQuality.score}`);
 
     // 3. AI Analysis (now uses data summary for better context)
@@ -1096,6 +1249,31 @@ serve(async (req) => {
     }
 
     console.log("[Persona] Final data:", personaData ? "exists" : "null");
+    const dataQualityScore = dataSummary?.dataQuality?.score || 0;
+    const evidenceGrade = calculateEvidenceGrade({
+      dataQualityScore,
+      sampleCount: Number(xiaohongshuData?.totalNotes || 0),
+      commentCount: Array.isArray(xiaohongshuData?.sampleComments) ? xiaohongshuData.sampleComments.length : 0,
+      competitorCount: competitorData.length,
+    });
+    const llmCalls = (
+      (socialSummaries.length + competitorSummaries.length) +
+      (socialSummaries.length > 0 || competitorSummaries.length > 0 ? 1 : 0) + // L2
+      (extractedCompetitors.length > 0 ? 1 : 0) + // competitor extractor
+      (mode === "deep" ? 1 : 0) + // summarizeRawData
+      1 // final analysis
+    );
+    const promptTokens = Math.ceil((budgeted.stats.char_after + idea.length * 4) / 2);
+    const completionTokens = Math.max(700, Math.ceil((JSON.stringify(aiResult).length + JSON.stringify(dataSummary).length) / 2));
+    const costBreakdown = estimateCostBreakdown({
+      llmCalls,
+      promptTokens,
+      completionTokens,
+      externalApiCalls,
+      model: summaryConfig.model,
+      latencyMs: Date.now() - startedAt,
+    });
+    const proofResult = createDefaultProofResult();
 
     // 4. Save report with robust retry logic for connection issues
     const reportData = {
@@ -1124,13 +1302,16 @@ serve(async (req) => {
       persona: personaData,
       // Phase 1 new fields
       data_summary: dataSummary || {},
-      data_quality_score: dataSummary?.dataQuality?.score || null,
+      data_quality_score: dataQualityScore,
       keywords_used: expanded ? {
         coreKeywords: expanded.coreKeywords,
         userPhrases: expanded.userPhrases,
         competitorQueries: expanded.competitorQueries,
         trendKeywords: expanded.trendKeywords
       } : [],
+      evidence_grade: evidenceGrade,
+      cost_breakdown: costBreakdown,
+      proof_result: proofResult,
     };
 
     let reportSaved = false;
@@ -1177,7 +1358,7 @@ serve(async (req) => {
     }
 
     // 4.5. Consume TikHub Quota (if using system token)
-    if (!userProvidedTikhub) {
+    if (!userProvidedTikhub && usedThirdPartyCrawler) {
       const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
         p_user_id: user.id
       });

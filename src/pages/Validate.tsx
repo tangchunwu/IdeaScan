@@ -55,7 +55,7 @@ const Validate = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
-  const { freeRemaining, canValidate, hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
+  const { freeRemaining, freeTotal, canValidate, hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -579,7 +579,7 @@ const Validate = () => {
                   <div className="flex items-center justify-center gap-2 text-sm">
                     {freeRemaining > 0 ? (
                       <span className="text-muted-foreground">
-                        免费验证次数剩余: <span className="font-semibold text-primary">{freeRemaining}</span>/1
+                        免费验证次数剩余: <span className="font-semibold text-primary">{freeRemaining}</span>/{freeTotal}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-warning">

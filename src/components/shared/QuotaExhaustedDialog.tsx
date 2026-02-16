@@ -33,7 +33,7 @@ export function QuotaExhaustedDialog({
             <DialogTitle className="text-xl">免费次数已用完</DialogTitle>
           </div>
           <DialogDescription className="text-base leading-relaxed">
-            您的 1 次免费验证已使用完毕。要继续使用验证功能，请在设置中配置您自己的 TikHub API Token。
+            您本月 3 次免费验证已使用完毕。要继续使用验证功能，请在设置中配置您自己的 TikHub API Token。
           </DialogDescription>
         </DialogHeader>
 

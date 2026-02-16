@@ -156,6 +156,22 @@ export interface ValidationReport {
   data_summary?: DataSummary;
   data_quality_score?: number;
   keywords_used?: KeywordsUsed;
+  evidence_grade?: 'A' | 'B' | 'C' | 'D';
+  cost_breakdown?: {
+    llm_calls: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    external_api_calls: number;
+    est_cost: number;
+    model?: string;
+    latency_ms?: number;
+  };
+  proof_result?: {
+    paid_intent_rate: number;
+    waitlist_rate: number;
+    sample_uv: number;
+    verdict: string;
+  };
   created_at: string;
 }
 

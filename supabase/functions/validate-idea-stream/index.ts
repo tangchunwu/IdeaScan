@@ -19,6 +19,12 @@ import {
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
 import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
+import { applyContextBudget } from "../_shared/context-budgeter.ts";
+import {
+  calculateEvidenceGrade,
+  estimateCostBreakdown,
+  createDefaultProofResult,
+} from "../_shared/report-metrics.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -173,6 +179,10 @@ Deno.serve(async (req) => {
       await sendProgress('CACHE_CHECK');
       let usedCache = false;
       let cachedTopicId: string | null = null;
+      let cachedSocialData: any = null;
+      let cachedCompetitorData: SearchResult[] = [];
+      let externalApiCalls = 0;
+      const startedAt = Date.now();
 
       try {
         const { data: cacheResult } = await supabase.rpc('get_cached_topic_data', {
@@ -180,12 +190,26 @@ Deno.serve(async (req) => {
         });
 
         if (cacheResult?.[0]?.is_valid) {
-          console.log('[Cache] Hit for keyword:', xhsSearchTerm);
-          usedCache = true;
-          cachedTopicId = cacheResult[0].topic_id;
+          const hydratedSocial = normalizeCachedSocialData(cacheResult[0].cached_social_data);
+          const hydratedCompetitor = normalizeCachedCompetitorData(cacheResult[0].cached_competitor_data);
+          const hasCacheData = hydratedSocial.sampleNotes.length > 0 ||
+            hydratedSocial.sampleComments.length > 0 ||
+            hydratedCompetitor.length > 0;
+
+          if (hasCacheData) {
+            console.log('[Cache] Hit for keyword:', xhsSearchTerm);
+            usedCache = true;
+            cachedTopicId = cacheResult[0].topic_id;
+            cachedSocialData = hydratedSocial;
+            cachedCompetitorData = hydratedCompetitor;
+          } else {
+            console.log('[Cache] Valid but empty, fallback to fresh crawl');
+          }
           
           // 更新命中计数
-          await supabase.rpc('increment_cache_hit', { p_topic_id: cachedTopicId });
+          if (cachedTopicId) {
+            await supabase.rpc('increment_cache_hit', { p_topic_id: cachedTopicId });
+          }
         }
       } catch (e) {
         console.log('[Cache] Check failed, proceeding without cache:', e);
@@ -200,19 +224,7 @@ Deno.serve(async (req) => {
       let tikhubToken = config?.tikhubToken;
       
       if (!userProvidedTikhub && !usedCache) {
-        const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
-          p_user_id: user.id
-        });
-        
-        if (quotaError) {
-          console.error('Quota check error:', quotaError);
-        }
-        
-        const quota = quotaResult?.[0];
-        if (!quota?.can_use) {
-          throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
-        }
-        
+        // Delay quota enforcement until third-party crawler is actually needed.
         tikhubToken = Deno.env.get("TIKHUB_TOKEN");
       }
 
@@ -224,38 +236,78 @@ Deno.serve(async (req) => {
         sampleNotes: [] as any[],
         sampleComments: [] as any[]
       };
+      let usedThirdPartyCrawler = false;
+      let competitorData: SearchResult[] = [];
+      let extractedCompetitors: any[] = [];
+
+      if (usedCache) {
+        socialData = cachedSocialData;
+        competitorData = cachedCompetitorData;
+        console.log(
+          `[Cache] Hydrated social=${socialData.sampleNotes.length} notes/${socialData.sampleComments.length} comments, competitors=${competitorData.length}`
+        );
+      }
 
       // ============ Social Media Crawling ============
-      if (!usedCache && tikhubToken && (enableXhs || enableDy)) {
+      if (!usedCache && (enableXhs || enableDy)) {
         await sendProgress('CRAWL_START');
+        let usedSelfCrawler = false;
 
-        if (enableXhs) {
-          await sendProgress('CRAWL_XHS');
-          const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
-          socialData.totalNotes += xhsData.totalNotes;
-          socialData.avgLikes += xhsData.avgLikes;
-          socialData.avgComments += xhsData.avgComments;
-          socialData.sampleNotes.push(...xhsData.sampleNotes);
-          socialData.sampleComments.push(...xhsData.sampleComments);
+        const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
+        if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
+          const selfData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXhs, enableDy, mode);
+          externalApiCalls += 1;
+          if (selfData.sampleNotes.length >= 4 || selfData.sampleComments.length >= 8) {
+            socialData = selfData;
+            usedSelfCrawler = true;
+            console.log("[SourceRouter] Using self_crawler data");
+          } else {
+            console.log("[SourceRouter] Self crawler data sparse, fallback to third-party");
+          }
         }
 
-        if (enableDy) {
-          await sendProgress('CRAWL_DY');
-          const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
-          socialData.totalNotes += dyData.totalNotes;
-          socialData.avgLikes += dyData.avgLikes;
-          socialData.avgComments += dyData.avgComments;
-          socialData.sampleNotes.push(...dyData.sampleNotes);
-          socialData.sampleComments.push(...dyData.sampleComments);
+        if (!usedSelfCrawler && tikhubToken) {
+          if (!userProvidedTikhub) {
+            const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
+              p_user_id: user.id
+            });
+            if (quotaError) {
+              console.error('Quota check error:', quotaError);
+            }
+            const quota = quotaResult?.[0];
+            if (!quota?.can_use) {
+              throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
+            }
+          }
+
+          usedThirdPartyCrawler = true;
+          if (enableXhs) {
+            await sendProgress('CRAWL_XHS');
+            const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
+            socialData.totalNotes += xhsData.totalNotes;
+            socialData.avgLikes += xhsData.avgLikes;
+            socialData.avgComments += xhsData.avgComments;
+            socialData.sampleNotes.push(...xhsData.sampleNotes);
+            socialData.sampleComments.push(...xhsData.sampleComments);
+            externalApiCalls += xhsData.apiCalls || 0;
+          }
+
+          if (enableDy) {
+            await sendProgress('CRAWL_DY');
+            const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
+            socialData.totalNotes += dyData.totalNotes;
+            socialData.avgLikes += dyData.avgLikes;
+            socialData.avgComments += dyData.avgComments;
+            socialData.sampleNotes.push(...dyData.sampleNotes);
+            socialData.sampleComments.push(...dyData.sampleComments);
+            externalApiCalls += dyData.apiCalls || 0;
+          }
         }
       }
 
       await sendProgress('CRAWL_DONE');
 
       // ============ Competitor Search + Jina Clean + Deep Search ============
-      let competitorData: SearchResult[] = [];
-      let extractedCompetitors: any[] = [];
-      
       const searchKeys = {
         tavily: Deno.env.get("TAVILY_API_KEY"),
         bocha: Deno.env.get("BOCHA_API_KEY"),
@@ -264,10 +316,11 @@ Deno.serve(async (req) => {
       
       const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
-      if (hasAnySearchKey && !usedCache) {
+      if (hasAnySearchKey && (!usedCache || competitorData.length === 0)) {
         // 初次搜索
         await sendProgress('SEARCH');
         const rawCompetitors = await searchCompetitorsSimple(idea, searchKeys);
+        externalApiCalls += 1;
 
         // Jina Reader 清洗
         await sendProgress('JINA_CLEAN');
@@ -280,6 +333,7 @@ Deno.serve(async (req) => {
         if (cleanableUrls.length > 0) {
           try {
             cleanedPages = await cleanCompetitorPages(cleanableUrls, 3, 4000);
+            externalApiCalls += cleanableUrls.length;
           } catch (e) {
             console.error('[Jina] Batch clean error:', e);
           }
@@ -318,12 +372,18 @@ Deno.serve(async (req) => {
           try {
             const deepResults = await searchCompetitorDetails(extractedCompetitors, searchKeys);
             competitorData = mergeSearchResults(competitorData, deepResults);
+            externalApiCalls += deepResults.length > 0 ? 1 : 0;
             console.log('[DeepSearch] Added', deepResults.length, 'results');
           } catch (e) {
             console.error('[DeepSearch] Error:', e);
           }
         }
       }
+
+      const budgeted = applyContextBudget(socialData, competitorData, mode);
+      socialData = budgeted.socialData;
+      competitorData = budgeted.competitorData;
+      console.log(`[Budget] chars ${budgeted.stats.char_before} -> ${budgeted.stats.char_after}, notes ${budgeted.stats.notes_before}/${budgeted.stats.notes_after}, comments ${budgeted.stats.comments_before}/${budgeted.stats.comments_after}, competitors ${budgeted.stats.competitors_before}/${budgeted.stats.competitors_after}`);
 
       // ============ Tiered Summarization ============
       await sendProgress('SUMMARIZE_L1');
@@ -400,6 +460,31 @@ Deno.serve(async (req) => {
 
       await sendProgress('SAVE');
 
+      const dataQualityScore = calculateDataQualityScore(socialData, competitorData);
+      const evidenceGrade = calculateEvidenceGrade({
+        dataQualityScore,
+        sampleCount: Number(socialData.totalNotes || 0),
+        commentCount: Array.isArray(socialData.sampleComments) ? socialData.sampleComments.length : 0,
+        competitorCount: competitorData.length,
+      });
+      const llmCalls = (
+        (socialSummaries.length + competitorSummaries.length) +
+        (socialSummaries.length > 0 || competitorSummaries.length > 0 ? 1 : 0) + // L2
+        (extractedCompetitors.length > 0 ? 1 : 0) + // extractor
+        1 // final analysis
+      );
+      const promptTokens = Math.ceil((budgeted.stats.char_after + (idea?.length || 0) * 4) / 2);
+      const completionTokens = Math.max(500, Math.ceil((JSON.stringify(aiResult).length + JSON.stringify(aggregatedInsights).length) / 2));
+      const costBreakdown = estimateCostBreakdown({
+        llmCalls,
+        promptTokens,
+        completionTokens,
+        externalApiCalls,
+        model: summaryConfig.model,
+        latencyMs: Date.now() - startedAt,
+      });
+      const proofResult = createDefaultProofResult();
+
       // ============ Save Report ============
       const reportData = {
         validation_id: validation.id,
@@ -416,8 +501,11 @@ Deno.serve(async (req) => {
           aggregatedInsights,
           extractedCompetitors: extractedCompetitors.map(c => c.name)
         },
-        data_quality_score: calculateDataQualityScore(socialData, competitorData),
+        data_quality_score: dataQualityScore,
         keywords_used: { coreKeywords: xhsKeywords },
+        evidence_grade: evidenceGrade,
+        cost_breakdown: costBreakdown,
+        proof_result: proofResult,
       };
 
       let saved = false;
@@ -430,7 +518,7 @@ Deno.serve(async (req) => {
       if (!saved) throw new Error("Failed to save report");
 
       // ============ Consume TikHub Quota ============
-      if (!userProvidedTikhub && !usedCache) {
+      if (!userProvidedTikhub && !usedCache && usedThirdPartyCrawler) {
         const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
           p_user_id: user.id
         });
@@ -482,37 +570,173 @@ async function expandKeywordsSimple(idea: string, tags: string[], config: Reques
   return keywords;
 }
 
+function normalizeCachedSocialData(raw: any) {
+  if (!raw || typeof raw !== "object") {
+    return { totalNotes: 0, avgLikes: 0, avgComments: 0, avgCollects: 0, sampleNotes: [], sampleComments: [] };
+  }
+  return {
+    totalNotes: Number(raw.totalNotes || raw.total_posts || raw.totalPosts || 0),
+    avgLikes: Number(raw.avgLikes || raw.avg_likes || 0),
+    avgComments: Number(raw.avgComments || raw.avg_comments || 0),
+    avgCollects: Number(raw.avgCollects || raw.avg_collects || 0),
+    sampleNotes: Array.isArray(raw.sampleNotes) ? raw.sampleNotes : [],
+    sampleComments: Array.isArray(raw.sampleComments)
+      ? raw.sampleComments
+      : (Array.isArray(raw.comments) ? raw.comments : []),
+  };
+}
+
+function normalizeCachedCompetitorData(raw: any): SearchResult[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item === "object")
+    .map((item: any) => ({
+      title: String(item.title || ""),
+      url: String(item.url || ""),
+      snippet: String(item.snippet || item.cleanedContent || ""),
+      source: String(item.source || "cache"),
+      cleanedContent: item.cleanedContent,
+      hasCleanedContent: !!item.hasCleanedContent,
+    }));
+}
+
+function shouldUseSelfCrawler(userId: string, keyword: string, ratio: number): boolean {
+  const safeRatio = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0.2;
+  const seed = `${userId}:${keyword}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const bucket = (hash % 1000) / 1000;
+  return bucket < safeRatio;
+}
+
+async function crawlFromSelfSignals(
+  supabase: any,
+  keyword: string,
+  enableXhs: boolean,
+  enableDy: boolean,
+  mode: string
+) {
+  const platforms: string[] = [];
+  if (enableXhs) platforms.push("xiaohongshu");
+  if (enableDy) platforms.push("douyin");
+  if (platforms.length === 0) {
+    return { totalNotes: 0, avgLikes: 0, avgComments: 0, avgCollects: 0, sampleNotes: [], sampleComments: [] };
+  }
+
+  const limit = mode === "deep" ? 40 : 20;
+  const { data: signals } = await supabase
+    .from("raw_market_signals")
+    .select("id, content, source, likes_count, comments_count, scanned_at")
+    .in("source", platforms)
+    .ilike("content", `%${keyword}%`)
+    .order("scanned_at", { ascending: false })
+    .limit(limit);
+
+  const rows = Array.isArray(signals) ? signals : [];
+  if (rows.length === 0) {
+    return { totalNotes: 0, avgLikes: 0, avgComments: 0, avgCollects: 0, sampleNotes: [], sampleComments: [] };
+  }
+
+  const notes = rows.slice(0, mode === "deep" ? 12 : 8).map((s: any) => ({
+    note_id: s.id,
+    title: `[${s.source}] ${String(s.content || "").slice(0, 40)}`,
+    desc: String(s.content || "").slice(0, 300),
+    liked_count: Number(s.likes_count || 0),
+    comments_count: Number(s.comments_count || 0),
+    _platform: s.source,
+  }));
+
+  const comments = rows
+    .map((s: any) => String(s.content || "").trim())
+    .filter((v: string) => v.length > 12)
+    .slice(0, mode === "deep" ? 30 : 16)
+    .map((content, i) => ({
+      comment_id: `self-${i}`,
+      content: content.slice(0, 180),
+      like_count: 0,
+      user_nickname: "market_signal",
+      ip_location: "",
+      _platform: rows[i]?.source || "unknown",
+    }));
+
+  const avgLikes = Math.round(notes.reduce((sum: number, n: any) => sum + (n.liked_count || 0), 0) / Math.max(1, notes.length));
+  const avgComments = Math.round(notes.reduce((sum: number, n: any) => sum + (n.comments_count || 0), 0) / Math.max(1, notes.length));
+
+  return {
+    totalNotes: rows.length,
+    avgLikes,
+    avgComments,
+    avgCollects: 0,
+    sampleNotes: notes,
+    sampleComments: comments,
+  };
+}
+
 async function crawlXhsSimple(keyword: string, token: string, mode: string) {
-  const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [] };
+  const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
+  let apiCalls = 0;
   
   try {
     const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&noteType=_0`;
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    apiCalls += 1;
 
     if (!res.ok) return emptyResult;
 
     const data = await res.json();
     const items = data?.data?.data?.items || [];
+    const maxNotes = mode === "deep" ? 10 : 5;
+    const maxCommentsPerNote = mode === "deep" ? 6 : 3;
     
-    const notes = items.slice(0, 5).map((item: any) => ({
+    const notes = items.slice(0, maxNotes).map((item: any) => ({
       note_id: item.note?.id || '',
       title: '[小红书] ' + (item.note?.title || ''),
       desc: item.note?.desc || '',
       liked_count: item.note?.liked_count || 0,
+      comments_count: item.note?.comments_count || 0,
       collected_count: item.note?.collected_count || 0,
       _platform: 'xiaohongshu'
     }));
 
+    const sampleComments: any[] = [];
+    for (const note of notes.slice(0, mode === "deep" ? 5 : 3)) {
+      if (!note.note_id) continue;
+      try {
+        const commentRes = await fetch(
+          `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        apiCalls += 1;
+        if (!commentRes.ok) continue;
+        const commentData = await commentRes.json();
+        const comments = commentData?.data?.data?.comments || [];
+        sampleComments.push(...comments.slice(0, maxCommentsPerNote).map((c: any) => ({
+          comment_id: c.id || '',
+          content: c.content || '',
+          like_count: c.like_count || 0,
+          user_nickname: c.user?.nickname || '',
+          ip_location: c.ip_location || '',
+          _platform: 'xiaohongshu',
+        })));
+      } catch (_commentError) {
+        // Ignore single-note comment failures to keep the flow resilient.
+      }
+    }
+
     const totalLikes = notes.reduce((sum: number, n: any) => sum + n.liked_count, 0);
+    const totalComments = notes.reduce((sum: number, n: any) => sum + (n.comments_count || 0), 0);
 
     return {
-      totalNotes: notes.length * 100,
+      totalNotes: Number(data?.data?.data?.total || notes.length),
       avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
-      avgComments: 0,
+      avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
       sampleNotes: notes,
-      sampleComments: []
+      sampleComments,
+      apiCalls,
     };
   } catch (e) {
     console.error("[XHS Simple] Error:", e);
@@ -521,35 +745,67 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
 }
 
 async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
-  const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [] };
+  const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
+  let apiCalls = 0;
   
   try {
     const url = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=5&sort_type=0`;
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    apiCalls += 1;
 
     if (!res.ok) return emptyResult;
 
     const data = await res.json();
     const awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
+    const maxVideos = mode === "deep" ? 10 : 5;
+    const maxCommentsPerVideo = mode === "deep" ? 6 : 3;
     
-    const videos = awemeList.slice(0, 5).map((item: any) => ({
+    const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
       aweme_id: item.aweme_id || '',
       title: '[抖音] ' + (item.desc || '').slice(0, 30),
       desc: item.desc || '',
       digg_count: item.statistics?.digg_count || 0,
+      comment_count: item.statistics?.comment_count || 0,
       _platform: 'douyin'
     }));
 
+    const sampleComments: any[] = [];
+    for (const video of videos.slice(0, mode === "deep" ? 5 : 3)) {
+      if (!video.aweme_id) continue;
+      try {
+        const commentRes = await fetch(
+          `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(video.aweme_id)}&cursor=0&count=${maxCommentsPerVideo}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        apiCalls += 1;
+        if (!commentRes.ok) continue;
+        const commentData = await commentRes.json();
+        const comments = commentData?.data?.data?.comments || commentData?.data?.comments || [];
+        sampleComments.push(...comments.slice(0, maxCommentsPerVideo).map((c: any) => ({
+          comment_id: c.cid || '',
+          content: c.text || '',
+          like_count: c.digg_count || 0,
+          user_nickname: c.user?.nickname || '',
+          ip_location: c.ip_label || '',
+          _platform: 'douyin',
+        })));
+      } catch (_commentError) {
+        // Ignore single-video comment failures.
+      }
+    }
+
     const totalLikes = videos.reduce((sum: number, v: any) => sum + v.digg_count, 0);
+    const totalComments = videos.reduce((sum: number, v: any) => sum + (v.comment_count || 0), 0);
 
     return {
-      totalNotes: videos.length * 100,
+      totalNotes: videos.length,
       avgLikes: videos.length > 0 ? Math.round(totalLikes / videos.length) : 0,
-      avgComments: 0,
+      avgComments: videos.length > 0 ? Math.round(totalComments / videos.length) : 0,
       sampleNotes: videos,
-      sampleComments: []
+      sampleComments,
+      apiCalls,
     };
   } catch (e) {
     console.error("[Douyin Simple] Error:", e);
@@ -774,27 +1030,34 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
 // 计算数据质量分数
 function calculateDataQualityScore(socialData: any, competitorData: any[]): number {
   let score = 0;
+  const notesCount = Array.isArray(socialData?.sampleNotes) ? socialData.sampleNotes.length : 0;
+  const commentsCount = Array.isArray(socialData?.sampleComments) ? socialData.sampleComments.length : 0;
+  const totalNotes = Number(socialData?.totalNotes || 0);
+  const avgLikes = Number(socialData?.avgLikes || 0);
   
   // 社媒数据质量 (最高 50 分)
-  if (socialData.sampleNotes.length >= 5) score += 20;
-  else if (socialData.sampleNotes.length >= 2) score += 10;
+  if (notesCount >= 8) score += 16;
+  else if (notesCount >= 4) score += 10;
   
-  if (socialData.totalNotes >= 100) score += 15;
-  else if (socialData.totalNotes >= 20) score += 8;
+  if (commentsCount >= 16) score += 16;
+  else if (commentsCount >= 8) score += 10;
   
-  if (socialData.avgLikes >= 100) score += 15;
-  else if (socialData.avgLikes >= 20) score += 8;
+  if (totalNotes >= 60) score += 10;
+  else if (totalNotes >= 20) score += 6;
+  
+  if (avgLikes >= 80) score += 8;
+  else if (avgLikes >= 20) score += 4;
   
   // 竞品数据质量 (最高 50 分)
   const cleanedCompetitors = competitorData.filter((c: any) => c.hasCleanedContent);
-  if (cleanedCompetitors.length >= 3) score += 25;
-  else if (cleanedCompetitors.length >= 1) score += 12;
+  if (cleanedCompetitors.length >= 4) score += 20;
+  else if (cleanedCompetitors.length >= 2) score += 12;
   
-  if (competitorData.length >= 5) score += 15;
-  else if (competitorData.length >= 2) score += 8;
+  if (competitorData.length >= 8) score += 16;
+  else if (competitorData.length >= 3) score += 10;
   
   const deepSearchResults = competitorData.filter((c: any) => c.source?.includes('Deep'));
-  if (deepSearchResults.length >= 2) score += 10;
+  if (deepSearchResults.length >= 2) score += 8;
   
   return Math.min(100, score);
 }

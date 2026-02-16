@@ -396,12 +396,12 @@ async function getHighPriorityKeywords(supabase: any): Promise<string[]> {
       }
     }
 
-    // Get related keywords from trending topics with high validate_count
+    // Get related keywords from trending topics with high validation_count
     const { data: hotTopics } = await supabase
       .from('trending_topics')
-      .select('keyword, related_keywords, validate_count')
-      .gt('validate_count', 0)
-      .order('validate_count', { ascending: false })
+      .select('keyword, related_keywords, validation_count')
+      .gt('validation_count', 0)
+      .order('validation_count', { ascending: false })
       .limit(10);
 
     const dynamicKeywords: string[] = [];

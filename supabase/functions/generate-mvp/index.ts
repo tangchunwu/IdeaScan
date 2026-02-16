@@ -242,11 +242,12 @@ serve(async (req) => {
                 // 3. Save to mvp_landing_pages
                 const { data: existingPage } = await supabaseClient
                         .from('mvp_landing_pages')
-                        .select('id, slug')
+                        .select('id, slug, user_id')
                         .eq('validation_id', validationId)
                         .single();
 
                 let result;
+                const authUser = (await supabaseClient.auth.getUser()).data.user;
                 if (existingPage) {
                         // Update
                         const { data, error } = await supabaseClient
@@ -264,7 +265,7 @@ serve(async (req) => {
                         const { data, error } = await supabaseClient
                                 .from('mvp_landing_pages')
                                 .insert({
-                                        user_id: (await supabaseClient.auth.getUser()).data.user?.id,
+                                        user_id: authUser?.id,
                                         validation_id: validationId,
                                         slug: slug,
                                         content: generatedContent,
@@ -275,6 +276,23 @@ serve(async (req) => {
 
                         if (error) throw error;
                         result = data;
+                }
+
+                // 4. Ensure demand experiment record exists for proof tracking
+                const experimentUserId = existingPage?.user_id || authUser?.id;
+                if (result?.id && experimentUserId) {
+                        await supabaseClient
+                                .from('demand_experiments')
+                                .upsert({
+                                        user_id: experimentUserId,
+                                        validation_id: validationId,
+                                        landing_page_id: result.id,
+                                        idea,
+                                        value_prop: generatedContent?.hero?.subtitle || idea,
+                                        cta_label: generatedContent?.hero?.cta || 'Reserve Early Access',
+                                        cta_type: 'paid_intent',
+                                        status: 'running',
+                                }, { onConflict: 'landing_page_id' });
                 }
 
                 return new Response(

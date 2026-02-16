@@ -36,9 +36,9 @@ export function useUserQuota() {
   const hasOwnTikhub = !!settings.tikhubToken;
 
   return {
-    freeRemaining: hasOwnTikhub ? Infinity : Math.max(0, (quota?.total || 1) - (quota?.used || 0)),
+    freeRemaining: hasOwnTikhub ? Infinity : Math.max(0, (quota?.total || 3) - (quota?.used || 0)),
     freeUsed: quota?.used || 0,
-    freeTotal: quota?.total || 1,
+    freeTotal: quota?.total || 3,
     canValidate: hasOwnTikhub || (quota?.can_use ?? true),
     hasOwnTikhub,
     isLoading: isLoading && !!user,

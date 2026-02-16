@@ -549,6 +549,17 @@ const Report = () => {
     overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
   };
 
+  const evidenceGrade = (["A", "B", "C", "D"].includes(String(report?.evidence_grade))
+    ? String(report?.evidence_grade)
+    : "C") as "A" | "B" | "C" | "D";
+  const proofResultRaw = (report?.proof_result ?? {}) as Record<string, unknown>;
+  const proofResult = {
+    paidIntentRate: Number(proofResultRaw.paid_intent_rate || 0),
+    waitlistRate: Number(proofResultRaw.waitlist_rate || 0),
+    sampleUv: Number(proofResultRaw.sample_uv || 0),
+    verdict: String(proofResultRaw.verdict || "pending_experiment"),
+  };
+
   // Default dimension reasons for better UX
   const defaultDimensionReasons: Record<string, string> = {
     "需求痛感": "基于用户反馈和市场调研的需求强度评估",
@@ -635,6 +646,12 @@ const Report = () => {
                     #{tag}
                   </Badge>
                 ))}
+                <Badge variant="outline" className="px-3 py-1 text-sm">
+                  证据等级 {evidenceGrade}
+                </Badge>
+                <Badge variant="outline" className="px-3 py-1 text-sm">
+                  商业可用性 {proofResult.verdict}
+                </Badge>
               </div>
             </div>
 
@@ -918,6 +935,19 @@ const Report = () => {
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-muted-foreground">核心痛点</div>
                       <div className="text-sm font-medium line-clamp-2">{aiAnalysis.strengths?.[0] || "-"}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
+                    <div className="text-sm font-medium">{aiAnalysis.overallVerdict || "待分析"}</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                    <div className="text-xs text-muted-foreground mb-1">商业可用性结论（付费意图）</div>
+                    <div className="text-sm font-medium">
+                      {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}% · UV {proofResult.sampleUv}
                     </div>
                   </div>
                 </div>

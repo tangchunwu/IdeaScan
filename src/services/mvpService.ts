@@ -44,6 +44,15 @@ export interface MVPLandingPage {
 // Type-safe wrapper for tables not in generated types
 const fromTable = (table: string) => supabase.from(table as any);
 
+function getOrCreateAnonId(): string {
+	const key = "idea_scan_anon_id";
+	const existing = localStorage.getItem(key);
+	if (existing) return existing;
+	const next = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 64);
+	localStorage.setItem(key, next);
+	return next;
+}
+
 export async function generateMVP(validationId: string): Promise<MVPLandingPage> {
 	const { data, error } = await supabase.functions.invoke('generate-mvp', {
 		body: { validationId },
@@ -93,27 +102,41 @@ export async function collectLead(landingPageId: string, email: string): Promise
 		throw new Error('Invalid email address');
 	}
 
-	// Check rate limit from localStorage (client-side protection)
-	const rateLimitKey = `lead_submit_${landingPageId}`;
-	const lastSubmits = JSON.parse(localStorage.getItem(rateLimitKey) || '[]') as number[];
-	const now = Date.now();
-	const oneHourAgo = now - (60 * 60 * 1000);
-	const recentSubmits = lastSubmits.filter(t => t > oneHourAgo);
-	
-	if (recentSubmits.length >= 3) {
-		throw new Error('Too many submissions. Please try again later.');
-	}
-
-	const { error } = await fromTable('mvp_leads')
-		.insert({
-			landing_page_id: landingPageId,
+	const { data, error } = await supabase.functions.invoke('submit-mvp-lead', {
+		body: {
+			landingPageId,
 			email: email.toLowerCase().trim(),
-			metadata: { source: 'web_form', user_agent: navigator.userAgent.slice(0, 200) }
-		});
+			anonId: getOrCreateAnonId(),
+			sessionId: window.location.pathname,
+			metadata: {
+				source: 'web_form',
+				user_agent: navigator.userAgent.slice(0, 200),
+			},
+		},
+	});
 
 	if (error) throw error;
+	if (!data?.success) {
+		throw new Error(data?.error || 'Lead submit failed');
+	}
+}
 
-	// Update client-side rate limit
-	recentSubmits.push(now);
-	localStorage.setItem(rateLimitKey, JSON.stringify(recentSubmits));
+export async function trackExperimentEvent(
+	landingPageId: string,
+	eventType: 'view' | 'cta_click' | 'checkout_start' | 'paid_intent' | 'waitlist_submit',
+	metadata?: Record<string, unknown>
+): Promise<void> {
+	try {
+		await supabase.functions.invoke('track-experiment-event', {
+			body: {
+				landingPageId,
+				eventType,
+				anonId: getOrCreateAnonId(),
+				sessionId: window.location.pathname,
+				metadata: metadata || {},
+			},
+		});
+	} catch {
+		// non-blocking analytics path
+	}
 }

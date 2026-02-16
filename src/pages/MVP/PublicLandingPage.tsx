@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { getMVPBySlug, collectLead } from "@/services/mvpService";
+import { getMVPBySlug, collectLead, trackExperimentEvent } from "@/services/mvpService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -43,11 +43,22 @@ export default function PublicLandingPage() {
 		}
 	});
 
+	useEffect(() => {
+		if (!page?.id) return;
+		void trackExperimentEvent(page.id, "view", { slug });
+	}, [page?.id, slug]);
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
+		if (page?.id) {
+			void trackExperimentEvent(page.id, "cta_click", { source: "hero_form" });
+		}
 		if (!email || !email.includes('@')) {
 			toast({ title: "请输入有效的邮箱地址", variant: "destructive" });
 			return;
+		}
+		if (page?.id) {
+			void trackExperimentEvent(page.id, "checkout_start", { source: "hero_form" });
 		}
 		submitMutation.mutate();
 	};
