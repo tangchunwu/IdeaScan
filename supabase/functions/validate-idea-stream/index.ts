@@ -20,6 +20,7 @@ import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
 import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
 import { applyContextBudget } from "../_shared/context-budgeter.ts";
+import { routeCrawlerSource } from "../_shared/crawler-router.ts";
 import {
   calculateEvidenceGrade,
   estimateCostBreakdown,
@@ -182,6 +183,9 @@ Deno.serve(async (req) => {
       let cachedSocialData: any = null;
       let cachedCompetitorData: SearchResult[] = [];
       let externalApiCalls = 0;
+      let crawlerCalls = 0;
+      let crawlerLatencyMs = 0;
+      const crawlerProviderMix: Record<string, number> = {};
       const startedAt = Date.now();
 
       try {
@@ -255,14 +259,43 @@ Deno.serve(async (req) => {
 
         const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
         if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
-          const selfData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXhs, enableDy, mode);
-          externalApiCalls += 1;
-          if (selfData.sampleNotes.length >= 4 || selfData.sampleComments.length >= 8) {
-            socialData = selfData;
+          const crawlerStarted = Date.now();
+          const routed = await routeCrawlerSource({
+            supabase,
+            validationId: validation.id,
+            userId: user.id,
+            query: xhsSearchTerm,
+            mode: mode === "deep" ? "deep" : "quick",
+            enableXiaohongshu: enableXhs,
+            enableDouyin: enableDy,
+            source: "self_crawler",
+            freshnessDays: mode === "deep" ? 30 : 14,
+            timeoutMs: mode === "deep" ? 18000 : 12000,
+          });
+          if (routed.usedCrawlerService) {
+            crawlerCalls += 1;
+            crawlerLatencyMs += Date.now() - crawlerStarted;
+            const mix = (routed.costBreakdown.provider_mix || routed.costBreakdown.crawler_provider_mix || {}) as Record<string, unknown>;
+            for (const [provider, value] of Object.entries(mix)) {
+              crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
+            }
+            externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
+          }
+
+          if (routed.socialData && (routed.socialData.sampleNotes.length >= 4 || routed.socialData.sampleComments.length >= 8)) {
+            socialData = routed.socialData;
             usedSelfCrawler = true;
-            console.log("[SourceRouter] Using self_crawler data");
+            console.log("[SourceRouter] Using crawler-service data");
           } else {
-            console.log("[SourceRouter] Self crawler data sparse, fallback to third-party");
+            const selfData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXhs, enableDy, mode);
+            externalApiCalls += 1;
+            if (selfData.sampleNotes.length >= 4 || selfData.sampleComments.length >= 8) {
+              socialData = selfData;
+              usedSelfCrawler = true;
+              console.log("[SourceRouter] Using raw_market_signals fallback");
+            } else {
+              console.log("[SourceRouter] Self crawler data sparse, fallback to third-party");
+            }
           }
         }
 
@@ -482,6 +515,9 @@ Deno.serve(async (req) => {
         externalApiCalls,
         model: summaryConfig.model,
         latencyMs: Date.now() - startedAt,
+        crawlerCalls,
+        crawlerLatencyMs,
+        crawlerProviderMix,
       });
       const proofResult = createDefaultProofResult();
 

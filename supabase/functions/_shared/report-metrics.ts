@@ -8,6 +8,9 @@ export interface CostBreakdown {
   est_cost: number;
   model?: string;
   latency_ms?: number;
+  crawler_calls?: number;
+  crawler_latency_ms?: number;
+  crawler_provider_mix?: Record<string, number>;
 }
 
 export interface ProofResult {
@@ -15,6 +18,8 @@ export interface ProofResult {
   waitlist_rate: number;
   sample_uv: number;
   verdict: string;
+  confidence_interval_low?: number;
+  confidence_interval_high?: number;
 }
 
 export function calculateEvidenceGrade(params: {
@@ -44,6 +49,9 @@ export function estimateCostBreakdown(params: {
   externalApiCalls: number;
   model?: string;
   latencyMs?: number;
+  crawlerCalls?: number;
+  crawlerLatencyMs?: number;
+  crawlerProviderMix?: Record<string, number>;
 }): CostBreakdown {
   const {
     llmCalls,
@@ -52,6 +60,9 @@ export function estimateCostBreakdown(params: {
     externalApiCalls,
     model,
     latencyMs,
+    crawlerCalls,
+    crawlerLatencyMs,
+    crawlerProviderMix,
   } = params;
 
   // Conservative blended estimate (USD/token) for mixed providers/models.
@@ -75,6 +86,9 @@ export function estimateCostBreakdown(params: {
     est_cost: estCost,
     model,
     latency_ms: latencyMs,
+    crawler_calls: crawlerCalls || 0,
+    crawler_latency_ms: crawlerLatencyMs || 0,
+    crawler_provider_mix: crawlerProviderMix || {},
   };
 }
 
@@ -86,4 +100,3 @@ export function createDefaultProofResult(): ProofResult {
     verdict: "pending_experiment",
   };
 }
-

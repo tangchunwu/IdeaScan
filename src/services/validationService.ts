@@ -165,12 +165,17 @@ export interface ValidationReport {
     est_cost: number;
     model?: string;
     latency_ms?: number;
+    crawler_calls?: number;
+    crawler_latency_ms?: number;
+    crawler_provider_mix?: Record<string, number>;
   };
   proof_result?: {
     paid_intent_rate: number;
     waitlist_rate: number;
     sample_uv: number;
     verdict: string;
+    confidence_interval_low?: number;
+    confidence_interval_high?: number;
   };
   created_at: string;
 }

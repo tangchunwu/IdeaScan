@@ -34,6 +34,7 @@ import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_sha
 import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
 import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
 import { applyContextBudget } from "../_shared/context-budgeter.ts";
+import { routeCrawlerSource } from "../_shared/crawler-router.ts";
 import {
   calculateEvidenceGrade,
   estimateCostBreakdown,
@@ -953,6 +954,9 @@ serve(async (req) => {
     console.log("Created validation:", validation.id);
     const startedAt = Date.now();
     let externalApiCalls = 0;
+    let crawlerCalls = 0;
+    let crawlerLatencyMs = 0;
+    const crawlerProviderMix: Record<string, number> = {};
 
     // 1.5 Extract keywords with multi-dimensional expansion (uses system LLM)
     console.log("Extracting keywords...");
@@ -980,8 +984,38 @@ serve(async (req) => {
 
     const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
     if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
-      xiaohongshuData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXiaohongshu, enableDouyin, mode);
-      externalApiCalls += 1;
+      const crawlerStarted = Date.now();
+      const routed = await routeCrawlerSource({
+        supabase,
+        validationId: validation.id,
+        userId: user.id,
+        query: xhsSearchTerm,
+        mode: mode === "deep" ? "deep" : "quick",
+        enableXiaohongshu,
+        enableDouyin,
+        source: "self_crawler",
+        freshnessDays: mode === "deep" ? 30 : 14,
+        timeoutMs: mode === "deep" ? 18000 : 12000,
+      });
+      if (routed.usedCrawlerService) {
+        crawlerCalls += 1;
+        crawlerLatencyMs += Date.now() - crawlerStarted;
+        const mix = (routed.costBreakdown.provider_mix || routed.costBreakdown.crawler_provider_mix || {}) as Record<string, unknown>;
+        for (const [provider, value] of Object.entries(mix)) {
+          crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
+        }
+        externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
+      }
+
+      if (routed.socialData) {
+        xiaohongshuData = {
+          ...xiaohongshuData,
+          ...routed.socialData,
+        };
+      } else {
+        xiaohongshuData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXiaohongshu, enableDouyin, mode);
+        externalApiCalls += 1;
+      }
     }
 
     if ((xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8) {
@@ -1278,6 +1312,9 @@ serve(async (req) => {
       externalApiCalls,
       model: summaryConfig.model,
       latencyMs: Date.now() - startedAt,
+      crawlerCalls,
+      crawlerLatencyMs,
+      crawlerProviderMix,
     });
     const proofResult = createDefaultProofResult();
 

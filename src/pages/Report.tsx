@@ -567,6 +567,8 @@ const Report = () => {
     externalApiCalls: Number(costBreakdownRaw.external_api_calls || 0),
     estCost: Number(costBreakdownRaw.est_cost || 0),
     latencyMs: Number(costBreakdownRaw.latency_ms || 0),
+    crawlerCalls: Number(costBreakdownRaw.crawler_calls || 0),
+    crawlerLatencyMs: Number(costBreakdownRaw.crawler_latency_ms || 0),
   };
 
   // Default dimension reasons for better UX
@@ -962,10 +964,10 @@ const Report = () => {
                   <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <div className="text-xs text-muted-foreground mb-1">本次分析成本</div>
                     <div className="text-sm font-medium">
-                      ${costBreakdown.estCost.toFixed(4)} · LLM {costBreakdown.llmCalls} 次 · API {costBreakdown.externalApiCalls} 次
+                      ${costBreakdown.estCost.toFixed(4)} · LLM {costBreakdown.llmCalls} 次 · API {costBreakdown.externalApiCalls} 次 · Crawler {costBreakdown.crawlerCalls} 次
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Prompt {costBreakdown.promptTokens} · Completion {costBreakdown.completionTokens} · {Math.round(costBreakdown.latencyMs / 1000)}s
+                      Prompt {costBreakdown.promptTokens} · Completion {costBreakdown.completionTokens} · 总耗时 {Math.round(costBreakdown.latencyMs / 1000)}s · Crawler耗时 {Math.round(costBreakdown.crawlerLatencyMs / 1000)}s
                     </div>
                   </div>
                 </div>
