@@ -24,40 +24,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const applySignedOutState = () => {
+    setSession(null);
+    setUser(null);
+    resetUser();
+  };
+
+  const validateAndApplySession = async (incoming: Session | null) => {
+    if (!incoming) {
+      applySignedOutState();
+      return;
+    }
+
+    const { data, error } = await supabase.auth.getUser(incoming.access_token);
+    if (error || !data.user) {
+      // The cached token can become invalid when switching to another Supabase project.
+      await supabase.auth.signOut({ scope: "local" });
+      applySignedOutState();
+      return;
+    }
+
+    setSession(incoming);
+    setUser(data.user);
+    identifyUser(data.user.id, {
+      email: data.user.email,
+      created_at: data.user.created_at,
+    });
+  };
+
   useEffect(() => {
     // 设置 auth 状态监听器
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-        
-        // Track user identity for analytics
-        if (session?.user) {
-          identifyUser(session.user.id, {
-            email: session.user.email,
-            created_at: session.user.created_at,
-          });
-        } else if (event === 'SIGNED_OUT') {
-          resetUser();
+        if (event === "SIGNED_OUT") {
+          applySignedOutState();
+          setIsLoading(false);
+          return;
         }
+
+        // Validate token before treating it as logged-in.
+        validateAndApplySession(session).finally(() => setIsLoading(false));
       }
     );
 
     // 获取初始 session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => validateAndApplySession(session))
+      .finally(() => setIsLoading(false));
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    await supabase.auth.signOut({ scope: "local" });
+    applySignedOutState();
   };
 
   return (

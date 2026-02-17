@@ -6,6 +6,8 @@ vi.mock('@/integrations/supabase/client', () => ({
         supabase: {
                 auth: {
                         getSession: vi.fn(),
+                        getUser: vi.fn(),
+                        signOut: vi.fn(),
                         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
                 },
                 functions: {
@@ -80,6 +82,10 @@ describe('useSettings', () => {
         it('syncFromCloud should fetch settings from cloud', async () => {
                 (supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
                         data: { session: { access_token: 'fake-token' } },
+                });
+                (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+                        data: { user: { id: 'u1' } },
+                        error: null,
                 });
 
                 (supabase.functions.invoke as ReturnType<typeof vi.fn>).mockResolvedValue({

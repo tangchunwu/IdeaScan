@@ -90,6 +90,14 @@ export const useSettings = create<SettingsState>()(
             return;
           }
 
+          const { data: authData, error: authError } = await supabase.auth.getUser(session.access_token);
+          if (authError || !authData.user) {
+            // Cached token may be stale after switching Supabase projects.
+            await supabase.auth.signOut({ scope: 'local' });
+            set({ isLoading: false, isSynced: false, lastSyncError: '登录态已失效，请重新登录' });
+            return;
+          }
+
           const { data, error } = await supabase.functions.invoke('user-settings', {
             method: 'GET',
           });
@@ -130,6 +138,13 @@ export const useSettings = create<SettingsState>()(
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
             set({ isLoading: false });
+            return;
+          }
+
+          const { data: authData, error: authError } = await supabase.auth.getUser(session.access_token);
+          if (authError || !authData.user) {
+            await supabase.auth.signOut({ scope: 'local' });
+            set({ isLoading: false, isSynced: false, lastSyncError: '登录态已失效，请重新登录' });
             return;
           }
 
