@@ -46,15 +46,31 @@ class DouyinAdapter(BaseAdapter):
         session_error = ""
 
         if payload.user_id:
-            session = await session_store.get_user_session(platform=self.platform, user_id=payload.user_id)
+            session, invalid_reason = await session_store.get_valid_user_session(platform=self.platform, user_id=payload.user_id)
             if session:
                 try:
                     session_result, session_cost = await crawl_with_user_session(self.platform, payload, session)
                     if session_result.success and session_result.notes:
+                        await session_store.touch_user_session(platform=self.platform, user_id=payload.user_id)
+                        await session_store.mark_session_result(platform=self.platform, user_id=payload.user_id, success=True)
                         return session_result, session_cost
                     session_error = session_result.error or "session_crawl_failed"
+                    await session_store.mark_session_result(
+                        platform=self.platform,
+                        user_id=payload.user_id,
+                        success=False,
+                        error=session_error,
+                    )
                 except Exception as exc:
                     session_error = f"session_crawl_exception:{exc}"
+                    await session_store.mark_session_result(
+                        platform=self.platform,
+                        user_id=payload.user_id,
+                        success=False,
+                        error=session_error,
+                    )
+            elif invalid_reason:
+                session_error = invalid_reason
 
         if token:
             headers = {"Authorization": f"Bearer {token}", "User-Agent": self.risk.user_agents.sample()}

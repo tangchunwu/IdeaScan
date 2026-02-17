@@ -183,6 +183,7 @@ python run_worker.py
 - `quick` 默认采样提升为 `8` 帖 / 每帖 `10` 评论，兼顾可信度与风控。
 - `deep` 默认采样为 `14` 帖 / 每帖 `30` 评论，适合做高置信结论。
 - crawler-service 支持每用户每日预算开关：`CRAWLER_ENABLE_DAILY_BUDGET` + `CRAWLER_DAILY_BUDGET_UNITS`。
+- crawler-service 支持会话安全与健康控制：`CRAWLER_SESSION_ENCRYPTION_KEY`、`CRAWLER_SESSION_MAX_IDLE_HOURS`、`CRAWLER_SESSION_FAIL_THRESHOLD`。
 
 ## 测试与质量
 

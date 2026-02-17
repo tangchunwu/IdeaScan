@@ -282,6 +282,9 @@ class AuthManager:
     ) -> Dict[str, Any]:
         if not cookies:
             return {"success": False, "error": "empty_cookies"}
+        ok, reason = session_store.validate_cookie_bundle(platform, cookies)
+        if not ok:
+            return {"success": False, "error": reason}
         session_id = await session_store.upsert_user_session(
             platform=platform,
             user_id=user_id,
@@ -293,4 +296,3 @@ class AuthManager:
 
 
 auth_manager = AuthManager()
-

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     crawler_auth_flow_ttl_s: int = 180
     crawler_enable_daily_budget: bool = True
     crawler_daily_budget_units: int = 1200
+    crawler_session_encryption_key: str = ""
+    crawler_session_max_idle_hours: int = 168
+    crawler_session_fail_threshold: int = 3
     crawler_user_agent_pool: str = (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7),"
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64),"

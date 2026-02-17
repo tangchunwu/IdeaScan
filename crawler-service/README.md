@@ -49,6 +49,9 @@ python run_worker.py
 - `CRAWLER_AUTH_FLOW_TTL_S`：扫码会话有效期（秒），默认 180
 - `CRAWLER_ENABLE_DAILY_BUDGET`：是否启用每用户每日抓取预算，默认 `true`
 - `CRAWLER_DAILY_BUDGET_UNITS`：每日预算总量，默认 `1200`
+- `CRAWLER_SESSION_ENCRYPTION_KEY`：会话加密密钥（建议设置；留空则明文存储）
+- `CRAWLER_SESSION_MAX_IDLE_HOURS`：会话最大空闲时长（小时），默认 `168`
+- `CRAWLER_SESSION_FAIL_THRESHOLD`：会话连续失败熔断阈值，默认 `3`
 - `CRAWLER_QUICK_DELAY_MS_MIN`：quick 模式抓取间隔最小值（ms），默认 `900`
 - `CRAWLER_QUICK_DELAY_MS_MAX`：quick 模式抓取间隔最大值（ms），默认 `1800`
 - `CRAWLER_DEEP_DELAY_MS_MIN`：deep 模式抓取间隔最小值（ms），默认 `600`
@@ -69,6 +72,11 @@ python run_worker.py
 
 - `quick`：默认 `8` 帖 / 每帖 `10` 评论（更可信但仍可控）。
 - `deep`：默认 `14` 帖 / 每帖 `30` 评论（用于高置信验证，必要时配合 TikHub 兜底）。
+
+## 真实性策略（当前）
+
+- 评论提取优先读取页面网络接口响应（API JSON），DOM 仅作为补充兜底。
+- 会话抓取失败会累计失败计数，连续失败达到阈值后自动降级会话状态，防止反复触发风控。
 
 ## 回调协议
 

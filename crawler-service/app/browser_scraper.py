@@ -80,6 +80,115 @@ async def _human_delay(mode: str) -> None:
     await asyncio.sleep(random.uniform(lo, hi) / 1000)
 
 
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _walk_json_nodes(root: Any, max_nodes: int = 4000) -> List[Dict[str, Any]]:
+    found: List[Dict[str, Any]] = []
+    stack: List[Any] = [root]
+    visited = 0
+    while stack and visited < max_nodes:
+        node = stack.pop()
+        visited += 1
+        if isinstance(node, dict):
+            found.append(node)
+            for v in node.values():
+                if isinstance(v, (dict, list)):
+                    stack.append(v)
+        elif isinstance(node, list):
+            for item in node:
+                if isinstance(item, (dict, list)):
+                    stack.append(item)
+    return found
+
+
+def _extract_note_candidates_from_payload(payload: Any, platform: str) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    seen: set[str] = set()
+    for obj in _walk_json_nodes(payload):
+        nid = ""
+        if platform == "xiaohongshu":
+            nid = str(obj.get("note_id") or obj.get("id") or "").strip()
+        else:
+            nid = str(obj.get("aweme_id") or obj.get("id") or "").strip()
+        title = str(obj.get("title") or obj.get("name") or obj.get("desc") or "").strip()
+        desc = str(obj.get("desc") or obj.get("content") or "").strip()
+        url = str(obj.get("url") or obj.get("jump_url") or obj.get("share_url") or "").strip()
+        if not url and nid:
+            url = (
+                f"https://www.xiaohongshu.com/explore/{nid}"
+                if platform == "xiaohongshu"
+                else f"https://www.douyin.com/video/{nid}"
+            )
+        if not url:
+            continue
+        uniq = f"{nid}|{url}"
+        if uniq in seen:
+            continue
+        seen.add(uniq)
+        rows.append({
+            "id": nid or _extract_id_from_url(url, r"/([^/?]+)$"),
+            "url": url,
+            "title": title[:80] if title else desc[:80],
+            "desc": desc[:1000],
+        })
+        if len(rows) >= 80:
+            break
+    return rows
+
+
+def _extract_comment_candidates_from_payload(payload: Any, platform: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for obj in _walk_json_nodes(payload):
+        content = str(obj.get("content") or obj.get("text") or obj.get("comment_text") or "").strip()
+        if len(content) < 6 or len(content) > 350:
+            continue
+        uniq = content[:180]
+        if uniq in seen:
+            continue
+        seen.add(uniq)
+        user = obj.get("user") if isinstance(obj.get("user"), dict) else {}
+        nickname = str(obj.get("user_nickname") or user.get("nickname") or user.get("nick_name") or "").strip()
+        rows.append({
+            "id": str(obj.get("cid") or obj.get("id") or obj.get("comment_id") or "").strip(),
+            "content": content,
+            "like_count": _safe_int(obj.get("like_count") or obj.get("digg_count") or obj.get("liked_count"), 0),
+            "user_nickname": nickname,
+            "ip_location": str(obj.get("ip_location") or obj.get("ip_label") or "").strip(),
+            "published_at": str(obj.get("create_time") or obj.get("time") or obj.get("publish_time") or "").strip() or None,
+            "platform": platform,
+        })
+        if len(rows) >= 400:
+            break
+    return rows
+
+
+def _merge_note_sources(dom_rows: List[Dict[str, str]], api_rows: List[Dict[str, str]], max_notes: int) -> List[Dict[str, str]]:
+    merged: List[Dict[str, str]] = []
+    seen: set[str] = set()
+    for row in dom_rows + api_rows:
+        url = str(row.get("url") or "").strip()
+        if not url:
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        merged.append({
+            "id": str(row.get("id") or ""),
+            "url": url,
+            "title": str(row.get("title") or "")[:80],
+            "desc": str(row.get("desc") or "")[:1000],
+        })
+        if len(merged) >= max_notes:
+            break
+    return merged
+
+
 async def _crawl_xiaohongshu(
     payload: CrawlerJobPayload,
     session: Dict[str, Any],
@@ -116,10 +225,32 @@ async def _crawl_xiaohongshu(
 
                 page = await context.new_page()
                 search_url = f"https://www.xiaohongshu.com/search_result?keyword={quote(payload.query)}&source=web_explore_feed"
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=35000)
-                await page.wait_for_timeout(2500)
+                search_api_notes: List[Dict[str, str]] = []
+                search_capture_tasks: List[asyncio.Task[Any]] = []
 
-                raw_notes = await page.evaluate(
+                async def capture_search_response(response: Any) -> None:
+                    url = str(getattr(response, "url", "")).lower()
+                    if "search" not in url and "note" not in url and "feed" not in url:
+                        return
+                    try:
+                        raw = await response.json()
+                    except Exception:
+                        return
+                    search_api_notes.extend(_extract_note_candidates_from_payload(raw, "xiaohongshu"))
+
+                def on_search_response(response: Any) -> None:
+                    search_capture_tasks.append(asyncio.create_task(capture_search_response(response)))
+
+                page.on("response", on_search_response)
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=35000)
+                await page.wait_for_timeout(2000)
+                for _ in range(2 if payload.mode == "quick" else 3):
+                    await page.mouse.wheel(0, 1800)
+                    await page.wait_for_timeout(700)
+                if search_capture_tasks:
+                    await asyncio.gather(*search_capture_tasks, return_exceptions=True)
+
+                dom_notes = await page.evaluate(
                     """
                     () => {
                       const rows = [];
@@ -140,18 +271,45 @@ async def _crawl_xiaohongshu(
                     }
                     """
                 )
+                note_candidates = _merge_note_sources(
+                    list(dom_notes or []),
+                    search_api_notes,
+                    payload.limits.notes,
+                )
 
-                for idx, item in enumerate(list(raw_notes or [])[: payload.limits.notes]):
+                for idx, item in enumerate(note_candidates):
                     if idx > 0:
                         await _human_delay(payload.mode)
                     url = str((item or {}).get("url") or "")
                     if not url:
                         continue
-                    note_id = _extract_id_from_url(url, r"/explore/([^/?]+)")
+                    note_id = str((item or {}).get("id") or "") or _extract_id_from_url(url, r"/explore/([^/?]+)")
                     note_page = await context.new_page()
                     try:
+                        note_api_comments: List[Dict[str, Any]] = []
+                        note_capture_tasks: List[asyncio.Task[Any]] = []
+
+                        async def capture_note_response(response: Any) -> None:
+                            resp_url = str(getattr(response, "url", "")).lower()
+                            if "comment" not in resp_url and "note" not in resp_url and "feed" not in resp_url:
+                                return
+                            try:
+                                raw = await response.json()
+                            except Exception:
+                                return
+                            note_api_comments.extend(_extract_comment_candidates_from_payload(raw, "xiaohongshu"))
+
+                        def on_note_response(response: Any) -> None:
+                            note_capture_tasks.append(asyncio.create_task(capture_note_response(response)))
+
+                        note_page.on("response", on_note_response)
                         await note_page.goto(url, wait_until="domcontentloaded", timeout=35000)
-                        await note_page.wait_for_timeout(1500)
+                        await note_page.wait_for_timeout(1200)
+                        for _ in range(2 if payload.mode == "quick" else 4):
+                            await note_page.mouse.wheel(0, 1600)
+                            await note_page.wait_for_timeout(650)
+                        if note_capture_tasks:
+                            await asyncio.gather(*note_capture_tasks, return_exceptions=True)
                         detail = await note_page.evaluate(
                             f"""
                             (maxComments) => {{
@@ -174,12 +332,45 @@ async def _crawl_xiaohongshu(
                             """,
                             payload.limits.comments_per_note,
                         )
+                        merged_comments: List[Dict[str, Any]] = []
+                        seen_comment: set[str] = set()
+                        for c in note_api_comments:
+                            text = str(c.get("content") or "").strip()
+                            if len(text) < 6:
+                                continue
+                            key = text[:180]
+                            if key in seen_comment:
+                                continue
+                            seen_comment.add(key)
+                            merged_comments.append(c)
+                            if len(merged_comments) >= payload.limits.comments_per_note:
+                                break
+                        if len(merged_comments) < payload.limits.comments_per_note:
+                            for raw_content in list((detail or {}).get("comments") or []):
+                                text = str(raw_content or "").strip()
+                                if len(text) < 6:
+                                    continue
+                                key = text[:180]
+                                if key in seen_comment:
+                                    continue
+                                seen_comment.add(key)
+                                merged_comments.append({
+                                    "id": "",
+                                    "content": text,
+                                    "like_count": 0,
+                                    "user_nickname": "",
+                                    "ip_location": "",
+                                    "published_at": None,
+                                    "platform": "xiaohongshu",
+                                })
+                                if len(merged_comments) >= payload.limits.comments_per_note:
+                                    break
                         note = CrawlerNormalizedNote(
                             id=note_id,
                             title=str((item or {}).get("title") or payload.query)[:80],
-                            desc=str((detail or {}).get("desc") or ""),
+                            desc=str((detail or {}).get("desc") or (item or {}).get("desc") or ""),
                             liked_count=0,
-                            comments_count=len((detail or {}).get("comments") or []),
+                            comments_count=len(merged_comments),
                             collected_count=0,
                             published_at=None,
                             platform="xiaohongshu",
@@ -187,15 +378,15 @@ async def _crawl_xiaohongshu(
                         )
                         notes.append(note)
 
-                        for idx, content in enumerate(list((detail or {}).get("comments") or [])):
+                        for comment_idx, comment_item in enumerate(merged_comments):
                             comments.append(
                                 CrawlerNormalizedComment(
-                                    id=f"{note_id}-c-{idx}",
-                                    content=str(content),
-                                    like_count=0,
-                                    user_nickname="",
-                                    ip_location="",
-                                    published_at=None,
+                                    id=str(comment_item.get("id") or f"{note_id}-c-{comment_idx}"),
+                                    content=str(comment_item.get("content") or ""),
+                                    like_count=_safe_int(comment_item.get("like_count"), 0),
+                                    user_nickname=str(comment_item.get("user_nickname") or ""),
+                                    ip_location=str(comment_item.get("ip_location") or ""),
+                                    published_at=comment_item.get("published_at"),
                                     platform="xiaohongshu",
                                     parent_id=note_id,
                                 )
@@ -265,10 +456,32 @@ async def _crawl_douyin(
 
                 page = await context.new_page()
                 search_url = f"https://www.douyin.com/search/{quote(payload.query)}?type=video"
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=35000)
-                await page.wait_for_timeout(2500)
+                search_api_notes: List[Dict[str, str]] = []
+                search_capture_tasks: List[asyncio.Task[Any]] = []
 
-                raw_notes = await page.evaluate(
+                async def capture_search_response(response: Any) -> None:
+                    url = str(getattr(response, "url", "")).lower()
+                    if "search" not in url and "aweme" not in url and "video" not in url and "feed" not in url:
+                        return
+                    try:
+                        raw = await response.json()
+                    except Exception:
+                        return
+                    search_api_notes.extend(_extract_note_candidates_from_payload(raw, "douyin"))
+
+                def on_search_response(response: Any) -> None:
+                    search_capture_tasks.append(asyncio.create_task(capture_search_response(response)))
+
+                page.on("response", on_search_response)
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=35000)
+                await page.wait_for_timeout(2000)
+                for _ in range(2 if payload.mode == "quick" else 3):
+                    await page.mouse.wheel(0, 1800)
+                    await page.wait_for_timeout(700)
+                if search_capture_tasks:
+                    await asyncio.gather(*search_capture_tasks, return_exceptions=True)
+
+                dom_notes = await page.evaluate(
                     """
                     () => {
                       const rows = [];
@@ -288,18 +501,45 @@ async def _crawl_douyin(
                     }
                     """
                 )
+                note_candidates = _merge_note_sources(
+                    list(dom_notes or []),
+                    search_api_notes,
+                    payload.limits.notes,
+                )
 
-                for idx, item in enumerate(list(raw_notes or [])[: payload.limits.notes]):
+                for idx, item in enumerate(note_candidates):
                     if idx > 0:
                         await _human_delay(payload.mode)
                     url = str((item or {}).get("url") or "")
                     if not url:
                         continue
-                    video_id = _extract_id_from_url(url, r"/video/([^/?]+)")
+                    video_id = str((item or {}).get("id") or "") or _extract_id_from_url(url, r"/video/([^/?]+)")
                     note_page = await context.new_page()
                     try:
+                        note_api_comments: List[Dict[str, Any]] = []
+                        note_capture_tasks: List[asyncio.Task[Any]] = []
+
+                        async def capture_note_response(response: Any) -> None:
+                            resp_url = str(getattr(response, "url", "")).lower()
+                            if "comment" not in resp_url and "aweme" not in resp_url and "video" not in resp_url:
+                                return
+                            try:
+                                raw = await response.json()
+                            except Exception:
+                                return
+                            note_api_comments.extend(_extract_comment_candidates_from_payload(raw, "douyin"))
+
+                        def on_note_response(response: Any) -> None:
+                            note_capture_tasks.append(asyncio.create_task(capture_note_response(response)))
+
+                        note_page.on("response", on_note_response)
                         await note_page.goto(url, wait_until="domcontentloaded", timeout=35000)
                         await note_page.wait_for_timeout(1200)
+                        for _ in range(2 if payload.mode == "quick" else 4):
+                            await note_page.mouse.wheel(0, 1600)
+                            await note_page.wait_for_timeout(650)
+                        if note_capture_tasks:
+                            await asyncio.gather(*note_capture_tasks, return_exceptions=True)
                         detail = await note_page.evaluate(
                             """
                             (maxComments) => {
@@ -322,12 +562,45 @@ async def _crawl_douyin(
                             """,
                             payload.limits.comments_per_note,
                         )
+                        merged_comments: List[Dict[str, Any]] = []
+                        seen_comment: set[str] = set()
+                        for c in note_api_comments:
+                            text = str(c.get("content") or "").strip()
+                            if len(text) < 6:
+                                continue
+                            key = text[:180]
+                            if key in seen_comment:
+                                continue
+                            seen_comment.add(key)
+                            merged_comments.append(c)
+                            if len(merged_comments) >= payload.limits.comments_per_note:
+                                break
+                        if len(merged_comments) < payload.limits.comments_per_note:
+                            for raw_content in list((detail or {}).get("comments") or []):
+                                text = str(raw_content or "").strip()
+                                if len(text) < 6:
+                                    continue
+                                key = text[:180]
+                                if key in seen_comment:
+                                    continue
+                                seen_comment.add(key)
+                                merged_comments.append({
+                                    "id": "",
+                                    "content": text,
+                                    "like_count": 0,
+                                    "user_nickname": "",
+                                    "ip_location": "",
+                                    "published_at": None,
+                                    "platform": "douyin",
+                                })
+                                if len(merged_comments) >= payload.limits.comments_per_note:
+                                    break
                         note = CrawlerNormalizedNote(
                             id=video_id,
                             title=str((item or {}).get("title") or payload.query)[:80],
-                            desc=str((detail or {}).get("desc") or ""),
+                            desc=str((detail or {}).get("desc") or (item or {}).get("desc") or ""),
                             liked_count=0,
-                            comments_count=len((detail or {}).get("comments") or []),
+                            comments_count=len(merged_comments),
                             collected_count=0,
                             published_at=None,
                             platform="douyin",
@@ -335,15 +608,15 @@ async def _crawl_douyin(
                         )
                         notes.append(note)
 
-                        for idx, content in enumerate(list((detail or {}).get("comments") or [])):
+                        for comment_idx, comment_item in enumerate(merged_comments):
                             comments.append(
                                 CrawlerNormalizedComment(
-                                    id=f"{video_id}-c-{idx}",
-                                    content=str(content),
-                                    like_count=0,
-                                    user_nickname="",
-                                    ip_location="",
-                                    published_at=None,
+                                    id=str(comment_item.get("id") or f"{video_id}-c-{comment_idx}"),
+                                    content=str(comment_item.get("content") or ""),
+                                    like_count=_safe_int(comment_item.get("like_count"), 0),
+                                    user_nickname=str(comment_item.get("user_nickname") or ""),
+                                    ip_location=str(comment_item.get("ip_location") or ""),
+                                    published_at=comment_item.get("published_at"),
                                     platform="douyin",
                                     parent_id=video_id,
                                 )
