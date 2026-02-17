@@ -5,7 +5,7 @@ import random
 import re
 import time
 from typing import Any, Dict, List, Tuple
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlencode, urlparse, urlunparse
 
 from app.config import settings
 from app.models import CrawlerJobPayload, CrawlerNormalizedComment, CrawlerNormalizedNote, CrawlerPlatformResult
@@ -168,6 +168,139 @@ def _extract_comment_candidates_from_payload(payload: Any, platform: str) -> Lis
     return rows
 
 
+def _to_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ("1", "true", "yes", "y"):
+            return True
+        if v in ("0", "false", "no", "n"):
+            return False
+    return None
+
+
+def _extract_comment_pagination_hints(payload: Any) -> List[Dict[str, Any]]:
+    hints: List[Dict[str, Any]] = []
+    for obj in _walk_json_nodes(payload):
+        cursor_values: Dict[str, str] = {}
+        for key in ("cursor", "next_cursor", "max_cursor", "offset"):
+            value = obj.get(key)
+            if value is None or value == "":
+                continue
+            cursor_values[key] = str(value)
+
+        has_more = _to_bool(obj.get("has_more"))
+        if has_more is None:
+            has_more = _to_bool(obj.get("hasMore"))
+        if has_more is None:
+            has_more = _to_bool(obj.get("more"))
+
+        if not cursor_values and has_more is None:
+            continue
+        hints.append({
+            "cursor_values": cursor_values,
+            "has_more": has_more,
+        })
+        if len(hints) >= 24:
+            break
+    return hints
+
+
+def _build_cursor_url(base_url: str, cursor_values: Dict[str, str]) -> str:
+    if not base_url or not cursor_values:
+        return ""
+    parsed = urlparse(base_url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    for key, value in cursor_values.items():
+        query[key] = [value]
+    encoded = urlencode(query, doseq=True)
+    return urlunparse(parsed._replace(query=encoded))
+
+
+async def _collect_paginated_comments(
+    page: Any,
+    platform: str,
+    page_hints: List[Dict[str, Any]],
+    max_comments: int,
+    max_pages: int,
+    seen_keys: set[str],
+) -> List[Dict[str, Any]]:
+    if max_comments <= 0 or max_pages <= 0:
+        return []
+    queue: List[Dict[str, Any]] = []
+    for hint in page_hints:
+        cursor_values = hint.get("cursor_values") if isinstance(hint, dict) else {}
+        has_more = hint.get("has_more") if isinstance(hint, dict) else None
+        if has_more is False:
+            continue
+        if not isinstance(cursor_values, dict) or not cursor_values:
+            continue
+        url = str(hint.get("url") or "")
+        if not url:
+            continue
+        queue.append({
+            "url": url,
+            "cursor_values": {str(k): str(v) for k, v in cursor_values.items() if v is not None and v != ""},
+        })
+        if len(queue) >= 16:
+            break
+
+    collected: List[Dict[str, Any]] = []
+    visited: set[str] = set()
+    pages = 0
+
+    while queue and pages < max_pages and len(collected) < max_comments:
+        current = queue.pop(0)
+        next_url = _build_cursor_url(str(current.get("url") or ""), dict(current.get("cursor_values") or {}))
+        if not next_url or next_url in visited:
+            continue
+        visited.add(next_url)
+
+        try:
+            resp = await page.request.get(next_url, timeout=15000)
+            if int(getattr(resp, "status", 0)) != 200:
+                continue
+            raw = await resp.json()
+        except Exception:
+            continue
+
+        pages += 1
+        for item in _extract_comment_candidates_from_payload(raw, platform):
+            text = str(item.get("content") or "").strip()
+            if len(text) < 6:
+                continue
+            key = text[:180]
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            collected.append(item)
+            if len(collected) >= max_comments:
+                break
+
+        if len(collected) >= max_comments:
+            break
+
+        raw_url = str(getattr(resp, "url", next_url) or next_url)
+        for next_hint in _extract_comment_pagination_hints(raw):
+            cursor_values = next_hint.get("cursor_values") if isinstance(next_hint, dict) else {}
+            has_more = next_hint.get("has_more") if isinstance(next_hint, dict) else None
+            if has_more is False:
+                continue
+            if not isinstance(cursor_values, dict) or not cursor_values:
+                continue
+            queue.append({
+                "url": raw_url,
+                "cursor_values": {str(k): str(v) for k, v in cursor_values.items() if v is not None and v != ""},
+            })
+            if len(queue) >= 24:
+                break
+
+    return collected
+
+
 def _merge_note_sources(dom_rows: List[Dict[str, str]], api_rows: List[Dict[str, str]], max_notes: int) -> List[Dict[str, str]]:
     merged: List[Dict[str, str]] = []
     seen: set[str] = set()
@@ -287,17 +420,28 @@ async def _crawl_xiaohongshu(
                     note_page = await context.new_page()
                     try:
                         note_api_comments: List[Dict[str, Any]] = []
+                        note_comment_hints: List[Dict[str, Any]] = []
                         note_capture_tasks: List[asyncio.Task[Any]] = []
 
                         async def capture_note_response(response: Any) -> None:
-                            resp_url = str(getattr(response, "url", "")).lower()
-                            if "comment" not in resp_url and "note" not in resp_url and "feed" not in resp_url:
+                            raw_resp_url = str(getattr(response, "url", "")).strip()
+                            resp_url = raw_resp_url.lower()
+                            if "comment" not in resp_url:
                                 return
                             try:
                                 raw = await response.json()
                             except Exception:
                                 return
                             note_api_comments.extend(_extract_comment_candidates_from_payload(raw, "xiaohongshu"))
+                            for hint in _extract_comment_pagination_hints(raw):
+                                cursor_values = hint.get("cursor_values") if isinstance(hint, dict) else {}
+                                if not isinstance(cursor_values, dict) or not cursor_values:
+                                    continue
+                                note_comment_hints.append({
+                                    "url": raw_resp_url,
+                                    "cursor_values": cursor_values,
+                                    "has_more": hint.get("has_more") if isinstance(hint, dict) else None,
+                                })
 
                         def on_note_response(response: Any) -> None:
                             note_capture_tasks.append(asyncio.create_task(capture_note_response(response)))
@@ -310,13 +454,28 @@ async def _crawl_xiaohongshu(
                             await note_page.wait_for_timeout(650)
                         if note_capture_tasks:
                             await asyncio.gather(*note_capture_tasks, return_exceptions=True)
+                        seen_comment_keys = {
+                            str(item.get("content") or "").strip()[:180]
+                            for item in note_api_comments
+                            if str(item.get("content") or "").strip()
+                        }
+                        extra_api_comments = await _collect_paginated_comments(
+                            note_page,
+                            "xiaohongshu",
+                            note_comment_hints,
+                            max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
+                            max_pages=1 if payload.mode == "quick" else 3,
+                            seen_keys=seen_comment_keys,
+                        )
+                        if extra_api_comments:
+                            note_api_comments.extend(extra_api_comments)
                         detail = await note_page.evaluate(
                             f"""
                             (maxComments) => {{
                               const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
                               const articleText = (document.querySelector('article')?.innerText || '').trim();
                               const desc = (metaDesc || articleText || '').slice(0, 1000);
-                              const candidates = Array.from(document.querySelectorAll('[class*="comment"], [class*="Comment"], p, span, div'))
+                              const candidates = Array.from(document.querySelectorAll('[class*="comment"] [class*="content"], [class*="comment"] p, [class*="comment"] span'))
                                 .map(el => (el.textContent || '').trim())
                                 .filter(t => t.length >= 6 && t.length <= 120);
                               const uniq = [];
@@ -517,17 +676,28 @@ async def _crawl_douyin(
                     note_page = await context.new_page()
                     try:
                         note_api_comments: List[Dict[str, Any]] = []
+                        note_comment_hints: List[Dict[str, Any]] = []
                         note_capture_tasks: List[asyncio.Task[Any]] = []
 
                         async def capture_note_response(response: Any) -> None:
-                            resp_url = str(getattr(response, "url", "")).lower()
-                            if "comment" not in resp_url and "aweme" not in resp_url and "video" not in resp_url:
+                            raw_resp_url = str(getattr(response, "url", "")).strip()
+                            resp_url = raw_resp_url.lower()
+                            if "comment" not in resp_url:
                                 return
                             try:
                                 raw = await response.json()
                             except Exception:
                                 return
                             note_api_comments.extend(_extract_comment_candidates_from_payload(raw, "douyin"))
+                            for hint in _extract_comment_pagination_hints(raw):
+                                cursor_values = hint.get("cursor_values") if isinstance(hint, dict) else {}
+                                if not isinstance(cursor_values, dict) or not cursor_values:
+                                    continue
+                                note_comment_hints.append({
+                                    "url": raw_resp_url,
+                                    "cursor_values": cursor_values,
+                                    "has_more": hint.get("has_more") if isinstance(hint, dict) else None,
+                                })
 
                         def on_note_response(response: Any) -> None:
                             note_capture_tasks.append(asyncio.create_task(capture_note_response(response)))
@@ -540,13 +710,28 @@ async def _crawl_douyin(
                             await note_page.wait_for_timeout(650)
                         if note_capture_tasks:
                             await asyncio.gather(*note_capture_tasks, return_exceptions=True)
+                        seen_comment_keys = {
+                            str(item.get("content") or "").strip()[:180]
+                            for item in note_api_comments
+                            if str(item.get("content") or "").strip()
+                        }
+                        extra_api_comments = await _collect_paginated_comments(
+                            note_page,
+                            "douyin",
+                            note_comment_hints,
+                            max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
+                            max_pages=1 if payload.mode == "quick" else 3,
+                            seen_keys=seen_comment_keys,
+                        )
+                        if extra_api_comments:
+                            note_api_comments.extend(extra_api_comments)
                         detail = await note_page.evaluate(
                             """
                             (maxComments) => {
                               const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
                               const pageText = (document.body?.innerText || '').trim();
                               const desc = (metaDesc || pageText || '').slice(0, 1000);
-                              const commentNodes = Array.from(document.querySelectorAll('[data-e2e*="comment"], [class*="comment"], p, span, div'))
+                              const commentNodes = Array.from(document.querySelectorAll('[data-e2e*="comment"] [data-e2e*="content"], [class*="comment"] [class*="content"], [class*="comment"] p, [class*="comment"] span'))
                                 .map(el => (el.textContent || '').trim())
                                 .filter(t => t.length >= 6 && t.length <= 120);
                               const uniq = [];

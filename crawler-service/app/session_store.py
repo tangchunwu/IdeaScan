@@ -22,6 +22,16 @@ SESSION_REQUIRED_COOKIES = {
     "douyin": {"sessionid", "sid_guard", "passport_csrf_token", "ttwid"},
 }
 
+AUTO_EVICT_REASONS = {
+    "inactive_session",
+    "empty_cookies",
+    "missing_required_cookies",
+    "invalid_updated_at",
+    "session_stale",
+    "cookies_expired",
+    "session_fail_threshold_reached",
+}
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -66,6 +76,10 @@ class SessionStore:
     @staticmethod
     def _index_key(user_id: str) -> str:
         return f"crawler:session:index:{user_id}"
+
+    @staticmethod
+    def _should_auto_evict(reason: str) -> bool:
+        return reason in AUTO_EVICT_REASONS
 
     def _serialize(self, payload: Dict[str, Any]) -> str:
         raw = json.dumps(payload, ensure_ascii=False)
@@ -209,6 +223,9 @@ class SessionStore:
             return None, "session_not_found"
         ok, reason = self.validate_session_payload(platform, payload)
         if not ok:
+            if self._should_auto_evict(reason):
+                await self.delete_user_session(platform=platform, user_id=user_id)
+                return None, reason
             payload["status"] = "inactive"
             payload["last_error"] = reason
             payload["updated_at"] = _utc_now().isoformat()
@@ -279,15 +296,32 @@ class SessionStore:
                 parsed = self._deserialize(raw)
                 if not parsed:
                     continue
+                platform = str(parsed.get("platform") or "")
+                if platform:
+                    ok, reason = self.validate_session_payload(platform, parsed)
+                    if not ok:
+                        if self._should_auto_evict(reason):
+                            await self._redis.delete(key)
+                            await self._redis.srem(self._index_key(user_id), key)
+                        continue
                 rows.append(self._sanitize(parsed))
             return rows
 
         rows = []
-        for row in self._memory_sessions.values():
+        to_remove: List[str] = []
+        for key, row in self._memory_sessions.items():
             if row.get("user_id") == user_id:
+                platform = str(row.get("platform") or "")
+                if platform:
+                    ok, reason = self.validate_session_payload(platform, row)
+                    if not ok:
+                        if self._should_auto_evict(reason):
+                            to_remove.append(key)
+                        continue
                 rows.append(self._sanitize(row))
+        for key in to_remove:
+            self._memory_sessions.pop(key, None)
         return rows
 
 
 session_store = SessionStore()
-
