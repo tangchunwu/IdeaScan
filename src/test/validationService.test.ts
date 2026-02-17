@@ -42,6 +42,9 @@ describe('validationService', () => {
                 expect(result).toEqual({ success: true, validationId: '123', overallScore: 80 });
                 expect(supabase.functions.invoke).toHaveBeenCalledWith('validate-idea', {
                         body: request,
+                        headers: {
+                                Authorization: 'Bearer fake-token',
+                        },
                 });
         });
 

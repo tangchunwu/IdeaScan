@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 
 export interface UserSettings {
   // LLM Settings
@@ -98,9 +99,9 @@ export const useSettings = create<SettingsState>()(
             return;
           }
 
-          const { data, error } = await supabase.functions.invoke('user-settings', {
+          const { data, error } = await invokeFunction<{ settings: Partial<UserSettings> | null }>('user-settings', {
             method: 'GET',
-          });
+          }, true);
 
           if (error) {
             throw error;
@@ -150,10 +151,10 @@ export const useSettings = create<SettingsState>()(
 
           const settingsToSync = extractSettingsOnly(state);
 
-          const { error } = await supabase.functions.invoke('user-settings', {
+          const { error } = await invokeFunction('user-settings', {
             method: 'POST',
             body: { settings: settingsToSync },
-          });
+          }, true);
 
           if (error) {
             throw error;

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 
 export interface ValidationConfig {
   mode: 'quick' | 'deep';
@@ -195,9 +196,9 @@ export async function createValidation(request: ValidationRequest): Promise<Vali
     throw new Error("请先登录");
   }
 
-  const response = await supabase.functions.invoke("validate-idea", {
+  const response = await invokeFunction("validate-idea", {
     body: request,
-  });
+  }, true);
 
   if (response.error) {
     throw new Error(response.error.message || "验证失败");
@@ -214,9 +215,9 @@ export async function getValidation(validationId: string): Promise<FullValidatio
     throw new Error("请先登录");
   }
 
-  const { data, error } = await supabase.functions.invoke("get-validation", {
+  const { data, error } = await invokeFunction<FullValidation>("get-validation", {
     body: { id: validationId },
-  });
+  }, true);
 
   if (error) {
     throw new Error(error.message || "获取验证详情失败");
@@ -233,9 +234,9 @@ export async function listValidations(): Promise<Validation[]> {
     throw new Error("请先登录");
   }
 
-  const response = await supabase.functions.invoke("list-validations", {
+  const response = await invokeFunction<{ validations: Validation[] }>("list-validations", {
     body: {},
-  });
+  }, true);
 
   if (response.error) {
     throw new Error(response.error.message || "获取验证列表失败");
@@ -252,9 +253,9 @@ export async function deleteValidation(validationId: string): Promise<void> {
     throw new Error("请先登录");
   }
 
-  const response = await supabase.functions.invoke("delete-validation", {
+  const response = await invokeFunction("delete-validation", {
     body: { validationId },
-  });
+  }, true);
 
   if (response.error) {
     throw new Error(response.error.message || "删除失败");

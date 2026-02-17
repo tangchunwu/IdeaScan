@@ -8,7 +8,7 @@ import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2,
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
 import { ExportDataButton } from "./ExportDataButton";
 import { ImportDataButton } from "./ImportDataButton";
@@ -301,7 +301,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      toast({ variant: "destructive", title: "请输入 API Key" });
                      return;
               }
-              const { data, error } = await supabase.functions.invoke('verify-config', {
+              const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
                      body: {
                             type: 'llm',
                             apiKey: localSettings.llmApiKey,
@@ -337,7 +337,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               toast({ variant: "destructive", title: "请输入 API Key" });
               return;
        }
-       const { data, error } = await supabase.functions.invoke('verify-config', {
+       const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
               body: {
                      type: 'image_gen',
                      apiKey: localSettings.imageGenApiKey,
@@ -372,7 +372,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               toast({ variant: "destructive", title: "请输入 API Key" });
               return;
        }
-       const { data, error } = await supabase.functions.invoke('verify-config', {
+       const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
               body: { type: 'search', provider, apiKey }
        });
 
@@ -410,7 +410,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
        setIsSessionsLoading(true);
        try {
-              const { data, error } = await supabase.functions.invoke('crawler-auth-sessions');
+              const { data, error } = await invokeFunction<{ sessions?: CrawlerSession[] }>('crawler-auth-sessions', {}, true);
               if (error) {
                      throw new Error(error.message || "拉取已授权会话失败");
               }
@@ -436,9 +436,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
        setIsAuthLoading(true);
        try {
-              const { data, error } = await supabase.functions.invoke('crawler-auth-start', {
+              const { data, error } = await invokeFunction<any>('crawler-auth-start', {
                      body: { platform }
-              });
+              }, true);
               if (error || !data) {
                      throw new Error(error?.message || "启动扫码失败");
               }
@@ -469,9 +469,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        if (!authFlowId) return;
        setIsAuthLoading(true);
        try {
-              const { data, error } = await supabase.functions.invoke('crawler-auth-status', {
+              const { data, error } = await invokeFunction<any>('crawler-auth-status', {
                      body: { flow_id: authFlowId }
-              });
+              }, true);
               if (error || !data) {
                      throw new Error(error?.message || "检查状态失败");
               }
@@ -519,9 +519,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
   const handleCancelCrawlerAuth = async () => {
        if (!authFlowId) return;
        try {
-              await supabase.functions.invoke('crawler-auth-cancel', {
+              await invokeFunction('crawler-auth-cancel', {
                      body: { flow_id: authFlowId }
-              });
+              }, true);
        } catch {
               // best-effort cancel
        } finally {
@@ -536,9 +536,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        if (!user) return;
        setIsSessionsLoading(true);
        try {
-              const { data, error } = await supabase.functions.invoke('crawler-auth-revoke', {
+              const { data, error } = await invokeFunction<any>('crawler-auth-revoke', {
                      body: { platform }
-              });
+              }, true);
               if (error) {
                      throw new Error(error.message || "吊销会话失败");
               }
