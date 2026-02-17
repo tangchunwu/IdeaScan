@@ -101,6 +101,172 @@ export type Database = {
           },
         ]
       }
+      demand_experiments: {
+        Row: {
+          checkout_start_count: number
+          created_at: string
+          cta_click_count: number
+          cta_label: string | null
+          cta_type: string
+          evidence_verdict: string
+          id: string
+          idea: string
+          landing_page_id: string | null
+          paid_intent_count: number
+          paid_intent_rate: number
+          status: string
+          updated_at: string
+          user_id: string
+          uv_count: number
+          validation_id: string | null
+          waitlist_rate: number
+          waitlist_submit_count: number
+        }
+        Insert: {
+          checkout_start_count?: number
+          created_at?: string
+          cta_click_count?: number
+          cta_label?: string | null
+          cta_type?: string
+          evidence_verdict?: string
+          id?: string
+          idea?: string
+          landing_page_id?: string | null
+          paid_intent_count?: number
+          paid_intent_rate?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          uv_count?: number
+          validation_id?: string | null
+          waitlist_rate?: number
+          waitlist_submit_count?: number
+        }
+        Update: {
+          checkout_start_count?: number
+          created_at?: string
+          cta_click_count?: number
+          cta_label?: string | null
+          cta_type?: string
+          evidence_verdict?: string
+          id?: string
+          idea?: string
+          landing_page_id?: string | null
+          paid_intent_count?: number
+          paid_intent_rate?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          uv_count?: number
+          validation_id?: string | null
+          waitlist_rate?: number
+          waitlist_submit_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_experiments_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_experiments_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiment_events: {
+        Row: {
+          anon_id: string | null
+          created_at: string
+          event_type: string
+          experiment_id: string
+          id: string
+          metadata: Json | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          anon_id?: string | null
+          created_at?: string
+          event_type: string
+          experiment_id: string
+          id?: string
+          metadata?: Json | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          anon_id?: string | null
+          created_at?: string
+          event_type?: string
+          experiment_id?: string
+          id?: string
+          metadata?: Json | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_events_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "demand_experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      idea_proof_snapshots: {
+        Row: {
+          created_at: string
+          evidence_verdict: string
+          experiment_id: string
+          id: string
+          paid_intent_count: number
+          paid_intent_rate: number
+          snapshot_date: string
+          uv_count: number
+          waitlist_rate: number
+          waitlist_submit_count: number
+        }
+        Insert: {
+          created_at?: string
+          evidence_verdict?: string
+          experiment_id: string
+          id?: string
+          paid_intent_count?: number
+          paid_intent_rate?: number
+          snapshot_date?: string
+          uv_count?: number
+          waitlist_rate?: number
+          waitlist_submit_count?: number
+        }
+        Update: {
+          created_at?: string
+          evidence_verdict?: string
+          experiment_id?: string
+          id?: string
+          paid_intent_count?: number
+          paid_intent_rate?: number
+          snapshot_date?: string
+          uv_count?: number
+          waitlist_rate?: number
+          waitlist_submit_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_proof_snapshots_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "demand_experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mvp_landing_pages: {
         Row: {
           content: Json
@@ -703,14 +869,17 @@ export type Database = {
         Row: {
           ai_analysis: Json | null
           competitor_data: Json | null
+          cost_breakdown: Json | null
           created_at: string
           data_quality_score: number | null
           data_summary: Json | null
           dimensions: Json | null
+          evidence_grade: string | null
           id: string
           keywords_used: Json | null
           market_analysis: Json | null
           persona: Json | null
+          proof_result: Json | null
           sentiment_analysis: Json | null
           validation_id: string
           xiaohongshu_data: Json | null
@@ -718,14 +887,17 @@ export type Database = {
         Insert: {
           ai_analysis?: Json | null
           competitor_data?: Json | null
+          cost_breakdown?: Json | null
           created_at?: string
           data_quality_score?: number | null
           data_summary?: Json | null
           dimensions?: Json | null
+          evidence_grade?: string | null
           id?: string
           keywords_used?: Json | null
           market_analysis?: Json | null
           persona?: Json | null
+          proof_result?: Json | null
           sentiment_analysis?: Json | null
           validation_id: string
           xiaohongshu_data?: Json | null
@@ -733,14 +905,17 @@ export type Database = {
         Update: {
           ai_analysis?: Json | null
           competitor_data?: Json | null
+          cost_breakdown?: Json | null
           created_at?: string
           data_quality_score?: number | null
           data_summary?: Json | null
           dimensions?: Json | null
+          evidence_grade?: string | null
           id?: string
           keywords_used?: Json | null
           market_analysis?: Json | null
           persona?: Json | null
+          proof_result?: Json | null
           sentiment_analysis?: Json | null
           validation_id?: string
           xiaohongshu_data?: Json | null
