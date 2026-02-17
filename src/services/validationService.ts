@@ -9,6 +9,8 @@ export interface ValidationConfig {
   tikhubToken: string;
   enableXiaohongshu: boolean;
   enableDouyin: boolean;
+  enableSelfCrawler: boolean;
+  enableTikhubFallback: boolean;
   searchKeys: {
     bocha: string;
     you: string;

@@ -113,7 +113,7 @@ supabase db push
 ### 3. 部署关键函数
 
 ```bash
-supabase functions deploy validate-idea validate-idea-stream generate-mvp track-experiment-event submit-mvp-lead scan-trending-topics crawler-dispatch crawler-callback
+supabase functions deploy validate-idea validate-idea-stream generate-mvp track-experiment-event submit-mvp-lead scan-trending-topics crawler-dispatch crawler-callback crawler-auth-start crawler-auth-status crawler-auth-cancel crawler-auth-import-cookies
 ```
 
 ## crawler-service 运行
@@ -123,6 +123,7 @@ cd crawler-service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+playwright install chromium
 uvicorn app.main:app --reload --port 8100
 ```
 
@@ -160,6 +161,25 @@ python run_worker.py
 - 采集混合切换：优先自有信号，不足再走第三方
 - 配额延迟扣减：仅在实际使用第三方抓取时检查/扣减免费额度
 - 报告可观测：展示本次成本拆解与耗时
+
+## 采集开关说明（前端设置）
+
+在设置页可单独控制两条采集链路：
+- `启用自爬服务 (Self Crawler)`：开启后优先尝试自爬链路。
+- `启用 TikHub 兜底`：开启后在自爬样本不足时自动回退 TikHub。
+
+行为规则：
+- `quick` 模式：强制只走自爬链路（不走 TikHub）。
+- `deep` 模式：按开关策略运行（可自爬 + TikHub 兜底）。
+- 两者都开：按路由策略运行（默认自爬灰度 + TikHub 兜底）。
+- 只开自爬：强制尝试自爬，不走 TikHub（适合降本测试）。
+- 只开 TikHub：只走 TikHub（仅 deep 模式可生效）。
+- 两者都关：仅可用缓存；若无缓存会直接报错。
+- 当前前端配额逻辑：仅在“启用 TikHub 兜底且无自带 Token”时才检查免费额度。
+
+扫码登录能力（crawler-service）：
+- 支持小红书/抖音用户扫码登录，登录后保存该用户会话。
+- 抓取时会优先使用该用户会话；会话抓取失败时才回退 TikHub（取决于模式与开关）。
 
 ## 测试与质量
 

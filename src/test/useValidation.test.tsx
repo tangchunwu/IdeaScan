@@ -21,6 +21,8 @@ vi.mock('@/hooks/useSettings', () => ({
                 tikhubToken: 'test-token',
                 enableXiaohongshu: true,
                 enableDouyin: false,
+                enableSelfCrawler: true,
+                enableTikhubFallback: true,
                 bochaApiKey: '',
                 youApiKey: '',
                 tavilyApiKey: '',

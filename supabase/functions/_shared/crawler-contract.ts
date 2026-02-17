@@ -9,6 +9,7 @@ export interface CrawlerJobLimits {
 export interface CrawlerJobRequest {
   validation_id: string;
   trace_id: string;
+  user_id?: string;
   query: string;
   platforms: CrawlerPlatform[];
   mode: CrawlerMode;

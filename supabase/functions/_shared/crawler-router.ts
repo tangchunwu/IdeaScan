@@ -83,6 +83,7 @@ export async function dispatchCrawlerJob(options: DispatchCrawlerOptions): Promi
   const requestPayload = {
     validation_id: validationId,
     trace_id: buildTraceId("crawler", validationId, userId),
+    user_id: userId,
     query,
     platforms,
     mode,

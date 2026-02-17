@@ -40,12 +40,13 @@ import { useSettings } from "./useSettings";
 export const useCreateValidation = () => {
        const queryClient = useQueryClient();
        const settings = useSettings();
+       const resolveMode = (mode?: 'quick' | 'deep') => mode || 'deep';
 
        return useMutation({
               mutationFn: (request: ValidationRequest) => createValidation({
                      ...request,
                      config: {
-                            mode: request.mode || 'deep',
+                            mode: resolveMode(request.mode),
                             llmProvider: settings.llmProvider,
                             llmBaseUrl: settings.llmBaseUrl,
                             llmApiKey: settings.llmApiKey,
@@ -53,6 +54,9 @@ export const useCreateValidation = () => {
                             tikhubToken: settings.tikhubToken,
                             enableXiaohongshu: settings.enableXiaohongshu,
                             enableDouyin: settings.enableDouyin,
+                            enableSelfCrawler: settings.enableSelfCrawler,
+                            // quick: self-crawler only; deep: allow TikHub fallback by user setting
+                            enableTikhubFallback: resolveMode(request.mode) === 'deep' ? settings.enableTikhubFallback : false,
                             searchKeys: {
                                    bocha: settings.bochaApiKey,
                                    you: settings.youApiKey,

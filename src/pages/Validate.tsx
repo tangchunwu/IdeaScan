@@ -177,6 +177,9 @@ const Validate = () => {
           tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: settings.enableDouyin,
+          enableSelfCrawler: settings.enableSelfCrawler,
+          // quick: self-crawler only; deep: allow TikHub fallback by user setting
+          enableTikhubFallback: validationMode === 'deep' ? settings.enableTikhubFallback : false,
           // LLM and search keys are now handled by the backend using system config
         },
       },

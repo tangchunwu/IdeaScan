@@ -28,6 +28,8 @@ describe('useSettings', () => {
                         tikhubToken: '',
                         enableXiaohongshu: true,
                         enableDouyin: false,
+                        enableSelfCrawler: true,
+                        enableTikhubFallback: true,
                         bochaApiKey: '',
                         youApiKey: '',
                         tavilyApiKey: '',
@@ -46,6 +48,8 @@ describe('useSettings', () => {
                 expect(state.llmModel).toBe('gpt-4o');
                 expect(state.enableXiaohongshu).toBe(true);
                 expect(state.enableDouyin).toBe(false);
+                expect(state.enableSelfCrawler).toBe(true);
+                expect(state.enableTikhubFallback).toBe(true);
         });
 
         it('should update settings correctly', () => {

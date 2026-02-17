@@ -4,3 +4,4 @@ pydantic==2.11.7
 pydantic-settings==2.10.1
 httpx==0.28.1
 redis==6.4.0
+playwright==1.55.0

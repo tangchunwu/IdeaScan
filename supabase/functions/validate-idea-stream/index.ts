@@ -59,6 +59,8 @@ interface RequestConfig {
   tikhubToken?: string;
   enableXiaohongshu?: boolean;
   enableDouyin?: boolean;
+  enableSelfCrawler?: boolean;
+  enableTikhubFallback?: boolean;
   searchKeys?: {
     bocha?: string;
     you?: string;
@@ -80,6 +82,8 @@ function validateConfig(config: unknown): RequestConfig {
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
     enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
+    enableSelfCrawler: typeof c.enableSelfCrawler === 'boolean' ? c.enableSelfCrawler : true,
+    enableTikhubFallback: typeof c.enableTikhubFallback === 'boolean' ? c.enableTikhubFallback : true,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -223,11 +227,14 @@ Deno.serve(async (req) => {
       const mode = config?.mode || 'quick';
       const enableXhs = config?.enableXiaohongshu ?? true;
       const enableDy = config?.enableDouyin ?? false;
+      const enableSelfCrawler = config?.enableSelfCrawler ?? true;
+      // quick mode: self-crawler only; deep mode: allow TikHub fallback by setting
+      const enableTikhubFallback = mode === 'deep' ? (config?.enableTikhubFallback ?? true) : false;
       
-      const userProvidedTikhub = !!config?.tikhubToken;
-      let tikhubToken = config?.tikhubToken;
+      const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
+      let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
       
-      if (!userProvidedTikhub && !usedCache) {
+      if (enableTikhubFallback && !userProvidedTikhub && !usedCache) {
         // Delay quota enforcement until third-party crawler is actually needed.
         tikhubToken = Deno.env.get("TIKHUB_TOKEN");
       }
@@ -252,13 +259,18 @@ Deno.serve(async (req) => {
         );
       }
 
+      if (!usedCache && (enableXhs || enableDy) && !enableSelfCrawler && !enableTikhubFallback) {
+        throw new ValidationError("DATA_SOURCE_DISABLED:已关闭自爬与TikHub兜底，且当前无可用缓存。请至少启用一个采集链路。");
+      }
+
       // ============ Social Media Crawling ============
       if (!usedCache && (enableXhs || enableDy)) {
         await sendProgress('CRAWL_START');
         let usedSelfCrawler = false;
 
         const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
-        if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
+        const shouldAttemptSelfCrawler = enableSelfCrawler && (!enableTikhubFallback || shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio));
+        if (shouldAttemptSelfCrawler) {
           const crawlerStarted = Date.now();
           const routed = await routeCrawlerSource({
             supabase,
@@ -299,8 +311,12 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (!usedSelfCrawler && tikhubToken) {
-          if (!userProvidedTikhub) {
+        if (!usedSelfCrawler && enableTikhubFallback) {
+          if (!tikhubToken && !enableSelfCrawler) {
+            throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");
+          }
+
+          if (!userProvidedTikhub && tikhubToken) {
             const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
               p_user_id: user.id
             });
@@ -313,27 +329,31 @@ Deno.serve(async (req) => {
             }
           }
 
-          usedThirdPartyCrawler = true;
-          if (enableXhs) {
-            await sendProgress('CRAWL_XHS');
-            const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
-            socialData.totalNotes += xhsData.totalNotes;
-            socialData.avgLikes += xhsData.avgLikes;
-            socialData.avgComments += xhsData.avgComments;
-            socialData.sampleNotes.push(...xhsData.sampleNotes);
-            socialData.sampleComments.push(...xhsData.sampleComments);
-            externalApiCalls += xhsData.apiCalls || 0;
-          }
+          if (tikhubToken) {
+            usedThirdPartyCrawler = true;
+            if (enableXhs) {
+              await sendProgress('CRAWL_XHS');
+              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
+              socialData.totalNotes += xhsData.totalNotes;
+              socialData.avgLikes += xhsData.avgLikes;
+              socialData.avgComments += xhsData.avgComments;
+              socialData.sampleNotes.push(...xhsData.sampleNotes);
+              socialData.sampleComments.push(...xhsData.sampleComments);
+              externalApiCalls += xhsData.apiCalls || 0;
+            }
 
-          if (enableDy) {
-            await sendProgress('CRAWL_DY');
-            const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
-            socialData.totalNotes += dyData.totalNotes;
-            socialData.avgLikes += dyData.avgLikes;
-            socialData.avgComments += dyData.avgComments;
-            socialData.sampleNotes.push(...dyData.sampleNotes);
-            socialData.sampleComments.push(...dyData.sampleComments);
-            externalApiCalls += dyData.apiCalls || 0;
+            if (enableDy) {
+              await sendProgress('CRAWL_DY');
+              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
+              socialData.totalNotes += dyData.totalNotes;
+              socialData.avgLikes += dyData.avgLikes;
+              socialData.avgComments += dyData.avgComments;
+              socialData.sampleNotes.push(...dyData.sampleNotes);
+              socialData.sampleComments.push(...dyData.sampleComments);
+              externalApiCalls += dyData.apiCalls || 0;
+            }
+          } else {
+            console.log("[SourceRouter] TikHub fallback enabled but token missing, skip fallback");
           }
         }
       }

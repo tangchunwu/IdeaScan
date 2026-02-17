@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
 from typing import Dict, Tuple
 
 import httpx
 
 from app.adapters.base import BaseAdapter
+from app.browser_scraper import crawl_with_user_session
 from app.config import settings
 from app.models import (
     CrawlerJobPayload,
@@ -15,6 +15,7 @@ from app.models import (
     CrawlerPlatformResult,
 )
 from app.risk_control import RiskController
+from app.session_store import session_store
 
 
 class DouyinAdapter(BaseAdapter):
@@ -40,6 +41,18 @@ class DouyinAdapter(BaseAdapter):
         comments: list[CrawlerNormalizedComment] = []
         external_calls = 0
         token = settings.tikhub_token
+        session_error = ""
+
+        if payload.user_id:
+            session = await session_store.get_user_session(platform=self.platform, user_id=payload.user_id)
+            if session:
+                try:
+                    session_result, session_cost = await crawl_with_user_session(self.platform, payload, session)
+                    if session_result.success and session_result.notes:
+                        return session_result, session_cost
+                    session_error = session_result.error or "session_crawl_failed"
+                except Exception as exc:
+                    session_error = f"session_crawl_exception:{exc}"
 
         if token:
             headers = {"Authorization": f"Bearer {token}", "User-Agent": self.risk.user_agents.sample()}
@@ -96,49 +109,26 @@ class DouyinAdapter(BaseAdapter):
             except Exception:
                 notes = []
                 comments = []
-
-        if not notes:
-            now = datetime.now(timezone.utc).isoformat()
-            for idx in range(max(1, payload.limits.notes // 2)):
-                notes.append(
-                    CrawlerNormalizedNote(
-                        id=f"dy-demo-{idx}",
-                        title=f"{payload.query} 视频样本 {idx + 1}",
-                        desc=f"模拟抖音抓取，关键词: {payload.query}",
-                        liked_count=20 + idx * 2,
-                        comments_count=5 + idx,
-                        collected_count=0,
-                        published_at=now,
-                        platform=self.platform,
-                        url="",
-                    )
-                )
-            for idx in range(max(2, payload.limits.comments_per_note)):
-                comments.append(
-                    CrawlerNormalizedComment(
-                        id=f"dy-demo-c-{idx}",
-                        content=f"抖音模拟评论 {idx + 1}，关键词 {payload.query}",
-                        like_count=idx,
-                        user_nickname="douyin_demo",
-                        ip_location="",
-                        published_at=now,
-                        platform=self.platform,
-                    )
-                )
+        success = len(notes) > 0
+        source = "douyin_tikhub"
+        if success and payload.user_id:
+            source = "douyin_session"
+        if not token and not success and not session_error:
+            session_error = "no_tikhub_token_and_no_user_session"
 
         return (
             CrawlerPlatformResult(
                 platform=self.platform,
                 notes=notes,
                 comments=comments,
-                success=True,
+                success=success,
                 latency_ms=int((time.time() - started) * 1000),
+                error=None if success else session_error or "crawl_empty",
             ),
             {
                 "external_api_calls": external_calls,
                 "proxy_calls": 0,
                 "est_cost": round(external_calls * 0.0004, 6),
-                "provider_mix": {"douyin": 1.0},
+                "provider_mix": {source: 1.0 if success else 0.0},
             },
         )
-

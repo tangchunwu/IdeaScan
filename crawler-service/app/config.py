@@ -12,14 +12,18 @@ class Settings(BaseSettings):
     crawler_callback_timeout_s: int = 8
     crawler_session_pool_size: int = 8
     crawler_retry_times: int = 2
+    crawler_auth_flow_ttl_s: int = 180
     crawler_user_agent_pool: str = (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7),"
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64),"
         "Mozilla/5.0 (X11; Linux x86_64)"
     )
+    crawler_playwright_headless: bool = True
+    crawler_default_proxy_server: str = ""
+    crawler_default_proxy_username: str = ""
+    crawler_default_proxy_password: str = ""
 
     tikhub_token: str = ""
 
 
 settings = Settings()
-

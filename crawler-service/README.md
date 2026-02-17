@@ -7,6 +7,10 @@
 - `POST /internal/v1/crawl/jobs`：提交抓取任务
 - `GET /internal/v1/crawl/jobs/{job_id}`：查询任务状态
 - `POST /internal/v1/crawl/cancel/{job_id}`：取消任务
+- `POST /internal/v1/auth/sessions/start`：启动扫码登录会话，返回二维码截图
+- `GET /internal/v1/auth/sessions/{flow_id}`：查询扫码状态（成功后自动保存用户会话）
+- `POST /internal/v1/auth/sessions/cancel/{flow_id}`：取消扫码会话
+- `POST /internal/v1/auth/sessions/import`：手动导入 cookies（可替代扫码）
 - Worker 异步执行抓取并回调 IdeaScan `crawler-callback`
 
 ## 快速启动
@@ -17,6 +21,12 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8100
+```
+
+安装浏览器内核（首次必需）：
+
+```bash
+playwright install chromium
 ```
 
 另开终端启动 worker：
@@ -36,6 +46,18 @@ python run_worker.py
 - `CRAWLER_HTTP_TIMEOUT_S`：外部请求超时，默认 12
 - `CRAWLER_CALLBACK_TIMEOUT_S`：回调超时，默认 8
 - `CRAWLER_JOB_QUEUE_KEY`：队列 key，默认 `crawler:jobs`
+- `CRAWLER_AUTH_FLOW_TTL_S`：扫码会话有效期（秒），默认 180
+- `CRAWLER_PLAYWRIGHT_HEADLESS`：浏览器是否无头，默认 `true`
+- `CRAWLER_DEFAULT_PROXY_SERVER`：可选，浏览器代理地址（例如 `http://host:port`）
+- `CRAWLER_DEFAULT_PROXY_USERNAME`：可选，代理用户名
+- `CRAWLER_DEFAULT_PROXY_PASSWORD`：可选，代理密码
+
+## 扫码登录流程
+
+1. 调用 `POST /internal/v1/auth/sessions/start`，body 传 `platform`、`user_id`。  
+2. 返回 `qr_image_base64`，前端展示二维码图片供用户扫码。  
+3. 轮询 `GET /internal/v1/auth/sessions/{flow_id}`。  
+4. 返回 `status=authorized` 即表示 cookies 已写入会话池；后续抓取会优先使用该用户会话。  
 
 ## 回调协议
 

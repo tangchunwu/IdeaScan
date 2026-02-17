@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 
+from app.auth_manager import auth_manager
 from app.config import settings
-from app.models import EnqueueJobRequest
+from app.models import EnqueueJobRequest, ImportCookiesRequest, StartAuthSessionRequest
 from app.processor import process_job
+from app.session_store import session_store
 from app.store import job_store
 
 app = FastAPI(title="IdeaScan Crawler Service", version="0.1.0")
@@ -42,3 +44,37 @@ async def cancel_job(job_id: str) -> dict[str, str]:
     await job_store.set_status(job_id, "cancelled")
     return {"job_id": job_id, "status": "cancelled"}
 
+
+@app.post("/internal/v1/auth/sessions/start", dependencies=[Depends(verify_token)])
+async def start_auth_session(req: StartAuthSessionRequest) -> dict:
+    return await auth_manager.start_flow(
+        platform=req.platform,
+        user_id=req.user_id,
+        region=req.region,
+    )
+
+
+@app.get("/internal/v1/auth/sessions/{flow_id}", dependencies=[Depends(verify_token)])
+async def get_auth_session_status(flow_id: str) -> dict:
+    return await auth_manager.get_status(flow_id)
+
+
+@app.post("/internal/v1/auth/sessions/cancel/{flow_id}", dependencies=[Depends(verify_token)])
+async def cancel_auth_session(flow_id: str) -> dict:
+    return await auth_manager.cancel_flow(flow_id)
+
+
+@app.post("/internal/v1/auth/sessions/import", dependencies=[Depends(verify_token)])
+async def import_auth_cookies(req: ImportCookiesRequest) -> dict:
+    return await auth_manager.import_cookies(
+        platform=req.platform,
+        user_id=req.user_id,
+        cookies=req.cookies,
+        region=req.region,
+    )
+
+
+@app.get("/internal/v1/auth/sessions/user/{user_id}", dependencies=[Depends(verify_token)])
+async def list_user_sessions(user_id: str) -> dict:
+    rows = await session_store.list_user_sessions(user_id)
+    return {"user_id": user_id, "sessions": rows}

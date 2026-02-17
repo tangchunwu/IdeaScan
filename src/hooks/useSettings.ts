@@ -15,6 +15,8 @@ export interface UserSettings {
   // Data Source Settings
   enableXiaohongshu: boolean;
   enableDouyin: boolean;
+  enableSelfCrawler: boolean;
+  enableTikhubFallback: boolean;
 
   // Search Settings
   bochaApiKey: string;
@@ -50,6 +52,8 @@ const defaultSettings: UserSettings = {
   tikhubToken: '',
   enableXiaohongshu: true,
   enableDouyin: false,
+  enableSelfCrawler: true,
+  enableTikhubFallback: true,
   bochaApiKey: '',
   youApiKey: '',
   tavilyApiKey: '',
@@ -160,6 +164,8 @@ export const useSettings = create<SettingsState>()(
         llmModel: state.llmModel,
         enableXiaohongshu: state.enableXiaohongshu,
         enableDouyin: state.enableDouyin,
+        enableSelfCrawler: state.enableSelfCrawler,
+        enableTikhubFallback: state.enableTikhubFallback,
         imageGenBaseUrl: state.imageGenBaseUrl,
         imageGenModel: state.imageGenModel,
         // API keys are NOT persisted locally for security

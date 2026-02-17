@@ -60,6 +60,8 @@ interface RequestConfig {
   tikhubToken?: string;
   enableXiaohongshu?: boolean;
   enableDouyin?: boolean;
+  enableSelfCrawler?: boolean;
+  enableTikhubFallback?: boolean;
   searchKeys?: {
     bocha?: string;
     you?: string;
@@ -86,6 +88,8 @@ function validateConfig(config: unknown): RequestConfig {
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
     enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
+    enableSelfCrawler: typeof c.enableSelfCrawler === 'boolean' ? c.enableSelfCrawler : true,
+    enableTikhubFallback: typeof c.enableTikhubFallback === 'boolean' ? c.enableTikhubFallback : true,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -925,11 +929,15 @@ serve(async (req) => {
     // Check rate limit
     await checkRateLimit(supabase, user.id, "validate-idea");
 
+    const mode = config?.mode || 'quick';
+    // quick mode: self-crawler only; deep mode: allow TikHub fallback by setting
+    const enableTikhubFallback = mode === 'deep' ? (config?.enableTikhubFallback ?? true) : false;
+
     // ============ TikHub Quota Check ============
-    const userProvidedTikhub = !!config?.tikhubToken;
-    let tikhubToken = config?.tikhubToken;
-    
-    if (!userProvidedTikhub) {
+    const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
+    let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
+
+    if (enableTikhubFallback && !userProvidedTikhub) {
       // Delay quota enforcement until we actually need third-party crawling.
       tikhubToken = Deno.env.get("TIKHUB_TOKEN");
     }
@@ -965,9 +973,9 @@ serve(async (req) => {
 
     // 2. Crawl social media data (using multi-channel adapter architecture)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
-    const mode = config?.mode || 'quick';
     const enableXiaohongshu = config?.enableXiaohongshu ?? true;
     const enableDouyin = config?.enableDouyin ?? false;
+    const enableSelfCrawler = config?.enableSelfCrawler ?? true;
     let usedThirdPartyCrawler = false;
 
     let xiaohongshuData = {
@@ -982,8 +990,13 @@ serve(async (req) => {
       sampleComments: []
     } as any;
 
+    if ((enableXiaohongshu || enableDouyin) && !enableSelfCrawler && !enableTikhubFallback) {
+      throw new ValidationError("DATA_SOURCE_DISABLED:已关闭自爬与TikHub兜底，且当前无可用缓存。请至少启用一个采集链路。");
+    }
+
     const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
-    if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
+    const shouldAttemptSelfCrawler = enableSelfCrawler && (!enableTikhubFallback || shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio));
+    if (shouldAttemptSelfCrawler) {
       const crawlerStarted = Date.now();
       const routed = await routeCrawlerSource({
         supabase,
@@ -1018,7 +1031,12 @@ serve(async (req) => {
       }
     }
 
-    if ((xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8) {
+    const needsThirdPartyFallback = (xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8;
+    if (needsThirdPartyFallback && enableTikhubFallback) {
+      if (!tikhubToken && !enableSelfCrawler) {
+        throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");
+      }
+
       if (!userProvidedTikhub && tikhubToken) {
         const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
           p_user_id: user.id
@@ -1032,16 +1050,20 @@ serve(async (req) => {
         }
       }
 
-      xiaohongshuData = await crawlSocialMediaData(
-        xhsSearchTerm,
-        tags || [],
-        tikhubToken,
-        mode,
-        enableXiaohongshu,
-        enableDouyin
-      );
-      usedThirdPartyCrawler = !!tikhubToken;
-      externalApiCalls += 1;
+      if (tikhubToken) {
+        xiaohongshuData = await crawlSocialMediaData(
+          xhsSearchTerm,
+          tags || [],
+          tikhubToken,
+          mode,
+          enableXiaohongshu,
+          enableDouyin
+        );
+        usedThirdPartyCrawler = true;
+        externalApiCalls += 1;
+      } else {
+        console.log("[SourceRouter] TikHub fallback enabled but token missing, skip fallback");
+      }
     }
 
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);

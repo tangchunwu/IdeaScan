@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ class CrawlerJobLimits(BaseModel):
 class CrawlerJobPayload(BaseModel):
     validation_id: str
     trace_id: str
+    user_id: Optional[str] = None
     query: str
     platforms: List[CrawlPlatform]
     mode: CrawlMode = "quick"
@@ -87,3 +88,33 @@ class CrawlerResultPayload(BaseModel):
     cost: CrawlerResultCost = Field(default_factory=CrawlerResultCost)
     errors: List[str] = Field(default_factory=list)
 
+
+class StartAuthSessionRequest(BaseModel):
+    platform: CrawlPlatform
+    user_id: str
+    region: str = ""
+
+
+class StartAuthSessionResponse(BaseModel):
+    flow_id: str
+    platform: CrawlPlatform
+    status: Literal["pending", "failed"]
+    qr_image_base64: str = ""
+    expires_in: int = 0
+    error: Optional[str] = None
+
+
+class AuthSessionStatusResponse(BaseModel):
+    flow_id: str
+    platform: CrawlPlatform
+    user_id: str
+    status: Literal["pending", "authorized", "expired", "cancelled", "failed"]
+    session_saved: bool = False
+    error: Optional[str] = None
+
+
+class ImportCookiesRequest(BaseModel):
+    platform: CrawlPlatform
+    user_id: str
+    cookies: List[Dict[str, Any]]
+    region: str = ""

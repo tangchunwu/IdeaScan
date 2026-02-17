@@ -39,7 +39,7 @@ interface SettingsDialogProps {
 export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
        const {
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-              enableXiaohongshu, enableDouyin,
+              enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel,
               updateSettings, resetSettings,
@@ -58,12 +58,17 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [showTikhubToken, setShowTikhubToken] = useState(false);
        const [showSearchKey, setShowSearchKey] = useState(false);
        const [isSaving, setIsSaving] = useState(false);
+       const [authFlowId, setAuthFlowId] = useState('');
+       const [authPlatform, setAuthPlatform] = useState<'xiaohongshu' | 'douyin' | ''>('');
+       const [authQrImage, setAuthQrImage] = useState('');
+       const [authStatus, setAuthStatus] = useState('');
+       const [isAuthLoading, setIsAuthLoading] = useState(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-              enableXiaohongshu, enableDouyin,
+              enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel
        });
@@ -73,12 +78,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               if (open) {
                      setLocalSettings({
                             llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-                            enableXiaohongshu, enableDouyin,
+                            enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
                             bochaApiKey, youApiKey, tavilyApiKey,
                             imageGenBaseUrl, imageGenApiKey, imageGenModel
                      });
               }
-       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, enableXiaohongshu, enableDouyin, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
+       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
 
        const handleProviderChange = (value: 'openai' | 'deepseek' | 'custom') => {
               const providerConfig = PROVIDERS[value];
@@ -134,6 +139,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             localSettings.tikhubToken !== tikhubToken ||
                             localSettings.enableXiaohongshu !== enableXiaohongshu ||
                             localSettings.enableDouyin !== enableDouyin ||
+                            localSettings.enableSelfCrawler !== enableSelfCrawler ||
+                            localSettings.enableTikhubFallback !== enableTikhubFallback ||
                             localSettings.bochaApiKey !== bochaApiKey ||
                             localSettings.youApiKey !== youApiKey ||
                             localSettings.tavilyApiKey !== tavilyApiKey ||
@@ -180,6 +187,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             tikhubToken: '',
                             enableXiaohongshu: true,
                             enableDouyin: false,
+                            enableSelfCrawler: true,
+                            enableTikhubFallback: true,
                             bochaApiKey: '',
                             youApiKey: '',
                             tavilyApiKey: '',
@@ -249,6 +258,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    ...(settings.tikhubToken && { tikhubToken: settings.tikhubToken }),
                                    ...(typeof settings.enableXiaohongshu === 'boolean' && { enableXiaohongshu: settings.enableXiaohongshu }),
                                    ...(typeof settings.enableDouyin === 'boolean' && { enableDouyin: settings.enableDouyin }),
+                                   ...(typeof settings.enableSelfCrawler === 'boolean' && { enableSelfCrawler: settings.enableSelfCrawler }),
+                                   ...(typeof settings.enableTikhubFallback === 'boolean' && { enableTikhubFallback: settings.enableTikhubFallback }),
                                    ...(settings.bochaApiKey && { bochaApiKey: settings.bochaApiKey }),
                                    ...(settings.youApiKey && { youApiKey: settings.youApiKey }),
                                    ...(settings.tavilyApiKey && { tavilyApiKey: settings.tavilyApiKey }),
@@ -380,6 +391,99 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
+  const handleStartCrawlerAuth = async (platform: 'xiaohongshu' | 'douyin') => {
+       if (!user) {
+              toast({ variant: "destructive", title: "请先登录后再扫码" });
+              return;
+       }
+       setIsAuthLoading(true);
+       try {
+              const { data, error } = await supabase.functions.invoke('crawler-auth-start', {
+                     body: { platform }
+              });
+              if (error || !data) {
+                     throw new Error(error?.message || "启动扫码失败");
+              }
+              if (data.status !== 'pending' || !data.qr_image_base64) {
+                     throw new Error(data.error || "未获取到二维码");
+              }
+              setAuthFlowId(data.flow_id || '');
+              setAuthPlatform(platform);
+              setAuthQrImage(data.qr_image_base64);
+              setAuthStatus('pending');
+              toast({
+                     title: "二维码已生成",
+                     description: `请用${platform === 'xiaohongshu' ? '小红书' : '抖音'}APP扫码登录`,
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+       } catch (e) {
+              toast({
+                     variant: "destructive",
+                     title: "扫码会话启动失败",
+                     description: (e as Error).message || "请稍后重试"
+              });
+       } finally {
+              setIsAuthLoading(false);
+       }
+  };
+
+  const handleCheckCrawlerAuthStatus = async () => {
+       if (!authFlowId) return;
+       setIsAuthLoading(true);
+       try {
+              const { data, error } = await supabase.functions.invoke('crawler-auth-status', {
+                     body: { flow_id: authFlowId }
+              });
+              if (error || !data) {
+                     throw new Error(error?.message || "检查状态失败");
+              }
+              const status = data.status || 'pending';
+              setAuthStatus(status);
+              if (status === 'authorized') {
+                     toast({
+                            title: "登录成功",
+                            description: "用户会话已保存，后续自爬将优先使用该账号",
+                            className: "bg-green-50 border-green-200 text-green-800"
+                     });
+              } else if (status === 'expired' || status === 'failed') {
+                     toast({
+                            variant: "destructive",
+                            title: "扫码会话已失效",
+                            description: data.error || "请重新生成二维码",
+                     });
+              } else {
+                     toast({
+                            title: "尚未完成扫码",
+                            description: "请扫码并在手机端确认登录",
+                     });
+              }
+       } catch (e) {
+              toast({
+                     variant: "destructive",
+                     title: "状态检查失败",
+                     description: (e as Error).message || "请稍后重试"
+              });
+       } finally {
+              setIsAuthLoading(false);
+       }
+  };
+
+  const handleCancelCrawlerAuth = async () => {
+       if (!authFlowId) return;
+       try {
+              await supabase.functions.invoke('crawler-auth-cancel', {
+                     body: { flow_id: authFlowId }
+              });
+       } catch {
+              // best-effort cancel
+       } finally {
+              setAuthFlowId('');
+              setAuthPlatform('');
+              setAuthQrImage('');
+              setAuthStatus('');
+       }
+  };
+
   return (
        <Dialog open={open} onOpenChange={handleOpenChange}>
               {trigger ? (
@@ -499,6 +603,82 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                  <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
                                                  <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                           </div>
+                                   </div>
+
+                                   <div className="space-y-3 pt-2">
+                                          <Label className="text-sm text-muted-foreground">账号扫码登录（自爬优先）</Label>
+                                          <div className="flex gap-2">
+                                                 <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1"
+                                                        onClick={() => handleStartCrawlerAuth('xiaohongshu')}
+                                                        disabled={isAuthLoading}
+                                                 >
+                                                        小红书扫码
+                                                 </Button>
+                                                 <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1"
+                                                        onClick={() => handleStartCrawlerAuth('douyin')}
+                                                        disabled={isAuthLoading}
+                                                 >
+                                                        抖音扫码
+                                                 </Button>
+                                          </div>
+                                          {authQrImage && (
+                                                 <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                                                        <p className="text-xs text-muted-foreground">
+                                                               当前会话：{authPlatform === 'xiaohongshu' ? '小红书' : '抖音'} | 状态：{authStatus || 'pending'}
+                                                        </p>
+                                                        <img
+                                                               src={`data:image/png;base64,${authQrImage}`}
+                                                               alt="crawler login qr"
+                                                               className="w-44 h-44 object-contain bg-white rounded border"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                               <Button variant="outline" size="sm" onClick={handleCheckCrawlerAuthStatus} disabled={isAuthLoading}>
+                                                                      检查登录状态
+                                                               </Button>
+                                                               <Button variant="ghost" size="sm" onClick={handleCancelCrawlerAuth} disabled={isAuthLoading}>
+                                                                      取消会话
+                                                               </Button>
+                                                        </div>
+                                                 </div>
+                                          )}
+                                   </div>
+
+                                   <div className="space-y-3 pt-2">
+                                          <Label className="text-sm text-muted-foreground">采集执行策略</Label>
+
+                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+                                                 <div>
+                                                        <p className="font-medium text-sm">启用自爬服务 (Self Crawler)</p>
+                                                        <p className="text-xs text-muted-foreground">优先走本地/独立爬虫，降低 TikHub 成本</p>
+                                                 </div>
+                                                 <Switch
+                                                        checked={localSettings.enableSelfCrawler}
+                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableSelfCrawler: checked }))}
+                                                 />
+                                          </div>
+
+                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+                                                 <div>
+                                                        <p className="font-medium text-sm">启用 TikHub 兜底</p>
+                                                        <p className="text-xs text-muted-foreground">自爬样本不足时，自动回退 TikHub</p>
+                                                 </div>
+                                                 <Switch
+                                                        checked={localSettings.enableTikhubFallback}
+                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableTikhubFallback: checked }))}
+                                                 />
+                                          </div>
+
+                                          {!localSettings.enableSelfCrawler && !localSettings.enableTikhubFallback && (
+                                                 <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                                                        ⚠️ 已关闭所有采集执行链路，仅能使用缓存数据
+                                                 </p>
+                                          )}
                                    </div>
 
                                    {/* Data Source Toggles */}
