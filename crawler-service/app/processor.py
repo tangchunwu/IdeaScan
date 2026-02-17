@@ -7,11 +7,11 @@ import httpx
 
 from app.adapters import DouyinAdapter, XiaohongshuAdapter
 from app.config import settings
-from app.models import CrawlerJobPayload, CrawlerResultPayload, CrawlerResultCost, CrawlerResultQuality
+from app.models import CrawlerJobPayload, CrawlerResultPayload, CrawlerResultCost, CrawlerResultQuality, CrawlerPlatformResult
 from app.normalizer import calc_dup_ratio, calc_freshness_score
 from app.risk_control import RiskController
 from app.security import hmac_sha256_hex
-from app.store import job_store
+from app.store import budget_store, job_store
 
 
 risk_controller = RiskController(
@@ -25,6 +25,13 @@ def _build_adapters() -> Dict[str, Any]:
         "xiaohongshu": XiaohongshuAdapter(risk_controller),
         "douyin": DouyinAdapter(risk_controller),
     }
+
+
+def _estimate_budget_units(payload: CrawlerJobPayload) -> int:
+    # Estimate crawl cost by fan-out scale; deep mode costs more.
+    per_platform = payload.limits.notes + payload.limits.notes * min(payload.limits.comments_per_note, 12)
+    mode_multiplier = 1 if payload.mode == "quick" else 2
+    return max(8, per_platform * mode_multiplier)
 
 
 async def _send_callback(callback_url: str, callback_secret: str, payload: CrawlerResultPayload) -> None:
@@ -62,6 +69,29 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
         if adapter is None:
             errors.append(f"unsupported_platform:{platform}")
             continue
+        if settings.crawler_enable_daily_budget and payload.user_id:
+            budget = await budget_store.consume(
+                user_id=str(payload.user_id),
+                units=_estimate_budget_units(payload),
+                total_budget=settings.crawler_daily_budget_units,
+            )
+            if not bool(budget.get("allowed")):
+                budget_error = (
+                    f"daily_budget_exceeded:"
+                    f"used={budget.get('used')},remaining={budget.get('remaining')},total={budget.get('total')}"
+                )
+                errors.append(f"{platform}:{budget_error}")
+                platform_results.append(
+                    CrawlerPlatformResult(
+                        platform=platform,
+                        notes=[],
+                        comments=[],
+                        success=False,
+                        latency_ms=0,
+                        error=budget_error,
+                    )
+                )
+                continue
         try:
             result, cost = await adapter.crawl(payload)
             platform_results.append(result)
@@ -84,7 +114,7 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
         dup_ratio=calc_dup_ratio(platform_results),
     )
 
-    status = "completed" if platform_results else "failed"
+    status = "completed" if any(item.success for item in platform_results) else "failed"
     result_payload = CrawlerResultPayload(
         job_id=job_id,
         status=status,  # type: ignore[arg-type]
@@ -107,4 +137,3 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
         await job_store.set_status(job_id, status, {"callback_error": str(exc)[:500]})
 
     return result_payload
-

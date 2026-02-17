@@ -180,6 +180,9 @@ python run_worker.py
 扫码登录能力（crawler-service）：
 - 支持小红书/抖音用户扫码登录，登录后保存该用户会话。
 - 抓取时会优先使用该用户会话；会话抓取失败时才回退 TikHub（取决于模式与开关）。
+- `quick` 默认采样提升为 `8` 帖 / 每帖 `10` 评论，兼顾可信度与风控。
+- `deep` 默认采样为 `14` 帖 / 每帖 `30` 评论，适合做高置信结论。
+- crawler-service 支持每用户每日预算开关：`CRAWLER_ENABLE_DAILY_BUDGET` + `CRAWLER_DAILY_BUDGET_UNITS`。
 
 ## 测试与质量
 

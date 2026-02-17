@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from redis.asyncio import Redis
@@ -77,3 +78,73 @@ class JobStore:
 
 job_store = JobStore()
 
+
+class BudgetStore:
+    def __init__(self) -> None:
+        self._redis = Redis.from_url(settings.crawler_redis_url, decode_responses=True)
+        self._redis_available: Optional[bool] = None
+        self._memory_usage: dict[str, int] = {}
+
+    async def _use_redis(self) -> bool:
+        if self._redis_available is not None:
+            return self._redis_available
+        try:
+            await self._redis.ping()
+            self._redis_available = True
+        except Exception:
+            self._redis_available = False
+        return self._redis_available
+
+    @staticmethod
+    def _usage_key(user_id: str, day: str) -> str:
+        return f"crawler:budget:{day}:{user_id}"
+
+    async def consume(self, *, user_id: str, units: int, total_budget: int) -> Dict[str, int | bool]:
+        units = max(1, int(units))
+        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        key = self._usage_key(user_id, day)
+
+        if await self._use_redis():
+            used = int(await self._redis.get(key) or 0)
+            if used + units > total_budget:
+                return {
+                    "allowed": False,
+                    "used": used,
+                    "remaining": max(0, total_budget - used),
+                    "total": total_budget,
+                    "units": units,
+                }
+
+            next_used = await self._redis.incrby(key, units)
+            # expire at next UTC day + small margin
+            await self._redis.expire(key, 60 * 60 * 25)
+            return {
+                "allowed": True,
+                "used": int(next_used),
+                "remaining": max(0, total_budget - int(next_used)),
+                "total": total_budget,
+                "units": units,
+            }
+
+        used = int(self._memory_usage.get(key, 0))
+        if used + units > total_budget:
+            return {
+                "allowed": False,
+                "used": used,
+                "remaining": max(0, total_budget - used),
+                "total": total_budget,
+                "units": units,
+            }
+
+        next_used = used + units
+        self._memory_usage[key] = next_used
+        return {
+            "allowed": True,
+            "used": next_used,
+            "remaining": max(0, total_budget - next_used),
+            "total": total_budget,
+            "units": units,
+        }
+
+
+budget_store = BudgetStore()

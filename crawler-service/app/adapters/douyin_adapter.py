@@ -26,7 +26,9 @@ class DouyinAdapter(BaseAdapter):
 
     async def crawl(self, payload: CrawlerJobPayload) -> Tuple[CrawlerPlatformResult, Dict[str, float]]:
         started = time.time()
-        if not self.risk.check_rate_limit(self.platform):
+        rate = 0.8 if payload.mode == "quick" else 1.6
+        capacity = 2.0 if payload.mode == "quick" else 4.0
+        if not self.risk.check_rate_limit(self.platform, rate=rate, capacity=capacity):
             return (
                 CrawlerPlatformResult(
                     platform=self.platform,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import random
 import re
 import time
 from typing import Any, Dict, List, Tuple
@@ -53,6 +55,29 @@ def _extract_id_from_url(url: str, pattern: str) -> str:
     if match:
         return match.group(1)
     return url.rstrip("/").split("/")[-1]
+
+
+def _delay_range_ms(mode: str) -> tuple[int, int]:
+    if mode == "deep":
+        lo = int(settings.crawler_deep_delay_ms_min)
+        hi = int(settings.crawler_deep_delay_ms_max)
+    else:
+        lo = int(settings.crawler_quick_delay_ms_min)
+        hi = int(settings.crawler_quick_delay_ms_max)
+    if lo <= 0 and hi <= 0:
+        return (0, 0)
+    if lo <= 0:
+        lo = hi
+    if hi < lo:
+        hi = lo
+    return (lo, hi)
+
+
+async def _human_delay(mode: str) -> None:
+    lo, hi = _delay_range_ms(mode)
+    if lo <= 0 and hi <= 0:
+        return
+    await asyncio.sleep(random.uniform(lo, hi) / 1000)
 
 
 async def _crawl_xiaohongshu(
@@ -116,7 +141,9 @@ async def _crawl_xiaohongshu(
                     """
                 )
 
-                for item in list(raw_notes or [])[: payload.limits.notes]:
+                for idx, item in enumerate(list(raw_notes or [])[: payload.limits.notes]):
+                    if idx > 0:
+                        await _human_delay(payload.mode)
                     url = str((item or {}).get("url") or "")
                     if not url:
                         continue
@@ -262,7 +289,9 @@ async def _crawl_douyin(
                     """
                 )
 
-                for item in list(raw_notes or [])[: payload.limits.notes]:
+                for idx, item in enumerate(list(raw_notes or [])[: payload.limits.notes]):
+                    if idx > 0:
+                        await _human_delay(payload.mode)
                     url = str((item or {}).get("url") or "")
                     if not url:
                         continue
@@ -370,4 +399,3 @@ async def crawl_with_user_session(
         CrawlerPlatformResult(platform=platform, success=False, error="unsupported_platform", latency_ms=0),
         {"external_api_calls": 0.0, "proxy_calls": 0.0, "est_cost": 0.0, "provider_mix": {f"{platform}_session": 0.0}},
     )
-

@@ -82,9 +82,9 @@ export interface RoutedSocialData {
 
 export function buildCrawlerLimits(mode: CrawlerMode): CrawlerJobLimits {
   if (mode === "deep") {
-    return { notes: 12, comments_per_note: 6 };
+    return { notes: 14, comments_per_note: 30 };
   }
-  return { notes: 6, comments_per_note: 3 };
+  return { notes: 8, comments_per_note: 10 };
 }
 
 export function normalizeCrawlerPlatforms(enableXiaohongshu: boolean, enableDouyin: boolean): CrawlerPlatform[] {

@@ -47,6 +47,12 @@ python run_worker.py
 - `CRAWLER_CALLBACK_TIMEOUT_S`：回调超时，默认 8
 - `CRAWLER_JOB_QUEUE_KEY`：队列 key，默认 `crawler:jobs`
 - `CRAWLER_AUTH_FLOW_TTL_S`：扫码会话有效期（秒），默认 180
+- `CRAWLER_ENABLE_DAILY_BUDGET`：是否启用每用户每日抓取预算，默认 `true`
+- `CRAWLER_DAILY_BUDGET_UNITS`：每日预算总量，默认 `1200`
+- `CRAWLER_QUICK_DELAY_MS_MIN`：quick 模式抓取间隔最小值（ms），默认 `900`
+- `CRAWLER_QUICK_DELAY_MS_MAX`：quick 模式抓取间隔最大值（ms），默认 `1800`
+- `CRAWLER_DEEP_DELAY_MS_MIN`：deep 模式抓取间隔最小值（ms），默认 `600`
+- `CRAWLER_DEEP_DELAY_MS_MAX`：deep 模式抓取间隔最大值（ms），默认 `1200`
 - `CRAWLER_PLAYWRIGHT_HEADLESS`：浏览器是否无头，默认 `true`
 - `CRAWLER_DEFAULT_PROXY_SERVER`：可选，浏览器代理地址（例如 `http://host:port`）
 - `CRAWLER_DEFAULT_PROXY_USERNAME`：可选，代理用户名
@@ -58,6 +64,11 @@ python run_worker.py
 2. 返回 `qr_image_base64`，前端展示二维码图片供用户扫码。  
 3. 轮询 `GET /internal/v1/auth/sessions/{flow_id}`。  
 4. 返回 `status=authorized` 即表示 cookies 已写入会话池；后续抓取会优先使用该用户会话。  
+
+## 采样建议
+
+- `quick`：默认 `8` 帖 / 每帖 `10` 评论（更可信但仍可控）。
+- `deep`：默认 `14` 帖 / 每帖 `30` 评论（用于高置信验证，必要时配合 TikHub 兜底）。
 
 ## 回调协议
 
