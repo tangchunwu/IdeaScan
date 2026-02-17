@@ -113,7 +113,7 @@ supabase db push
 ### 3. 部署关键函数
 
 ```bash
-supabase functions deploy validate-idea validate-idea-stream generate-mvp track-experiment-event submit-mvp-lead scan-trending-topics crawler-dispatch crawler-callback crawler-auth-start crawler-auth-status crawler-auth-cancel crawler-auth-import-cookies
+supabase functions deploy validate-idea validate-idea-stream generate-mvp track-experiment-event submit-mvp-lead scan-trending-topics crawler-dispatch crawler-callback crawler-auth-start crawler-auth-status crawler-auth-cancel crawler-auth-import-cookies crawler-auth-sessions crawler-auth-revoke
 ```
 
 ## crawler-service 运行

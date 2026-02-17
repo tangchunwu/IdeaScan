@@ -78,3 +78,13 @@ async def import_auth_cookies(req: ImportCookiesRequest) -> dict:
 async def list_user_sessions(user_id: str) -> dict:
     rows = await session_store.list_user_sessions(user_id)
     return {"user_id": user_id, "sessions": rows}
+
+
+@app.post("/internal/v1/auth/sessions/revoke", dependencies=[Depends(verify_token)])
+async def revoke_user_session(body: dict) -> dict:
+    user_id = str(body.get("user_id") or "").strip()
+    platform = str(body.get("platform") or "").strip()
+    if not user_id or not platform:
+        raise HTTPException(status_code=400, detail="user_id and platform are required")
+    deleted = await session_store.delete_user_session(platform=platform, user_id=user_id)
+    return {"success": bool(deleted), "user_id": user_id, "platform": platform}

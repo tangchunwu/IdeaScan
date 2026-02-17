@@ -11,6 +11,8 @@
 - `GET /internal/v1/auth/sessions/{flow_id}`：查询扫码状态（成功后自动保存用户会话）
 - `POST /internal/v1/auth/sessions/cancel/{flow_id}`：取消扫码会话
 - `POST /internal/v1/auth/sessions/import`：手动导入 cookies（可替代扫码）
+- `GET /internal/v1/auth/sessions/user/{user_id}`：查询用户已授权会话列表
+- `POST /internal/v1/auth/sessions/revoke`：吊销指定平台会话
 - Worker 异步执行抓取并回调 IdeaScan `crawler-callback`
 
 ## 快速启动

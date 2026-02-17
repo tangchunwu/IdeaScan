@@ -36,6 +36,16 @@ interface SettingsDialogProps {
        trigger?: React.ReactNode;
 }
 
+type CrawlerSession = {
+       session_id: string;
+       platform: string;
+       status: string;
+       region?: string;
+       source?: string;
+       consecutive_failures?: number;
+       updated_at?: string;
+};
+
 export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
        const {
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
@@ -63,6 +73,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [authQrImage, setAuthQrImage] = useState('');
        const [authStatus, setAuthStatus] = useState('');
        const [isAuthLoading, setIsAuthLoading] = useState(false);
+       const [crawlerSessions, setCrawlerSessions] = useState<CrawlerSession[]>([]);
+       const [isSessionsLoading, setIsSessionsLoading] = useState(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
@@ -391,6 +403,32 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
+  const fetchCrawlerSessions = async (silent = false) => {
+       if (!user) {
+              setCrawlerSessions([]);
+              return;
+       }
+       setIsSessionsLoading(true);
+       try {
+              const { data, error } = await supabase.functions.invoke('crawler-auth-sessions');
+              if (error) {
+                     throw new Error(error.message || "拉取已授权会话失败");
+              }
+              const sessions = Array.isArray((data as any)?.sessions) ? (data as any).sessions : [];
+              setCrawlerSessions(sessions as CrawlerSession[]);
+       } catch (e) {
+              if (!silent) {
+                     toast({
+                            variant: "destructive",
+                            title: "会话列表加载失败",
+                            description: (e as Error).message || "请稍后重试"
+                     });
+              }
+       } finally {
+              setIsSessionsLoading(false);
+       }
+  };
+
   const handleStartCrawlerAuth = async (platform: 'xiaohongshu' | 'douyin') => {
        if (!user) {
               toast({ variant: "destructive", title: "请先登录后再扫码" });
@@ -427,7 +465,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
-  const handleCheckCrawlerAuthStatus = async () => {
+  const handleCheckCrawlerAuthStatus = async (silent = false) => {
        if (!authFlowId) return;
        setIsAuthLoading(true);
        try {
@@ -438,31 +476,41 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      throw new Error(error?.message || "检查状态失败");
               }
               const status = data.status || 'pending';
+              const prevStatus = authStatus;
               setAuthStatus(status);
               if (status === 'authorized') {
-                     toast({
-                            title: "登录成功",
-                            description: "用户会话已保存，后续自爬将优先使用该账号",
-                            className: "bg-green-50 border-green-200 text-green-800"
-                     });
+                     if (prevStatus !== 'authorized') {
+                            toast({
+                                   title: "登录成功",
+                                   description: "用户会话已保存，后续自爬将优先使用该账号",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     }
+                     setAuthFlowId('');
+                     setAuthQrImage('');
+                     await fetchCrawlerSessions(true);
               } else if (status === 'expired' || status === 'failed') {
-                     toast({
-                            variant: "destructive",
-                            title: "扫码会话已失效",
-                            description: data.error || "请重新生成二维码",
-                     });
-              } else {
+                     if (!silent) {
+                            toast({
+                                   variant: "destructive",
+                                   title: "扫码会话已失效",
+                                   description: data.error || "请重新生成二维码",
+                            });
+                     }
+              } else if (!silent) {
                      toast({
                             title: "尚未完成扫码",
                             description: "请扫码并在手机端确认登录",
                      });
               }
        } catch (e) {
-              toast({
-                     variant: "destructive",
-                     title: "状态检查失败",
-                     description: (e as Error).message || "请稍后重试"
-              });
+              if (!silent) {
+                     toast({
+                            variant: "destructive",
+                            title: "状态检查失败",
+                            description: (e as Error).message || "请稍后重试"
+                     });
+              }
        } finally {
               setIsAuthLoading(false);
        }
@@ -483,6 +531,53 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               setAuthStatus('');
        }
   };
+
+  const handleRevokeCrawlerSession = async (platform: 'xiaohongshu' | 'douyin') => {
+       if (!user) return;
+       setIsSessionsLoading(true);
+       try {
+              const { data, error } = await supabase.functions.invoke('crawler-auth-revoke', {
+                     body: { platform }
+              });
+              if (error) {
+                     throw new Error(error.message || "吊销会话失败");
+              }
+              if (!(data as any)?.success) {
+                     throw new Error((data as any)?.error || "吊销会话失败");
+              }
+              toast({
+                     title: "会话已吊销",
+                     description: `${platform === 'xiaohongshu' ? '小红书' : '抖音'}会话已移除`,
+                     className: "bg-green-50 border-green-200 text-green-800"
+              });
+              await fetchCrawlerSessions(true);
+       } catch (e) {
+              toast({
+                     variant: "destructive",
+                     title: "吊销失败",
+                     description: (e as Error).message || "请稍后重试"
+              });
+       } finally {
+              setIsSessionsLoading(false);
+       }
+  };
+
+  useEffect(() => {
+       if (!open) return;
+       if (!user) {
+              setCrawlerSessions([]);
+              return;
+       }
+       void fetchCrawlerSessions(true);
+  }, [open, user?.id]);
+
+  useEffect(() => {
+       if (!open || !authFlowId || authStatus !== 'pending') return;
+       const timer = window.setTimeout(() => {
+              void handleCheckCrawlerAuthStatus(true);
+       }, 4000);
+       return () => window.clearTimeout(timer);
+  }, [open, authFlowId, authStatus]);
 
   return (
        <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -638,7 +733,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                                className="w-44 h-44 object-contain bg-white rounded border"
                                                         />
                                                         <div className="flex gap-2">
-                                                               <Button variant="outline" size="sm" onClick={handleCheckCrawlerAuthStatus} disabled={isAuthLoading}>
+                                                               <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false)} disabled={isAuthLoading}>
                                                                       检查登录状态
                                                                </Button>
                                                                <Button variant="ghost" size="sm" onClick={handleCancelCrawlerAuth} disabled={isAuthLoading}>
@@ -647,6 +742,48 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </div>
                                                  </div>
                                           )}
+                                          <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
+                                                 <div className="flex items-center justify-between">
+                                                        <p className="text-xs text-muted-foreground">已授权会话</p>
+                                                        <Button
+                                                               variant="ghost"
+                                                               size="sm"
+                                                               onClick={() => fetchCrawlerSessions(false)}
+                                                               disabled={isSessionsLoading}
+                                                        >
+                                                               刷新
+                                                        </Button>
+                                                 </div>
+                                                 {isSessionsLoading ? (
+                                                        <p className="text-xs text-muted-foreground">加载中...</p>
+                                                 ) : crawlerSessions.length === 0 ? (
+                                                        <p className="text-xs text-muted-foreground">暂无已授权会话，可先扫码登录。</p>
+                                                 ) : (
+                                                        <div className="space-y-2">
+                                                               {crawlerSessions.map((session) => (
+                                                                      <div key={session.session_id} className="flex items-center justify-between rounded border bg-background px-2 py-1.5">
+                                                                             <div>
+                                                                                    <p className="text-xs font-medium">
+                                                                                           {session.platform === 'xiaohongshu' ? '小红书' : session.platform === 'douyin' ? '抖音' : session.platform}
+                                                                                           {' · '}
+                                                                                           {session.status}
+                                                                                    </p>
+                                                                                    <p className="text-[11px] text-muted-foreground">
+                                                                                           {session.updated_at ? new Date(session.updated_at).toLocaleString() : '未知时间'}
+                                                                                    </p>
+                                                                             </div>
+                                                                             <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleRevokeCrawlerSession((session.platform === 'douyin' ? 'douyin' : 'xiaohongshu'))}
+                                                                             >
+                                                                                    吊销
+                                                                             </Button>
+                                                                      </div>
+                                                               ))}
+                                                        </div>
+                                                 )}
+                                          </div>
                                    </div>
 
                                    <div className="space-y-3 pt-2">
