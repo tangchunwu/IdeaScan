@@ -4,6 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeFunction } from '@/lib/invokeFunction';
 
 export interface UserSettings {
+  llmFallbacks: Array<{
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }>;
+
   // LLM Settings
   llmProvider: 'openai' | 'deepseek' | 'custom';
   llmBaseUrl: string;
@@ -46,6 +52,7 @@ interface SettingsState extends UserSettings {
 }
 
 const defaultSettings: UserSettings = {
+  llmFallbacks: [],
   llmProvider: 'openai',
   llmBaseUrl: 'https://api.openai.com/v1',
   llmApiKey: '',
@@ -88,14 +95,6 @@ export const useSettings = create<SettingsState>()(
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
             set({ isLoading: false });
-            return;
-          }
-
-          const { data: authData, error: authError } = await supabase.auth.getUser(session.access_token);
-          if (authError || !authData.user) {
-            // Cached token may be stale after switching Supabase projects.
-            await supabase.auth.signOut({ scope: 'local' });
-            set({ isLoading: false, isSynced: false, lastSyncError: '登录态已失效，请重新登录' });
             return;
           }
 
@@ -142,13 +141,6 @@ export const useSettings = create<SettingsState>()(
             return;
           }
 
-          const { data: authData, error: authError } = await supabase.auth.getUser(session.access_token);
-          if (authError || !authData.user) {
-            await supabase.auth.signOut({ scope: 'local' });
-            set({ isLoading: false, isSynced: false, lastSyncError: '登录态已失效，请重新登录' });
-            return;
-          }
-
           const settingsToSync = extractSettingsOnly(state);
 
           const { error } = await invokeFunction('user-settings', {
@@ -175,6 +167,11 @@ export const useSettings = create<SettingsState>()(
       name: 'user-settings',
       // Only persist non-sensitive fields locally as backup
       partialize: (state) => ({
+        llmFallbacks: state.llmFallbacks.map((item) => ({
+          baseUrl: item.baseUrl,
+          model: item.model,
+          apiKey: '',
+        })),
         llmProvider: state.llmProvider,
         llmBaseUrl: state.llmBaseUrl,
         llmModel: state.llmModel,

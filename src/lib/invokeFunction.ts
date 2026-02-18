@@ -6,6 +6,171 @@ type InvokeOptions = {
   headers?: Record<string, string>;
 };
 
+const jwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const sanitizeToken = (token?: string | null) => {
+  const raw = (token || "").trim();
+  if (!raw) return "";
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw.replace(/\r?\n/g, "").trim();
+};
+const isJwtLike = (token?: string | null) => jwtPattern.test(sanitizeToken(token));
+const authInvalidPattern = /invalid jwt|jwt.*expired|expired.*jwt|invalid or expired session|auth session missing|authentication required/i;
+const projectRefPattern = /^https?:\/\/([a-z0-9-]+)\.supabase\.co/i;
+
+type JwtPayload = {
+  exp?: number;
+  iss?: string;
+  ref?: string;
+  aud?: string | string[];
+  role?: string;
+};
+
+const getCurrentProjectRef = () => {
+  const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || "");
+  const matched = baseUrl.match(projectRefPattern);
+  return matched?.[1] || "";
+};
+
+function decodeJwtPayload(token?: string | null): JwtPayload | null {
+  const safeToken = sanitizeToken(token);
+  if (!isJwtLike(safeToken)) return null;
+  const payloadPart = safeToken.split(".")[1];
+  if (!payloadPart) return null;
+  try {
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const json = atob(padded);
+    const parsed = JSON.parse(json);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+function extractProjectRefFromPayload(payload: JwtPayload | null): string {
+  if (!payload) return "";
+  if (typeof payload.ref === "string" && payload.ref.trim()) {
+    return payload.ref.trim();
+  }
+  if (typeof payload.iss === "string") {
+    const matched = payload.iss.match(/https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+    if (matched?.[1]) return matched[1];
+  }
+  return "";
+}
+
+function isTokenExpiringSoon(payload: JwtPayload | null, skewSeconds = 30): boolean {
+  if (!payload || typeof payload.exp !== "number") return false;
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp <= (now + skewSeconds);
+}
+
+function looksLikeInvalidAuth(errorLike: unknown): boolean {
+  if (!errorLike || typeof errorLike !== "object") return false;
+  const e = errorLike as Record<string, unknown>;
+  const status = Number(e.status ?? e.statusCode ?? e.code ?? 0);
+  const message = String(e.message ?? e.error_description ?? e.error ?? "");
+  if (status === 401 && authInvalidPattern.test(message)) return true;
+  if (status === 401 && message.toLowerCase().includes("jwt")) return true;
+  return authInvalidPattern.test(message);
+}
+
+async function invokeViaSdk<T = any>(
+  functionName: string,
+  options: InvokeOptions = {},
+): Promise<{ data: T | null; error: { message: string; status?: number } | null }> {
+  const invokeFn = (supabase.functions as any)?.invoke;
+  if (typeof invokeFn !== "function") {
+    return { data: null, error: { message: "SDK invoke unavailable" } };
+  }
+  const method = options.method || "POST";
+  const { data, error } = await invokeFn.call(supabase.functions, functionName, {
+    method,
+    body: options.body,
+    headers: options.headers || {},
+  });
+  if (error) {
+    const status = Number((error as any)?.context?.status ?? (error as any)?.status ?? 0) || undefined;
+    return {
+      data: (data as T) ?? null,
+      error: {
+        message: (error as any)?.message || "Edge Function returned a non-2xx status code",
+        status,
+      },
+    };
+  }
+  return { data: (data as T) ?? null, error: null };
+}
+
+async function safeRefreshSession() {
+  const refreshFn = (supabase.auth as any).refreshSession;
+  if (typeof refreshFn !== "function") {
+    return { data: { session: null }, error: new Error("refreshSession unavailable") };
+  }
+  const result = await refreshFn.call(supabase.auth);
+  if (!result || typeof result !== "object") {
+    return { data: { session: null }, error: new Error("refreshSession invalid result") };
+  }
+  return {
+    data: (result as any).data ?? { session: null },
+    error: (result as any).error ?? null,
+  };
+}
+
+async function ensureAuthedAccessToken(initialToken: string): Promise<string | null> {
+  let token = sanitizeToken(initialToken);
+  const currentRef = getCurrentProjectRef();
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!isJwtLike(token)) {
+      const nonJwtUserResult = await supabase.auth.getUser(token);
+      if (!nonJwtUserResult.error && nonJwtUserResult.data.user) {
+        return token;
+      }
+      const refreshed = await safeRefreshSession();
+      const refreshedToken = sanitizeToken(refreshed.data?.session?.access_token);
+      if (isJwtLike(refreshedToken)) {
+        token = refreshedToken;
+        continue;
+      }
+      return null;
+    }
+
+    const payload = decodeJwtPayload(token);
+    const tokenRef = extractProjectRefFromPayload(payload);
+    if ((currentRef && tokenRef && currentRef !== tokenRef) || isTokenExpiringSoon(payload)) {
+      const refreshed = await safeRefreshSession();
+      const refreshedToken = sanitizeToken(refreshed.data?.session?.access_token);
+      if (isJwtLike(refreshedToken)) {
+        token = refreshedToken;
+        continue;
+      }
+      return null;
+    }
+
+    const userResult = await supabase.auth.getUser(token);
+    if (!userResult.error && userResult.data.user) {
+      return token;
+    }
+
+    const refreshed = await safeRefreshSession();
+    const refreshedToken = sanitizeToken(refreshed.data?.session?.access_token);
+    if (!refreshed.error && isJwtLike(refreshedToken) && refreshedToken !== token) {
+      token = refreshedToken;
+      continue;
+    }
+
+    if (looksLikeInvalidAuth(userResult.error)) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Supabase Edge Function invoke helper.
  * Always sends Authorization header to avoid gateway-level 401 caused by missing auth header.
@@ -16,21 +181,136 @@ export async function invokeFunction<T = any>(
   requireAuth = false,
 ) {
   const { data: { session } } = await supabase.auth.getSession();
+  let accessToken = sanitizeToken(session?.access_token);
 
-  if (requireAuth && !session?.access_token) {
+  if (requireAuth && !accessToken) {
     throw new Error("请先登录");
   }
 
-  const fallbackToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const authToken = session?.access_token || fallbackToken;
-  const headers: Record<string, string> = {
-    ...(options.headers || {}),
-    Authorization: `Bearer ${authToken}`,
+  if (requireAuth && accessToken) {
+    const ensuredToken = await ensureAuthedAccessToken(accessToken);
+    if (!ensuredToken) {
+      throw new Error("登录态已失效，请重新登录");
+    }
+    accessToken = ensuredToken;
+  }
+
+  const callViaFetch = async (tokenOverride?: string) => {
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const fallbackToken = sanitizeToken(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+    // Public function calls must not carry stale user JWT from another Supabase project.
+    // Always use anon key unless this call explicitly requires auth.
+    const authToken = requireAuth ? sanitizeToken(tokenOverride || accessToken) : fallbackToken;
+    const method = options.method || "POST";
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+    if (fallbackToken) headers.apikey = fallbackToken;
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    if (requireAuth && !authToken) {
+      return {
+        data: null,
+        error: {
+          message: "登录态已失效，请重新登录",
+          status: 401,
+        },
+      };
+    }
+
+    const response = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
+      method,
+      headers,
+      body: method === "GET" || options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+
+    const text = await response.text();
+    let payload: any = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { raw: text };
+      }
+    }
+
+    if (!response.ok) {
+      return {
+        data: payload,
+        error: {
+          message:
+            payload?.message ||
+            payload?.error ||
+            `Edge Function returned a non-2xx status code (${response.status})`,
+          status: response.status,
+        },
+      };
+    }
+    return { data: payload, error: null };
   };
 
-  return supabase.functions.invoke<T>(functionName, {
-    ...options,
-    headers,
-  });
-}
+  const call = async (tokenOverride?: string) => {
+    // Always use explicit fetch headers to keep auth behavior deterministic.
+    return callViaFetch(tokenOverride);
+  };
 
+  let { data, error } = await call();
+
+  if (error && requireAuth && Number((error as any)?.status) === 401) {
+    const renewed = await ensureAuthedAccessToken(accessToken);
+    if (renewed) {
+      accessToken = renewed;
+      const retry = await call(accessToken);
+      data = retry.data;
+      error = retry.error;
+    }
+  }
+
+  if (error && requireAuth && Number((error as any)?.status) === 401) {
+    // Fallback: let Supabase SDK attach/refresh auth internally.
+    const sdkResult = await invokeViaSdk<T>(functionName, options);
+    if (!sdkResult.error) {
+      return { data: sdkResult.data as T, error: null } as const;
+    }
+    error = sdkResult.error as any;
+  }
+
+  if (error) {
+    const message = (error as any)?.message || "Edge Function returned a non-2xx status code";
+    const status = (error as any)?.context?.status ?? (error as any)?.status;
+    const normalizedError = { status, message, ...(typeof data === "object" && data ? (data as Record<string, unknown>) : {}) };
+    if (Number(status) === 401 && typeof window !== "undefined") {
+      const anonPayload = decodeJwtPayload(sanitizeToken(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY));
+      const accessPayload = decodeJwtPayload(accessToken);
+      console.warn("[invokeFunction][401]", {
+        functionName,
+        requireAuth,
+        currentProjectRef: getCurrentProjectRef(),
+        anonRef: extractProjectRefFromPayload(anonPayload),
+        accessRef: extractProjectRefFromPayload(accessPayload),
+        anonRole: anonPayload?.role ?? "",
+        accessRole: accessPayload?.role ?? "",
+        accessExp: accessPayload?.exp ?? 0,
+        message,
+      });
+    }
+    if (requireAuth && looksLikeInvalidAuth(normalizedError)) {
+      return {
+        data,
+        error: {
+          message: "登录态已失效，请重新登录",
+          status,
+        },
+      } as const;
+    }
+    return {
+      data,
+      error: {
+        message,
+        status,
+      },
+    } as const;
+  }
+
+  return { data: data as T, error: null } as const;
+}

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -46,8 +46,33 @@ type CrawlerSession = {
        updated_at?: string;
 };
 
+type CrawlerHealth = {
+       enabled: boolean;
+       healthy: boolean;
+       reason?: string;
+       message?: string;
+       latency_ms?: number;
+};
+
+type AuthMetrics = {
+       cookie_count_total: number;
+       required_all: string[];
+       required_any: string[];
+       required_all_present: number;
+       required_any_present: number;
+       required_all_ok: boolean;
+       required_any_ok: boolean;
+};
+
+type FallbackLLM = {
+       baseUrl: string;
+       apiKey: string;
+       model: string;
+};
+
 export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
        const {
+              llmFallbacks,
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
               enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
               bochaApiKey, youApiKey, tavilyApiKey,
@@ -65,6 +90,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
 
        const [showKey, setShowKey] = useState(false);
+       const [showFallbackKeys, setShowFallbackKeys] = useState<Record<number, boolean>>({});
+       const [verifyingFallbackIndex, setVerifyingFallbackIndex] = useState<number | null>(null);
+       const [fallbackVerifyStatus, setFallbackVerifyStatus] = useState<Record<number, "idle" | "ok" | "fail">>({});
+       const [isVerifyingAllFallbacks, setIsVerifyingAllFallbacks] = useState(false);
        const [showTikhubToken, setShowTikhubToken] = useState(false);
        const [showSearchKey, setShowSearchKey] = useState(false);
        const [isSaving, setIsSaving] = useState(false);
@@ -72,13 +101,26 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [authPlatform, setAuthPlatform] = useState<'xiaohongshu' | 'douyin' | ''>('');
        const [authQrImage, setAuthQrImage] = useState('');
        const [authStatus, setAuthStatus] = useState('');
-       const [isAuthLoading, setIsAuthLoading] = useState(false);
+       const [authMessage, setAuthMessage] = useState('');
+       const [authRouteBase, setAuthRouteBase] = useState('');
+       const [authMetrics, setAuthMetrics] = useState<AuthMetrics | null>(null);
+       const [isAuthStarting, setIsAuthStarting] = useState(false);
+       const [isAuthPolling, setIsAuthPolling] = useState(false);
+       const [authExpiresAtMs, setAuthExpiresAtMs] = useState<number | null>(null);
+       const [authExpiresInSec, setAuthExpiresInSec] = useState<number | null>(null);
+       const [authTtlSec, setAuthTtlSec] = useState<number | null>(null);
        const [crawlerSessions, setCrawlerSessions] = useState<CrawlerSession[]>([]);
        const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+       const [crawlerHealth, setCrawlerHealth] = useState<CrawlerHealth | null>(null);
+       const [isCrawlerHealthLoading, setIsCrawlerHealthLoading] = useState(false);
+       const authPollTimerRef = useRef<number | null>(null);
+       const activeFlowRef = useRef<string>('');
+       const missingFlowStreakRef = useRef<{ flowId: string; count: number }>({ flowId: '', count: 0 });
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({
+              llmFallbacks,
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
               enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
               bochaApiKey, youApiKey, tavilyApiKey,
@@ -88,14 +130,15 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        // Sync local state when dialog opens or store changes
        useEffect(() => {
               if (open) {
-                     setLocalSettings({
+                    setLocalSettings({
+                            llmFallbacks,
                             llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
                             enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
                             bochaApiKey, youApiKey, tavilyApiKey,
                             imageGenBaseUrl, imageGenApiKey, imageGenModel
                      });
               }
-       }, [open, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
+       }, [open, llmFallbacks, llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken, enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback, bochaApiKey, youApiKey, tavilyApiKey, imageGenBaseUrl, imageGenApiKey, imageGenModel]);
 
        const handleProviderChange = (value: 'openai' | 'deepseek' | 'custom') => {
               const providerConfig = PROVIDERS[value];
@@ -106,6 +149,40 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      // Default to first model if available, else keep current or empty
                      llmModel: providerConfig.models[0] || prev.llmModel
               }));
+       };
+
+       const handleAddFallbackModel = () => {
+              setLocalSettings(prev => ({
+                     ...prev,
+                     llmFallbacks: [
+                            ...(Array.isArray(prev.llmFallbacks) ? prev.llmFallbacks : []),
+                            { baseUrl: prev.llmBaseUrl || "https://api.openai.com/v1", apiKey: "", model: "" }
+                     ]
+              }));
+              setFallbackVerifyStatus({});
+       };
+
+       const handleUpdateFallbackModel = (index: number, patch: Partial<FallbackLLM>) => {
+              setLocalSettings(prev => ({
+                     ...prev,
+                     llmFallbacks: (Array.isArray(prev.llmFallbacks) ? prev.llmFallbacks : []).map((item, i) =>
+                            i === index ? { ...item, ...patch } : item
+                     )
+              }));
+              setFallbackVerifyStatus(prev => ({ ...prev, [index]: "idle" }));
+       };
+
+       const handleRemoveFallbackModel = (index: number) => {
+              setLocalSettings(prev => ({
+                     ...prev,
+                     llmFallbacks: (Array.isArray(prev.llmFallbacks) ? prev.llmFallbacks : []).filter((_, i) => i !== index)
+              }));
+              setShowFallbackKeys(prev => {
+                     const next = { ...prev };
+                     delete next[index];
+                     return next;
+              });
+              setFallbackVerifyStatus({});
        };
 
        const handleSave = async () => {
@@ -140,10 +217,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        };
 
        // Auto-save when dialog closes with unsaved changes
-       const handleOpenChange = (newOpen: boolean) => {
-              if (!newOpen && open) {
+      const handleOpenChange = (newOpen: boolean) => {
+             if (!newOpen && open) {
+                     const localFallbacks = JSON.stringify(localSettings.llmFallbacks || []);
+                     const cloudFallbacks = JSON.stringify(llmFallbacks || []);
                      // Check if there are unsaved changes
                      const hasChanges =
+                            localFallbacks !== cloudFallbacks ||
                             localSettings.llmApiKey !== llmApiKey ||
                             localSettings.llmBaseUrl !== llmBaseUrl ||
                             localSettings.llmProvider !== llmProvider ||
@@ -191,7 +271,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const handleReset = () => {
               if (confirm("确定要恢复默认设置吗？")) {
                      resetSettings();
-                     setLocalSettings({
+                    setLocalSettings({
+                            llmFallbacks: [],
                             llmProvider: 'openai',
                             llmBaseUrl: 'https://api.openai.com/v1',
                             llmApiKey: '',
@@ -263,6 +344,15 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             // Merge with current settings (only update fields that exist in imported data)
                             setLocalSettings(prev => ({
                                    ...prev,
+                                   ...(Array.isArray(settings.llmFallbacks) && {
+                                          llmFallbacks: settings.llmFallbacks
+                                                 .filter((item: any) => item && typeof item === 'object')
+                                                 .map((item: any) => ({
+                                                        baseUrl: String(item.baseUrl || ''),
+                                                        apiKey: String(item.apiKey || ''),
+                                                        model: String(item.model || '')
+                                                 }))
+                                   }),
                                    ...(settings.llmProvider && { llmProvider: settings.llmProvider }),
                                    ...(settings.llmBaseUrl && { llmBaseUrl: settings.llmBaseUrl }),
                                    ...(settings.llmApiKey && { llmApiKey: settings.llmApiKey }),
@@ -296,25 +386,34 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               input.click();
        };
 
-       const handleVerifyLLM = async () => {
-              if (!localSettings.llmApiKey) {
-                     toast({ variant: "destructive", title: "请输入 API Key" });
-                     return;
-              }
+       const verifyLlmConfig = async (cfg: { apiKey: string; baseUrl: string; model: string }) => {
               const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
                      body: {
                             type: 'llm',
-                            apiKey: localSettings.llmApiKey,
-                            baseUrl: localSettings.llmBaseUrl,
-                            model: localSettings.llmModel
+                            apiKey: cfg.apiKey,
+                            baseUrl: cfg.baseUrl,
+                            model: cfg.model
                      }
               });
+              return { ok: !error && !!data?.valid, message: data?.message || error?.message || "连接失败，请检查配置" };
+       };
 
-              if (error || !data.valid) {
+       const handleVerifyLLM = async () => {
+              if (!localSettings.llmApiKey || !localSettings.llmBaseUrl || !localSettings.llmModel) {
+                     toast({ variant: "destructive", title: "请完整填写主模型配置" });
+                     return;
+              }
+              const result = await verifyLlmConfig({
+                     apiKey: localSettings.llmApiKey,
+                     baseUrl: localSettings.llmBaseUrl,
+                     model: localSettings.llmModel
+              });
+
+              if (!result.ok) {
                      toast({
                             variant: "destructive",
-                            title: "验证失败",
-                            description: data?.message || error?.message || "连接失败，请检查配置"
+                            title: "主模型验证失败",
+                            description: result.message
                      });
               } else {
                      // Auto-save on success
@@ -322,14 +421,58 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             llmApiKey: localSettings.llmApiKey,
                             llmBaseUrl: localSettings.llmBaseUrl,
                             llmProvider: localSettings.llmProvider,
-                            llmModel: localSettings.llmModel
+                            llmModel: localSettings.llmModel,
+                            llmFallbacks: localSettings.llmFallbacks
                      });
                      toast({
-                            title: "验证成功",
+                            title: "主模型验证成功",
                             description: "配置已自动保存",
                             className: "bg-green-50 border-green-200 text-green-800"
                      });
               }
+       };
+
+       const handleVerifyFallback = async (index: number) => {
+              const item = localSettings.llmFallbacks?.[index];
+              if (!item || !item.apiKey || !item.baseUrl || !item.model) {
+                     toast({ variant: "destructive", title: `备选 #${index + 1} 配置不完整` });
+                     return;
+              }
+              setVerifyingFallbackIndex(index);
+              const result = await verifyLlmConfig(item);
+              setFallbackVerifyStatus(prev => ({ ...prev, [index]: result.ok ? "ok" : "fail" }));
+              setVerifyingFallbackIndex(null);
+              toast({
+                     title: result.ok ? `备选 #${index + 1} 验证成功` : `备选 #${index + 1} 验证失败`,
+                     description: result.ok ? "该模型可用" : result.message,
+                     variant: result.ok ? "default" : "destructive"
+              });
+       };
+
+       const handleVerifyAllFallbacks = async () => {
+              const list = localSettings.llmFallbacks || [];
+              if (list.length === 0) {
+                     toast({ title: "暂无备选模型" });
+                     return;
+              }
+              setIsVerifyingAllFallbacks(true);
+              let okCount = 0;
+              for (let i = 0; i < list.length; i++) {
+                     const item = list[i];
+                     if (!item?.apiKey || !item?.baseUrl || !item?.model) {
+                            setFallbackVerifyStatus(prev => ({ ...prev, [i]: "fail" }));
+                            continue;
+                     }
+                     const result = await verifyLlmConfig(item);
+                     setFallbackVerifyStatus(prev => ({ ...prev, [i]: result.ok ? "ok" : "fail" }));
+                     if (result.ok) okCount += 1;
+              }
+              setIsVerifyingAllFallbacks(false);
+              toast({
+                     title: "备选模型验证完成",
+                     description: `可用 ${okCount}/${list.length}`,
+                     variant: okCount > 0 ? "default" : "destructive"
+              });
        };
 
        const handleVerifyImageGen = async () => {
@@ -429,26 +572,92 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
+  const fetchCrawlerHealth = async (silent = false) => {
+       setIsCrawlerHealthLoading(true);
+       try {
+              const { data, error } = await invokeFunction<CrawlerHealth>('crawler-health', { method: 'GET' });
+              if (error) {
+                     throw new Error(error.message || "检测自爬服务状态失败");
+              }
+              setCrawlerHealth(data || null);
+       } catch (e) {
+              setCrawlerHealth({
+                     enabled: false,
+                     healthy: false,
+                     reason: 'check_failed',
+                     message: (e as Error).message || '检测失败',
+              });
+              if (!silent) {
+                     toast({
+                            variant: "destructive",
+                            title: "自爬服务检测失败",
+                            description: (e as Error).message || "请稍后重试"
+                     });
+              }
+       } finally {
+              setIsCrawlerHealthLoading(false);
+       }
+  };
+
   const handleStartCrawlerAuth = async (platform: 'xiaohongshu' | 'douyin') => {
        if (!user) {
               toast({ variant: "destructive", title: "请先登录后再扫码" });
               return;
        }
-       setIsAuthLoading(true);
+       if (!crawlerHealth?.healthy) {
+              toast({
+                     variant: "destructive",
+                     title: "扫码会话启动失败",
+                     description: crawlerHealth?.message || "Crawler service disabled"
+              });
+              return;
+       }
+       setAuthPlatform(platform);
+       setIsAuthStarting(true);
        try {
+              if (authFlowId) {
+                     await invokeFunction('crawler-auth-cancel', {
+                            body: { flow_id: authFlowId }
+                     }, true).catch(() => undefined);
+              }
+              setAuthFlowId('');
+              setAuthQrImage('');
+              setAuthStatus('');
+              setAuthMessage('');
+              setAuthRouteBase('');
+              setAuthMetrics(null);
+              setAuthExpiresAtMs(null);
+              setAuthExpiresInSec(null);
+              setAuthTtlSec(null);
+              missingFlowStreakRef.current = { flowId: '', count: 0 };
+
               const { data, error } = await invokeFunction<any>('crawler-auth-start', {
                      body: { platform }
               }, true);
               if (error || !data) {
                      throw new Error(error?.message || "启动扫码失败");
               }
-              if (data.status !== 'pending' || !data.qr_image_base64) {
+              const qrImage = data.qr_image_base64 || data.qr_image || data.qr_code_base64 || data.qrCode || data?.raw?.qr_image_base64 || '';
+              if (data.status !== 'pending' || !qrImage) {
                      throw new Error(data.error || "未获取到二维码");
               }
               setAuthFlowId(data.flow_id || '');
               setAuthPlatform(platform);
-              setAuthQrImage(data.qr_image_base64);
+              setAuthQrImage(qrImage);
               setAuthStatus('pending');
+              setAuthRouteBase(typeof data.route_base === 'string' ? data.route_base : '');
+              setAuthMessage(typeof data.message === 'string' ? data.message : "等待扫码并在手机端确认登录");
+              setAuthMetrics(null);
+              const ttlSec = Number(data.expires_in || 0);
+              if (ttlSec > 0) {
+                     setAuthTtlSec(ttlSec);
+                     setAuthExpiresInSec(ttlSec);
+                     setAuthExpiresAtMs(Date.now() + ttlSec * 1000);
+              } else {
+                     setAuthTtlSec(null);
+                     setAuthExpiresInSec(null);
+                     setAuthExpiresAtMs(null);
+              }
               toast({
                      title: "二维码已生成",
                      description: `请用${platform === 'xiaohongshu' ? '小红书' : '抖音'}APP扫码登录`,
@@ -460,36 +669,104 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      title: "扫码会话启动失败",
                      description: (e as Error).message || "请稍后重试"
               });
+              if (!authFlowId) {
+                     setAuthPlatform('');
+              }
        } finally {
-              setIsAuthLoading(false);
+              setIsAuthStarting(false);
        }
   };
 
   const handleCheckCrawlerAuthStatus = async (silent = false) => {
-       if (!authFlowId) return;
-       setIsAuthLoading(true);
+       const checkingFlowId = authFlowId;
+       if (!checkingFlowId) return;
+       setIsAuthPolling(true);
        try {
               const { data, error } = await invokeFunction<any>('crawler-auth-status', {
-                     body: { flow_id: authFlowId }
+                     body: { flow_id: checkingFlowId, route_base: authRouteBase || undefined }
               }, true);
               if (error || !data) {
                      throw new Error(error?.message || "检查状态失败");
               }
+              if (!activeFlowRef.current || activeFlowRef.current !== checkingFlowId) {
+                     return;
+              }
+              if (typeof data.flow_id === 'string' && data.flow_id && data.flow_id !== checkingFlowId) {
+                     return;
+              }
               const status = data.status || 'pending';
               const prevStatus = authStatus;
               setAuthStatus(status);
+              const metrics = (data.auth_metrics && typeof data.auth_metrics === 'object') ? (data.auth_metrics as AuthMetrics) : null;
+              setAuthMetrics(metrics);
+              if (typeof data.message === 'string' && data.message.trim()) {
+                     setAuthMessage(data.message.trim());
+              } else if (status === 'pending') {
+                     setAuthMessage("等待扫码并在手机端确认登录");
+              }
+              if (typeof data.expires_in === 'number' && Number.isFinite(data.expires_in)) {
+                     const left = Math.max(0, Math.floor(data.expires_in));
+                     setAuthExpiresInSec(left);
+                     if (left > 0) {
+                            setAuthExpiresAtMs(Date.now() + left * 1000);
+                     }
+              } else if (authExpiresAtMs) {
+                     const left = Math.max(0, Math.ceil((authExpiresAtMs - Date.now()) / 1000));
+                     setAuthExpiresInSec(left);
+              }
               if (status === 'authorized') {
+                     const sessionSaved = data.session_saved === true;
+                     const cookieCount = metrics?.cookie_count_total ?? 0;
+                     if (!sessionSaved || cookieCount <= 0) {
+                            setAuthStatus('pending');
+                            if (!silent) {
+                                   toast({
+                                          variant: "destructive",
+                                          title: "登录状态异常",
+                                          description: "检测到异常授权结果，请重新扫码确认登录"
+                                   });
+                            }
+                            return;
+                     }
                      if (prevStatus !== 'authorized') {
+                            const requiredTotal = (metrics?.required_all?.length || 0) + ((metrics?.required_any?.length || 0) > 0 ? 1 : 0);
+                            const requiredReady = (metrics?.required_all_present || 0) + (((metrics?.required_any?.length || 0) > 0 && metrics?.required_any_ok) ? 1 : 0);
                             toast({
                                    title: "登录成功",
-                                   description: "用户会话已保存，后续自爬将优先使用该账号",
+                                   description: `会话已保存（Cookie ${cookieCount} 个，关键 ${requiredReady}/${requiredTotal || 0}）`,
                                    className: "bg-green-50 border-green-200 text-green-800"
                             });
                      }
                      setAuthFlowId('');
                      setAuthQrImage('');
+                     setAuthPlatform('');
+                     setAuthRouteBase('');
+                     setAuthExpiresAtMs(null);
+                     setAuthExpiresInSec(null);
+                     setAuthTtlSec(null);
+                     setAuthMessage(typeof data.message === 'string' ? data.message : "扫码登录成功，会话已保存");
                      await fetchCrawlerSessions(true);
               } else if (status === 'expired' || status === 'failed') {
+                     const missingFlow = status === 'expired' && data.error === 'flow_not_found_or_expired';
+                     if (missingFlow) {
+                            const prev = missingFlowStreakRef.current;
+                            const nextCount = prev.flowId === checkingFlowId ? prev.count + 1 : 1;
+                            missingFlowStreakRef.current = { flowId: checkingFlowId, count: nextCount };
+                            if (nextCount < 3) {
+                                   setAuthStatus('pending');
+                                   setAuthMessage('会话同步中，正在重试状态检测...');
+                                   return;
+                            }
+                     } else {
+                            missingFlowStreakRef.current = { flowId: '', count: 0 };
+                     }
+                     setAuthFlowId('');
+                     setAuthQrImage('');
+                     setAuthRouteBase('');
+                     setAuthExpiresAtMs(null);
+                     setAuthExpiresInSec(null);
+                     setAuthTtlSec(null);
+                     setAuthMessage(typeof data.message === 'string' ? data.message : "扫码会话已失效，请重新生成二维码");
                      if (!silent) {
                             toast({
                                    variant: "destructive",
@@ -512,7 +789,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      });
               }
        } finally {
-              setIsAuthLoading(false);
+              setIsAuthPolling(false);
        }
   };
 
@@ -520,7 +797,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        if (!authFlowId) return;
        try {
               await invokeFunction('crawler-auth-cancel', {
-                     body: { flow_id: authFlowId }
+                     body: { flow_id: authFlowId, route_base: authRouteBase || undefined }
               }, true);
        } catch {
               // best-effort cancel
@@ -529,6 +806,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               setAuthPlatform('');
               setAuthQrImage('');
               setAuthStatus('');
+              setAuthMessage('');
+              setAuthRouteBase('');
+              setAuthMetrics(null);
+              setAuthExpiresAtMs(null);
+              setAuthExpiresInSec(null);
+              setAuthTtlSec(null);
        }
   };
 
@@ -562,22 +845,64 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
+  const formatAuthStatus = (status: string) => {
+       switch (status) {
+              case 'pending': return '待确认';
+              case 'authorized': return '已授权';
+              case 'expired': return '已过期';
+              case 'failed': return '失败';
+              case 'cancelled': return '已取消';
+              default: return status || '待扫码';
+       }
+  };
+
   useEffect(() => {
        if (!open) return;
        if (!user) {
               setCrawlerSessions([]);
               return;
        }
+       void fetchCrawlerHealth(true);
        void fetchCrawlerSessions(true);
   }, [open, user?.id]);
 
   useEffect(() => {
-       if (!open || !authFlowId || authStatus !== 'pending') return;
-       const timer = window.setTimeout(() => {
+       if (!open || !authFlowId || authStatus !== 'pending') {
+              if (authPollTimerRef.current) {
+                     window.clearInterval(authPollTimerRef.current);
+                     authPollTimerRef.current = null;
+              }
+              return;
+       }
+       if (authPollTimerRef.current) {
+              window.clearInterval(authPollTimerRef.current);
+       }
+       activeFlowRef.current = authFlowId;
+       authPollTimerRef.current = window.setInterval(() => {
               void handleCheckCrawlerAuthStatus(true);
-       }, 4000);
-       return () => window.clearTimeout(timer);
-  }, [open, authFlowId, authStatus]);
+       }, 3000);
+       return () => {
+              if (authPollTimerRef.current) {
+                     window.clearInterval(authPollTimerRef.current);
+                     authPollTimerRef.current = null;
+              }
+       };
+  }, [open, authFlowId, authStatus, authRouteBase]);
+
+  useEffect(() => {
+       activeFlowRef.current = authFlowId;
+  }, [authFlowId]);
+
+  useEffect(() => {
+       if (!open || !authFlowId || authStatus !== 'pending' || !authExpiresAtMs) return;
+       const tick = () => {
+              const left = Math.max(0, Math.ceil((authExpiresAtMs - Date.now()) / 1000));
+              setAuthExpiresInSec(left);
+       };
+       tick();
+       const timer = window.setInterval(tick, 1000);
+       return () => window.clearInterval(timer);
+  }, [open, authFlowId, authStatus, authExpiresAtMs]);
 
   return (
        <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -675,6 +1000,79 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                  {localSettings.llmProvider !== 'custom' && PROVIDERS[localSettings.llmProvider]?.models.map(m => <option key={m} value={m} />)}
                                           </datalist>
                                    </div>
+
+                                   <div className="space-y-3 rounded-lg border p-3 bg-muted/10">
+                                          <div className="flex items-center justify-between">
+                                                 <Label>备选模型（主模型失败自动切换）</Label>
+                                                 <div className="flex items-center gap-2">
+                                                        <Button type="button" variant="outline" size="sm" onClick={handleVerifyAllFallbacks} disabled={isVerifyingAllFallbacks}>
+                                                               {isVerifyingAllFallbacks ? "验证中..." : "验证全部"}
+                                                        </Button>
+                                                        <Button type="button" variant="outline" size="sm" onClick={handleAddFallbackModel}>
+                                                               新增备选
+                                                        </Button>
+                                                 </div>
+                                          </div>
+                                          {(localSettings.llmFallbacks || []).length === 0 ? (
+                                                 <p className="text-xs text-muted-foreground">未配置备选模型。建议至少配置 1 个。</p>
+                                          ) : (
+                                                 <div className="space-y-3">
+                                                        {(localSettings.llmFallbacks || []).map((item, index) => (
+                                                               <div key={index} className="rounded border bg-background p-3 space-y-2">
+                                                                      <div className="flex items-center justify-between">
+                                                                             <p className="text-xs font-medium text-muted-foreground">备选 #{index + 1}</p>
+                                                                             <div className="flex items-center gap-2">
+                                                                                    {fallbackVerifyStatus[index] === "ok" && (
+                                                                                           <span className="text-[11px] text-green-600">可用</span>
+                                                                                    )}
+                                                                                    {fallbackVerifyStatus[index] === "fail" && (
+                                                                                           <span className="text-[11px] text-destructive">不可用</span>
+                                                                                    )}
+                                                                                    <Button
+                                                                                           type="button"
+                                                                                           variant="outline"
+                                                                                           size="sm"
+                                                                                           onClick={() => handleVerifyFallback(index)}
+                                                                                           disabled={verifyingFallbackIndex === index}
+                                                                                    >
+                                                                                           {verifyingFallbackIndex === index ? "验证中" : "验证"}
+                                                                                    </Button>
+                                                                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFallbackModel(index)}>
+                                                                                           <Trash2 className="w-4 h-4" />
+                                                                                    </Button>
+                                                                             </div>
+                                                                      </div>
+                                                                      <Input
+                                                                             placeholder="API Base URL"
+                                                                             value={item.baseUrl}
+                                                                             onChange={(e) => handleUpdateFallbackModel(index, { baseUrl: e.target.value })}
+                                                                      />
+                                                                      <div className="relative">
+                                                                             <Input
+                                                                                    type={showFallbackKeys[index] ? "text" : "password"}
+                                                                                    placeholder="API Key"
+                                                                                    value={item.apiKey}
+                                                                                    onChange={(e) => handleUpdateFallbackModel(index, { apiKey: e.target.value })}
+                                                                                    className="pr-10"
+                                                                             />
+                                                                             <button
+                                                                                    type="button"
+                                                                                    onClick={() => setShowFallbackKeys(prev => ({ ...prev, [index]: !prev[index] }))}
+                                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                                                                             >
+                                                                                    <Eye className="w-4 h-4" />
+                                                                             </button>
+                                                                      </div>
+                                                                      <Input
+                                                                             placeholder="Model Name"
+                                                                             value={item.model}
+                                                                             onChange={(e) => handleUpdateFallbackModel(index, { model: e.target.value })}
+                                                                      />
+                                                               </div>
+                                                        ))}
+                                                 </div>
+                                          )}
+                                   </div>
                             </div>
 
                             <hr className="border-gray-100" />
@@ -702,41 +1100,88 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">账号扫码登录（自爬优先）</Label>
+                                          <div className="rounded-lg border bg-muted/10 p-2">
+                                                 {isCrawlerHealthLoading ? (
+                                                        <p className="text-xs text-muted-foreground">检测自爬服务状态中...</p>
+                                                 ) : crawlerHealth?.healthy ? (
+                                                        <p className="text-xs text-green-600">
+                                                               自爬服务在线{typeof crawlerHealth?.latency_ms === 'number' ? ` · ${crawlerHealth.latency_ms}ms` : ''}
+                                                        </p>
+                                                 ) : (
+                                                        <p className="text-xs text-destructive">
+                                                               自爬服务未连接：{crawlerHealth?.message || 'Crawler service disabled'}
+                                                        </p>
+                                                 )}
+                                          </div>
                                           <div className="flex gap-2">
                                                  <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="flex-1"
                                                         onClick={() => handleStartCrawlerAuth('xiaohongshu')}
-                                                        disabled={isAuthLoading}
+                                                        disabled={isAuthStarting || !crawlerHealth?.healthy}
                                                  >
-                                                        小红书扫码
+                                                        {isAuthStarting && authPlatform === 'xiaohongshu' ? (
+                                                               <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
+                                                        ) : '小红书扫码'}
                                                  </Button>
                                                  <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="flex-1"
                                                         onClick={() => handleStartCrawlerAuth('douyin')}
-                                                        disabled={isAuthLoading}
+                                                        disabled={isAuthStarting || !crawlerHealth?.healthy}
                                                  >
-                                                        抖音扫码
+                                                        {isAuthStarting && authPlatform === 'douyin' ? (
+                                                               <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
+                                                        ) : '抖音扫码'}
                                                  </Button>
                                           </div>
-                                          {authQrImage && (
+                                         {authQrImage && (
                                                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
                                                         <p className="text-xs text-muted-foreground">
-                                                               当前会话：{authPlatform === 'xiaohongshu' ? '小红书' : '抖音'} | 状态：{authStatus || 'pending'}
+                                                               当前会话：{authPlatform === 'xiaohongshu' ? '小红书' : '抖音'} | 状态：{formatAuthStatus(authStatus)}{isAuthPolling ? '（检测中）' : ''}
                                                         </p>
+                                                        {authMessage && (
+                                                               <p className="text-[11px] text-muted-foreground">{authMessage}</p>
+                                                        )}
+                                                        {authMetrics && (
+                                                               <div className="grid grid-cols-3 gap-2 text-[11px]">
+                                                                      <div className="rounded border bg-background px-2 py-1">
+                                                                             <p className="text-muted-foreground">Cookie</p>
+                                                                             <p className="font-medium">{authMetrics.cookie_count_total}</p>
+                                                                      </div>
+                                                                      <div className="rounded border bg-background px-2 py-1">
+                                                                             <p className="text-muted-foreground">关键(All)</p>
+                                                                             <p className="font-medium">{authMetrics.required_all_present}/{authMetrics.required_all.length}</p>
+                                                                      </div>
+                                                                      <div className="rounded border bg-background px-2 py-1">
+                                                                             <p className="text-muted-foreground">关键(Any)</p>
+                                                                             <p className="font-medium">{authMetrics.required_any.length > 0 ? `${authMetrics.required_any_present}/${authMetrics.required_any.length}` : '-'}</p>
+                                                                      </div>
+                                                               </div>
+                                                        )}
+                                                        <p className="text-[11px] text-muted-foreground">
+                                                               自动检测中（每 3 秒）{typeof authExpiresInSec === 'number' ? ` · ${authExpiresInSec}s 后过期` : ''}
+                                                        </p>
+                                                        {(typeof authTtlSec === 'number' && typeof authExpiresInSec === 'number' && authTtlSec > 0) && (
+                                                               <div className="h-1.5 w-full rounded bg-muted">
+                                                                      <div
+                                                                             className="h-1.5 rounded bg-primary transition-all duration-500"
+                                                                             style={{ width: `${Math.max(0, Math.min(100, (authExpiresInSec / authTtlSec) * 100))}%` }}
+                                                                      />
+                                                               </div>
+                                                        )}
                                                         <img
                                                                src={`data:image/png;base64,${authQrImage}`}
                                                                alt="crawler login qr"
                                                                className="w-44 h-44 object-contain bg-white rounded border"
                                                         />
                                                         <div className="flex gap-2">
-                                                               <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false)} disabled={isAuthLoading}>
-                                                                      检查登录状态
+                                                               <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false)} disabled={isAuthPolling}>
+                                                                      {isAuthPolling ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />检测中</span> : '检查登录状态'}
                                                                </Button>
-                                                               <Button variant="ghost" size="sm" onClick={handleCancelCrawlerAuth} disabled={isAuthLoading}>
+                                                               <Button variant="ghost" size="sm" onClick={handleCancelCrawlerAuth} disabled={isAuthPolling}>
                                                                       取消会话
                                                                </Button>
                                                         </div>

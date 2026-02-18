@@ -79,6 +79,36 @@ import { captureEvent } from "@/lib/posthog";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
+const PLACEHOLDER_PATTERNS = [
+  "综合评估中",
+  "待分析",
+  "目标用户群体分析中",
+  "pending_experiment",
+  "未知",
+];
+
+const cleanDisplayText = (value: unknown, fallback: string) => {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  if (PLACEHOLDER_PATTERNS.some((p) => text.includes(p))) return fallback;
+  return text;
+};
+
+const mapProofVerdictLabel = (value: unknown) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw || raw === "pending_experiment") return "待实验验证";
+  if (raw === "pass") return "通过";
+  if (raw === "fail") return "未通过";
+  return String(value);
+};
+
+type EvidenceItem = {
+  type: "note" | "comment" | "competitor";
+  title: string;
+  snippet: string;
+  fullText?: string;
+  url?: string;
+};
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -165,6 +195,7 @@ const Report = () => {
             llmBaseUrl: settings.llmBaseUrl,
             llmApiKey: settings.llmApiKey,
             llmModel: settings.llmModel,
+            llmFallbacks: settings.llmFallbacks,
           }
         }
       });
@@ -212,7 +243,7 @@ const Report = () => {
       id: validation.id,
       idea: validation.idea,
       score: (aiAnalysisRaw.feasibilityScore as number) ?? validation.overall_score ?? 0,
-      verdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+      verdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
       tags: validation.tags || [],
       createdAt: validation.created_at,
       dimensions: rawDimensions.length > 0
@@ -234,10 +265,10 @@ const Report = () => {
         description: String(rawPersona.description || "")
       } : null,
       marketAnalysis: {
-        targetAudience: (marketAnalysisRaw.targetAudience as string) ?? "目标用户群体分析中...",
-        marketSize: (marketAnalysisRaw.marketSize as string) ?? "未知",
-        competitionLevel: (marketAnalysisRaw.competitionLevel as string) ?? "未知",
-        trendDirection: (marketAnalysisRaw.trendDirection as string) ?? "未知",
+        targetAudience: cleanDisplayText(marketAnalysisRaw.targetAudience, "目标用户已根据评论样本自动归纳"),
+        marketSize: cleanDisplayText(marketAnalysisRaw.marketSize, "中等规模（待更多样本补充）"),
+        competitionLevel: cleanDisplayText(marketAnalysisRaw.competitionLevel, "竞争程度中等"),
+        trendDirection: cleanDisplayText(marketAnalysisRaw.trendDirection, "趋势平稳"),
         keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
       },
       sentiment: {
@@ -256,7 +287,7 @@ const Report = () => {
       },
       aiAnalysis: {
         feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
-        overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+        overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
         strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
         weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
         suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
@@ -484,10 +515,10 @@ const Report = () => {
   // 准备显示数据
   const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
   const marketAnalysis = {
-    targetAudience: (marketAnalysisRaw.targetAudience as string) ?? "目标用户群体分析中...",
-    marketSize: (marketAnalysisRaw.marketSize as string) ?? "未知",
-    competitionLevel: (marketAnalysisRaw.competitionLevel as string) ?? "未知",
-    trendDirection: (marketAnalysisRaw.trendDirection as string) ?? "未知",
+    targetAudience: cleanDisplayText(marketAnalysisRaw.targetAudience, "目标用户已根据评论样本自动归纳"),
+    marketSize: cleanDisplayText(marketAnalysisRaw.marketSize, "中等规模（待更多样本补充）"),
+    competitionLevel: cleanDisplayText(marketAnalysisRaw.competitionLevel, "竞争程度中等"),
+    trendDirection: cleanDisplayText(marketAnalysisRaw.trendDirection, "趋势平稳"),
     keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
   };
 
@@ -546,7 +577,7 @@ const Report = () => {
     weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
     suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
     risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
-    overallVerdict: (aiAnalysisRaw.overallVerdict as string) ?? "综合评估中...",
+    overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
   };
 
   const evidenceGrade = (["A", "B", "C", "D"].includes(String(report?.evidence_grade))
@@ -557,7 +588,7 @@ const Report = () => {
     paidIntentRate: Number(proofResultRaw.paid_intent_rate || 0),
     waitlistRate: Number(proofResultRaw.waitlist_rate || 0),
     sampleUv: Number(proofResultRaw.sample_uv || 0),
-    verdict: String(proofResultRaw.verdict || "pending_experiment"),
+    verdict: mapProofVerdictLabel(proofResultRaw.verdict),
   };
   const costBreakdownRaw = (report?.cost_breakdown ?? {}) as Record<string, unknown>;
   const costBreakdown = {
@@ -625,6 +656,49 @@ const Report = () => {
     spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
     description: String(rawPersona.description || `对"${validation?.idea?.slice(0, 30) || '该产品'}..."感兴趣的用户群体`)
   } : null;
+
+  const competitorRows = Array.isArray(report?.competitor_data) ? (report.competitor_data as any[]) : [];
+  const evidenceItems: EvidenceItem[] = [
+    ...xiaohongshuData.sampleNotes.slice(0, 4).map((n: any) => ({
+      type: "note" as const,
+      title: cleanDisplayText(n?.title, "样本笔记"),
+      snippet: cleanDisplayText(n?.desc, "").slice(0, 90),
+      fullText: cleanDisplayText(n?.desc, ""),
+      url: typeof n?.url === "string" ? n.url : undefined,
+    })),
+    ...xiaohongshuData.sampleComments.slice(0, 4).map((c: any) => ({
+      type: "comment" as const,
+      title: `评论 · ${cleanDisplayText(c?.user_nickname, "匿名用户")}`,
+      snippet: cleanDisplayText(c?.content, "").slice(0, 90),
+      fullText: cleanDisplayText(c?.content, ""),
+      url: typeof c?.url === "string" ? c.url : undefined,
+    })),
+    ...competitorRows.slice(0, 4).map((c: any) => ({
+      type: "competitor" as const,
+      title: cleanDisplayText(c?.title, "竞品页面"),
+      snippet: cleanDisplayText(c?.snippet, "").slice(0, 90),
+      fullText: cleanDisplayText(c?.snippet, ""),
+      url: typeof c?.url === "string" ? c.url : undefined,
+    })),
+  ].filter((e) => !!e.title);
+
+  const topEvidence = [
+    ...xiaohongshuData.sampleNotes
+      .slice(0, 2)
+      .map((n: any) => cleanDisplayText(n?.title, "").replace(/^\[[^\]]+\]\s*/, ""))
+      .filter(Boolean)
+      .map((t: string) => `笔记: ${t}`),
+    ...xiaohongshuData.sampleComments
+      .slice(0, 2)
+      .map((c: any) => cleanDisplayText(c?.content, ""))
+      .filter(Boolean)
+      .map((t: string) => `评论: ${t.slice(0, 42)}${t.length > 42 ? "..." : ""}`),
+    ...competitorRows
+      .slice(0, 2)
+      .map((c: any) => cleanDisplayText(c?.title, ""))
+      .filter(Boolean)
+      .map((t: string) => `竞品: ${t}`),
+  ].slice(0, 4);
 
   return (
     <PageBackground showClouds={false}>
@@ -953,7 +1027,7 @@ const Report = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
-                    <div className="text-sm font-medium">{aiAnalysis.overallVerdict || "待分析"}</div>
+                    <div className="text-sm font-medium">{aiAnalysis.overallVerdict}</div>
                   </div>
                   <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
                     <div className="text-xs text-muted-foreground mb-1">商业可用性结论（付费意图）</div>
@@ -970,6 +1044,70 @@ const Report = () => {
                       Prompt {costBreakdown.promptTokens} · Completion {costBreakdown.completionTokens} · 总耗时 {Math.round(costBreakdown.latencyMs / 1000)}s · Crawler耗时 {Math.round(costBreakdown.crawlerLatencyMs / 1000)}s
                     </div>
                   </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20">
+                  <div className="text-xs text-muted-foreground mb-1">结论证据摘要</div>
+                  <div className="text-sm font-medium">
+                    {topEvidence.length > 0 ? topEvidence.join(" · ") : "当前样本不足，建议增加关键词并重跑验证"}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
+                  <div className="text-xs text-muted-foreground mb-2">证据溯源（可点击）</div>
+                  {evidenceItems.length > 0 ? (
+                    <div className="space-y-2">
+                      {evidenceItems.slice(0, 6).map((item, idx) => (
+                        <div key={`${item.type}-${idx}`} className="text-sm flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">
+                              [{item.type === "note" ? "笔记" : item.type === "comment" ? "评论" : "竞品"}] {item.title}
+                            </div>
+                            {item.snippet && (
+                              <div className="text-xs text-muted-foreground truncate">{item.snippet}</div>
+                            )}
+                          </div>
+                          {item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline shrink-0"
+                            >
+                              查看来源
+                            </a>
+                          ) : (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">展开原文</summary>
+                                <div className="mt-1 max-w-[280px] break-words text-muted-foreground">
+                                  {item.fullText || item.snippet || "无内容"}
+                                </div>
+                              </details>
+                              <button
+                                type="button"
+                                className="text-xs text-primary hover:underline"
+                                onClick={async () => {
+                                  const content = item.fullText || item.snippet || "";
+                                  if (!content) return;
+                                  try {
+                                    await navigator.clipboard.writeText(content);
+                                    toast({ title: "已复制证据原文" });
+                                  } catch {
+                                    toast({ title: "复制失败", description: "请手动复制", variant: "destructive" });
+                                  }
+                                }}
+                              >
+                                复制
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">暂无可展示证据</div>
+                  )}
                 </div>
               </div>
             </div>

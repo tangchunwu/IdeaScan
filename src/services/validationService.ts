@@ -7,6 +7,11 @@ export interface ValidationConfig {
   llmBaseUrl: string;
   llmApiKey: string;
   llmModel: string;
+  llmFallbacks: Array<{
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }>;
   tikhubToken: string;
   enableXiaohongshu: boolean;
   enableDouyin: boolean;
@@ -275,6 +280,124 @@ export interface SSEProgressEvent {
   error?: string;
 }
 
+const jwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const sanitizeToken = (token?: string | null) => {
+  const raw = (token || "").trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw.replace(/\r?\n/g, '').trim();
+};
+const isJwtLike = (token?: string | null) => jwtPattern.test(sanitizeToken(token));
+const projectRefPattern = /^https?:\/\/([a-z0-9-]+)\.supabase\.co/i;
+
+type JwtPayload = {
+  exp?: number;
+  iss?: string;
+  ref?: string;
+};
+
+const getCurrentProjectRef = () => {
+  const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || '');
+  const matched = baseUrl.match(projectRefPattern);
+  return matched?.[1] || '';
+};
+
+const decodeJwtPayload = (token?: string | null): JwtPayload | null => {
+  const safeToken = sanitizeToken(token);
+  if (!isJwtLike(safeToken)) return null;
+  const payloadPart = safeToken.split('.')[1];
+  if (!payloadPart) return null;
+  try {
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const parsed = JSON.parse(atob(padded));
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as JwtPayload;
+  } catch {
+    return null;
+  }
+};
+
+const extractProjectRefFromPayload = (payload: JwtPayload | null) => {
+  if (!payload) return '';
+  if (typeof payload.ref === 'string' && payload.ref.trim()) return payload.ref.trim();
+  if (typeof payload.iss === 'string') {
+    const matched = payload.iss.match(/https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+    if (matched?.[1]) return matched[1];
+  }
+  return '';
+};
+
+const tokenExpiringSoon = (payload: JwtPayload | null, skewSeconds = 30) => {
+  if (!payload || typeof payload.exp !== 'number') return false;
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp <= now + skewSeconds;
+};
+
+const safeRefreshSession = async () => {
+  const refreshFn = (supabase.auth as any).refreshSession;
+  if (typeof refreshFn !== 'function') {
+    return { data: { session: null }, error: new Error('refreshSession unavailable') };
+  }
+  const result = await refreshFn.call(supabase.auth);
+  if (!result || typeof result !== 'object') {
+    return { data: { session: null }, error: new Error('refreshSession invalid result') };
+  }
+  return {
+    data: (result as any).data ?? { session: null },
+    error: (result as any).error ?? null,
+  };
+};
+
+const ensureStreamAccessToken = async (initialToken: string): Promise<string | null> => {
+  let token = sanitizeToken(initialToken);
+  const currentRef = getCurrentProjectRef();
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!isJwtLike(token)) {
+      const nonJwtUserResult = await supabase.auth.getUser(token);
+      if (!nonJwtUserResult.error && nonJwtUserResult.data.user) {
+        return token;
+      }
+      const refreshed = await safeRefreshSession();
+      const refreshedToken = sanitizeToken(refreshed.data.session?.access_token);
+      if (isJwtLike(refreshedToken)) {
+        token = refreshedToken;
+        continue;
+      }
+      return null;
+    }
+
+    const payload = decodeJwtPayload(token);
+    const tokenRef = extractProjectRefFromPayload(payload);
+    if ((currentRef && tokenRef && currentRef !== tokenRef) || tokenExpiringSoon(payload)) {
+      const refreshed = await safeRefreshSession();
+      const refreshedToken = sanitizeToken(refreshed.data.session?.access_token);
+      if (isJwtLike(refreshedToken)) {
+        token = refreshedToken;
+        continue;
+      }
+      return null;
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data.user) {
+      return token;
+    }
+
+    const refreshed = await safeRefreshSession();
+    const refreshedToken = sanitizeToken(refreshed.data.session?.access_token);
+    if (!refreshed.error && isJwtLike(refreshedToken) && refreshedToken !== token) {
+      token = refreshedToken;
+      continue;
+    }
+  }
+
+  return null;
+};
+
 // 新增流式验证函数
 export function createValidationStream(
   request: ValidationRequest,
@@ -291,21 +414,51 @@ export function createValidationStream(
       return;
     }
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-idea-stream`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(request),
-          signal: controller.signal,
-        }
-      );
+    let accessToken = await ensureStreamAccessToken(session.access_token);
+    if (!accessToken) {
+      onError("登录态已失效，请重新登录");
+      return;
+    }
 
-      if (!response.ok) throw new Error('SSE 连接失败');
+    try {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-idea-stream`;
+      const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const doFetch = (token: string) => fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          ...(apikey ? { apikey } : {}),
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      let response = await doFetch(accessToken);
+
+      // One-shot retry for transient token mismatch.
+      if (response.status === 401) {
+        const refreshedToken = await ensureStreamAccessToken(accessToken);
+        if (refreshedToken && refreshedToken !== accessToken) {
+          accessToken = refreshedToken;
+          response = await doFetch(refreshedToken);
+        }
+      }
+
+      if (!response.ok) {
+        let detail = "";
+        try {
+          detail = await response.text();
+        } catch {
+          detail = "";
+        }
+        if (response.status === 401) {
+          onError('登录态已失效，请重新登录');
+          return;
+        }
+        throw new Error(detail || `SSE 连接失败(${response.status})`);
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();

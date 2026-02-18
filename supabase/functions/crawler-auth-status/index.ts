@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ValidationError, createErrorResponse } from "../_shared/validation.ts";
+import { resolveCrawlerServiceBaseUrl } from "../_shared/crawler-route.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,8 +37,9 @@ serve(async (req) => {
     const body = await req.json();
     const flowId = typeof body?.flow_id === "string" ? body.flow_id.slice(0, 64) : "";
     if (!flowId) throw new ValidationError("flow_id is required");
+    const routeBase = typeof body?.route_base === "string" ? body.route_base : "";
 
-    const serviceBaseUrl = Deno.env.get("CRAWLER_SERVICE_BASE_URL");
+    const serviceBaseUrl = resolveCrawlerServiceBaseUrl(routeBase);
     if (!serviceBaseUrl) {
       return new Response(JSON.stringify({ error: "Crawler service disabled" }), {
         status: 503,
@@ -78,4 +80,3 @@ serve(async (req) => {
     return createErrorResponse(error, corsHeaders);
   }
 });
-

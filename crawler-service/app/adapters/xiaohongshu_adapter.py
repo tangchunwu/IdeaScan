@@ -24,11 +24,26 @@ class XiaohongshuAdapter(BaseAdapter):
     def __init__(self, risk: RiskController) -> None:
         self.risk = risk
 
+    @staticmethod
+    def _sanitize_limits(payload: CrawlerJobPayload) -> CrawlerJobPayload:
+        safe = payload.model_copy(deep=True)
+        if safe.mode == "deep":
+            max_notes = max(1, int(settings.crawler_xhs_deep_max_notes))
+            max_comments = max(1, int(settings.crawler_xhs_deep_max_comments_per_note))
+        else:
+            max_notes = max(1, int(settings.crawler_xhs_quick_max_notes))
+            max_comments = max(1, int(settings.crawler_xhs_quick_max_comments_per_note))
+        safe.limits.notes = min(max(1, int(safe.limits.notes)), max_notes)
+        safe.limits.comments_per_note = min(max(1, int(safe.limits.comments_per_note)), max_comments)
+        return safe
+
     async def crawl(self, payload: CrawlerJobPayload) -> Tuple[CrawlerPlatformResult, Dict[str, float]]:
         started = time.time()
-        rate = 0.8 if payload.mode == "quick" else 1.6
-        capacity = 2.0 if payload.mode == "quick" else 4.0
-        if not self.risk.check_rate_limit(self.platform, rate=rate, capacity=capacity):
+        safe_payload = self._sanitize_limits(payload)
+        risk_key = f"{self.platform}:{safe_payload.user_id or 'anon'}"
+        rate = 0.8 if safe_payload.mode == "quick" else 1.6
+        capacity = 2.0 if safe_payload.mode == "quick" else 4.0
+        if not self.risk.check_rate_limit(risk_key, rate=rate, capacity=capacity):
             return (
                 CrawlerPlatformResult(
                     platform=self.platform,
@@ -39,24 +54,40 @@ class XiaohongshuAdapter(BaseAdapter):
                 {"external_api_calls": 0, "proxy_calls": 0, "est_cost": 0.0, "provider_mix": {"xiaohongshu": 0.0}},
             )
 
+        cooldown_s = (
+            max(0, int(settings.crawler_xhs_deep_session_cooldown_s))
+            if safe_payload.mode == "deep"
+            else max(0, int(settings.crawler_xhs_quick_session_cooldown_s))
+        )
+        if not self.risk.check_cooldown(risk_key, float(cooldown_s)):
+            return (
+                CrawlerPlatformResult(
+                    platform=self.platform,
+                    success=False,
+                    error=f"session_cooldown_active:{cooldown_s}s",
+                    latency_ms=int((time.time() - started) * 1000),
+                ),
+                {"external_api_calls": 0, "proxy_calls": 0, "est_cost": 0.0, "provider_mix": {"xiaohongshu": 0.0}},
+            )
+
         notes: list[CrawlerNormalizedNote] = []
         comments: list[CrawlerNormalizedComment] = []
         external_calls = 0
         session_error = ""
 
-        if payload.user_id:
-            session, invalid_reason = await session_store.get_valid_user_session(platform=self.platform, user_id=payload.user_id)
+        if safe_payload.user_id:
+            session, invalid_reason = await session_store.get_valid_user_session(platform=self.platform, user_id=safe_payload.user_id)
             if session:
                 try:
-                    session_result, session_cost = await crawl_with_user_session(self.platform, payload, session)
+                    session_result, session_cost = await crawl_with_user_session(self.platform, safe_payload, session)
                     if session_result.success and session_result.notes:
-                        await session_store.touch_user_session(platform=self.platform, user_id=payload.user_id)
-                        await session_store.mark_session_result(platform=self.platform, user_id=payload.user_id, success=True)
+                        await session_store.touch_user_session(platform=self.platform, user_id=safe_payload.user_id)
+                        await session_store.mark_session_result(platform=self.platform, user_id=safe_payload.user_id, success=True)
                         return session_result, session_cost
                     session_error = session_result.error or "session_crawl_failed"
                     await session_store.mark_session_result(
                         platform=self.platform,
-                        user_id=payload.user_id,
+                        user_id=safe_payload.user_id,
                         success=False,
                         error=session_error,
                     )
@@ -64,7 +95,7 @@ class XiaohongshuAdapter(BaseAdapter):
                     session_error = f"session_crawl_exception:{exc}"
                     await session_store.mark_session_result(
                         platform=self.platform,
-                        user_id=payload.user_id,
+                        user_id=safe_payload.user_id,
                         success=False,
                         error=session_error,
                     )
@@ -77,7 +108,7 @@ class XiaohongshuAdapter(BaseAdapter):
             timeout = httpx.Timeout(settings.crawler_http_timeout_s)
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
-                    query = payload.query
+                    query = safe_payload.query
                     res = await client.get(
                         "https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes",
                         params={"keyword": query, "page": 1, "sort": "general", "noteType": "_0"},
@@ -86,7 +117,7 @@ class XiaohongshuAdapter(BaseAdapter):
                     external_calls += 1
                     if res.status_code == 200:
                         items = (res.json() or {}).get("data", {}).get("data", {}).get("items", [])
-                        for raw in items[: payload.limits.notes]:
+                        for raw in items[: safe_payload.limits.notes]:
                             note = raw.get("note", {})
                             note_id = str(note.get("id", ""))
                             notes.append(
@@ -114,7 +145,7 @@ class XiaohongshuAdapter(BaseAdapter):
                             if comment_res.status_code != 200:
                                 continue
                             raw_comments = (comment_res.json() or {}).get("data", {}).get("data", {}).get("comments", [])
-                            for c in raw_comments[: payload.limits.comments_per_note]:
+                            for c in raw_comments[: safe_payload.limits.comments_per_note]:
                                 comments.append(
                                     CrawlerNormalizedComment(
                                         id=str(c.get("id", "")),
@@ -132,7 +163,7 @@ class XiaohongshuAdapter(BaseAdapter):
                 comments = []
         success = len(notes) > 0
         source = "xiaohongshu_tikhub"
-        if success and payload.user_id:
+        if success and safe_payload.user_id:
             source = "xiaohongshu_session"
         if not token and not success and not session_error:
             session_error = "no_tikhub_token_and_no_user_session"

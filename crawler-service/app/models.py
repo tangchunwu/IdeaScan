@@ -109,6 +109,8 @@ class AuthSessionStatusResponse(BaseModel):
     platform: CrawlPlatform
     user_id: str
     status: Literal["pending", "authorized", "expired", "cancelled", "failed"]
+    message: Optional[str] = None
+    auth_metrics: Optional[Dict[str, Any]] = None
     session_saved: bool = False
     error: Optional[str] = None
 

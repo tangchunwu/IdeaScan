@@ -49,11 +49,21 @@ class RiskController:
         self.session_pool = SessionPool(session_pool_size)
         self.user_agents = UserAgentPool(user_agent_pool)
         self._buckets: Dict[str, TokenBucket] = {}
+        self._last_seen: Dict[str, float] = {}
 
-    def check_rate_limit(self, platform: str, rate: float = 2.0, capacity: float = 4.0) -> bool:
-        bucket = self._buckets.get(platform)
+    def check_rate_limit(self, key: str, rate: float = 2.0, capacity: float = 4.0) -> bool:
+        bucket = self._buckets.get(key)
         if bucket is None:
             bucket = TokenBucket(rate=rate, capacity=capacity, tokens=capacity, last_refill=monotonic())
-            self._buckets[platform] = bucket
+            self._buckets[key] = bucket
         return bucket.allow()
 
+    def check_cooldown(self, key: str, min_interval_s: float) -> bool:
+        if min_interval_s <= 0:
+            return True
+        now = monotonic()
+        last = self._last_seen.get(key)
+        if last is not None and (now - last) < min_interval_s:
+            return False
+        self._last_seen[key] = now
+        return True

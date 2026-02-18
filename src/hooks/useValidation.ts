@@ -51,6 +51,7 @@ export const useCreateValidation = () => {
                             llmBaseUrl: settings.llmBaseUrl,
                             llmApiKey: settings.llmApiKey,
                             llmModel: settings.llmModel,
+                            llmFallbacks: settings.llmFallbacks,
                             tikhubToken: settings.tikhubToken,
                             enableXiaohongshu: settings.enableXiaohongshu,
                             enableDouyin: settings.enableDouyin,

@@ -56,6 +56,11 @@ interface RequestConfig {
   llmBaseUrl?: string;
   llmApiKey?: string;
   llmModel?: string;
+  llmFallbacks?: Array<{
+    baseUrl?: string;
+    apiKey?: string;
+    model?: string;
+  }>;
   tikhubToken?: string;
   enableXiaohongshu?: boolean;
   enableDouyin?: boolean;
@@ -69,6 +74,87 @@ interface RequestConfig {
   mode?: 'quick' | 'deep';
 }
 
+interface LLMRuntime {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+function resolveSearchKeys(config?: RequestConfig) {
+  return {
+    tavily: config?.searchKeys?.tavily || Deno.env.get("TAVILY_API_KEY") || "",
+    bocha: config?.searchKeys?.bocha || Deno.env.get("BOCHA_API_KEY") || "",
+    you: config?.searchKeys?.you || Deno.env.get("YOU_API_KEY") || "",
+  };
+}
+
+function normalizeLLMBaseUrl(input?: string) {
+  return (input || "https://ai.gateway.lovable.dev/v1")
+    .replace(/\/$/, "")
+    .replace(/\/chat\/completions$/, "");
+}
+
+function parseFallbackLLMsFromEnv(): LLMRuntime[] {
+  const raw = Deno.env.get("LLM_FALLBACKS_JSON");
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === "object")
+      .map((item: any) => ({
+        apiKey: String(item.apiKey || ""),
+        baseUrl: normalizeLLMBaseUrl(String(item.baseUrl || "")),
+        model: String(item.model || ""),
+      }))
+      .filter((item) => !!item.apiKey && !!item.baseUrl && !!item.model);
+  } catch (e) {
+    console.warn("[LLM] Invalid LLM_FALLBACKS_JSON:", e);
+    return [];
+  }
+}
+
+function dedupeLLMRuntimes(items: LLMRuntime[]): LLMRuntime[] {
+  const seen = new Set<string>();
+  const out: LLMRuntime[] = [];
+  for (const item of items) {
+    const key = `${item.baseUrl}|${item.model}|${item.apiKey.slice(0, 12)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function resolveLLMRuntimes(config?: RequestConfig) {
+  const configFallbacks = Array.isArray(config?.llmFallbacks)
+    ? config!.llmFallbacks!
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({
+          apiKey: String(item.apiKey || ""),
+          baseUrl: normalizeLLMBaseUrl(String(item.baseUrl || "")),
+          model: String(item.model || ""),
+        }))
+        .filter((item) => !!item.apiKey && !!item.baseUrl && !!item.model)
+    : [];
+
+  const primary: LLMRuntime = {
+    apiKey: config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+    baseUrl: normalizeLLMBaseUrl(config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1"),
+    model: config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+  };
+  const candidates = dedupeLLMRuntimes([primary, ...configFallbacks, ...parseFallbackLLMsFromEnv()]).filter((item) => !!item.apiKey);
+  return { primary, candidates };
+}
+
+function countEnabledSearchProviders(keys: { tavily?: string; bocha?: string; you?: string }) {
+  let n = 0;
+  if (keys.tavily) n += 1;
+  if (keys.bocha) n += 1;
+  if (keys.you) n += 1;
+  return n;
+}
+
 function validateConfig(config: unknown): RequestConfig {
   if (!config || typeof config !== "object") {
     return {};
@@ -79,6 +165,16 @@ function validateConfig(config: unknown): RequestConfig {
     llmBaseUrl: validateUserProvidedUrl(c.llmBaseUrl, "llmBaseUrl") || undefined,
     llmApiKey: validateString(c.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     llmModel: validateString(c.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
+    llmFallbacks: Array.isArray(c.llmFallbacks)
+      ? c.llmFallbacks.slice(0, 6).map((item) => {
+          const obj = (item && typeof item === "object") ? item as Record<string, unknown> : {};
+          return {
+            baseUrl: validateUserProvidedUrl(obj.baseUrl, "llmFallback.baseUrl") || undefined,
+            apiKey: validateString(obj.apiKey, "llmFallback.apiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
+            model: validateString(obj.model, "llmFallback.model", LIMITS.MODEL_MAX_LENGTH) || undefined,
+          };
+        }).filter((item) => !!item.baseUrl && !!item.apiKey && !!item.model)
+      : undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
     enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
@@ -134,6 +230,8 @@ Deno.serve(async (req) => {
 
   // Process validation asynchronously
   (async () => {
+    let supabase: ReturnType<typeof createClient> | null = null;
+    let validationId: string | null = null;
     try {
       const body = await req.json();
 
@@ -143,7 +241,7 @@ Deno.serve(async (req) => {
 
       await sendProgress('INIT');
 
-      const supabase = createClient(
+      supabase = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
       );
@@ -173,6 +271,7 @@ Deno.serve(async (req) => {
       if (createError || !validation) {
         throw new Error("Failed to create validation");
       }
+      validationId = validation.id;
 
       await sendProgress('KEYWORDS');
 
@@ -228,8 +327,8 @@ Deno.serve(async (req) => {
       const enableXhs = config?.enableXiaohongshu ?? true;
       const enableDy = config?.enableDouyin ?? false;
       const enableSelfCrawler = config?.enableSelfCrawler ?? true;
-      // quick mode: self-crawler only; deep mode: allow TikHub fallback by setting
-      const enableTikhubFallback = mode === 'deep' ? (config?.enableTikhubFallback ?? true) : false;
+      // Allow fallback in both quick/deep; default on for deep, off for quick unless user enables.
+      const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
       
       const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
       let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
@@ -267,6 +366,7 @@ Deno.serve(async (req) => {
       if (!usedCache && (enableXhs || enableDy)) {
         await sendProgress('CRAWL_START');
         let usedSelfCrawler = false;
+        let selfCrawlerRouteError = "";
 
         const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
         const shouldAttemptSelfCrawler = enableSelfCrawler && (!enableTikhubFallback || shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio));
@@ -282,7 +382,7 @@ Deno.serve(async (req) => {
             enableDouyin: enableDy,
             source: "self_crawler",
             freshnessDays: mode === "deep" ? 30 : 14,
-            timeoutMs: mode === "deep" ? 18000 : 12000,
+            timeoutMs: mode === "deep" ? 35000 : 25000,
           });
           if (routed.usedCrawlerService) {
             crawlerCalls += 1;
@@ -292,6 +392,9 @@ Deno.serve(async (req) => {
               crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
             }
             externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
+          }
+          if (routed.error) {
+            selfCrawlerRouteError = String(routed.error);
           }
 
           if (routed.socialData && (routed.socialData.sampleNotes.length >= 4 || routed.socialData.sampleComments.length >= 8)) {
@@ -356,16 +459,22 @@ Deno.serve(async (req) => {
             console.log("[SourceRouter] TikHub fallback enabled but token missing, skip fallback");
           }
         }
+
+        if (!usedSelfCrawler && !enableTikhubFallback) {
+          if (selfCrawlerRouteError && selfCrawlerRouteError !== "failed") {
+            throw new ValidationError(
+              `CRAWLER_UNAVAILABLE:自爬服务当前不可用（${selfCrawlerRouteError}）。请刷新后重试，或开启 TikHub 兜底。`
+            );
+          }
+          throw new ValidationError("SELF_CRAWLER_EMPTY:自爬未抓到有效样本。请重新扫码登录，或开启 TikHub 兜底后重试。");
+        }
       }
 
       await sendProgress('CRAWL_DONE');
 
       // ============ Competitor Search + Jina Clean + Deep Search ============
-      const searchKeys = {
-        tavily: Deno.env.get("TAVILY_API_KEY"),
-        bocha: Deno.env.get("BOCHA_API_KEY"),
-        you: Deno.env.get("YOU_API_KEY"),
-      };
+      const searchKeys = resolveSearchKeys(config);
+      const { primary: llmRuntime, candidates: llmCandidates } = resolveLLMRuntimes(config);
       
       const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
@@ -373,7 +482,7 @@ Deno.serve(async (req) => {
         // 初次搜索
         await sendProgress('SEARCH');
         const rawCompetitors = await searchCompetitorsSimple(idea, searchKeys);
-        externalApiCalls += 1;
+        externalApiCalls += Math.max(1, countEnabledSearchProviders(searchKeys));
 
         // Jina Reader 清洗
         await sendProgress('JINA_CLEAN');
@@ -405,9 +514,9 @@ Deno.serve(async (req) => {
         // 提取竞品名称
         await sendProgress('EXTRACT_COMPETITORS');
         const llmConfig: LLMConfig = {
-          apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-          baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-          model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+          apiKey: llmRuntime.apiKey,
+          baseUrl: llmRuntime.baseUrl,
+          model: llmRuntime.model
         };
 
         if (llmConfig.apiKey) {
@@ -442,9 +551,9 @@ Deno.serve(async (req) => {
       await sendProgress('SUMMARIZE_L1');
       
       const summaryConfig: SummaryConfig = {
-        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-        baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+        apiKey: llmRuntime.apiKey,
+        baseUrl: llmRuntime.baseUrl,
+        model: llmRuntime.model
       };
 
       let socialSummaries: string[] = [];
@@ -508,7 +617,8 @@ Deno.serve(async (req) => {
         socialData, 
         competitorData,
         aggregatedInsights,
-        extractedCompetitors
+        extractedCompetitors,
+        llmCandidates
       );
 
       await sendProgress('SAVE');
@@ -520,12 +630,15 @@ Deno.serve(async (req) => {
         commentCount: Array.isArray(socialData.sampleComments) ? socialData.sampleComments.length : 0,
         competitorCount: competitorData.length,
       });
-      const llmCalls = (
-        (socialSummaries.length + competitorSummaries.length) +
-        (socialSummaries.length > 0 || competitorSummaries.length > 0 ? 1 : 0) + // L2
-        (extractedCompetitors.length > 0 ? 1 : 0) + // extractor
-        1 // final analysis
-      );
+      const hasLlmEnabled = !!summaryConfig.apiKey;
+      const llmCalls = hasLlmEnabled
+        ? (
+          (socialSummaries.length + competitorSummaries.length) +
+          (socialSummaries.length > 0 || competitorSummaries.length > 0 ? 1 : 0) +
+          (extractedCompetitors.length > 0 ? 1 : 0) +
+          1
+        )
+        : 0;
       const promptTokens = Math.ceil((budgeted.stats.char_after + (idea?.length || 0) * 4) / 2);
       const completionTokens = Math.max(500, Math.ceil((JSON.stringify(aiResult).length + JSON.stringify(aggregatedInsights).length) / 2));
       const costBreakdown = estimateCostBreakdown({
@@ -605,6 +718,13 @@ Deno.serve(async (req) => {
       if (error instanceof ValidationError) errorMessage = error.message;
       else if (error instanceof RateLimitError) errorMessage = "请求过于频繁，请稍后再试";
       else if (error instanceof Error) errorMessage = error.message;
+
+      if (supabase && validationId) {
+        await supabase
+          .from("validations")
+          .update({ status: "failed" })
+          .eq("id", validationId);
+      }
 
       await sendEvent({ event: 'error', error: errorMessage });
     } finally {
@@ -974,19 +1094,17 @@ async function searchCompetitorsSimple(query: string, keys: any): Promise<Search
 
 // 增强版 AI 分析 - 使用聚合摘要
 async function analyzeWithAIEnhanced(
-  idea: string, 
-  tags: string[], 
-  socialData: any, 
+  idea: string,
+  tags: string[],
+  socialData: any,
   competitors: SearchResult[],
   aggregatedInsights: { marketInsight: string; competitiveInsight: string; keyFindings: string[] },
-  extractedCompetitors: any[]
+  extractedCompetitors: any[],
+  llmRuntimes: LLMRuntime[]
 ) {
-  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
-
-  let cleanBaseUrl = baseUrl.replace(/\/$/, "").replace(/\/chat\/completions$/, "");
-  const endpoint = `${cleanBaseUrl}/chat/completions`;
+  if (!Array.isArray(llmRuntimes) || llmRuntimes.length === 0) {
+    throw new ValidationError("LLM_UNAVAILABLE:未配置可用大模型。请先在设置中填写主模型或备选模型。");
+  }
 
   // 构建更丰富的上下文
   const competitorNames = extractedCompetitors.map(c => c.name).join(', ') || '未识别';
@@ -1045,48 +1163,53 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
   ]
 }`;
 
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-      }),
-    });
+  const errors: string[] = [];
 
-    if (!res.ok) throw new Error("AI API error");
-
-    const data = await res.json();
-    const content = data.choices[0]?.message?.content || "";
-    
-    const cleaned = content.replace(/```json/gi, "```").replace(/```/g, "").trim();
-    const first = cleaned.indexOf("{");
-    const last = cleaned.lastIndexOf("}");
-    if (first === -1 || last === -1) throw new Error("No JSON");
-    
-    return JSON.parse(cleaned.slice(first, last + 1));
-  } catch (e) {
-    console.error("[AI Enhanced] Error:", e);
-    return {
-      overallScore: 50,
-      overallVerdict: "AI分析服务暂时不可用",
-      marketAnalysis: {},
-      sentimentAnalysis: { positive: 33, neutral: 34, negative: 33 },
-      aiAnalysis: {},
-      persona: null,
-      dimensions: [
-        { dimension: "需求痛感", score: 50, reason: "待分析" },
-        { dimension: "市场规模", score: 50, reason: "待分析" },
-        { dimension: "竞争壁垒", score: 50, reason: "待分析" },
-        { dimension: "PMF潜力", score: 50, reason: "待分析" }
-      ]
+  for (const runtime of llmRuntimes) {
+    const endpoint = `${normalizeLLMBaseUrl(runtime.baseUrl)}/chat/completions`;
+    const doAnalyzeCall = async (timeoutMs: number) => {
+      return await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${runtime.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: runtime.model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
     };
+
+    try {
+      let res = await doAnalyzeCall(20000);
+      if (!res.ok && res.status >= 500) {
+        // 当前模型单次重试，再失败则切换下一个候选模型
+        res = await doAnalyzeCall(10000);
+      }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const cleaned = content.replace(/```json/gi, "```").replace(/```/g, "").trim();
+      const first = cleaned.indexOf("{");
+      const last = cleaned.lastIndexOf("}");
+      if (first === -1 || last === -1) throw new Error("No JSON in model response");
+
+      return JSON.parse(cleaned.slice(first, last + 1));
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      console.error(`[AI Enhanced] Candidate failed model=${runtime.model} base=${runtime.baseUrl}:`, err);
+      errors.push(`${runtime.model}@${runtime.baseUrl} -> ${err}`);
+    }
   }
+
+  throw new Error(
+    `LLM_ALL_FAILED:所有候选模型均调用失败。请检查 API Key/Base URL/模型名。详情: ${errors.slice(0, 3).join(" | ")}`
+  );
 }
 
 // 计算数据质量分数

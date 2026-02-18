@@ -7,6 +7,7 @@ import {
   type CrawlerResultPayload,
   type RoutedSocialData,
 } from "./crawler-contract.ts";
+import { hmacSha256Hex } from "./crawler-security.ts";
 
 interface DispatchCrawlerOptions {
   supabase: any;
@@ -43,6 +44,16 @@ interface RouteCrawlerResult {
   error?: string;
 }
 
+interface CrawlerServiceSnapshot {
+  status: string;
+  payload: CrawlerResultPayload | null;
+  error?: string;
+}
+
+function isTerminalStatus(status: string): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
 function readJson(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === "string") {
@@ -54,6 +65,102 @@ function readJson(value: unknown): Record<string, unknown> {
     }
   }
   return typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function parseCrawlerResultPayload(value: unknown): CrawlerResultPayload | null {
+  const parsed = readJson(value);
+  const jobId = typeof parsed.job_id === "string" ? parsed.job_id : "";
+  const status = typeof parsed.status === "string" ? parsed.status : "";
+  if (!jobId || !status) return null;
+  return parsed as unknown as CrawlerResultPayload;
+}
+
+async function fetchCrawlerServiceSnapshot(jobId: string): Promise<CrawlerServiceSnapshot | null> {
+  const serviceBaseUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
+  if (!serviceBaseUrl) return null;
+
+  const serviceToken = Deno.env.get("CRAWLER_SERVICE_TOKEN") || "";
+  const endpoint = `${serviceBaseUrl.replace(/\/$/, "")}/internal/v1/crawl/jobs/${jobId}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        ...(serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {}),
+      },
+    });
+    const text = await response.text();
+    const body = readJson(text);
+
+    if (!response.ok) {
+      return {
+        status: "unknown",
+        payload: null,
+        error: `crawler_service_status_${response.status}:${text.slice(0, 240)}`,
+      };
+    }
+
+    const status = String(body.status || "unknown");
+    const payload = parseCrawlerResultPayload(body.result_payload)
+      || parseCrawlerResultPayload(body.result)
+      || parseCrawlerResultPayload(body.payload);
+
+    return { status, payload, error: typeof body.callback_error === "string" ? body.callback_error : undefined };
+  } catch (error) {
+    return {
+      status: "unknown",
+      payload: null,
+      error: error instanceof Error ? error.message : "crawler_service_status_exception",
+    };
+  }
+}
+
+async function replayCrawlerCallback(payload: CrawlerResultPayload): Promise<boolean> {
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") || "").trim();
+  if (!supabaseUrl) return false;
+
+  const callbackSecret = Deno.env.get("CRAWLER_CALLBACK_SECRET") || "";
+  const endpoint = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/crawler-callback`;
+  const body = JSON.stringify(payload);
+  const signature = callbackSecret ? await hmacSha256Hex(callbackSecret, body) : "";
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(signature ? { "X-Crawler-Signature": signature } : {}),
+      },
+      body,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function writeFallbackJobResult(
+  supabase: any,
+  jobId: string,
+  status: string,
+  payload: CrawlerResultPayload | null,
+  fallbackError?: string
+) {
+  const terminalStatus = isTerminalStatus(status) ? status : "failed";
+  const qualityScore = Number(payload?.quality?.freshness_score || 0);
+  const payloadErrors = Array.isArray(payload?.errors) ? payload?.errors.join("; ") : "";
+  const errorText = (payloadErrors || fallbackError || "").slice(0, 500) || null;
+
+  await supabase
+    .from("crawler_jobs")
+    .update({
+      status: terminalStatus,
+      result_payload: payload || {},
+      quality_score: qualityScore,
+      cost_breakdown: readJson(payload?.cost),
+      error: errorText,
+    })
+    .eq("id", jobId);
 }
 
 export async function dispatchCrawlerJob(options: DispatchCrawlerOptions): Promise<DispatchCrawlerResult | null> {
@@ -192,7 +299,7 @@ export async function dispatchCrawlerJob(options: DispatchCrawlerOptions): Promi
 export async function pollCrawlerJobResult(
   supabase: any,
   jobId: string,
-  timeoutMs = 10000,
+  timeoutMs = 25000,
   intervalMs = 900
 ): Promise<PollCrawlerResult> {
   const started = Date.now();
@@ -206,7 +313,7 @@ export async function pollCrawlerJobResult(
 
     if (!error && data) {
       const status = String(data.status || "queued");
-      if (status === "completed" || status === "failed" || status === "cancelled") {
+      if (isTerminalStatus(status)) {
         return {
           status,
           payload: (readJson(data.result_payload) as unknown as CrawlerResultPayload) || null,
@@ -218,6 +325,40 @@ export async function pollCrawlerJobResult(
 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
+
+  // Callback may fail while crawler service already has terminal result.
+  // Fallback: pull snapshot from crawler service and replay callback to self-heal Supabase state.
+  const snapshot = await fetchCrawlerServiceSnapshot(jobId);
+  if (snapshot) {
+    if (isTerminalStatus(snapshot.status) && snapshot.payload) {
+      const replayed = await replayCrawlerCallback(snapshot.payload);
+      if (!replayed) {
+        await writeFallbackJobResult(supabase, jobId, snapshot.status, snapshot.payload, snapshot.error || "callback_replay_failed");
+      }
+      return {
+        status: snapshot.status,
+        payload: snapshot.payload,
+        qualityScore: Number(snapshot.payload.quality?.freshness_score || 0),
+        costBreakdown: readJson(snapshot.payload.cost),
+      };
+    }
+
+    if (isTerminalStatus(snapshot.status)) {
+      await writeFallbackJobResult(supabase, jobId, snapshot.status, null, snapshot.error || "crawler_terminal_without_payload");
+      return {
+        status: snapshot.status,
+        payload: null,
+        qualityScore: 0,
+        costBreakdown: {},
+      };
+    }
+  }
+
+  await supabase
+    .from("crawler_jobs")
+    .update({ status: "failed", error: "crawler_callback_timeout" })
+    .eq("id", jobId)
+    .in("status", ["queued", "dispatched", "running"]);
 
   return {
     status: "timeout",
@@ -239,7 +380,7 @@ export async function routeCrawlerSource(options: DispatchCrawlerOptions): Promi
     };
   }
 
-  const polled = await pollCrawlerJobResult(options.supabase, dispatchResult.jobId, options.timeoutMs || 12000);
+  const polled = await pollCrawlerJobResult(options.supabase, dispatchResult.jobId, options.timeoutMs || 25000);
   if (polled.status !== "completed" || !polled.payload) {
     return {
       socialData: null,

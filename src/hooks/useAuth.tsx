@@ -10,6 +10,16 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+const invalidAuthPattern = /invalid jwt|jwt.*expired|expired.*jwt|invalid or expired session|auth session missing|refresh token|authentication required/i;
+
+const isInvalidAuthError = (errorLike: unknown) => {
+  if (!errorLike || typeof errorLike !== "object") return false;
+  const e = errorLike as Record<string, unknown>;
+  const status = Number(e.status ?? e.code ?? 0);
+  const message = String(e.message ?? e.error_description ?? e.error ?? "").toLowerCase();
+  return status === 401 || invalidAuthPattern.test(message);
+};
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
@@ -36,19 +46,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const { data, error } = await supabase.auth.getUser(incoming.access_token);
-    if (error || !data.user) {
-      // The cached token can become invalid when switching to another Supabase project.
-      await supabase.auth.signOut({ scope: "local" });
+    let activeSession: Session | null = incoming;
+    let userResult = await supabase.auth.getUser(incoming.access_token);
+
+    if (userResult.error || !userResult.data.user) {
+      const refreshFn = (supabase.auth as any).refreshSession;
+      if (typeof refreshFn === "function") {
+        const refreshed = await refreshFn.call(supabase.auth);
+        const refreshedSession = (refreshed as any)?.data?.session as Session | null | undefined;
+        if (!refreshed?.error && refreshedSession?.access_token) {
+          activeSession = refreshedSession;
+          userResult = await supabase.auth.getUser(refreshedSession.access_token);
+        }
+      }
+    }
+
+    if (userResult.error || !userResult.data.user) {
+      if (isInvalidAuthError(userResult.error)) {
+        // Token确实失效才清理本地登录态，避免网络抖动导致误登出
+        await supabase.auth.signOut({ scope: "local" });
+        applySignedOutState();
+        return;
+      }
+
+      if (incoming.user) {
+        setSession(incoming);
+        setUser(incoming.user);
+        identifyUser(incoming.user.id, {
+          email: incoming.user.email,
+          created_at: incoming.user.created_at,
+        });
+        return;
+      }
+
       applySignedOutState();
       return;
     }
 
-    setSession(incoming);
-    setUser(data.user);
-    identifyUser(data.user.id, {
-      email: data.user.email,
-      created_at: data.user.created_at,
+    setSession(activeSession);
+    setUser(userResult.data.user);
+    identifyUser(userResult.data.user.id, {
+      email: userResult.data.user.email,
+      created_at: userResult.data.user.created_at,
     });
   };
 

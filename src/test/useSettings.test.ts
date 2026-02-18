@@ -10,9 +10,7 @@ vi.mock('@/integrations/supabase/client', () => ({
                         signOut: vi.fn(),
                         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
                 },
-                functions: {
-                        invoke: vi.fn(),
-                },
+                functions: { invoke: vi.fn() },
         },
 }));
 
@@ -21,8 +19,10 @@ import { supabase } from '@/integrations/supabase/client';
 describe('useSettings', () => {
         beforeEach(() => {
                 vi.clearAllMocks();
+                vi.stubGlobal('fetch', vi.fn());
                 // Reset store state
                 useSettings.setState({
+                        llmFallbacks: [],
                         llmProvider: 'openai',
                         llmBaseUrl: 'https://api.openai.com/v1',
                         llmApiKey: '',
@@ -48,6 +48,7 @@ describe('useSettings', () => {
                 const state = useSettings.getState();
                 expect(state.llmProvider).toBe('openai');
                 expect(state.llmModel).toBe('gpt-4o');
+                expect(state.llmFallbacks).toEqual([]);
                 expect(state.enableXiaohongshu).toBe(true);
                 expect(state.enableDouyin).toBe(false);
                 expect(state.enableSelfCrawler).toBe(true);
@@ -87,15 +88,14 @@ describe('useSettings', () => {
                         data: { user: { id: 'u1' } },
                         error: null,
                 });
-
-                (supabase.functions.invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
-                        data: {
+                (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+                        ok: true,
+                        text: async () => JSON.stringify({
                                 settings: {
                                         llmProvider: 'deepseek',
                                         llmModel: 'deepseek-v3',
                                 }
-                        },
-                        error: null,
+                        }),
                 });
 
                 await useSettings.getState().syncFromCloud();
@@ -113,6 +113,6 @@ describe('useSettings', () => {
 
                 await useSettings.getState().syncFromCloud();
 
-                expect(supabase.functions.invoke).not.toHaveBeenCalled();
+                expect(global.fetch).not.toHaveBeenCalled();
         });
 });

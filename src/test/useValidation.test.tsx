@@ -14,6 +14,7 @@ vi.mock('@/services/validationService', () => ({
 // Mock useSettings
 vi.mock('@/hooks/useSettings', () => ({
         useSettings: vi.fn(() => ({
+                llmFallbacks: [],
                 llmProvider: 'openai',
                 llmBaseUrl: 'https://api.openai.com/v1',
                 llmApiKey: 'test-key',

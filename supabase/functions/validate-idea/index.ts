@@ -70,6 +70,31 @@ interface RequestConfig {
   mode?: 'quick' | 'deep';
 }
 
+function resolveSearchKeys(config?: RequestConfig) {
+  return {
+    tavily: config?.searchKeys?.tavily || Deno.env.get("TAVILY_API_KEY") || "",
+    bocha: config?.searchKeys?.bocha || Deno.env.get("BOCHA_API_KEY") || "",
+    you: config?.searchKeys?.you || Deno.env.get("YOU_API_KEY") || "",
+  };
+}
+
+function resolveLLMRuntime(config?: RequestConfig) {
+  const apiKey = config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+  const baseUrl = (config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1")
+    .replace(/\/$/, "")
+    .replace(/\/chat\/completions$/, "");
+  const model = config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  return { apiKey, baseUrl, model };
+}
+
+function countEnabledSearchProviders(keys: { tavily?: string; bocha?: string; you?: string }) {
+  let n = 0;
+  if (keys.tavily) n += 1;
+  if (keys.bocha) n += 1;
+  if (keys.you) n += 1;
+  return n;
+}
+
 /**
  * Validate and sanitize the request config
  */
@@ -507,10 +532,10 @@ function createLightweightDataSummary(
 }
 
 async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
-  // Always use system LLM configuration
-  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  const llmRuntime = resolveLLMRuntime(config);
+  const apiKey = llmRuntime.apiKey;
+  const baseUrl = llmRuntime.baseUrl;
+  const model = llmRuntime.model;
   
   const result = await expandKeywords(idea, tags || [], {
     apiKey,
@@ -540,10 +565,10 @@ async function analyzeWithAI(
   dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
-  // Always use system LLM configuration
-  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  const llmRuntime = resolveLLMRuntime(config);
+  const apiKey = llmRuntime.apiKey;
+  const baseUrl = llmRuntime.baseUrl;
+  const model = llmRuntime.model;
 
   let cleanBaseUrl = baseUrl.replace(/\/$/, "");
   if (cleanBaseUrl.endsWith("/chat/completions")) {
@@ -930,8 +955,8 @@ serve(async (req) => {
     await checkRateLimit(supabase, user.id, "validate-idea");
 
     const mode = config?.mode || 'quick';
-    // quick mode: self-crawler only; deep mode: allow TikHub fallback by setting
-    const enableTikhubFallback = mode === 'deep' ? (config?.enableTikhubFallback ?? true) : false;
+    // Allow fallback in both quick/deep; default on for deep, off for quick unless user enables.
+    const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
 
     // ============ TikHub Quota Check ============
     const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
@@ -1008,7 +1033,7 @@ serve(async (req) => {
         enableDouyin,
         source: "self_crawler",
         freshnessDays: mode === "deep" ? 30 : 14,
-        timeoutMs: mode === "deep" ? 18000 : 12000,
+        timeoutMs: mode === "deep" ? 35000 : 25000,
       });
       if (routed.usedCrawlerService) {
         crawlerCalls += 1;
@@ -1066,31 +1091,36 @@ serve(async (req) => {
       }
     }
 
+    if (needsThirdPartyFallback && !enableTikhubFallback) {
+      throw new ValidationError("SELF_CRAWLER_EMPTY:自爬未抓到有效样本。请重新扫码登录，或开启 TikHub 兜底后重试。");
+    }
+
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
     console.log(`[Multi-Channel] Stats: ${xiaohongshuData?.totalNotes || 0} posts, ${xiaohongshuData?.sampleComments?.length || 0} comments`);
 
     // 2.5 Search competitors with enhanced pipeline
     let competitorData: SearchResult[] = [];
     let extractedCompetitors: any[] = [];
-    const tavilyKey = Deno.env.get("TAVILY_API_KEY");
-    const bochaKey = Deno.env.get("BOCHA_API_KEY");
-    const youKey = Deno.env.get("YOU_API_KEY");
-    const searchKeys = { tavily: tavilyKey, bocha: bochaKey, you: youKey };
-    const hasAnySearchKey = tavilyKey || bochaKey || youKey;
+    const searchKeys = resolveSearchKeys(config);
+    const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
     if (hasAnySearchKey) {
       console.log(`Searching competitors...`);
 
       // Initial search
       const searchPromises = webQueries.map(q => searchCompetitors(q, {
-        providers: tavilyKey ? ['tavily'] : (bochaKey ? ['bocha'] : ['you']),
+        providers: ([
+          searchKeys.tavily ? 'tavily' : null,
+          searchKeys.bocha ? 'bocha' : null,
+          searchKeys.you ? 'you' : null,
+        ].filter(Boolean) as ('bocha' | 'you' | 'tavily')[]),
         keys: searchKeys,
         mode: config?.mode
       }));
 
       const results = await Promise.all(searchPromises);
       const rawCompetitors = results.flat();
-      externalApiCalls += Math.max(1, webQueries.length);
+      externalApiCalls += Math.max(1, webQueries.length * Math.max(1, countEnabledSearchProviders(searchKeys)));
       console.log(`Found ${rawCompetitors.length} competitor results`);
 
       // Jina Reader 清洗
@@ -1123,9 +1153,9 @@ serve(async (req) => {
 
       // 竞品名称提取
       const llmConfig: LLMConfig = {
-        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-        baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+        apiKey: resolveLLMRuntime(config).apiKey,
+        baseUrl: resolveLLMRuntime(config).baseUrl,
+        model: resolveLLMRuntime(config).model
       };
 
       if (llmConfig.apiKey) {
@@ -1161,9 +1191,9 @@ serve(async (req) => {
     console.log("Summarizing raw data with tiered approach...");
     
     const summaryConfig: SummaryConfig = {
-      apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-      baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-      model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+      apiKey: resolveLLMRuntime(config).apiKey,
+      baseUrl: resolveLLMRuntime(config).baseUrl,
+      model: resolveLLMRuntime(config).model
     };
 
     let socialSummaries: string[] = [];
@@ -1221,9 +1251,9 @@ serve(async (req) => {
     let dataSummary: DataSummary;
     if (mode === "deep") {
       dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
-        baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
-        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+        apiKey: resolveLLMRuntime(config).apiKey,
+        baseUrl: resolveLLMRuntime(config).baseUrl,
+        model: resolveLLMRuntime(config).model,
         mode: config?.mode
       });
     } else {

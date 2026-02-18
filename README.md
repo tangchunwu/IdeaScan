@@ -112,8 +112,25 @@ supabase db push
 
 ### 3. 部署关键函数
 
+首次换库时，建议直接全量部署，避免遗漏前端依赖函数导致 `401/404/non-2xx`：
+
 ```bash
-supabase functions deploy validate-idea validate-idea-stream generate-mvp track-experiment-event submit-mvp-lead scan-trending-topics crawler-dispatch crawler-callback crawler-auth-start crawler-auth-status crawler-auth-cancel crawler-auth-import-cookies crawler-auth-sessions crawler-auth-revoke
+supabase functions deploy $(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name "_*" -exec basename {} \; | tr '\n' ' ')
+```
+
+如果你只想部署当前前端主链路，至少要包含（按页面真实调用补齐）：
+
+```bash
+supabase functions deploy \
+  validate-idea validate-idea-stream list-validations get-validation delete-validation \
+  user-settings verify-config get-sample-reports re-analyze-validation \
+  export-user-data import-user-data \
+  generate-mvp submit-mvp-lead track-experiment-event \
+  scan-trending-topics discover-topics \
+  generate-discussion reply-to-comment generate-persona-image \
+  crawler-dispatch crawler-callback crawler-health \
+  crawler-auth-start crawler-auth-status crawler-auth-cancel \
+  crawler-auth-import-cookies crawler-auth-sessions crawler-auth-revoke
 ```
 
 ## crawler-service 运行
@@ -134,6 +151,10 @@ cd crawler-service
 source .venv/bin/activate
 python run_worker.py
 ```
+
+说明：
+- `CRAWLER_INLINE_MODE=false` 时，必须启动 `run_worker.py` 消费队列。
+- `CRAWLER_INLINE_MODE=true` 时，只起 `uvicorn` 也可执行任务（开发/本地联调更简单）。
 
 ## 需求可用性判定（当前规则）
 
@@ -186,6 +207,7 @@ python run_worker.py
 - crawler-service 支持会话安全与健康控制：`CRAWLER_SESSION_ENCRYPTION_KEY`、`CRAWLER_SESSION_MAX_IDLE_HOURS`、`CRAWLER_SESSION_FAIL_THRESHOLD`。
 - crawler-service 评论抓取优先走接口响应，并支持游标翻页补样；DOM 仅用于兜底。
 - crawler-service 会话支持自动剔除：空闲超时 / cookie 过期 / 连续失败超阈值会自动移出会话池。
+- 扫码状态可观测：`crawler-auth-status` 返回 `message + auth_metrics`，前端可展示 Cookie 总数与关键 Cookie 就绪度。
 
 ## 测试与质量
 

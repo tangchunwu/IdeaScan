@@ -35,11 +35,12 @@ def _estimate_budget_units(payload: CrawlerJobPayload) -> int:
 
 
 async def _send_callback(callback_url: str, callback_secret: str, payload: CrawlerResultPayload) -> None:
-    body = payload.model_dump_json(ensure_ascii=False)
+    # pydantic v2 model_dump_json does not accept ensure_ascii
+    body = json.dumps(payload.model_dump(mode="json"), ensure_ascii=False)
     signature = hmac_sha256_hex(callback_secret, body)
     timeout = httpx.Timeout(settings.crawler_callback_timeout_s)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        await client.post(
+        response = await client.post(
             callback_url,
             content=body.encode("utf-8"),
             headers={
@@ -47,6 +48,10 @@ async def _send_callback(callback_url: str, callback_secret: str, payload: Crawl
                 "X-Crawler-Signature": signature,
             },
         )
+        if response.status_code < 200 or response.status_code >= 300:
+            raise RuntimeError(
+                f"callback_http_{response.status_code}:{response.text[:240]}"
+            )
 
 
 async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:

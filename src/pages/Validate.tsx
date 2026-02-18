@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { toUserFacingBackendError } from "@/lib/backendErrors";
 import { captureEvent } from "@/lib/posthog";
+import { invokeFunction } from "@/lib/invokeFunction";
 import {
   Sparkles,
   Search,
@@ -33,7 +34,8 @@ import {
   FileBarChart,
   Zap,
   Microscope,
-  AlertTriangle
+  AlertTriangle,
+  Wand2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -67,6 +69,13 @@ const Validate = () => {
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
   const [showQuotaDialog, setShowQuotaDialog] = useState(false);
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [aiTagSuggestions, setAiTagSuggestions] = useState<Array<{
+    tag: string;
+    confidence: number;
+    reason: string;
+    source: 'core' | 'user_phrase' | 'trend' | 'competitor';
+  }>>([]);
 
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
@@ -86,6 +95,59 @@ const Validate = () => {
   };
 
   const [progressStage, setProgressStage] = useState<string>("初始化...");
+
+  const handleSuggestTags = async () => {
+    if (!idea.trim()) {
+      toast({ title: "请先填写想法描述", description: "输入你的需求后再让 AI 推荐关键词", variant: "destructive" });
+      return;
+    }
+    setIsSuggestingTags(true);
+    try {
+      const { data, error } = await invokeFunction<{
+        success: boolean;
+        suggestions: Array<{ tag: string; confidence: number; reason: string; source: 'core' | 'user_phrase' | 'trend' | 'competitor' }>;
+      }>("suggest-keywords", {
+        body: {
+          idea: idea.trim(),
+          tags: selectedTags,
+          config: {
+            llmBaseUrl: settings.llmBaseUrl,
+            llmApiKey: settings.llmApiKey,
+            llmModel: settings.llmModel,
+            llmFallbacks: settings.llmFallbacks,
+          },
+        },
+      }, true);
+      if (error) {
+        throw new Error(error.message || "关键词推荐失败");
+      }
+      const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      setAiTagSuggestions(suggestions);
+      toast({
+        title: "已生成关键词建议",
+        description: `AI 推荐 ${suggestions.length} 个候选标签，请确认后使用`,
+      });
+    } catch (e) {
+      toast({
+        title: "关键词推荐失败",
+        description: (e as Error).message || "请稍后再试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSuggestingTags(false);
+    }
+  };
+
+  const handleApplyTopAiTags = () => {
+    const merged = [...selectedTags];
+    for (const item of aiTagSuggestions.slice(0, 3)) {
+      if (merged.length >= 5) break;
+      if (!merged.includes(item.tag)) {
+        merged.push(item.tag);
+      }
+    }
+    setSelectedTags(merged.slice(0, 5));
+  };
 
   // Validation steps configuration - 优化版流程
   const validationSteps = [
@@ -173,6 +235,11 @@ const Validate = () => {
         mode: validationMode,
         config: {
           mode: validationMode,
+          llmProvider: settings.llmProvider,
+          llmBaseUrl: settings.llmBaseUrl,
+          llmApiKey: settings.llmApiKey,
+          llmModel: settings.llmModel,
+          llmFallbacks: settings.llmFallbacks,
           // Only pass TikHub token if user has configured their own
           tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
           enableXiaohongshu: settings.enableXiaohongshu,
@@ -180,7 +247,11 @@ const Validate = () => {
           enableSelfCrawler: settings.enableSelfCrawler,
           // quick: self-crawler only; deep: allow TikHub fallback by user setting
           enableTikhubFallback: validationMode === 'deep' ? settings.enableTikhubFallback : false,
-          // LLM and search keys are now handled by the backend using system config
+          searchKeys: {
+            bocha: settings.bochaApiKey,
+            you: settings.youApiKey,
+            tavily: settings.tavilyApiKey,
+          },
         },
       },
       // onProgress
@@ -358,6 +429,52 @@ const Validate = () => {
                 </label>
 
                 <div className="bg-muted/30 rounded-2xl p-6 border border-border/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs text-muted-foreground">可手动选择，也可先让 AI 推荐后再确认</span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSuggestTags}
+                        disabled={isValidating || isSuggestingTags || !idea.trim()}
+                        className="h-8 rounded-lg"
+                      >
+                        {isSuggestingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
+                        AI 推荐关键词
+                      </Button>
+                      {aiTagSuggestions.length > 0 && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleApplyTopAiTags}
+                          disabled={isValidating || selectedTags.length >= 5}
+                          className="h-8 rounded-lg"
+                        >
+                          一键采用前3
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {aiTagSuggestions.length > 0 && (
+                    <div className="mb-4 p-3 rounded-xl bg-background/70 border border-border/40">
+                      <p className="text-xs text-muted-foreground mb-2">AI 候选标签（点击加入）</p>
+                      <div className="flex flex-wrap gap-2">
+                        {aiTagSuggestions.slice(0, 6).map((item) => (
+                          <button
+                            key={`${item.tag}-${item.source}`}
+                            onClick={() => handleAddTag(item.tag)}
+                            disabled={selectedTags.length >= 5 || isValidating || selectedTags.includes(item.tag)}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary disabled:opacity-50"
+                            title={`${item.reason}（置信度 ${(item.confidence * 100).toFixed(0)}%）`}
+                          >
+                            + {item.tag} · {(item.confidence * 100).toFixed(0)}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Selected Tags Area */}
                   <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
                     {selectedTags.length === 0 && (

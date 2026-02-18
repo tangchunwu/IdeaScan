@@ -17,9 +17,18 @@ except Exception:  # pragma: no cover - optional dependency fallback
     InvalidToken = Exception  # type: ignore[assignment]
 
 
-SESSION_REQUIRED_COOKIES = {
-    "xiaohongshu": {"a1", "web_session", "webId"},
-    "douyin": {"sessionid", "sid_guard", "passport_csrf_token", "ttwid"},
+# Login-state cookie requirements.
+# xiaohongshu: both `web_session` and `a1` are required to reduce false positives
+# from anonymous visitor cookies.
+# douyin: any one of authenticated session cookies is acceptable.
+SESSION_REQUIRED_ALL_COOKIES = {
+    "xiaohongshu": {"web_session", "a1"},
+}
+
+SESSION_REQUIRED_ANY_COOKIES = {
+    # xiaohongshu anonymous visits can also have web_session/a1; require id_token as login marker
+    "xiaohongshu": {"id_token"},
+    "douyin": {"sessionid", "sessionid_ss", "sid_guard"},
 }
 
 AUTO_EVICT_REASONS = {
@@ -116,9 +125,20 @@ class SessionStore:
     def validate_cookie_bundle(platform: str, cookies: List[Dict[str, Any]]) -> Tuple[bool, str]:
         if not cookies:
             return False, "empty_cookies"
-        required = SESSION_REQUIRED_COOKIES.get(platform, set())
-        cookie_names = {str(item.get("name", "")).strip() for item in cookies}
-        if required and not any(name in cookie_names for name in required):
+        cookie_map = {
+            str(item.get("name", "")).strip(): str(item.get("value", "")).strip()
+            for item in cookies
+            if str(item.get("name", "")).strip()
+        }
+
+        required_all = SESSION_REQUIRED_ALL_COOKIES.get(platform, set())
+        if required_all:
+            missing = [name for name in required_all if not cookie_map.get(name)]
+            if missing:
+                return False, "missing_required_cookies"
+
+        required_any = SESSION_REQUIRED_ANY_COOKIES.get(platform, set())
+        if required_any and not any(cookie_map.get(name) for name in required_any):
             return False, "missing_required_cookies"
         return True, ""
 

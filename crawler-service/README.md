@@ -70,6 +70,22 @@ python run_worker.py
 3. 轮询 `GET /internal/v1/auth/sessions/{flow_id}`。  
 4. 返回 `status=authorized` 即表示 cookies 已写入会话池；后续抓取会优先使用该用户会话。  
 
+### 后端直连扫码探针（不依赖前端）
+
+可直接执行脚本，在本地弹出二维码并轮询授权状态，授权成功后会输出：
+- 会话摘要（status/source/failures）
+- Cookie 可用性报告（必需 cookie 是否到位）
+- 一次 quick smoke crawl 结果（notes/comments/sample）
+
+```bash
+cd /Users/tangchunwu/Desktop/project-89f68ee7-e671-4516-b0ba-dc623c1dc4c6
+source crawler-service/.venv/bin/activate
+python scripts/crawler/qr_session_probe.py \
+  --platform xiaohongshu \
+  --user-id <你的用户UUID> \
+  --open
+```
+
 ## 采样建议
 
 - `quick`：默认 `8` 帖 / 每帖 `10` 评论（更可信但仍可控）。

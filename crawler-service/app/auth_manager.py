@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from app.config import settings
-from app.session_store import session_store
+from app.session_store import (
+    SESSION_REQUIRED_ALL_COOKIES,
+    SESSION_REQUIRED_ANY_COOKIES,
+    session_store,
+)
 
 try:
     from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
@@ -39,11 +43,6 @@ QR_SELECTORS = {
     ],
 }
 
-SUCCESS_COOKIE_NAMES = {
-    "xiaohongshu": {"a1", "web_session", "webId"},
-    "douyin": {"sessionid", "sid_guard", "passport_csrf_token", "ttwid"},
-}
-
 
 @dataclass
 class AuthFlow:
@@ -57,6 +56,7 @@ class AuthFlow:
     browser: Browser
     context: BrowserContext
     page: Page
+    initial_auth_cookie_values: Dict[str, str]
 
 
 class AuthManager:
@@ -75,6 +75,61 @@ class AuthManager:
                 continue
         png = await page.screenshot(type="png", full_page=False)
         return base64.b64encode(png).decode("utf-8")
+
+    @staticmethod
+    def _auth_cookie_names(platform: str) -> set[str]:
+        names = set(SESSION_REQUIRED_ALL_COOKIES.get(platform, set()))
+        names.update(SESSION_REQUIRED_ANY_COOKIES.get(platform, set()))
+        return names
+
+    @staticmethod
+    def _cookie_map(cookies: list[dict[str, Any]]) -> dict[str, str]:
+        return {
+            str(item.get("name", "")).strip(): str(item.get("value", "")).strip()
+            for item in cookies
+            if str(item.get("name", "")).strip()
+        }
+
+    def _capture_auth_cookie_baseline(self, platform: str, cookies: list[dict[str, Any]]) -> dict[str, str]:
+        names = self._auth_cookie_names(platform)
+        source = self._cookie_map(cookies)
+        return {name: source.get(name, "") for name in names}
+
+    def _build_auth_metrics(self, platform: str, cookies: list[dict[str, Any]]) -> dict[str, Any]:
+        cookie_map = self._cookie_map(cookies)
+        required_all = sorted(SESSION_REQUIRED_ALL_COOKIES.get(platform, set()))
+        required_any = sorted(SESSION_REQUIRED_ANY_COOKIES.get(platform, set()))
+        required_all_present = sum(1 for name in required_all if cookie_map.get(name))
+        required_any_present = sum(1 for name in required_any if cookie_map.get(name))
+        required_all_ok = required_all_present == len(required_all) if required_all else True
+        required_any_ok = required_any_present > 0 if required_any else True
+        return {
+            "cookie_count_total": len(cookie_map),
+            "required_all": required_all,
+            "required_any": required_any,
+            "required_all_present": required_all_present,
+            "required_any_present": required_any_present,
+            "required_all_ok": required_all_ok,
+            "required_any_ok": required_any_ok,
+        }
+
+    def _has_auth_cookie_transition(self, flow: AuthFlow, cookies: list[dict[str, Any]]) -> bool:
+        names = self._auth_cookie_names(flow.platform)
+        if not names:
+            return True
+        current = self._cookie_map(cookies)
+        changed = {
+            name
+            for name in names
+            if current.get(name, "") and current.get(name, "") != flow.initial_auth_cookie_values.get(name, "")
+        }
+
+        # xiaohongshu can refresh non-auth cookies before user confirms login.
+        # Require both login cookies to change from baseline to avoid false positives.
+        if flow.platform == "xiaohongshu":
+            return {"id_token", "web_session"}.issubset(changed)
+
+        return len(changed) > 0
 
     async def _close_flow(self, flow: AuthFlow) -> None:
         try:
@@ -164,6 +219,8 @@ class AuthManager:
 
             await page.wait_for_timeout(1800)
             qr_image_base64 = await self._capture_qr_image(page, platform)
+            baseline_cookies = await context.cookies()
+            initial_auth_cookie_values = self._capture_auth_cookie_baseline(platform, baseline_cookies)
             now = time.time()
             ttl = max(60, settings.crawler_auth_flow_ttl_s)
             flow = AuthFlow(
@@ -177,6 +234,7 @@ class AuthManager:
                 browser=browser,
                 context=context,
                 page=page,
+                initial_auth_cookie_values=initial_auth_cookie_values,
             )
             self._flows[flow.flow_id] = flow
             return {
@@ -185,6 +243,7 @@ class AuthManager:
                 "status": "pending",
                 "qr_image_base64": qr_image_base64,
                 "expires_in": ttl,
+                "message": "二维码已生成，请扫码并在手机端确认登录",
                 "error": None,
             }
         except Exception as exc:
@@ -206,6 +265,7 @@ class AuthManager:
                 "platform": "",
                 "user_id": "",
                 "status": "expired",
+                "expires_in": 0,
                 "session_saved": False,
                 "error": "flow_not_found_or_expired",
             }
@@ -218,23 +278,38 @@ class AuthManager:
                 "platform": flow.platform,
                 "user_id": flow.user_id,
                 "status": "expired",
+                "expires_in": 0,
                 "session_saved": False,
                 "error": "flow_expired",
             }
 
         try:
             cookies = await flow.context.cookies()
-            cookie_names = {str(item.get("name", "")) for item in cookies}
-            required = SUCCESS_COOKIE_NAMES.get(flow.platform, set())
-            authorized = any(name in cookie_names for name in required)
-            if not authorized:
+            ok, reason = session_store.validate_cookie_bundle(flow.platform, cookies)
+            metrics = self._build_auth_metrics(flow.platform, cookies)
+            if not ok:
                 return {
                     "flow_id": flow_id,
                     "platform": flow.platform,
                     "user_id": flow.user_id,
                     "status": "pending",
+                    "expires_in": max(0, int(flow.expires_at - time.time())),
+                    "message": "已建立会话，等待关键 Cookie 就绪",
+                    "auth_metrics": metrics,
                     "session_saved": False,
-                    "error": None,
+                    "error": reason if reason != "missing_required_cookies" else None,
+                }
+            if not self._has_auth_cookie_transition(flow, cookies):
+                return {
+                    "flow_id": flow_id,
+                    "platform": flow.platform,
+                    "user_id": flow.user_id,
+                    "status": "pending",
+                    "expires_in": max(0, int(flow.expires_at - time.time())),
+                    "message": "检测到关键 Cookie 但仍未确认登录，请在手机端点击确认",
+                    "auth_metrics": metrics,
+                    "session_saved": False,
+                    "error": "awaiting_login_confirmation",
                 }
 
             await session_store.upsert_user_session(
@@ -252,6 +327,9 @@ class AuthManager:
                 "platform": flow.platform,
                 "user_id": flow.user_id,
                 "status": "authorized",
+                "expires_in": 0,
+                "message": "扫码登录成功，会话已保存",
+                "auth_metrics": metrics,
                 "session_saved": True,
                 "error": None,
             }
@@ -261,6 +339,7 @@ class AuthManager:
                 "platform": flow.platform,
                 "user_id": flow.user_id,
                 "status": "failed",
+                "expires_in": max(0, int(flow.expires_at - time.time())),
                 "session_saved": False,
                 "error": f"status_check_failed:{exc}",
             }

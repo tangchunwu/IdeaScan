@@ -28,3 +28,4 @@ PROJECT_JOURNAL.md
 __pycache__/
 *.py[cod]
 .venv/
+.tmp-ref/
