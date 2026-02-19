@@ -70,6 +70,7 @@ const Validate = () => {
   const [showQuotaDialog, setShowQuotaDialog] = useState(false);
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [resumeValidationId, setResumeValidationId] = useState<string>("");
   const [aiTagSuggestions, setAiTagSuggestions] = useState<Array<{
     tag: string;
     confidence: number;
@@ -164,6 +165,11 @@ const Validate = () => {
   useEffect(() => {
     const ideaParam = searchParams.get('idea');
     const autoParam = searchParams.get('auto');
+    const resumeIdParam = searchParams.get('resumeValidationId');
+
+    if (resumeIdParam) {
+      setResumeValidationId(resumeIdParam);
+    }
 
     if (ideaParam && !idea) {
       setIdea(decodeURIComponent(ideaParam));
@@ -172,7 +178,7 @@ const Validate = () => {
       if (autoParam === 'true' && user && !isValidating) {
         toast({
           title: "正在启动验证...",
-          description: "来自 Hunter 的自动分析请求",
+          description: resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求",
         });
         // Small delay to allow state to settle
         setTimeout(() => {
@@ -226,6 +232,10 @@ const Validate = () => {
     setProgress(0);
     setCurrentStep(0);
     setProgressMessage("");
+    const resumeIdForRun = resumeValidationId || undefined;
+    if (resumeValidationId) {
+      setResumeValidationId("");
+    }
 
     // 使用 SSE 流式验证
     sseControllerRef.current = createValidationStream(
@@ -233,6 +243,7 @@ const Validate = () => {
         idea: idea.trim(),
         tags: selectedTags,
         mode: validationMode,
+        resumeValidationId: resumeIdForRun,
         config: {
           mode: validationMode,
           llmProvider: settings.llmProvider,

@@ -6,11 +6,59 @@ import {
   ValidationError,
   LIMITS
 } from "../_shared/validation.ts";
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function stripCodeFence(input: string) {
+  return String(input || "").replace(/```json/gi, "```").replace(/```/g, "").trim();
+}
+
+function extractFirstBalancedJsonObject(input: string): string {
+  const text = String(input || "");
+  const start = text.indexOf("{");
+  if (start < 0) return "";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === "\"") inString = false;
+      continue;
+    }
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return "";
+}
+
+function parseModelJsonLoose(content: string): any {
+  const raw = stripCodeFence(content);
+  const candidate = extractFirstBalancedJsonObject(raw);
+  if (!candidate) throw new Error("no_json_object_in_content");
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    const repaired = candidate
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, " ")
+      .replace(/,\s*([}\]])/g, "$1")
+      .trim();
+    return JSON.parse(repaired);
+  }
+}
 
 /**
  * Validate URL format (without domain restriction for verify-config)
@@ -62,35 +110,62 @@ serve(async (req) => {
 
     if (type === 'llm') {
       try {
-        let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
-        if (cleanBaseUrl.endsWith("/chat/completions")) {
-          cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-        }
-        const endpoint = `${cleanBaseUrl}/chat/completions`;
+        const cleanBaseUrl = normalizeLlmBaseUrl(baseUrl || "https://api.openai.com/v1");
+        const timeoutMs = 45000;
+        const probePrompt = `你是创业分析助手。请基于以下简短样本给出严格JSON，不能输出额外文本。
 
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: model || "gpt-3.5-turbo",
-            messages: [{ role: "user", content: "Hello" }],
-            max_tokens: 5
-          })
+想法: AI辅助健身计划
+样本:
+- 用户反馈希望自动生成每日训练计划
+- 竞品较多，需要差异化定位
+
+输出JSON:
+{
+  "overallScore": 0-100,
+  "overallVerdict": "一句话",
+  "marketAnalysis": {"targetAudience":"", "marketSize":"", "competitionLevel":""},
+  "sentimentAnalysis": {"positive": 33, "neutral": 34, "negative": 33},
+  "aiAnalysis": {"feasibilityScore": 0-100, "strengths": ["", ""], "weaknesses": ["", ""], "risks": ["", ""], "suggestions": ["", ""]},
+  "persona": {"name":"", "role":"", "age":"", "painPoints":[""], "goals":[""]},
+  "dimensions": [{"dimension":"需求痛感","score":50,"reason":""}]
+}`;
+
+        const completion = await requestChatCompletion({
+          baseUrl: cleanBaseUrl,
+          apiKey,
+          model: model || "gpt-3.5-turbo",
+          messages: [{ role: "user", content: probePrompt }],
+          temperature: 0.2,
+          maxTokens: 700,
+          timeoutMs,
+          responseFormat: { type: "json_object" },
         });
 
-        if (res.ok) {
-          isValid = true;
-          message = "LLM connection successful";
-        } else {
-          isValid = false;
-          message = "LLM connection failed. Please check your API key.";
+        const content = extractAssistantContent(completion.json);
+        const obj = parseModelJsonLoose(String(content));
+        const hasUsefulShape =
+          (typeof obj?.overallScore === "number") ||
+          (typeof obj?.aiAnalysis?.feasibilityScore === "number") ||
+          (obj && typeof obj === "object" && Object.keys(obj).length > 0);
+        if (!hasUsefulShape) {
+          throw new Error("json_schema_too_empty");
         }
+        isValid = true;
+        message = "LLM deep verification successful (schema-compatible)";
       } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
         isValid = false;
-        message = "Connection failed. Please check your network and try again.";
+        if (msg.includes("timeout")) {
+          message = "LLM deep verification timeout (long prompt). Gateway/model response too slow.";
+        } else if (msg.includes("Unexpected token '<'") || msg.includes("invalid_json_response") || msg.includes("text/html")) {
+          message = "LLM endpoint returned non-JSON payload (likely HTML challenge or wrong route).";
+        } else if (msg.includes("llm_all_endpoints_failed")) {
+          message = "LLM endpoint unreachable on expected OpenAI routes (/chat/completions or /v1/chat/completions).";
+        } else if (msg.includes("no_json_object_in_content") || msg.includes("json_schema_too_empty")) {
+          message = "LLM responded but not in required JSON format for analysis.";
+        } else {
+          message = `LLM deep verification failed: ${msg.slice(0, 120)}`;
+        }
       }
     } else if (type === 'image_gen') {
       try {

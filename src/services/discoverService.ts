@@ -35,8 +35,25 @@ export interface DiscoverFilters {
   limit?: number;
 }
 
-// Fetch trending topics with optional filters
-export async function getTrendingTopics(filters: DiscoverFilters = {}): Promise<TrendingTopic[]> {
+let backfillTried = false;
+
+async function ensureTrendingBackfill(): Promise<void> {
+  if (backfillTried) return;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) return;
+
+  try {
+    await supabase.functions.invoke('discover-topics', {
+      body: { action: 'backfill_from_validations' },
+    });
+    backfillTried = true;
+  } catch (error) {
+    console.warn('Backfill trending topics skipped:', error);
+  }
+}
+
+async function queryTrendingTopics(filters: DiscoverFilters): Promise<TrendingTopic[]> {
   const { category, minHeatScore = 0, sortBy = 'heat_score', limit = 50 } = filters;
 
   let query = supabase
@@ -52,19 +69,27 @@ export async function getTrendingTopics(filters: DiscoverFilters = {}): Promise<
   }
 
   const { data, error } = await query;
-
   if (error) {
     console.error('Error fetching trending topics:', error);
     throw new Error('获取热点话题失败');
   }
 
-  // Type assertion for the JSONB fields
   return (data || []).map((topic: any) => ({
     ...topic,
     top_pain_points: topic.top_pain_points || [],
     related_keywords: topic.related_keywords || [],
     sources: (topic.sources as { platform: string; count: number }[]) || [],
   }));
+}
+
+// Fetch trending topics with optional filters
+export async function getTrendingTopics(filters: DiscoverFilters = {}): Promise<TrendingTopic[]> {
+  let topics = await queryTrendingTopics(filters);
+  if (topics.length > 0) return topics;
+
+  await ensureTrendingBackfill();
+  topics = await queryTrendingTopics(filters);
+  return topics;
 }
 
 // Get user's saved/validated topics
@@ -154,7 +179,7 @@ export async function getDiscoverStats(): Promise<{
   avgHeatScore: number;
   topCategories: { category: string; count: number }[];
 }> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('trending_topics')
     .select('heat_score, category')
     .eq('is_active', true);
@@ -162,6 +187,18 @@ export async function getDiscoverStats(): Promise<{
   if (error) {
     console.error('Error fetching discover stats:', error);
     return { totalTopics: 0, avgHeatScore: 0, topCategories: [] };
+  }
+
+  if (!data || data.length === 0) {
+    await ensureTrendingBackfill();
+    const retry = await supabase
+      .from('trending_topics')
+      .select('heat_score, category')
+      .eq('is_active', true);
+    data = retry.data;
+    if (retry.error) {
+      console.error('Error fetching discover stats after backfill:', retry.error);
+    }
   }
 
   const topics = (data || []) as { heat_score: number; category: string | null }[];
@@ -212,7 +249,7 @@ export async function trackTopicClick(
 
 // 新增：获取热门趋势（用于首页展示，替代 PopularValidations）
 export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('trending_topics')
     .select('*')
     .eq('is_active', true)
@@ -222,6 +259,21 @@ export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
   if (error) {
     console.error('Error fetching hot trends:', error);
     return [];
+  }
+
+  if (!data || data.length === 0) {
+    await ensureTrendingBackfill();
+    const retry = await supabase
+      .from('trending_topics')
+      .select('*')
+      .eq('is_active', true)
+      .order('quality_score', { ascending: false })
+      .limit(limit);
+    data = retry.data;
+    if (retry.error) {
+      console.error('Error fetching hot trends after backfill:', retry.error);
+      return [];
+    }
   }
 
   return (data || []).map((topic: any) => ({

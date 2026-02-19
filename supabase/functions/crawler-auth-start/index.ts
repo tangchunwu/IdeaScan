@@ -2,11 +2,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ValidationError, createErrorResponse } from "../_shared/validation.ts";
 import { resolveCrawlerServiceBaseUrl } from "../_shared/crawler-route.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const timeoutPromise = new Promise<Response>((_, reject) => {
+    const timer = setTimeout(() => {
+      clearTimeout(timer);
+      reject(new Error(`timeout_after_${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([fetch(url, init), timeoutPromise]);
+}
 
 function isInvalidRouteHost(url: string): boolean {
   try {
@@ -29,19 +40,11 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new ValidationError("Authorization required");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    const user = userData?.user;
-    if (userError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     const body = await req.json();
     const platform = body?.platform === "douyin" ? "douyin" : "xiaohongshu";
@@ -65,7 +68,7 @@ serve(async (req) => {
     }
     const serviceToken = Deno.env.get("CRAWLER_SERVICE_TOKEN") || "";
     const endpoint = `${serviceBaseUrl.replace(/\/$/, "")}/internal/v1/auth/sessions/start`;
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -76,10 +79,14 @@ serve(async (req) => {
         user_id: user.id,
         region,
       }),
-    });
+    }, 60000);
     const text = await response.text();
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: "Auth session start failed", detail: text.slice(0, 500) }), {
+      return new Response(JSON.stringify({
+        error: "Auth session start failed",
+        detail: text.slice(0, 500),
+        route_base: serviceBaseUrl,
+      }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

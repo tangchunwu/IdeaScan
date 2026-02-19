@@ -40,6 +40,7 @@ import {
   estimateCostBreakdown,
   createDefaultProofResult,
 } from "../_shared/report-metrics.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -943,20 +944,19 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Authenticate user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new ValidationError("Authorization required");
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new ValidationError("Invalid or expired session");
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     // Check rate limit
     await checkRateLimit(supabase, user.id, "validate-idea");
 
     const mode = config?.mode || 'quick';
-    // Allow fallback in both quick/deep; default on for deep, off for quick unless user enables.
-    const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
+    const enableXiaohongshu = config?.enableXiaohongshu ?? true;
+    const enableDouyin = config?.enableDouyin ?? false;
+    const enableSelfCrawler = config?.enableSelfCrawler ?? true;
+    // Single-crawler policy: if self crawler is enabled, do not switch to third-party fallback.
+    // This keeps runtime behavior deterministic and avoids mixed-route confusion.
+    const enableTikhubFallbackRaw = config?.enableTikhubFallback ?? (mode === 'deep');
+    const enableTikhubFallback = enableSelfCrawler ? false : enableTikhubFallbackRaw;
 
     // ============ TikHub Quota Check ============
     const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
@@ -998,9 +998,6 @@ serve(async (req) => {
 
     // 2. Crawl social media data (using multi-channel adapter architecture)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
-    const enableXiaohongshu = config?.enableXiaohongshu ?? true;
-    const enableDouyin = config?.enableDouyin ?? false;
-    const enableSelfCrawler = config?.enableSelfCrawler ?? true;
     let usedThirdPartyCrawler = false;
 
     let xiaohongshuData = {
@@ -1019,8 +1016,10 @@ serve(async (req) => {
       throw new ValidationError("DATA_SOURCE_DISABLED:已关闭自爬与TikHub兜底，且当前无可用缓存。请至少启用一个采集链路。");
     }
 
-    const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
-    const shouldAttemptSelfCrawler = enableSelfCrawler && (!enableTikhubFallback || shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio));
+    // Deterministic routing: when self-crawler is enabled, always try the same crawler-service first.
+    // Avoid ratio-based split that can make behavior look random across requests.
+    const shouldAttemptSelfCrawler = enableSelfCrawler;
+    const effectiveCrawlerMode: "quick" | "deep" = "deep";
     if (shouldAttemptSelfCrawler) {
       const crawlerStarted = Date.now();
       const routed = await routeCrawlerSource({
@@ -1028,12 +1027,12 @@ serve(async (req) => {
         validationId: validation.id,
         userId: user.id,
         query: xhsSearchTerm,
-        mode: mode === "deep" ? "deep" : "quick",
+        mode: effectiveCrawlerMode,
         enableXiaohongshu,
         enableDouyin,
         source: "self_crawler",
-        freshnessDays: mode === "deep" ? 30 : 14,
-        timeoutMs: mode === "deep" ? 35000 : 25000,
+        freshnessDays: 30,
+        timeoutMs: 90000,
       });
       if (routed.usedCrawlerService) {
         crawlerCalls += 1;
@@ -1051,12 +1050,11 @@ serve(async (req) => {
           ...routed.socialData,
         };
       } else {
-        xiaohongshuData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXiaohongshu, enableDouyin, mode);
-        externalApiCalls += 1;
+        console.log("[SourceRouter] crawler-service returned empty samples");
       }
     }
 
-    const needsThirdPartyFallback = (xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8;
+    const needsThirdPartyFallback = (xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 12;
     if (needsThirdPartyFallback && enableTikhubFallback) {
       if (!tikhubToken && !enableSelfCrawler) {
         throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");

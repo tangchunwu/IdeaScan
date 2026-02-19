@@ -26,8 +26,9 @@ SESSION_REQUIRED_ALL_COOKIES = {
 }
 
 SESSION_REQUIRED_ANY_COOKIES = {
-    # xiaohongshu anonymous visits can also have web_session/a1; require id_token as login marker
-    "xiaohongshu": {"id_token"},
+    # xiaohongshu may not always expose `id_token` in web login.
+    # Accept any one of strong login-side cookies as signal.
+    "xiaohongshu": {"id_token", "gid", "webid", "webId"},
     "douyin": {"sessionid", "sessionid_ss", "sid_guard"},
 }
 

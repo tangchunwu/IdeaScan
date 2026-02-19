@@ -52,6 +52,7 @@ type CrawlerHealth = {
        reason?: string;
        message?: string;
        latency_ms?: number;
+       route_base?: string;
 };
 
 type AuthMetrics = {
@@ -68,6 +69,23 @@ type FallbackLLM = {
        baseUrl: string;
        apiKey: string;
        model: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, any> =>
+       !!value && typeof value === "object" && !Array.isArray(value);
+
+const asString = (value: unknown): string => (typeof value === "string" ? value : "");
+
+const normalizeFallbacks = (value: unknown): FallbackLLM[] => {
+       if (!Array.isArray(value)) return [];
+       return value
+              .filter(isRecord)
+              .map((item) => ({
+                     baseUrl: asString(item.baseUrl || item.base_url).trim(),
+                     apiKey: asString(item.apiKey || item.api_key),
+                     model: asString(item.model || item.modelName || item.model_name).trim(),
+              }))
+              .filter((item) => !!item.baseUrl || !!item.model || !!item.apiKey);
 };
 
 export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange, trigger }: SettingsDialogProps) => {
@@ -116,6 +134,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const authPollTimerRef = useRef<number | null>(null);
        const activeFlowRef = useRef<string>('');
        const missingFlowStreakRef = useRef<{ flowId: string; count: number }>({ flowId: '', count: 0 });
+       const manualConfirmArmedRef = useRef(false);
        const { toast } = useToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
@@ -298,10 +317,14 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
        // Export settings to JSON file
        const handleExport = () => {
+              const normalizedFallbacks = normalizeFallbacks(localSettings.llmFallbacks);
               const exportData = {
-                     version: 1,
+                     version: 2,
                      exportedAt: new Date().toISOString(),
-                     settings: localSettings
+                     settings: {
+                            ...localSettings,
+                            llmFallbacks: normalizedFallbacks,
+                     }
               };
               
               const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -333,46 +356,45 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      try {
                             const text = await file.text();
                             const importData = JSON.parse(text);
-                            
+                             
+                            const settings = isRecord(importData?.settings)
+                                   ? importData.settings
+                                   : (isRecord(importData) ? importData : null);
+
                             // Validate structure
-                            if (!importData.settings || typeof importData.settings !== 'object') {
+                            if (!settings) {
                                    throw new Error('Invalid config file format');
                             }
-                            
-                            const { settings } = importData;
-                            
+
+                            const importedFallbacks = normalizeFallbacks(settings.llmFallbacks);
+
                             // Merge with current settings (only update fields that exist in imported data)
-                            setLocalSettings(prev => ({
-                                   ...prev,
-                                   ...(Array.isArray(settings.llmFallbacks) && {
-                                          llmFallbacks: settings.llmFallbacks
-                                                 .filter((item: any) => item && typeof item === 'object')
-                                                 .map((item: any) => ({
-                                                        baseUrl: String(item.baseUrl || ''),
-                                                        apiKey: String(item.apiKey || ''),
-                                                        model: String(item.model || '')
-                                                 }))
-                                   }),
-                                   ...(settings.llmProvider && { llmProvider: settings.llmProvider }),
-                                   ...(settings.llmBaseUrl && { llmBaseUrl: settings.llmBaseUrl }),
-                                   ...(settings.llmApiKey && { llmApiKey: settings.llmApiKey }),
-                                   ...(settings.llmModel && { llmModel: settings.llmModel }),
-                                   ...(settings.tikhubToken && { tikhubToken: settings.tikhubToken }),
-                                   ...(typeof settings.enableXiaohongshu === 'boolean' && { enableXiaohongshu: settings.enableXiaohongshu }),
-                                   ...(typeof settings.enableDouyin === 'boolean' && { enableDouyin: settings.enableDouyin }),
-                                   ...(typeof settings.enableSelfCrawler === 'boolean' && { enableSelfCrawler: settings.enableSelfCrawler }),
-                                   ...(typeof settings.enableTikhubFallback === 'boolean' && { enableTikhubFallback: settings.enableTikhubFallback }),
-                                   ...(settings.bochaApiKey && { bochaApiKey: settings.bochaApiKey }),
-                                   ...(settings.youApiKey && { youApiKey: settings.youApiKey }),
-                                   ...(settings.tavilyApiKey && { tavilyApiKey: settings.tavilyApiKey }),
-                                   ...(settings.imageGenBaseUrl && { imageGenBaseUrl: settings.imageGenBaseUrl }),
-                                   ...(settings.imageGenApiKey && { imageGenApiKey: settings.imageGenApiKey }),
-                                   ...(settings.imageGenModel && { imageGenModel: settings.imageGenModel }),
-                            }));
-                            
+                            setLocalSettings(prev => {
+                                   const next = { ...prev };
+
+                                   if ("llmFallbacks" in settings) next.llmFallbacks = importedFallbacks;
+                                   if ("llmProvider" in settings && typeof settings.llmProvider === "string") next.llmProvider = settings.llmProvider;
+                                   if ("llmBaseUrl" in settings) next.llmBaseUrl = asString(settings.llmBaseUrl);
+                                   if ("llmApiKey" in settings) next.llmApiKey = asString(settings.llmApiKey);
+                                   if ("llmModel" in settings) next.llmModel = asString(settings.llmModel);
+                                   if ("tikhubToken" in settings) next.tikhubToken = asString(settings.tikhubToken);
+                                   if ("enableXiaohongshu" in settings && typeof settings.enableXiaohongshu === "boolean") next.enableXiaohongshu = settings.enableXiaohongshu;
+                                   if ("enableDouyin" in settings && typeof settings.enableDouyin === "boolean") next.enableDouyin = settings.enableDouyin;
+                                   if ("enableSelfCrawler" in settings && typeof settings.enableSelfCrawler === "boolean") next.enableSelfCrawler = settings.enableSelfCrawler;
+                                   if ("enableTikhubFallback" in settings && typeof settings.enableTikhubFallback === "boolean") next.enableTikhubFallback = settings.enableTikhubFallback;
+                                   if ("bochaApiKey" in settings) next.bochaApiKey = asString(settings.bochaApiKey);
+                                   if ("youApiKey" in settings) next.youApiKey = asString(settings.youApiKey);
+                                   if ("tavilyApiKey" in settings) next.tavilyApiKey = asString(settings.tavilyApiKey);
+                                   if ("imageGenBaseUrl" in settings) next.imageGenBaseUrl = asString(settings.imageGenBaseUrl);
+                                   if ("imageGenApiKey" in settings) next.imageGenApiKey = asString(settings.imageGenApiKey);
+                                   if ("imageGenModel" in settings) next.imageGenModel = asString(settings.imageGenModel);
+
+                                   return next;
+                            });
+                             
                             toast({
                                    title: "导入成功",
-                                   description: "配置已加载，请点击保存以应用更改",
+                                   description: `配置已加载（备用模型 ${importedFallbacks.length} 条），请点击保存以应用更改`,
                                    className: "bg-green-50 border-green-200 text-green-800"
                             });
                      } catch (error) {
@@ -575,7 +597,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
   const fetchCrawlerHealth = async (silent = false) => {
        setIsCrawlerHealthLoading(true);
        try {
-              const { data, error } = await invokeFunction<CrawlerHealth>('crawler-health', { method: 'GET' });
+              const { data, error } = await invokeFunction<CrawlerHealth>('crawler-health', { method: 'GET' }, true);
               if (error) {
                      throw new Error(error.message || "检测自爬服务状态失败");
               }
@@ -630,6 +652,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               setAuthExpiresInSec(null);
               setAuthTtlSec(null);
               missingFlowStreakRef.current = { flowId: '', count: 0 };
+              manualConfirmArmedRef.current = false;
 
               const { data, error } = await invokeFunction<any>('crawler-auth-start', {
                      body: { platform }
@@ -639,7 +662,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               }
               const qrImage = data.qr_image_base64 || data.qr_image || data.qr_code_base64 || data.qrCode || data?.raw?.qr_image_base64 || '';
               if (data.status !== 'pending' || !qrImage) {
-                     throw new Error(data.error || "未获取到二维码");
+                     const detail = [
+                            data.error,
+                            data.message,
+                            data.status ? `status=${data.status}` : "",
+                            data.route_base ? `route=${data.route_base}` : "",
+                     ].filter(Boolean).join(" | ");
+                     throw new Error(detail || "未获取到二维码");
               }
               setAuthFlowId(data.flow_id || '');
               setAuthPlatform(platform);
@@ -677,13 +706,22 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
   };
 
-  const handleCheckCrawlerAuthStatus = async (silent = false) => {
+  const handleCheckCrawlerAuthStatus = async (silent = false, manualConfirm = false) => {
        const checkingFlowId = authFlowId;
        if (!checkingFlowId) return;
-       setIsAuthPolling(true);
+       if (manualConfirm) {
+              manualConfirmArmedRef.current = true;
+       }
+       const effectiveManualConfirm = manualConfirm || (authPlatform === 'xiaohongshu' && manualConfirmArmedRef.current);
+       if (!silent) {
+              setIsAuthPolling(true);
+       }
        try {
               const { data, error } = await invokeFunction<any>('crawler-auth-status', {
-                     body: { flow_id: checkingFlowId, route_base: authRouteBase || undefined }
+                     body: {
+                            flow_id: checkingFlowId,
+                            manual_confirm: effectiveManualConfirm,
+                     }
               }, true);
               if (error || !data) {
                      throw new Error(error?.message || "检查状态失败");
@@ -744,6 +782,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      setAuthExpiresAtMs(null);
                      setAuthExpiresInSec(null);
                      setAuthTtlSec(null);
+                     manualConfirmArmedRef.current = false;
                      setAuthMessage(typeof data.message === 'string' ? data.message : "扫码登录成功，会话已保存");
                      await fetchCrawlerSessions(true);
               } else if (status === 'expired' || status === 'failed') {
@@ -766,6 +805,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      setAuthExpiresAtMs(null);
                      setAuthExpiresInSec(null);
                      setAuthTtlSec(null);
+                     manualConfirmArmedRef.current = false;
                      setAuthMessage(typeof data.message === 'string' ? data.message : "扫码会话已失效，请重新生成二维码");
                      if (!silent) {
                             toast({
@@ -789,7 +829,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      });
               }
        } finally {
-              setIsAuthPolling(false);
+              if (!silent) {
+                     setIsAuthPolling(false);
+              }
        }
   };
 
@@ -797,7 +839,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        if (!authFlowId) return;
        try {
               await invokeFunction('crawler-auth-cancel', {
-                     body: { flow_id: authFlowId, route_base: authRouteBase || undefined }
+                     body: { flow_id: authFlowId }
               }, true);
        } catch {
               // best-effort cancel
@@ -812,6 +854,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               setAuthExpiresAtMs(null);
               setAuthExpiresInSec(null);
               setAuthTtlSec(null);
+              manualConfirmArmedRef.current = false;
        }
   };
 
@@ -879,7 +922,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
        activeFlowRef.current = authFlowId;
        authPollTimerRef.current = window.setInterval(() => {
-              void handleCheckCrawlerAuthStatus(true);
+              void handleCheckCrawlerAuthStatus(true, false);
        }, 3000);
        return () => {
               if (authPollTimerRef.current) {
@@ -887,7 +930,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      authPollTimerRef.current = null;
               }
        };
-  }, [open, authFlowId, authStatus, authRouteBase]);
+  }, [open, authFlowId, authStatus, authRouteBase, authPlatform]);
 
   useEffect(() => {
        activeFlowRef.current = authFlowId;
@@ -1178,7 +1221,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                                className="w-44 h-44 object-contain bg-white rounded border"
                                                         />
                                                         <div className="flex gap-2">
-                                                               <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false)} disabled={isAuthPolling}>
+                                                               <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false, true)} disabled={isAuthPolling}>
                                                                       {isAuthPolling ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />检测中</span> : '检查登录状态'}
                                                                </Button>
                                                                <Button variant="ghost" size="sm" onClick={handleCancelCrawlerAuth} disabled={isAuthPolling}>

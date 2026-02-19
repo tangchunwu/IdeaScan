@@ -9,6 +9,7 @@ import {
   LIMITS,
 } from "../_shared/validation.ts";
 import { expandKeywords } from "../_shared/keyword-expander.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,20 +102,11 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new ValidationError("Authorization required");
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    await resolveAuthUserOrBypass(supabase, req);
 
     const body = await req.json();
     const idea = validateString(body.idea, "idea", LIMITS.IDEA_MAX_LENGTH, true)!;
@@ -141,4 +133,3 @@ serve(async (req) => {
     return createErrorResponse(error, corsHeaders);
   }
 });
-

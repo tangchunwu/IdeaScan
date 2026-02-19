@@ -33,6 +33,7 @@ export interface ValidationRequest {
   idea: string;
   tags: string[];
   mode?: 'quick' | 'deep';
+  resumeValidationId?: string;
   config?: Partial<ValidationConfig>;
 }
 
@@ -193,17 +194,26 @@ export interface FullValidation {
   report: ValidationReport | null;
 }
 
-// 创建新验证
-export async function createValidation(request: ValidationRequest): Promise<ValidationResponse> {
-  const { data: { session } } = await supabase.auth.getSession();
+const isAuthBypassEnabled = () => {
+  const raw = String(import.meta.env.VITE_DISABLE_APP_AUTH || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+};
 
+const ensureSignedInUnlessBypass = async () => {
+  if (isAuthBypassEnabled()) return;
+  const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     throw new Error("请先登录");
   }
+};
+
+// 创建新验证
+export async function createValidation(request: ValidationRequest): Promise<ValidationResponse> {
+  await ensureSignedInUnlessBypass();
 
   const response = await invokeFunction("validate-idea", {
     body: request,
-  }, true);
+  }, !isAuthBypassEnabled());
 
   if (response.error) {
     throw new Error(response.error.message || "验证失败");
@@ -214,15 +224,11 @@ export async function createValidation(request: ValidationRequest): Promise<Vali
 
 // 获取验证详情
 export async function getValidation(validationId: string): Promise<FullValidation> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error("请先登录");
-  }
+  await ensureSignedInUnlessBypass();
 
   const { data, error } = await invokeFunction<FullValidation>("get-validation", {
     body: { id: validationId },
-  }, true);
+  }, !isAuthBypassEnabled());
 
   if (error) {
     throw new Error(error.message || "获取验证详情失败");
@@ -233,15 +239,11 @@ export async function getValidation(validationId: string): Promise<FullValidatio
 
 // 获取验证列表
 export async function listValidations(): Promise<Validation[]> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error("请先登录");
-  }
+  await ensureSignedInUnlessBypass();
 
   const response = await invokeFunction<{ validations: Validation[] }>("list-validations", {
     body: {},
-  }, true);
+  }, !isAuthBypassEnabled());
 
   if (response.error) {
     throw new Error(response.error.message || "获取验证列表失败");
@@ -252,15 +254,11 @@ export async function listValidations(): Promise<Validation[]> {
 
 // 删除验证
 export async function deleteValidation(validationId: string): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error("请先登录");
-  }
+  await ensureSignedInUnlessBypass();
 
   const response = await invokeFunction("delete-validation", {
     body: { validationId },
-  }, true);
+  }, !isAuthBypassEnabled());
 
   if (response.error) {
     throw new Error(response.error.message || "删除失败");
@@ -357,10 +355,6 @@ const ensureStreamAccessToken = async (initialToken: string): Promise<string | n
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (!isJwtLike(token)) {
-      const nonJwtUserResult = await supabase.auth.getUser(token);
-      if (!nonJwtUserResult.error && nonJwtUserResult.data.user) {
-        return token;
-      }
       const refreshed = await safeRefreshSession();
       const refreshedToken = sanitizeToken(refreshed.data.session?.access_token);
       if (isJwtLike(refreshedToken)) {
@@ -384,7 +378,7 @@ const ensureStreamAccessToken = async (initialToken: string): Promise<string | n
 
     const { data, error } = await supabase.auth.getUser(token);
     if (!error && data.user) {
-      return token;
+      return isJwtLike(token) ? token : null;
     }
 
     const refreshed = await safeRefreshSession();
@@ -408,16 +402,20 @@ export function createValidationStream(
   const controller = new AbortController();
 
   (async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      onError("请先登录");
-      return;
-    }
+    const bypassAuth = isAuthBypassEnabled();
+    let accessToken = "";
+    if (!bypassAuth) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        onError("请先登录");
+        return;
+      }
 
-    let accessToken = await ensureStreamAccessToken(session.access_token);
-    if (!accessToken) {
-      onError("登录态已失效，请重新登录");
-      return;
+      accessToken = (await ensureStreamAccessToken(session.access_token || "")) || "";
+      if (!accessToken) {
+        onError("登录态已失效，请重新登录");
+        return;
+      }
     }
 
     try {
@@ -428,7 +426,7 @@ export function createValidationStream(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           ...(apikey ? { apikey } : {}),
         },
         body: JSON.stringify(request),
@@ -438,7 +436,7 @@ export function createValidationStream(
       let response = await doFetch(accessToken);
 
       // One-shot retry for transient token mismatch.
-      if (response.status === 401) {
+      if (!bypassAuth && response.status === 401) {
         const refreshedToken = await ensureStreamAccessToken(accessToken);
         if (refreshedToken && refreshedToken !== accessToken) {
           accessToken = refreshedToken;

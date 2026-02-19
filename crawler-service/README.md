@@ -49,8 +49,8 @@ python run_worker.py
 - `CRAWLER_CALLBACK_TIMEOUT_S`：回调超时，默认 8
 - `CRAWLER_JOB_QUEUE_KEY`：队列 key，默认 `crawler:jobs`
 - `CRAWLER_AUTH_FLOW_TTL_S`：扫码会话有效期（秒），默认 180
-- `CRAWLER_ENABLE_DAILY_BUDGET`：是否启用每用户每日抓取预算，默认 `true`
-- `CRAWLER_DAILY_BUDGET_UNITS`：每日预算总量，默认 `1200`
+- `CRAWLER_ENABLE_DAILY_BUDGET`：是否启用每用户每日抓取预算，默认 `false`（建议调试阶段关闭）
+- `CRAWLER_DAILY_BUDGET_UNITS`：每日预算总量，默认 `6000`
 - `CRAWLER_SESSION_ENCRYPTION_KEY`：会话加密密钥（建议设置；留空则明文存储）
 - `CRAWLER_SESSION_MAX_IDLE_HOURS`：会话最大空闲时长（小时），默认 `168`
 - `CRAWLER_SESSION_FAIL_THRESHOLD`：会话连续失败熔断阈值，默认 `3`

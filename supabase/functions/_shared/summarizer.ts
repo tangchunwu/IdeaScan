@@ -10,6 +10,8 @@
  *   - 竞品摘要 → 竞争格局总结
  */
 
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "./llm-client.ts";
+
 export interface SummaryConfig {
   apiKey: string;
   baseUrl: string;
@@ -91,27 +93,16 @@ export async function summarizeSingle(
   const prompt = PROMPTS[contentType].replace('{content}', truncatedContent);
 
   try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 300
-      }),
-      signal: AbortSignal.timeout(30000)
+    const completion = await requestChatCompletion({
+      baseUrl: normalizeLlmBaseUrl(config.baseUrl),
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      maxTokens: 300,
+      timeoutMs: 30000,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const summary = data.choices[0]?.message?.content?.trim() || '';
+    const summary = extractAssistantContent(completion.json).trim();
 
     return {
       content: summary || truncatedContent.slice(0, 150),
@@ -195,26 +186,16 @@ export async function aggregateSummaries(
     .replace('{competitorSummaries}', competitorText);
 
   try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3
-      }),
-      signal: AbortSignal.timeout(45000)
+    const completion = await requestChatCompletion({
+      baseUrl: normalizeLlmBaseUrl(config.baseUrl),
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      maxTokens: 700,
+      timeoutMs: 45000,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content || '{}';
+    const content = extractAssistantContent(completion.json) || '{}';
 
     // 解析 JSON
     const jsonMatch = content.match(/\{[\s\S]*\}/);

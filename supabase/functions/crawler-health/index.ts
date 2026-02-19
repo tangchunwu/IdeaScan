@@ -5,6 +5,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const timeoutPromise = new Promise<Response>((_, reject) => {
+    const timer = setTimeout(() => {
+      clearTimeout(timer);
+      reject(new Error(`timeout_after_${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([fetch(url, init), timeoutPromise]);
+}
+
 function isInvalidRouteHost(url: string): boolean {
   try {
     const host = new URL(url).hostname.toLowerCase();
@@ -26,8 +36,9 @@ serve(async (req) => {
     });
   }
 
+  let serviceBaseUrl = "";
   try {
-    const serviceBaseUrl = Deno.env.get("CRAWLER_SERVICE_BASE_URL")?.trim() || "";
+    serviceBaseUrl = Deno.env.get("CRAWLER_SERVICE_BASE_URL")?.trim() || "";
     if (!serviceBaseUrl) {
       return new Response(
         JSON.stringify({
@@ -53,7 +64,7 @@ serve(async (req) => {
 
     const healthUrl = `${serviceBaseUrl.replace(/\/$/, "")}/health`;
     const startedAt = Date.now();
-    const response = await fetch(healthUrl, { method: "GET" });
+    const response = await fetchWithTimeout(healthUrl, { method: "GET" }, 8000);
     const latencyMs = Date.now() - startedAt;
 
     if (!response.ok) {
@@ -64,7 +75,8 @@ serve(async (req) => {
           reason: "upstream_error",
           status: response.status,
           latency_ms: latencyMs,
-          message: `Crawler upstream unhealthy: ${response.status}`,
+          route_base: serviceBaseUrl,
+          message: `Crawler upstream unhealthy: ${response.status} (${serviceBaseUrl})`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -81,7 +93,8 @@ serve(async (req) => {
           healthy: false,
           reason: "invalid_health_response",
           latency_ms: latencyMs,
-          message: `Crawler health payload is not JSON: ${bodyText.slice(0, 120)}`,
+          route_base: serviceBaseUrl,
+          message: `Crawler health payload is not JSON: ${bodyText.slice(0, 120)} (${serviceBaseUrl})`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -93,7 +106,8 @@ serve(async (req) => {
           healthy: false,
           reason: "invalid_health_status",
           latency_ms: latencyMs,
-          message: `Crawler health status is not ok: ${JSON.stringify(parsed).slice(0, 160)}`,
+          route_base: serviceBaseUrl,
+          message: `Crawler health status is not ok: ${JSON.stringify(parsed).slice(0, 160)} (${serviceBaseUrl})`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -105,6 +119,7 @@ serve(async (req) => {
         healthy: true,
         reason: "ok",
         latency_ms: latencyMs,
+        route_base: serviceBaseUrl,
         message: "Crawler service healthy",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -115,7 +130,8 @@ serve(async (req) => {
         enabled: true,
         healthy: false,
         reason: "exception",
-        message: `Crawler health check failed: ${(error as Error).message || "unknown"}`,
+        route_base: serviceBaseUrl,
+        message: `Crawler health check failed: ${(error as Error).message || "unknown"} (${serviceBaseUrl})`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

@@ -33,6 +33,11 @@ const getCurrentProjectRef = () => {
   return matched?.[1] || "";
 };
 
+const isAuthBypassEnabled = () => {
+  const raw = String(import.meta.env.VITE_DISABLE_APP_AUTH || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+};
+
 function decodeJwtPayload(token?: string | null): JwtPayload | null {
   const safeToken = sanitizeToken(token);
   if (!isJwtLike(safeToken)) return null;
@@ -173,21 +178,23 @@ async function ensureAuthedAccessToken(initialToken: string): Promise<string | n
 
 /**
  * Supabase Edge Function invoke helper.
- * Always sends Authorization header to avoid gateway-level 401 caused by missing auth header.
+ * For public calls (requireAuth=false), send only apikey by default to avoid
+ * passing a stale/invalid Bearer token that triggers `Invalid JWT`.
  */
 export async function invokeFunction<T = any>(
   functionName: string,
   options: InvokeOptions = {},
   requireAuth = false,
 ) {
+  const effectiveRequireAuth = requireAuth && !isAuthBypassEnabled();
   const { data: { session } } = await supabase.auth.getSession();
   let accessToken = sanitizeToken(session?.access_token);
 
-  if (requireAuth && !accessToken) {
+  if (effectiveRequireAuth && !accessToken) {
     throw new Error("请先登录");
   }
 
-  if (requireAuth && accessToken) {
+  if (effectiveRequireAuth && accessToken) {
     const ensuredToken = await ensureAuthedAccessToken(accessToken);
     if (!ensuredToken) {
       throw new Error("登录态已失效，请重新登录");
@@ -198,17 +205,17 @@ export async function invokeFunction<T = any>(
   const callViaFetch = async (tokenOverride?: string) => {
     const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     const fallbackToken = sanitizeToken(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
-    // Public function calls must not carry stale user JWT from another Supabase project.
-    // Always use anon key unless this call explicitly requires auth.
-    const authToken = requireAuth ? sanitizeToken(tokenOverride || accessToken) : fallbackToken;
+    const authToken = effectiveRequireAuth ? sanitizeToken(tokenOverride || accessToken) : "";
     const method = options.method || "POST";
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     };
     if (fallbackToken) headers.apikey = fallbackToken;
-    if (authToken) headers.Authorization = `Bearer ${authToken}`;
-    if (requireAuth && !authToken) {
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    }
+    if (effectiveRequireAuth && !authToken) {
       return {
         data: null,
         error: {
@@ -256,7 +263,7 @@ export async function invokeFunction<T = any>(
 
   let { data, error } = await call();
 
-  if (error && requireAuth && Number((error as any)?.status) === 401) {
+  if (error && effectiveRequireAuth && Number((error as any)?.status) === 401) {
     const renewed = await ensureAuthedAccessToken(accessToken);
     if (renewed) {
       accessToken = renewed;
@@ -266,7 +273,15 @@ export async function invokeFunction<T = any>(
     }
   }
 
-  if (error && requireAuth && Number((error as any)?.status) === 401) {
+  if (error && effectiveRequireAuth && Number((error as any)?.status) === 401) {
+    const shouldRetryWithoutAuth = looksLikeInvalidAuth(error);
+    if (shouldRetryWithoutAuth) {
+      const noAuthRetry = await callViaFetch("");
+      if (!noAuthRetry.error) {
+        return { data: noAuthRetry.data as T, error: null } as const;
+      }
+      // keep original 401 semantics if public retry still fails
+    }
     // Fallback: let Supabase SDK attach/refresh auth internally.
     const sdkResult = await invokeViaSdk<T>(functionName, options);
     if (!sdkResult.error) {
@@ -284,7 +299,7 @@ export async function invokeFunction<T = any>(
       const accessPayload = decodeJwtPayload(accessToken);
       console.warn("[invokeFunction][401]", {
         functionName,
-        requireAuth,
+        requireAuth: effectiveRequireAuth,
         currentProjectRef: getCurrentProjectRef(),
         anonRef: extractProjectRefFromPayload(anonPayload),
         accessRef: extractProjectRefFromPayload(accessPayload),
@@ -294,7 +309,7 @@ export async function invokeFunction<T = any>(
         message,
       });
     }
-    if (requireAuth && looksLikeInvalidAuth(normalizedError)) {
+    if (effectiveRequireAuth && looksLikeInvalidAuth(normalizedError)) {
       return {
         data,
         error: {

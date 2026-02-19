@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ValidationError, createErrorResponse } from "../_shared/validation.ts";
 import { resolveCrawlerServiceBaseUrl } from "../_shared/crawler-route.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,26 +21,18 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new ValidationError("Authorization required");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    const user = userData?.user;
-    if (userError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    await resolveAuthUserOrBypass(supabase, req);
 
     const body = await req.json();
     const flowId = typeof body?.flow_id === "string" ? body.flow_id.slice(0, 64) : "";
     if (!flowId) throw new ValidationError("flow_id is required");
-    const routeBase = typeof body?.route_base === "string" ? body.route_base : "";
-
-    const serviceBaseUrl = resolveCrawlerServiceBaseUrl(routeBase);
+    // Do not trust client-provided route base.
+    // Always use server-side configured crawler base URL to avoid stale tunnel domains.
+    const serviceBaseUrl = resolveCrawlerServiceBaseUrl(null);
     if (!serviceBaseUrl) {
       return new Response(JSON.stringify({ error: "Crawler service disabled" }), {
         status: 503,

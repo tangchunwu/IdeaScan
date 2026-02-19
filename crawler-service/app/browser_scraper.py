@@ -32,6 +32,201 @@ XHS_COMMENT_PAGE_URIS = [
 ]
 
 
+def _xhs_debug(step: str, message: str) -> None:
+    print(f"[xhs-crawl][{step}] {message}", flush=True)
+
+
+async def _open_browser_context(
+    playwright: Any,
+    *,
+    user_agent: str,
+) -> tuple[Any, Any, int]:
+    """Open a browser context in launch/cdp mode.
+
+    Returns: (browser, context, proxy_calls)
+    """
+    mode = str(settings.crawler_playwright_mode or "launch").strip().lower()
+    cdp_url = str(settings.crawler_playwright_cdp_url or "").strip()
+    proxy_calls = 0
+
+    if mode == "cdp" and cdp_url:
+        try:
+            browser = await playwright.chromium.connect_over_cdp(cdp_url, timeout=15000)
+            context = await browser.new_context(user_agent=user_agent)
+            _xhs_debug("browser", f"cdp_connected:{cdp_url}")
+            return browser, context, proxy_calls
+        except Exception as exc:
+            _xhs_debug("browser", f"cdp_connect_failed:{str(exc)[:180]}")
+            if not settings.crawler_playwright_cdp_fallback_launch:
+                raise
+
+    proxy = None
+    if settings.crawler_default_proxy_server:
+        proxy = {"server": settings.crawler_default_proxy_server}
+        if settings.crawler_default_proxy_username:
+            proxy["username"] = settings.crawler_default_proxy_username
+        if settings.crawler_default_proxy_password:
+            proxy["password"] = settings.crawler_default_proxy_password
+        proxy_calls = 1
+
+    browser = await playwright.chromium.launch(
+        headless=settings.crawler_playwright_headless,
+        proxy=proxy,
+        args=["--disable-blink-features=AutomationControlled"],
+    )
+    context = await browser.new_context(user_agent=user_agent)
+    _xhs_debug("browser", "launch_started")
+    return browser, context, proxy_calls
+
+
+def _normalize_xhs_query(raw: str) -> str:
+    query = str(raw or "").strip()
+    if not query:
+        return ""
+    # Long natural-language prompts usually hurt XHS search stability; keep a compact keyword phrase.
+    query = re.split(r"[：:，,。.!！？;；\n]", query)[0].strip()
+    if len(query) > 24:
+        query = query[:24].strip()
+    return query
+
+
+def _build_query_terms(raw: str) -> List[str]:
+    text = str(raw or "").strip().lower()
+    if not text:
+        return []
+    parts = re.split(r"[\s,，。.!！？:：;；/\\|()\[\]{}<>\"'`]+", text)
+    terms: List[str] = []
+    for p in parts:
+        s = p.strip()
+        if not s:
+            continue
+        if re.search(r"[\u4e00-\u9fff]", s):
+            # 中文不要整句匹配，拆成短词片段提升召回
+            if len(s) >= 2:
+                if len(s) <= 6:
+                    terms.append(s)
+                else:
+                    max_len = min(8, len(s))
+                    for n in (max_len, 6, 4, 3):
+                        if n > len(s):
+                            continue
+                        step = max(1, n // 2)
+                        for i in range(0, len(s) - n + 1, step):
+                            frag = s[i:i+n]
+                            if len(frag) >= 2:
+                                terms.append(frag)
+            continue
+        if s == "ai" or len(s) >= 3:
+            terms.append(s)
+    seen: set[str] = set()
+    dedup: List[str] = []
+    for t in terms:
+        if t in seen:
+            continue
+        seen.add(t)
+        dedup.append(t)
+    return dedup[:24]
+
+
+def _build_search_queries(raw: str) -> List[str]:
+    base = _normalize_xhs_query(raw)
+    terms = _build_query_terms(raw)
+    queries: List[str] = []
+    if base:
+        queries.append(base)
+    if terms:
+        # Prefer compact Chinese/English mixed phrases first.
+        zh_terms = [t for t in terms if re.search(r"[\u4e00-\u9fff]", t)]
+        en_terms = [t for t in terms if not re.search(r"[\u4e00-\u9fff]", t)]
+        if len(zh_terms) >= 2:
+            queries.append("".join(zh_terms[:2]))
+        if len(zh_terms) >= 1 and len(en_terms) >= 1:
+            queries.append(f"{zh_terms[0]} {en_terms[0]}")
+        for t in zh_terms[:4]:
+            queries.append(t)
+        for t in en_terms[:4]:
+            queries.append(t)
+    dedup: List[str] = []
+    seen: set[str] = set()
+    for q in queries:
+        s = str(q or "").strip()
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        dedup.append(s[:24])
+    return dedup[:8]
+
+
+def _text_relevance_score(text: str, terms: List[str]) -> int:
+    if not terms:
+        return 0
+    return len(_matched_query_terms(text, terms))
+
+
+def _matched_query_terms(text: str, terms: List[str]) -> List[str]:
+    hay = str(text or "").lower()
+    if not hay:
+        return []
+    matched: List[str] = []
+    for t in terms:
+        term = str(t or "").strip().lower()
+        if not term:
+            continue
+        if re.search(r"[\u4e00-\u9fff]", term):
+            if term in hay:
+                matched.append(term)
+            continue
+        # English tokens should match as words to avoid accidental substring hits.
+        if re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", hay):
+            matched.append(term)
+    return matched
+
+
+def _is_relevant_candidate_text(text: str, terms: List[str]) -> bool:
+    matched = _matched_query_terms(text, terms)
+    if not matched:
+        return False
+    has_strong_hit = any(
+        (len(t) >= 4 and re.search(r"[\u4e00-\u9fff]", t))
+        or (len(t) >= 5 and not re.search(r"[\u4e00-\u9fff]", t))
+        for t in matched
+    )
+    if has_strong_hit:
+        return True
+    # Weak terms require at least two hits.
+    return len(set(matched)) >= 2
+
+
+def _is_relevant_candidate_row(row: Dict[str, Any], terms: List[str] | None = None) -> bool:
+    source = str((row or {}).get("source") or "")
+    # Signed search API rows are already scoped by keyword query.
+    if source.startswith("api_signed:"):
+        return True
+    query_terms = list(terms or [])
+    if not query_terms:
+        return False
+    text = f"{str((row or {}).get('title') or '')} {str((row or {}).get('desc') or '')}"
+    return _is_relevant_candidate_text(text, query_terms)
+
+
+async def _step_with_timeout(coro: Any, *, label: str, timeout_s: float, default: Any, errors: List[str]) -> Any:
+    started = time.time()
+    try:
+        result = await asyncio.wait_for(coro, timeout=max(1.0, timeout_s))
+        _xhs_debug(label, f"ok {int((time.time() - started) * 1000)}ms")
+        return result
+    except TimeoutError:
+        err = f"step_timeout:{label}:{int(timeout_s * 1000)}ms"
+        errors.append(err)
+        _xhs_debug(label, err)
+        return default
+    except Exception as exc:
+        err = f"step_exception:{label}:{str(exc)[:140]}"
+        errors.append(err)
+        _xhs_debug(label, err)
+        return default
+
+
 def _xhs_build_crc32_table() -> List[int]:
     table: List[int] = []
     for i in range(256):
@@ -245,6 +440,8 @@ def _xhs_payload_view(raw: Dict[str, Any]) -> Dict[str, Any]:
 
 def _xhs_is_hard_fail(error: str) -> bool:
     return (
+        "api_error_-104" in error
+        or
         "api_error_300011" in error
         or "api_error_300012" in error
         or "api_error_-510001" in error
@@ -254,6 +451,8 @@ def _xhs_is_hard_fail(error: str) -> bool:
 
 def _xhs_normalize_error(errors: List[str]) -> str:
     for item in errors:
+        if "api_error_-104" in item:
+            return "xhs_search_forbidden_-104"
         if "api_error_300011" in item:
             return "xhs_account_abnormal_300011"
         if "api_error_300012" in item:
@@ -399,6 +598,26 @@ async def _fetch_xhs_search_notes_signed(
 
 def _normalize_comment_text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _extract_comment_content(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ("text", "content", "value", "desc", "comment_text"):
+            nested = value.get(key)
+            text = _extract_comment_content(nested)
+            if text:
+                return text
+        return ""
+    if isinstance(value, list):
+        parts: List[str] = []
+        for item in value:
+            text = _extract_comment_content(item).strip()
+            if text:
+                parts.append(text)
+        return " ".join(parts).strip()
+    return ""
 
 
 def _is_valid_comment_text(value: Any) -> bool:
@@ -660,15 +879,14 @@ def _extract_comment_candidates_from_payload(payload: Any, platform: str) -> Lis
     rows: List[Dict[str, Any]] = []
     seen: set[str] = set()
     for obj in _walk_json_nodes(payload):
-        raw_content = obj.get("content")
-        if isinstance(raw_content, dict):
-            raw_content = (
-                raw_content.get("text")
-                or raw_content.get("content")
-                or raw_content.get("value")
-                or ""
-            )
-        content = _normalize_comment_text(raw_content or obj.get("text") or obj.get("comment_text") or "")
+        raw_content = _extract_comment_content(
+            obj.get("content")
+            or obj.get("text")
+            or obj.get("comment_text")
+            or obj.get("desc")
+            or obj.get("body")
+        )
+        content = _normalize_comment_text(raw_content)
         if not _is_valid_comment_text(content):
             continue
         uniq = content[:180]
@@ -678,7 +896,14 @@ def _extract_comment_candidates_from_payload(payload: Any, platform: str) -> Lis
         user = obj.get("user") if isinstance(obj.get("user"), dict) else {}
         nickname = str(obj.get("user_nickname") or user.get("nickname") or user.get("nick_name") or "").strip()
         rows.append({
-            "id": str(obj.get("cid") or obj.get("id") or obj.get("comment_id") or "").strip(),
+            "id": str(
+                obj.get("cid")
+                or obj.get("id")
+                or obj.get("comment_id")
+                or obj.get("commentId")
+                or obj.get("root_comment_id")
+                or ""
+            ).strip(),
             "content": content,
             "like_count": _safe_int(obj.get("like_count") or obj.get("digg_count") or obj.get("liked_count"), 0),
             "user_nickname": nickname,
@@ -922,7 +1147,7 @@ def _note_candidate_pool_size(max_notes: int, mode: str) -> int:
     return min(48, max(base, floor, base * multiplier))
 
 
-def _note_engagement_score(row: Dict[str, Any]) -> float:
+def _note_engagement_score(row: Dict[str, Any], query_terms: List[str] | None = None) -> float:
     liked = _safe_int(row.get("liked_count"), 0)
     comments = _safe_int(row.get("comments_count"), 0)
     collected = _safe_int(row.get("collected_count"), 0)
@@ -930,7 +1155,11 @@ def _note_engagement_score(row: Dict[str, Any]) -> float:
     source_bonus = 12 if source.startswith("api_signed:") else (6 if source == "api" else 0)
     sort = str(row.get("search_sort") or "")
     sort_bonus = 20 if sort == "popularity_descending" else (8 if sort == "general" else (4 if sort == "time_descending" else 0))
-    return float(liked) + float(comments) * 2.2 + float(collected) * 1.3 + source_bonus + sort_bonus
+    title = str(row.get("title") or "")
+    desc = str(row.get("desc") or "")
+    relevance = _text_relevance_score(f"{title} {desc}", query_terms or [])
+    relevance_bonus = relevance * 40
+    return float(liked) + float(comments) * 2.2 + float(collected) * 1.3 + source_bonus + sort_bonus + relevance_bonus
 
 
 def _merge_note_sources(
@@ -938,6 +1167,7 @@ def _merge_note_sources(
     api_rows: List[Dict[str, Any]],
     max_notes: int,
     mode: str,
+    query_terms: List[str] | None = None,
 ) -> List[Dict[str, Any]]:
     by_url: Dict[str, Dict[str, Any]] = {}
     for raw in dom_rows + api_rows:
@@ -957,7 +1187,11 @@ def _merge_note_sources(
             "xsec_source": str(raw.get("xsec_source") or "").strip(),
             "search_sort": str(raw.get("search_sort") or "").strip(),
         }
-        candidate["score"] = _note_engagement_score(candidate)
+        candidate["relevance"] = _text_relevance_score(
+            f"{str(candidate.get('title') or '')} {str(candidate.get('desc') or '')}",
+            query_terms or [],
+        )
+        candidate["score"] = _note_engagement_score(candidate, query_terms)
         existing = by_url.get(url)
         if existing is None:
             by_url[url] = candidate
@@ -969,7 +1203,11 @@ def _merge_note_sources(
         existing["liked_count"] = max(_safe_int(existing.get("liked_count"), 0), _safe_int(candidate.get("liked_count"), 0))
         existing["comments_count"] = max(_safe_int(existing.get("comments_count"), 0), _safe_int(candidate.get("comments_count"), 0))
         existing["collected_count"] = max(_safe_int(existing.get("collected_count"), 0), _safe_int(candidate.get("collected_count"), 0))
-        existing["score"] = _note_engagement_score(existing)
+        existing["relevance"] = max(
+            _safe_int(existing.get("relevance"), 0),
+            _safe_int(candidate.get("relevance"), 0),
+        )
+        existing["score"] = _note_engagement_score(existing, query_terms)
         replace = False
         if float(candidate.get("score", 0)) > float(existing.get("score", 0)):
             replace = True
@@ -1007,33 +1245,21 @@ async def _crawl_xiaohongshu(
     assert async_playwright is not None
     playwright = await async_playwright().start()
     try:
-        proxy = None
-        if settings.crawler_default_proxy_server:
-            proxy = {"server": settings.crawler_default_proxy_server}
-            if settings.crawler_default_proxy_username:
-                proxy["username"] = settings.crawler_default_proxy_username
-            if settings.crawler_default_proxy_password:
-                proxy["password"] = settings.crawler_default_proxy_password
-            proxy_calls = 1
-
-        browser = await playwright.chromium.launch(
-            headless=settings.crawler_playwright_headless,
-            proxy=proxy,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
+        ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
+        browser, context, proxy_calls = await _open_browser_context(playwright, user_agent=ua)
         try:
-            ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
-            context = await browser.new_context(user_agent=ua)
-            try:
-                cookies = _normalize_cookies("xiaohongshu", list(session.get("cookies") or []))
-                if cookies:
-                    await context.add_cookies(cookies)
+            cookies = _normalize_cookies("xiaohongshu", list(session.get("cookies") or []))
+            if cookies:
+                await context.add_cookies(cookies)
 
                 page = await context.new_page()
-                search_url = f"https://www.xiaohongshu.com/search_result?keyword={quote(payload.query)}&source=web_explore_feed"
+                search_query = _normalize_xhs_query(payload.query) or str(payload.query or "").strip()
+                search_url = f"https://www.xiaohongshu.com/search_result?keyword={quote(search_query)}&source=web_explore_feed"
+                _xhs_debug("start", f"query='{search_query}' mode={payload.mode} timeout_ms={payload.timeout_ms}")
                 search_api_notes: List[Dict[str, Any]] = []
                 signed_search_notes: List[Dict[str, Any]] = []
                 search_capture_tasks: List[asyncio.Task[Any]] = []
+                hard_deadline = started + max(8.0, float(payload.timeout_ms) / 1000.0 - 4.0)
 
                 async def capture_search_response(response: Any) -> None:
                     url = str(getattr(response, "url", "")).lower()
@@ -1051,12 +1277,18 @@ async def _crawl_xiaohongshu(
                 page.on("response", on_search_response)
                 nav_warning = await _goto_with_fallback(page, search_url, timeout_ms=35000)
                 await page.wait_for_timeout(2000)
-                signed_search_notes, signed_search_errors = await _fetch_xhs_search_notes_signed(
-                    page,
-                    query=payload.query,
-                    mode=payload.mode,
-                    max_notes=payload.limits.notes,
-                    cookies=cookies,
+                signed_search_notes, signed_search_errors = await _step_with_timeout(
+                    _fetch_xhs_search_notes_signed(
+                        page,
+                        query=search_query,
+                        mode=payload.mode,
+                        max_notes=payload.limits.notes,
+                        cookies=cookies,
+                    ),
+                    label="signed_search",
+                    timeout_s=12 if payload.mode == "quick" else 24,
+                    default=([], ["signed_search_timeout"]),
+                    errors=xhs_errors,
                 )
                 if signed_search_errors:
                     xhs_errors.extend(signed_search_errors)
@@ -1072,7 +1304,7 @@ async def _crawl_xiaohongshu(
                     () => {
                       const rows = [];
                       const seen = new Set();
-                      const anchors = Array.from(document.querySelectorAll('a[href*="/explore/"]'));
+                      const anchors = Array.from(document.querySelectorAll('a[href*="/explore/"], a[href*="/discovery/item/"]'));
                       for (const a of anchors) {
                         const href = (a.getAttribute('href') || '').trim();
                         if (!href) continue;
@@ -1103,13 +1335,107 @@ async def _crawl_xiaohongshu(
                     search_api_notes,
                     payload.limits.notes,
                     payload.mode,
+                    _build_query_terms(search_query),
                 )
+                query_terms = _build_query_terms(search_query)
+                if query_terms:
+                    relevant_candidates = [row for row in note_candidates if _is_relevant_candidate_row(row, query_terms)]
+                    if relevant_candidates:
+                        _xhs_debug("relevance", f"filtered {len(note_candidates)} -> {len(relevant_candidates)} by query terms")
+                        note_candidates = relevant_candidates
+                    else:
+                        _xhs_debug("relevance", "no direct relevant candidates")
+                if len(note_candidates) <= 0:
+                    # Retry with shorter derived queries (inspired by robust short-keyword strategy).
+                    alt_queries = _build_search_queries(payload.query)
+                    max_alt_queries = 4 if payload.mode == "quick" else 8
+                    for alt_query in alt_queries[:max_alt_queries]:
+                        if alt_query == search_query:
+                            continue
+                        if time.time() >= hard_deadline:
+                            break
+                        try:
+                            _xhs_debug("alt_query", f"try '{alt_query}'")
+                            alt_url = f"https://www.xiaohongshu.com/search_result?keyword={quote(alt_query)}&source=web_explore_feed"
+                            await _goto_with_fallback(page, alt_url, timeout_ms=16000 if payload.mode == "quick" else 22000)
+                            await page.wait_for_timeout(900 if payload.mode == "quick" else 1400)
+                            for _ in range(2 if payload.mode == "quick" else 3):
+                                if time.time() >= hard_deadline:
+                                    break
+                                await page.mouse.wheel(0, 1500)
+                                await page.wait_for_timeout(450 if payload.mode == "quick" else 600)
+                            alt_dom_notes = await page.evaluate(
+                                """
+                                () => {
+                                  const rows = [];
+                                  const seen = new Set();
+                                  const anchors = Array.from(document.querySelectorAll('a[href*="/explore/"], a[href*="/discovery/item/"]'));
+                                  for (const a of anchors) {
+                                    const href = (a.getAttribute('href') || '').trim();
+                                    if (!href) continue;
+                                    const url = href.startsWith('http') ? href : `https://www.xiaohongshu.com${href}`;
+                                    if (seen.has(url)) continue;
+                                    seen.add(url);
+                                    const titleNode = a.querySelector('h3,h4,p,span,div');
+                                    const title = ((titleNode && titleNode.textContent) || a.textContent || '').trim();
+                                    rows.push({
+                                      url,
+                                      title: title.slice(0, 80),
+                                      desc: '',
+                                      liked_count: 0,
+                                      comments_count: 0,
+                                      collected_count: 0,
+                                      source: 'dom_alt_query',
+                                      xsec_token: '',
+                                      xsec_source: '',
+                                    });
+                                    if (rows.length >= 50) break;
+                                  }
+                                  return rows;
+                                }
+                                """
+                            )
+                            alt_terms = _build_query_terms(alt_query)
+                            alt_candidates = _merge_note_sources(
+                                list(alt_dom_notes or []),
+                                [],
+                                payload.limits.notes,
+                                payload.mode,
+                                alt_terms,
+                            )
+                            alt_relevant = [row for row in alt_candidates if _is_relevant_candidate_row(row, alt_terms)]
+                            if alt_relevant:
+                                note_candidates = alt_relevant
+                                query_terms = alt_terms
+                                xhs_errors.append(f"alt_query_hit:{alt_query}")
+                                break
+                        except Exception as exc:
+                            xhs_errors.append(f"alt_query_failed:{str(exc)[:80]}")
+
+                if len(note_candidates) <= 0:
+                    # Do not fallback to homepage feed, otherwise sample relevance is polluted.
+                    xhs_errors.append("search_empty_no_feed_fallback")
+                if query_terms:
+                    relevant_candidates = [row for row in note_candidates if _is_relevant_candidate_row(row, query_terms)]
+                    if relevant_candidates:
+                        note_candidates = relevant_candidates
+                    else:
+                        xhs_errors.append("query_no_relevant_candidates")
+                        note_candidates = []
                 note_timeout_ms = 12000 if payload.mode == "quick" else 32000
                 nav_retry_limit = 1 if payload.mode == "quick" else 2
-                max_empty_comment_notes = 4 if payload.mode == "quick" else 12
+                max_empty_comment_notes = 8 if payload.mode == "quick" else 20
                 empty_comment_notes = 0
 
-                for idx, item in enumerate(note_candidates):
+                max_note_candidates = min(
+                    len(note_candidates),
+                    max(int(payload.limits.notes), 8 if payload.mode == "quick" else 12),
+                )
+                for idx, item in enumerate(note_candidates[:max_note_candidates]):
+                    if time.time() >= hard_deadline:
+                        xhs_errors.append("crawl_deadline_reached")
+                        _xhs_debug("deadline", "break note loop due to hard deadline")
+                        break
                     if len(notes) >= max(1, int(payload.limits.notes)):
                         break
                     if len(notes) <= 0 and empty_comment_notes >= max_empty_comment_notes:
@@ -1123,25 +1449,35 @@ async def _crawl_xiaohongshu(
                     note_xsec_source = str((item or {}).get("xsec_source") or "pc_search").strip()
                     if note_xsec_token:
                         url = _with_xhs_tokens(url, note_xsec_token, note_xsec_source)
-                    note_id = str((item or {}).get("id") or "") or _extract_id_from_url(url, r"/explore/([^/?]+)")
+                    note_id = (
+                        str((item or {}).get("id") or "")
+                        or _extract_id_from_url(url, r"/explore/([^/?]+)")
+                        or _extract_id_from_url(url, r"/discovery/item/([^/?]+)")
+                    )
 
                     # API-first for reliability: fetch comments directly via signed endpoints.
                     preflight_comment_keys: set[str] = set()
                     preflight_comments: List[Dict[str, Any]] = []
                     if note_xsec_token:
-                        preflight_comments, preflight_error = await _fetch_xhs_comments_direct(
-                            page,
-                            note_id=note_id,
-                            xsec_token=note_xsec_token,
-                            xsec_source=note_xsec_source,
-                            max_comments=payload.limits.comments_per_note,
-                            max_pages=(
-                                settings.crawler_xhs_quick_comment_pages
-                                if payload.mode == "quick"
-                                else settings.crawler_xhs_deep_comment_pages
+                        preflight_comments, preflight_error = await _step_with_timeout(
+                            _fetch_xhs_comments_direct(
+                                page,
+                                note_id=note_id,
+                                xsec_token=note_xsec_token,
+                                xsec_source=note_xsec_source,
+                                max_comments=payload.limits.comments_per_note,
+                                max_pages=(
+                                    settings.crawler_xhs_quick_comment_pages
+                                    if payload.mode == "quick"
+                                    else settings.crawler_xhs_deep_comment_pages
+                                ),
+                                seen_keys=preflight_comment_keys,
+                                cookies=cookies,
                             ),
-                            seen_keys=preflight_comment_keys,
-                            cookies=cookies,
+                            label="comment_preflight",
+                            timeout_s=8 if payload.mode == "quick" else 14,
+                            default=([], "preflight_timeout"),
+                            errors=xhs_errors,
                         )
                         if preflight_error:
                             xhs_errors.append(f"comment_preflight:{preflight_error}")
@@ -1150,7 +1486,7 @@ async def _crawl_xiaohongshu(
                         preflight_comments.sort(key=lambda row: _safe_int(row.get("like_count"), 0), reverse=True)
                         note = CrawlerNormalizedNote(
                             id=note_id,
-                            title=str((item or {}).get("title") or payload.query)[:80],
+                            title=str((item or {}).get("title") or "")[:80],
                             desc=str((item or {}).get("desc") or ""),
                             liked_count=_safe_int((item or {}).get("liked_count"), 0),
                             comments_count=max(len(preflight_comments), _safe_int((item or {}).get("comments_count"), 0)),
@@ -1181,10 +1517,20 @@ async def _crawl_xiaohongshu(
                         note_api_comments: List[Dict[str, Any]] = []
                         note_comment_hints: List[Dict[str, Any]] = []
                         note_capture_tasks: List[asyncio.Task[Any]] = []
+                        # Some XHS search cards do not expose xsec_token. Capture token dynamically
+                        # from final note URL / API response URL so signed comment API can still work.
+                        runtime_xsec_token = note_xsec_token
+                        runtime_xsec_source = note_xsec_source or "pc_search"
 
                         async def capture_note_response(response: Any) -> None:
+                            nonlocal runtime_xsec_token, runtime_xsec_source
                             raw_resp_url = str(getattr(response, "url", "")).strip()
                             resp_url = raw_resp_url.lower()
+                            if not runtime_xsec_token and raw_resp_url:
+                                tokens = _extract_xhs_tokens_from_url(raw_resp_url)
+                                if tokens.get("xsec_token"):
+                                    runtime_xsec_token = str(tokens.get("xsec_token") or "").strip()
+                                    runtime_xsec_source = str(tokens.get("xsec_source") or runtime_xsec_source or "pc_search").strip()
                             if "xiaohongshu.com" not in resp_url and "xhscdn.com" not in resp_url:
                                 return
                             content_type = str(getattr(response, "headers", {}).get("content-type", "")).lower()
@@ -1226,6 +1572,14 @@ async def _crawl_xiaohongshu(
                                 await note_page.wait_for_timeout(1200)
                         if not opened:
                             continue
+                        # URL after redirects may contain xsec_token when initial card URL doesn't.
+                        if not runtime_xsec_token:
+                            cur_url = str(note_page.url or "").strip()
+                            if cur_url:
+                                tokens = _extract_xhs_tokens_from_url(cur_url)
+                                if tokens.get("xsec_token"):
+                                    runtime_xsec_token = str(tokens.get("xsec_token") or "").strip()
+                                    runtime_xsec_source = str(tokens.get("xsec_source") or runtime_xsec_source or "pc_search").strip()
                         await note_page.wait_for_timeout(1200)
                         await note_page.evaluate(
                             """
@@ -1250,30 +1604,42 @@ async def _crawl_xiaohongshu(
                             for item in note_api_comments
                             if str(item.get("content") or "").strip()
                         }
-                        extra_api_comments = await _collect_paginated_comments(
-                            note_page,
-                            "xiaohongshu",
-                            note_comment_hints,
-                            max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
-                            max_pages=1 if payload.mode == "quick" else 3,
-                            seen_keys=seen_comment_keys,
+                        extra_api_comments = await _step_with_timeout(
+                            _collect_paginated_comments(
+                                note_page,
+                                "xiaohongshu",
+                                note_comment_hints,
+                                max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
+                                max_pages=1 if payload.mode == "quick" else 3,
+                                seen_keys=seen_comment_keys,
+                            ),
+                            label="comment_paginated",
+                            timeout_s=8 if payload.mode == "quick" else 14,
+                            default=[],
+                            errors=xhs_errors,
                         )
                         if extra_api_comments:
                             note_api_comments.extend(extra_api_comments)
                         if len(note_api_comments) < payload.limits.comments_per_note:
-                            direct_comments, direct_error = await _fetch_xhs_comments_direct(
-                                note_page,
-                                note_id=note_id,
-                                xsec_token=note_xsec_token,
-                                xsec_source=note_xsec_source,
-                                max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
-                                max_pages=(
-                                    settings.crawler_xhs_quick_comment_pages
-                                    if payload.mode == "quick"
-                                    else settings.crawler_xhs_deep_comment_pages
+                            direct_comments, direct_error = await _step_with_timeout(
+                                _fetch_xhs_comments_direct(
+                                    note_page,
+                                    note_id=note_id,
+                                    xsec_token=runtime_xsec_token,
+                                    xsec_source=runtime_xsec_source,
+                                    max_comments=max(0, payload.limits.comments_per_note - len(note_api_comments)),
+                                    max_pages=(
+                                        settings.crawler_xhs_quick_comment_pages
+                                        if payload.mode == "quick"
+                                        else settings.crawler_xhs_deep_comment_pages
+                                    ),
+                                    seen_keys=seen_comment_keys,
+                                    cookies=cookies,
                                 ),
-                                seen_keys=seen_comment_keys,
-                                cookies=cookies,
+                                label="comment_direct",
+                                timeout_s=8 if payload.mode == "quick" else 14,
+                                default=([], "direct_timeout"),
+                                errors=xhs_errors,
                             )
                             if direct_error:
                                 xhs_errors.append(f"comment:{direct_error}")
@@ -1364,14 +1730,28 @@ async def _crawl_xiaohongshu(
                                 })
                                 if len(merged_comments) >= payload.limits.comments_per_note:
                                     break
-                        # Keep evidence reliable: skip note pages without any usable comments.
+                        # Keep crawl resilient: if comments are blocked but note正文可见,
+                        # synthesize one fallback comment to avoid hard-failing the whole job.
                         if len(merged_comments) <= 0:
-                            empty_comment_notes += 1
-                            continue
+                            fallback_desc = _normalize_comment_text(str((detail or {}).get("desc") or (item or {}).get("desc") or ""))
+                            if _is_valid_comment_text(fallback_desc):
+                                merged_comments.append({
+                                    "id": "",
+                                    "content": fallback_desc[:120],
+                                    "like_count": 0,
+                                    "user_nickname": "note_desc_fallback",
+                                    "ip_location": "",
+                                    "published_at": None,
+                                    "platform": "xiaohongshu",
+                                })
+                            else:
+                                xhs_errors.append(f"no_comments_extracted:{note_id}")
+                                empty_comment_notes += 1
+                                continue
 
                         note = CrawlerNormalizedNote(
                             id=note_id,
-                            title=str((item or {}).get("title") or payload.query)[:80],
+                            title=str((item or {}).get("title") or "")[:80],
                             desc=str((detail or {}).get("desc") or (item or {}).get("desc") or ""),
                             liked_count=_safe_int((item or {}).get("liked_count"), 0),
                             comments_count=max(len(merged_comments), _safe_int((item or {}).get("comments_count"), 0)),
@@ -1404,14 +1784,14 @@ async def _crawl_xiaohongshu(
 
                 if nav_warning and not notes:
                     raise RuntimeError(nav_warning)
-            finally:
-                await context.close()
+            await context.close()
         finally:
             await browser.close()
     finally:
         await playwright.stop()
 
     success = len(notes) > 0
+    _xhs_debug("finish", f"success={success} notes={len(notes)} comments={len(comments)} errors={len(xhs_errors)}")
     return (
         CrawlerPlatformResult(
             platform="xiaohongshu",
@@ -1442,27 +1822,12 @@ async def _crawl_douyin(
     assert async_playwright is not None
     playwright = await async_playwright().start()
     try:
-        proxy = None
-        if settings.crawler_default_proxy_server:
-            proxy = {"server": settings.crawler_default_proxy_server}
-            if settings.crawler_default_proxy_username:
-                proxy["username"] = settings.crawler_default_proxy_username
-            if settings.crawler_default_proxy_password:
-                proxy["password"] = settings.crawler_default_proxy_password
-            proxy_calls = 1
-
-        browser = await playwright.chromium.launch(
-            headless=settings.crawler_playwright_headless,
-            proxy=proxy,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
+        ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
+        browser, context, proxy_calls = await _open_browser_context(playwright, user_agent=ua)
         try:
-            ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
-            context = await browser.new_context(user_agent=ua)
-            try:
-                cookies = _normalize_cookies("douyin", list(session.get("cookies") or []))
-                if cookies:
-                    await context.add_cookies(cookies)
+            cookies = _normalize_cookies("douyin", list(session.get("cookies") or []))
+            if cookies:
+                await context.add_cookies(cookies)
 
                 page = await context.new_page()
                 search_url = f"https://www.douyin.com/search/{quote(payload.query)}?type=video"
@@ -1679,7 +2044,7 @@ async def _crawl_douyin(
 
                         note = CrawlerNormalizedNote(
                             id=video_id,
-                            title=str((item or {}).get("title") or payload.query)[:80],
+                            title=str((item or {}).get("title") or "")[:80],
                             desc=str((detail or {}).get("desc") or (item or {}).get("desc") or ""),
                             liked_count=_safe_int((item or {}).get("liked_count"), 0),
                             comments_count=len(merged_comments),
@@ -1708,8 +2073,7 @@ async def _crawl_douyin(
                         continue
                     finally:
                         await note_page.close()
-            finally:
-                await context.close()
+            await context.close()
         finally:
             await browser.close()
     finally:

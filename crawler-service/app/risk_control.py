@@ -58,12 +58,21 @@ class RiskController:
             self._buckets[key] = bucket
         return bucket.allow()
 
-    def check_cooldown(self, key: str, min_interval_s: float) -> bool:
+    def cooldown_remaining(self, key: str, min_interval_s: float) -> float:
         if min_interval_s <= 0:
-            return True
+            return 0.0
         now = monotonic()
         last = self._last_seen.get(key)
-        if last is not None and (now - last) < min_interval_s:
-            return False
-        self._last_seen[key] = now
-        return True
+        if last is None:
+            return 0.0
+        elapsed = now - last
+        return max(0.0, float(min_interval_s) - float(elapsed))
+
+    def acquire_cooldown(self, key: str, min_interval_s: float) -> tuple[bool, int]:
+        if min_interval_s <= 0:
+            return True, 0
+        remaining = self.cooldown_remaining(key, min_interval_s)
+        if remaining > 0:
+            return False, int(remaining + 0.999)
+        self._last_seen[key] = monotonic()
+        return True, 0

@@ -81,10 +81,9 @@ export interface RoutedSocialData {
 }
 
 export function buildCrawlerLimits(mode: CrawlerMode): CrawlerJobLimits {
-  if (mode === "deep") {
-    return { notes: 14, comments_per_note: 30 };
-  }
-  return { notes: 8, comments_per_note: 10 };
+  // Align quick with deep crawling density to avoid sparse samples.
+  // Keep API mode field for compatibility, but run both with deep-scale limits.
+  return { notes: 14, comments_per_note: 30 };
 }
 
 export function normalizeCrawlerPlatforms(enableXiaohongshu: boolean, enableDouyin: boolean): CrawlerPlatform[] {

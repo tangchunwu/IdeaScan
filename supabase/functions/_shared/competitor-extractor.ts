@@ -5,6 +5,8 @@
  * 2. 针对提取的竞品执行二次精准搜索
  */
 
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "./llm-client.ts";
+
 export interface SearchResult {
   title: string;
   url: string;
@@ -76,26 +78,16 @@ ${context}
 ]`;
 
   try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2
-      }),
-      signal: AbortSignal.timeout(30000)
+    const completion = await requestChatCompletion({
+      baseUrl: normalizeLlmBaseUrl(config.baseUrl),
+      apiKey: config.apiKey,
+      model: config.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      maxTokens: 500,
+      timeoutMs: 30000,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content || '[]';
+    const content = extractAssistantContent(completion.json) || "[]";
 
     // 解析 JSON 数组
     const jsonMatch = content.match(/\[[\s\S]*\]/);

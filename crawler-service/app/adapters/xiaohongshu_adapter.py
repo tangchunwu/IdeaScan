@@ -25,6 +25,23 @@ class XiaohongshuAdapter(BaseAdapter):
         self.risk = risk
 
     @staticmethod
+    def _should_count_session_failure(error: str) -> bool:
+        err = str(error or "").strip().lower()
+        if not err:
+            return True
+        non_auth_fail_prefixes = (
+            "session_crawl_empty",
+            "notes_found_but_comments_empty",
+            "crawl_empty",
+            "rate_limited",
+            "session_cooldown_active",
+            "daily_budget_exceeded",
+            "crawl_deadline_reached",
+            "step_timeout",
+        )
+        return not err.startswith(non_auth_fail_prefixes)
+
+    @staticmethod
     def _sanitize_limits(payload: CrawlerJobPayload) -> CrawlerJobPayload:
         safe = payload.model_copy(deep=True)
         if safe.mode == "deep":
@@ -59,12 +76,13 @@ class XiaohongshuAdapter(BaseAdapter):
             if safe_payload.mode == "deep"
             else max(0, int(settings.crawler_xhs_quick_session_cooldown_s))
         )
-        if not self.risk.check_cooldown(risk_key, float(cooldown_s)):
+        allowed, remaining_s = self.risk.acquire_cooldown(risk_key, float(cooldown_s))
+        if not allowed:
             return (
                 CrawlerPlatformResult(
                     platform=self.platform,
                     success=False,
-                    error=f"session_cooldown_active:{cooldown_s}s",
+                    error=f"session_cooldown_active:{max(1, int(remaining_s))}s",
                     latency_ms=int((time.time() - started) * 1000),
                 ),
                 {"external_api_calls": 0, "proxy_calls": 0, "est_cost": 0.0, "provider_mix": {"xiaohongshu": 0.0}},
@@ -80,17 +98,18 @@ class XiaohongshuAdapter(BaseAdapter):
             if session:
                 try:
                     session_result, session_cost = await crawl_with_user_session(self.platform, safe_payload, session)
-                    if session_result.success and session_result.notes:
+                    if session_result.success and session_result.notes and session_result.comments:
                         await session_store.touch_user_session(platform=self.platform, user_id=safe_payload.user_id)
                         await session_store.mark_session_result(platform=self.platform, user_id=safe_payload.user_id, success=True)
                         return session_result, session_cost
                     session_error = session_result.error or "session_crawl_failed"
-                    await session_store.mark_session_result(
-                        platform=self.platform,
-                        user_id=safe_payload.user_id,
-                        success=False,
-                        error=session_error,
-                    )
+                    if self._should_count_session_failure(session_error):
+                        await session_store.mark_session_result(
+                            platform=self.platform,
+                            user_id=safe_payload.user_id,
+                            success=False,
+                            error=session_error,
+                        )
                 except Exception as exc:
                     session_error = f"session_crawl_exception:{exc}"
                     await session_store.mark_session_result(
@@ -161,7 +180,9 @@ class XiaohongshuAdapter(BaseAdapter):
             except Exception:
                 notes = []
                 comments = []
-        success = len(notes) > 0
+        success = len(notes) > 0 and len(comments) > 0
+        if len(notes) > 0 and len(comments) <= 0 and not session_error:
+            session_error = "notes_found_but_comments_empty"
         source = "xiaohongshu_tikhub"
         if success and safe_payload.user_id:
             source = "xiaohongshu_session"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query
 
 from app.auth_manager import auth_manager
 from app.config import settings
@@ -55,8 +55,11 @@ async def start_auth_session(req: StartAuthSessionRequest) -> dict:
 
 
 @app.get("/internal/v1/auth/sessions/{flow_id}", dependencies=[Depends(verify_token)])
-async def get_auth_session_status(flow_id: str) -> dict:
-    return await auth_manager.get_status(flow_id)
+async def get_auth_session_status(
+    flow_id: str,
+    manual_confirm: bool = Query(default=False),
+) -> dict:
+    return await auth_manager.get_status(flow_id, manual_confirm=manual_confirm)
 
 
 @app.post("/internal/v1/auth/sessions/cancel/{flow_id}", dependencies=[Depends(verify_token)])

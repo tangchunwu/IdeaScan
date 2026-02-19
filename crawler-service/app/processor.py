@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Dict
 
@@ -98,7 +99,8 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
                 )
                 continue
         try:
-            result, cost = await adapter.crawl(payload)
+            crawl_timeout_s = max(5.0, float(payload.timeout_ms) / 1000.0)
+            result, cost = await asyncio.wait_for(adapter.crawl(payload), timeout=crawl_timeout_s)
             platform_results.append(result)
             external_calls += int(cost.get("external_api_calls", 0))
             proxy_calls += int(cost.get("proxy_calls", 0))
@@ -109,6 +111,19 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
                     provider_mix[str(k)] = provider_mix.get(str(k), 0.0) + float(v)
             if not result.success and result.error:
                 errors.append(f"{platform}:{result.error}")
+        except TimeoutError:
+            timeout_error = f"crawl_timeout_{int(crawl_timeout_s * 1000)}ms"
+            errors.append(f"{platform}:{timeout_error}")
+            platform_results.append(
+                CrawlerPlatformResult(
+                    platform=platform,
+                    notes=[],
+                    comments=[],
+                    success=False,
+                    latency_ms=int(crawl_timeout_s * 1000),
+                    error=timeout_error,
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{platform}:{exc}")
 

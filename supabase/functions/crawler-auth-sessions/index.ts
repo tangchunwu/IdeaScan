@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ValidationError, createErrorResponse } from "../_shared/validation.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,19 +20,11 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new ValidationError("Authorization required");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    const user = userData?.user;
-    if (userError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     const serviceBaseUrl = Deno.env.get("CRAWLER_SERVICE_BASE_URL");
     if (!serviceBaseUrl) {
@@ -61,4 +54,3 @@ serve(async (req) => {
     return createErrorResponse(error, corsHeaders);
   }
 });
-

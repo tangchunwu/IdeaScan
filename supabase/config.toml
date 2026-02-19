@@ -23,3 +23,24 @@ verify_jwt = false
 
 [functions.suggest-keywords]
 verify_jwt = false
+
+[functions.validate-idea-stream]
+verify_jwt = false
+
+[functions.validate-idea]
+verify_jwt = false
+
+[functions.list-validations]
+verify_jwt = false
+
+[functions.get-validation]
+verify_jwt = false
+
+[functions.delete-validation]
+verify_jwt = false
+
+[functions.user-settings]
+verify_jwt = false
+
+[functions.verify-config]
+verify_jwt = false

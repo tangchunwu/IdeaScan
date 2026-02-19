@@ -42,6 +42,7 @@ interface RouteCrawlerResult {
   qualityScore: number;
   usedCrawlerService: boolean;
   error?: string;
+  diagnostic?: string;
 }
 
 interface CrawlerServiceSnapshot {
@@ -73,6 +74,30 @@ function parseCrawlerResultPayload(value: unknown): CrawlerResultPayload | null 
   const status = typeof parsed.status === "string" ? parsed.status : "";
   if (!jobId || !status) return null;
   return parsed as unknown as CrawlerResultPayload;
+}
+
+function extractCrawlerFailureDiagnostic(payload: CrawlerResultPayload | null): string {
+  if (!payload) return "";
+  const reasons: string[] = [];
+
+  if (Array.isArray(payload.errors)) {
+    for (const item of payload.errors) {
+      if (typeof item === "string" && item.trim()) reasons.push(item.trim());
+    }
+  }
+
+  if (Array.isArray(payload.platform_results)) {
+    for (const item of payload.platform_results as Array<Record<string, unknown>>) {
+      const ok = Boolean(item?.success);
+      const platform = String(item?.platform || "unknown");
+      const err = String(item?.error || "").trim();
+      if (!ok && err) reasons.push(`${platform}:${err}`);
+    }
+  }
+
+  if (reasons.length <= 0) return "";
+  const joined = reasons.join("; ");
+  return joined.slice(0, 500);
 }
 
 async function fetchCrawlerServiceSnapshot(jobId: string): Promise<CrawlerServiceSnapshot | null> {
@@ -382,12 +407,14 @@ export async function routeCrawlerSource(options: DispatchCrawlerOptions): Promi
 
   const polled = await pollCrawlerJobResult(options.supabase, dispatchResult.jobId, options.timeoutMs || 25000);
   if (polled.status !== "completed" || !polled.payload) {
+    const diagnostic = extractCrawlerFailureDiagnostic(polled.payload);
     return {
       socialData: null,
       costBreakdown: polled.costBreakdown,
       qualityScore: polled.qualityScore,
       usedCrawlerService: true,
       error: polled.status,
+      diagnostic: diagnostic || undefined,
     };
   }
 
