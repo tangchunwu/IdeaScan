@@ -46,8 +46,45 @@ serve(async (req) => {
       throw new Error("Failed to fetch validations");
     }
 
+    const rows = Array.isArray(validations) ? validations : [];
+    const candidateIds = rows
+      .filter((item: any) => item?.status === "failed" || item?.status === "processing")
+      .map((item: any) => String(item?.id || ""))
+      .filter(Boolean);
+    const reportMap = new Map<string, any>();
+    if (candidateIds.length > 0) {
+      const { data: reports } = await supabase
+        .from("validation_reports")
+        .select("validation_id, data_summary")
+        .in("validation_id", candidateIds);
+      for (const item of reports || []) {
+        reportMap.set(String(item.validation_id || ""), item.data_summary || {});
+      }
+    }
+    const nowMs = Date.now();
+    const resumableValidations = rows.map((item: any) => {
+      const status = String(item?.status || "");
+      const summary = reportMap.get(String(item?.id || "")) || {};
+      const stage = String(summary?.checkpointStage || "").toLowerCase();
+      const checkpointUpdatedAt = String(summary?.checkpointUpdatedAt || "");
+      const checkpointMs = checkpointUpdatedAt ? Date.parse(checkpointUpdatedAt) : 0;
+      const staleAnalyze = checkpointMs > 0 && (nowMs - checkpointMs >= 120000);
+      const resumable = status === "failed" || (
+        status === "processing"
+        && staleAnalyze
+        && (stage.includes("analyze") || stage.includes("summarize"))
+      );
+      return {
+        ...item,
+        resumable,
+        resume_hint: resumable
+          ? (status === "failed" ? "failed_record" : `stale_${stage || "processing"}`)
+          : "",
+      };
+    });
+
     return new Response(
-      JSON.stringify({ validations }),
+      JSON.stringify({ validations: resumableValidations }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

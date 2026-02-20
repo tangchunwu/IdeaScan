@@ -96,11 +96,36 @@ class XiaohongshuAdapter(BaseAdapter):
         if safe_payload.user_id:
             session, invalid_reason = await session_store.get_valid_user_session(platform=self.platform, user_id=safe_payload.user_id)
             if session:
+                proxy_binding = await session_store.acquire_proxy_binding(
+                    platform=self.platform,
+                    user_id=safe_payload.user_id,
+                )
                 try:
-                    session_result, session_cost = await crawl_with_user_session(self.platform, safe_payload, session)
+                    session_result, session_cost = await crawl_with_user_session(
+                        self.platform,
+                        safe_payload,
+                        session,
+                        proxy_binding=proxy_binding,
+                    )
+                    has_any_samples = bool(session_result.notes or session_result.comments)
+                    if safe_payload.user_id:
+                        await session_store.mark_proxy_binding_result(
+                            platform=self.platform,
+                            user_id=safe_payload.user_id,
+                            success=bool(session_result.success or has_any_samples),
+                        )
                     if session_result.success and session_result.notes and session_result.comments:
                         await session_store.touch_user_session(platform=self.platform, user_id=safe_payload.user_id)
                         await session_store.mark_session_result(platform=self.platform, user_id=safe_payload.user_id, success=True)
+                        return session_result, session_cost
+                    # Preserve partial session samples/diagnostics instead of dropping them silently.
+                    if has_any_samples:
+                        await session_store.mark_session_result(
+                            platform=self.platform,
+                            user_id=safe_payload.user_id,
+                            success=False,
+                            error=session_result.error or "session_partial_samples",
+                        )
                         return session_result, session_cost
                     session_error = session_result.error or "session_crawl_failed"
                     if self._should_count_session_failure(session_error):
@@ -112,6 +137,11 @@ class XiaohongshuAdapter(BaseAdapter):
                         )
                 except Exception as exc:
                     session_error = f"session_crawl_exception:{exc}"
+                    await session_store.mark_proxy_binding_result(
+                        platform=self.platform,
+                        user_id=safe_payload.user_id,
+                        success=False,
+                    )
                     await session_store.mark_session_result(
                         platform=self.platform,
                         user_id=safe_payload.user_id,
@@ -197,6 +227,11 @@ class XiaohongshuAdapter(BaseAdapter):
                 success=success,
                 latency_ms=int((time.time() - started) * 1000),
                 error=None if success else session_error or "crawl_empty",
+                diagnostic={
+                    "fallback_used": bool(source == "xiaohongshu_tikhub"),
+                    "fallback_reason": session_error if source == "xiaohongshu_tikhub" else "",
+                    "self_retry_count": 0,
+                },
             ),
             {
                 "external_api_calls": external_calls,

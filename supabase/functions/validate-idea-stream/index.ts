@@ -48,8 +48,10 @@ const corsHeaders = {
 interface SSEEvent {
   event: 'progress' | 'complete' | 'error';
   stage?: string;
+  detailStage?: string;
   progress?: number;
   message?: string;
+  meta?: Record<string, unknown>;
   result?: any;
   error?: string;
 }
@@ -258,6 +260,7 @@ async function loadValidationCheckpoint(
   aggregatedInsights: { marketInsight: string; competitiveInsight: string; keyFindings: string[] };
   extractedCompetitors: any[];
   checkpointStage: string;
+  checkpointUpdatedAt: string;
 } | null> {
   const { data, error } = await supabase
     .from("validation_reports")
@@ -287,6 +290,7 @@ async function loadValidationCheckpoint(
     aggregatedInsights: normalizeAggregatedInsights((dataSummary as any).aggregatedInsights),
     extractedCompetitors,
     checkpointStage: String((dataSummary as any).checkpointStage || ""),
+    checkpointUpdatedAt: String((dataSummary as any).checkpointUpdatedAt || ""),
   };
 }
 
@@ -349,6 +353,22 @@ function extractCooldownSeconds(diagnostic: string): number {
   if (!match) return 0;
   const seconds = Number(match[1] || 0);
   return Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+}
+
+function isSelfCrawlerRetryable(diagnostic: string, routeError: string): boolean {
+  const text = `${diagnostic || ""};${routeError || ""}`.toLowerCase();
+  return (
+    text.includes("xhs_search_forbidden_-104")
+    || text.includes("api_error_-104")
+    || text.includes("session_crawl_empty")
+    || text.includes("notes_found_but_comments_empty")
+    || text.includes("session_cooldown_active")
+    || text.includes("timeout")
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
 function stripCodeFence(input: string) {
@@ -680,9 +700,19 @@ Deno.serve(async (req) => {
     await writer.write(encoder.encode(data));
   };
 
-  const sendProgress = async (stage: keyof typeof STAGES) => {
+  const sendProgress = async (
+    stage: keyof typeof STAGES,
+    extra?: { detailStage?: string; meta?: Record<string, unknown>; message?: string },
+  ) => {
     const { progress, message } = STAGES[stage];
-    await sendEvent({ event: 'progress', stage: stage.toLowerCase(), progress, message });
+    await sendEvent({
+      event: 'progress',
+      stage: stage.toLowerCase(),
+      progress,
+      message: extra?.message || message,
+      detailStage: extra?.detailStage,
+      meta: extra?.meta,
+    });
   };
 
   // Process validation asynchronously
@@ -730,7 +760,18 @@ Deno.serve(async (req) => {
         if (existingError) {
           throw new Error(`Failed to load resume validation: ${existingError.message}`);
         }
-        if (existingValidation && (existingValidation.status === "failed" || existingValidation.status === "processing")) {
+        const isFailed = existingValidation?.status === "failed";
+        let allowResume = isFailed;
+        if (!allowResume && existingValidation?.status === "processing") {
+          const staleForMs = 120_000;
+          const checkpoint = await loadValidationCheckpoint(supabase, requestedResumeValidationId);
+          const stage = String(checkpoint?.checkpointStage || "").toLowerCase();
+          const updatedAtRaw = String(checkpoint?.checkpointUpdatedAt || "");
+          const updatedAtMs = updatedAtRaw ? Date.parse(updatedAtRaw) : 0;
+          const stale = updatedAtMs > 0 ? (Date.now() - updatedAtMs >= staleForMs) : false;
+          allowResume = stale && (stage.includes("analyze") || stage.includes("summarize"));
+        }
+        if (existingValidation && allowResume) {
           const { data: resumedValidation, error: resumeError } = await supabase
             .from("validations")
             .update({
@@ -790,6 +831,9 @@ Deno.serve(async (req) => {
       let crawlerCalls = 0;
       let crawlerLatencyMs = 0;
       const crawlerProviderMix: Record<string, number> = {};
+      let crawlSelfRetryCount = 0;
+      let crawlFallbackUsed = false;
+      let crawlFallbackReason = "";
       const startedAt = Date.now();
 
       try {
@@ -826,10 +870,7 @@ Deno.serve(async (req) => {
       const enableXhs = config?.enableXiaohongshu ?? true;
       const enableDy = config?.enableDouyin ?? false;
       const enableSelfCrawler = config?.enableSelfCrawler ?? true;
-      // Single-crawler policy: if self crawler is enabled, do not switch to third-party fallback.
-      // This keeps runtime behavior deterministic and avoids mixed-route confusion.
-      const enableTikhubFallbackRaw = config?.enableTikhubFallback ?? (mode === 'deep');
-      const enableTikhubFallback = enableSelfCrawler ? false : enableTikhubFallbackRaw;
+      const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
       
       const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
       let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
@@ -898,10 +939,11 @@ Deno.serve(async (req) => {
         let selfCrawlerRouteError = "";
         let selfCrawlerRouteDiagnostic = "";
 
-        // Deterministic routing: when self-crawler is enabled, always try the same crawler-service first.
-        // Avoid ratio-based split that can make behavior look random across requests.
         const shouldAttemptSelfCrawler = enableSelfCrawler;
         const effectiveCrawlerMode: "quick" | "deep" = mode === "deep" ? "deep" : "quick";
+        const maxSelfRetries = 2;
+        let selfRetryCount = 0;
+        let fallbackReason = "";
         if (shouldAttemptSelfCrawler) {
           // Keep timeout long enough for crawler runtime + callback roundtrip.
           // In practice xhs session crawl can take ~70s per keyword; shorter timeout will false-report as zero.
@@ -909,76 +951,128 @@ Deno.serve(async (req) => {
           const preferredMinNotes = MIN_NOTES_REQUIRED;
           const preferredMinComments = MIN_COMMENTS_REQUIRED;
           const crawlQueries = [xhsSearchTerm, ...xhsKeywords.filter((k) => !isKeywordNearDuplicate(k, xhsSearchTerm))].slice(0, 4);
-          for (let qi = 0; qi < crawlQueries.length; qi++) {
-            if (hasEnoughSocialSamples(socialData)) break;
-            const query = compactKeywordForCrawl(crawlQueries[qi]) || crawlQueries[qi];
-            const crawlerStarted = Date.now();
-            let crawlTick = 0;
-            const crawlHeartbeat = setInterval(() => {
-              crawlTick += 1;
-              void sendEvent({
-                event: "progress",
-                stage: "crawl_start",
-                progress: 18,
-                message: `抓取中（关键词 ${qi + 1}/${crawlQueries.length}：${query}，已等待 ${crawlTick * 5}s）...`,
-              });
-            }, 5000);
-            const routed = await routeCrawlerSource({
-              supabase,
-              validationId: validation.id,
-              userId: user.id,
-              query,
-              mode: effectiveCrawlerMode,
-              enableXiaohongshu: enableXhs,
-              enableDouyin: enableDy,
-              source: "self_crawler",
-              freshnessDays: 30,
-              timeoutMs: crawlerTimeoutMs,
-            }).finally(() => clearInterval(crawlHeartbeat));
-            if (routed.usedCrawlerService) {
-              crawlerCalls += 1;
-              crawlerLatencyMs += Date.now() - crawlerStarted;
-              const mix = (routed.costBreakdown.provider_mix || routed.costBreakdown.crawler_provider_mix || {}) as Record<string, unknown>;
-              for (const [provider, value] of Object.entries(mix)) {
-                crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
+          for (let attempt = 0; attempt <= maxSelfRetries; attempt++) {
+            for (let qi = 0; qi < crawlQueries.length; qi++) {
+              if (hasEnoughSocialSamples(socialData)) break;
+              const query = compactKeywordForCrawl(crawlQueries[qi]) || crawlQueries[qi];
+              const crawlerStarted = Date.now();
+              let crawlTick = 0;
+              const crawlHeartbeat = setInterval(() => {
+                crawlTick += 1;
+                void sendEvent({
+                  event: "progress",
+                  stage: "crawl_start",
+                  detailStage: "crawl_heartbeat",
+                  progress: 18,
+                  message: `抓取中（重试 ${attempt}/${maxSelfRetries}，关键词 ${qi + 1}/${crawlQueries.length}：${query}，已等待 ${crawlTick * 5}s）...`,
+                  meta: {
+                    branch: "self_crawler",
+                    attempt,
+                    maxAttempts: maxSelfRetries,
+                    queryIndex: qi + 1,
+                    queryTotal: crawlQueries.length,
+                  },
+                });
+              }, 5000);
+              const routed = await routeCrawlerSource({
+                supabase,
+                validationId: validation.id,
+                userId: user.id,
+                query,
+                mode: effectiveCrawlerMode,
+                enableXiaohongshu: enableXhs,
+                enableDouyin: enableDy,
+                source: "self_crawler",
+                freshnessDays: 30,
+                timeoutMs: crawlerTimeoutMs,
+              }).finally(() => clearInterval(crawlHeartbeat));
+              if (routed.usedCrawlerService) {
+                crawlerCalls += 1;
+                crawlerLatencyMs += Date.now() - crawlerStarted;
+                const mix = (routed.costBreakdown.provider_mix || routed.costBreakdown.crawler_provider_mix || {}) as Record<string, unknown>;
+                for (const [provider, value] of Object.entries(mix)) {
+                  crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
+                }
+                externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
               }
-              externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
-            }
-            if (routed.error) {
-              selfCrawlerRouteError = String(routed.error);
-            }
-            if (routed.diagnostic) {
-              selfCrawlerRouteDiagnostic = String(routed.diagnostic);
-            }
+              if (routed.error) {
+                selfCrawlerRouteError = String(routed.error);
+              }
+              if (routed.diagnostic) {
+                selfCrawlerRouteDiagnostic = String(routed.diagnostic);
+              }
 
-            if (routed.socialData) {
-              socialData = mergeSocialSamples(socialData, routed.socialData);
-              const mergedCounts = getSocialSampleCounts(socialData);
-              await sendEvent({
-                event: "progress",
-                stage: "crawl_start",
-                progress: mergedCounts.notes >= preferredMinNotes && mergedCounts.comments >= preferredMinComments ? 30 : 24,
-                message: `关键词 ${qi + 1}/${crawlQueries.length} 完成，累计笔记 ${mergedCounts.notes}/${preferredMinNotes}，评论 ${mergedCounts.comments}/${preferredMinComments}`,
-              });
-            } else {
-              const afterCounts = getSocialSampleCounts(socialData);
-              const routeErr = String(routed.error || "").toLowerCase();
-              if (routeErr.includes("timeout")) {
+              if (routed.socialData) {
+                socialData = mergeSocialSamples(socialData, routed.socialData);
+                const mergedCounts = getSocialSampleCounts(socialData);
                 await sendEvent({
                   event: "progress",
                   stage: "crawl_start",
-                  progress: 20,
-                  message: `关键词 ${qi + 1}/${crawlQueries.length} 超时未返回结果（累计笔记 ${afterCounts.notes}/${preferredMinNotes}，评论 ${afterCounts.comments}/${preferredMinComments}）`,
+                  detailStage: "query_done",
+                  progress: mergedCounts.notes >= preferredMinNotes && mergedCounts.comments >= preferredMinComments ? 30 : 24,
+                  message: `关键词 ${qi + 1}/${crawlQueries.length} 完成，累计笔记 ${mergedCounts.notes}/${preferredMinNotes}，评论 ${mergedCounts.comments}/${preferredMinComments}`,
+                  meta: {
+                    branch: "self_crawler",
+                    attempt,
+                    notes: mergedCounts.notes,
+                    comments: mergedCounts.comments,
+                    minNotes: preferredMinNotes,
+                    minComments: preferredMinComments,
+                  },
                 });
               } else {
-                await sendEvent({
-                  event: "progress",
-                  stage: "crawl_start",
-                  progress: 20,
-                  message: `关键词 ${qi + 1}/${crawlQueries.length} 完成，本轮无新增（累计笔记 ${afterCounts.notes}/${preferredMinNotes}，评论 ${afterCounts.comments}/${preferredMinComments}）`,
+                const afterCounts = getSocialSampleCounts(socialData);
+                const routeErr = String(routed.error || "").toLowerCase();
+                if (routeErr.includes("timeout")) {
+                  await sendEvent({
+                    event: "progress",
+                    stage: "crawl_start",
+                    detailStage: "query_timeout",
+                    progress: 20,
+                    message: `关键词 ${qi + 1}/${crawlQueries.length} 超时未返回结果（累计笔记 ${afterCounts.notes}/${preferredMinNotes}，评论 ${afterCounts.comments}/${preferredMinComments}）`,
+                    meta: { branch: "self_crawler", attempt },
+                  });
+                } else {
+                  await sendEvent({
+                    event: "progress",
+                    stage: "crawl_start",
+                    detailStage: "query_empty",
+                    progress: 20,
+                    message: `关键词 ${qi + 1}/${crawlQueries.length} 完成，本轮无新增（累计笔记 ${afterCounts.notes}/${preferredMinNotes}，评论 ${afterCounts.comments}/${preferredMinComments}）`,
+                    meta: { branch: "self_crawler", attempt },
+                  });
+                }
+              }
+              try {
+                await persistValidationCheckpoint(supabase, {
+                  validationId: validation.id,
+                  stage: "crawl_partial",
+                  socialData,
+                  competitorData,
                 });
+              } catch (_e) {
+                // ignore checkpoint failures during crawl loop
               }
             }
+
+            if (hasEnoughSocialSamples(socialData)) break;
+            const retryable = isSelfCrawlerRetryable(selfCrawlerRouteDiagnostic, selfCrawlerRouteError);
+            if (!retryable || attempt >= maxSelfRetries) break;
+            selfRetryCount = attempt + 1;
+            const waitMs = Math.min(12000, 2000 * (2 ** attempt) + Math.floor(Math.random() * 800));
+            await sendEvent({
+              event: "progress",
+              stage: "crawl_start",
+              detailStage: "crawl_retry",
+              progress: 23,
+              message: `自爬样本不足，准备第 ${attempt + 1}/${maxSelfRetries} 次重试（等待 ${Math.max(1, Math.round(waitMs / 1000))}s）...`,
+              meta: {
+                branch: "self_crawler",
+                selfRetryCount,
+                diagnostic: compactCrawlerDiagnostic(selfCrawlerRouteDiagnostic),
+              },
+            });
+            await sleep(waitMs);
           }
           if (hasEnoughSocialSamples(socialData)) {
             usedSelfCrawler = true;
@@ -995,14 +1089,21 @@ Deno.serve(async (req) => {
               });
             } else {
               await sendEvent({
-                event: "progress",
-                stage: "crawl_start",
-                progress: 24,
-                message: `抓取返回但样本不足：笔记 ${mergedCounts.notes}/${preferredMinNotes}，评论 ${mergedCounts.comments}/${preferredMinComments}`,
-              });
+                  event: "progress",
+                  stage: "crawl_start",
+                  detailStage: "crawl_insufficient",
+                  progress: 24,
+                  message: `抓取返回但样本不足：笔记 ${mergedCounts.notes}/${preferredMinNotes}，评论 ${mergedCounts.comments}/${preferredMinComments}`,
+                  meta: {
+                    branch: "self_crawler",
+                    selfRetryCount,
+                  },
+                });
             }
+            fallbackReason = compactCrawlerDiagnostic(selfCrawlerRouteDiagnostic) || selfCrawlerRouteError || "self_crawler_insufficient";
           }
         }
+        crawlSelfRetryCount = selfRetryCount;
 
         if (!usedSelfCrawler && enableTikhubFallback) {
           if (!tikhubToken && !enableSelfCrawler) {
@@ -1023,9 +1124,26 @@ Deno.serve(async (req) => {
           }
 
           if (tikhubToken) {
+            crawlFallbackUsed = true;
+            crawlFallbackReason = fallbackReason || compactCrawlerDiagnostic(selfCrawlerRouteDiagnostic) || selfCrawlerRouteError || "self_crawler_insufficient";
+            await sendEvent({
+              event: "progress",
+              stage: "crawl_start",
+              detailStage: "fallback_switch",
+              progress: 26,
+              message: "已切换 TikHub 兜底抓取...",
+              meta: {
+                branch: "tikhub_fallback",
+                selfRetryCount,
+                fallbackReason: crawlFallbackReason,
+              },
+            });
             usedThirdPartyCrawler = true;
             if (enableXhs) {
-              await sendProgress('CRAWL_XHS');
+              await sendProgress('CRAWL_XHS', {
+                detailStage: "fallback_crawl_xhs",
+                meta: { branch: "tikhub_fallback", selfRetryCount },
+              });
               const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
               socialData.totalNotes += xhsData.totalNotes;
               socialData.avgLikes += xhsData.avgLikes;
@@ -1036,7 +1154,10 @@ Deno.serve(async (req) => {
             }
 
             if (enableDy) {
-              await sendProgress('CRAWL_DY');
+              await sendProgress('CRAWL_DY', {
+                detailStage: "fallback_crawl_douyin",
+                meta: { branch: "tikhub_fallback", selfRetryCount },
+              });
               const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
               socialData.totalNotes += dyData.totalNotes;
               socialData.avgLikes += dyData.avgLikes;
@@ -1279,16 +1400,20 @@ Deno.serve(async (req) => {
             await sendEvent({
               event: "progress",
               stage: "summarize_l1",
+              detailStage: "summarize_heartbeat",
               progress: 72,
               message: `生成数据摘要处理中（${allItems.length}条，0s）...`,
+              meta: { elapsedSeconds: 0, items: allItems.length },
             });
             l1Heartbeat = setInterval(() => {
               tick += 1;
               void sendEvent({
                 event: "progress",
                 stage: "summarize_l1",
+                detailStage: "summarize_heartbeat",
                 progress: 72,
                 message: `生成数据摘要处理中（${allItems.length}条，${tick * 5}s）...`,
+                meta: { elapsedSeconds: tick * 5, items: allItems.length },
               });
             }, 5000);
             const l1TimeoutMs = mode === "deep" ? 90000 : 60000;
@@ -1324,6 +1449,7 @@ Deno.serve(async (req) => {
             await sendEvent({
               event: "progress",
               stage: "summarize_l1",
+              detailStage: "summarize_fallback",
               progress: 74,
               message: "摘要阶段超时或失败，已降级继续后续分析...",
             });
@@ -1341,16 +1467,20 @@ Deno.serve(async (req) => {
             await sendEvent({
               event: "progress",
               stage: "summarize_l2",
+              detailStage: "summarize_heartbeat",
               progress: 78,
               message: "聚合分析洞察处理中（0s）...",
+              meta: { elapsedSeconds: 0 },
             });
             l2Heartbeat = setInterval(() => {
               tick += 1;
               void sendEvent({
                 event: "progress",
                 stage: "summarize_l2",
+                detailStage: "summarize_heartbeat",
                 progress: 78,
                 message: `聚合分析洞察处理中（${tick * 5}s）...`,
+                meta: { elapsedSeconds: tick * 5 },
               });
             }, 5000);
             const l2TimeoutMs = mode === "deep" ? 30000 : 20000;
@@ -1379,6 +1509,7 @@ Deno.serve(async (req) => {
             await sendEvent({
               event: "progress",
               stage: "summarize_l2",
+              detailStage: "summarize_fallback",
               progress: 80,
               message: "聚合摘要超时或失败，已降级继续AI分析...",
             });
@@ -1408,24 +1539,30 @@ Deno.serve(async (req) => {
               await sendEvent({
                 event: "progress",
                 stage: "analyze",
+                detailStage: "analyze_model_start",
                 progress: Math.min(94, 88 + Math.floor((index / Math.max(total, 1)) * 6)),
                 message: `AI分析中（模型 ${index}/${total}: ${model}）...`,
+                meta: { modelIndex: index, modelTotal: total, model },
               });
             },
             async ({ index, total, model, error }) => {
               await sendEvent({
                 event: "progress",
                 stage: "analyze",
+                detailStage: "analyze_model_error",
                 progress: Math.min(95, 88 + Math.floor((index / Math.max(total, 1)) * 6)),
                 message: `模型 ${index}/${total} 失败（${model}）：${String(error).slice(0, 80)}，切换下一个...`,
+                meta: { modelIndex: index, modelTotal: total, model },
               });
             },
             async ({ index, total, model, elapsedMs }) => {
               await sendEvent({
                 event: "progress",
                 stage: "analyze",
+                detailStage: "analyze_heartbeat",
                 progress: Math.min(95, 88 + Math.floor((index / Math.max(total, 1)) * 6)),
                 message: `模型 ${index}/${total} 处理中（${model}，已等待 ${Math.max(1, Math.floor(elapsedMs / 1000))}s）...`,
+                meta: { modelIndex: index, modelTotal: total, model, elapsedSeconds: Math.max(1, Math.floor(elapsedMs / 1000)) },
               });
             },
           ),
@@ -1437,6 +1574,7 @@ Deno.serve(async (req) => {
         await sendEvent({
           event: "progress",
           stage: "analyze",
+          detailStage: "analyze_fallback",
           progress: 93,
           message: "AI分析超时，已切换降级分析并继续生成报告...",
         });
@@ -1482,6 +1620,11 @@ Deno.serve(async (req) => {
         crawlerLatencyMs,
         crawlerProviderMix,
       });
+      (costBreakdown as any).crawler_diagnostic = {
+        self_retry_count: crawlSelfRetryCount,
+        fallback_used: crawlFallbackUsed,
+        fallback_reason: crawlFallbackReason,
+      };
       const proofResult = createDefaultProofResult();
 
       // ============ Save Report ============
@@ -1498,7 +1641,10 @@ Deno.serve(async (req) => {
           socialSummaries,
           competitorSummaries,
           aggregatedInsights,
-          extractedCompetitors: extractedCompetitors.map(c => c.name)
+          extractedCompetitors: extractedCompetitors.map(c => c.name),
+          selfRetryCount: crawlSelfRetryCount,
+          fallbackUsed: crawlFallbackUsed,
+          fallbackReason: crawlFallbackReason,
         },
         data_quality_score: dataQualityScore,
         keywords_used: { coreKeywords: xhsKeywords },

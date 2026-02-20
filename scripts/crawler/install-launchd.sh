@@ -33,11 +33,9 @@ echo "Installing runtime dependencies..."
 "${RUNTIME_VENV_DIR}/bin/pip" install -r "${RUNTIME_APP_DIR}/requirements.txt"
 
 cp "$ROOT_DIR/scripts/crawler/run-service.sh" "$INSTALL_BIN_DIR/run-service.sh"
-cp "$ROOT_DIR/scripts/crawler/run-tunnel-sync.sh" "$INSTALL_BIN_DIR/run-tunnel-sync.sh"
-chmod +x "$INSTALL_BIN_DIR/run-service.sh" "$INSTALL_BIN_DIR/run-tunnel-sync.sh"
+chmod +x "$INSTALL_BIN_DIR/run-service.sh"
 
 SERVICE_SCRIPT="$INSTALL_BIN_DIR/run-service.sh"
-TUNNEL_SCRIPT="$INSTALL_BIN_DIR/run-tunnel-sync.sh"
 
 PLIST_DIR="${HOME}/Library/LaunchAgents"
 mkdir -p "$PLIST_DIR"
@@ -46,7 +44,6 @@ LOG_DIR="${HOME}/Library/Logs/ideascan-crawler"
 mkdir -p "$LOG_DIR"
 
 SERVICE_PLIST="${PLIST_DIR}/com.ideascan.crawler-service.plist"
-TUNNEL_PLIST="${PLIST_DIR}/com.ideascan.crawler-tunnel.plist"
 
 cat >"$SERVICE_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -79,50 +76,18 @@ cat >"$SERVICE_PLIST" <<PLIST
 </plist>
 PLIST
 
-cat >"$TUNNEL_PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.ideascan.crawler-tunnel</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-  </dict>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/bash</string>
-    <string>$TUNNEL_SCRIPT</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>WorkingDirectory</key>
-  <string>$HOME</string>
-  <key>StandardOutPath</key>
-  <string>$LOG_DIR/tunnel.out.log</string>
-  <key>StandardErrorPath</key>
-  <string>$LOG_DIR/tunnel.err.log</string>
-</dict>
-</plist>
-PLIST
-
-chmod 644 "$SERVICE_PLIST" "$TUNNEL_PLIST"
-chmod +x "$SERVICE_SCRIPT" "$TUNNEL_SCRIPT"
+chmod 644 "$SERVICE_PLIST"
+chmod +x "$SERVICE_SCRIPT"
 
 launchctl unload "$SERVICE_PLIST" >/dev/null 2>&1 || true
+# 清理历史遗留：彻底移除自动 tunnel 同步任务，避免覆盖线上域名
+TUNNEL_PLIST="${PLIST_DIR}/com.ideascan.crawler-tunnel.plist"
 launchctl unload "$TUNNEL_PLIST" >/dev/null 2>&1 || true
+rm -f "$TUNNEL_PLIST" "$INSTALL_BIN_DIR/run-tunnel-sync.sh"
 launchctl load "$SERVICE_PLIST"
-launchctl load "$TUNNEL_PLIST"
 
 echo "Installed and loaded:"
 echo "  - $SERVICE_PLIST"
-echo "  - $TUNNEL_PLIST"
 echo "Logs:"
 echo "  - $LOG_DIR/service.out.log"
 echo "  - $LOG_DIR/service.err.log"
-echo "  - $LOG_DIR/tunnel.out.log"
-echo "  - $LOG_DIR/tunnel.err.log"

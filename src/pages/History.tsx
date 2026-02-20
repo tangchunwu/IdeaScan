@@ -404,7 +404,7 @@ const History = () => {
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {(item.status === 'failed' || item.status === 'processing') && (
+                          {(item.status === 'failed' || item.resumable) && (
                             <Button
                               variant="outline"
                               size="sm"

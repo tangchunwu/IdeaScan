@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     crawler_playwright_mode: str = "launch"  # launch | cdp
     crawler_playwright_cdp_url: str = ""
     crawler_playwright_cdp_fallback_launch: bool = True
+    crawler_proxy_mode: str = "sticky_user"  # off | global | sticky_user
+    crawler_proxy_sticky_ttl_s: int = 1800
+    crawler_proxy_rotate_on_fails: int = 2
+    crawler_proxy_scheme: str = "socks5"
+    crawler_proxy_socks5h: bool = True
     crawler_default_proxy_server: str = ""
     crawler_default_proxy_username: str = ""
     crawler_default_proxy_password: str = ""
@@ -42,6 +47,10 @@ class Settings(BaseSettings):
     crawler_xhs_deep_session_cooldown_s: int = 45
     crawler_xhs_quick_comment_pages: int = 2
     crawler_xhs_deep_comment_pages: int = 4
+    crawler_xhs_quick_min_notes_return: int = 10
+    crawler_xhs_quick_min_comments_return: int = 50
+    crawler_xhs_deep_min_notes_return: int = 10
+    crawler_xhs_deep_min_comments_return: int = 50
 
     tikhub_token: str = ""
 

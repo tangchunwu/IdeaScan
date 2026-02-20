@@ -33,10 +33,11 @@ LOGIN_URLS = {
 QR_SELECTORS = {
     "xiaohongshu": [
         "[class*='login'] img[src*='qrcode']",
-        "[class*='login'] img[src*='qr']",
         "[class*='qrcode'] img[src*='qrcode']",
-        "[class*='qrcode'] img[src*='qr']",
         "[class*='qrcode'] canvas",
+        "[role='dialog'] img[src*='qrcode']",
+        "[role='dialog'] [class*='qrcode'] img",
+        "[role='dialog'] [class*='qrcode'] canvas",
     ],
     "douyin": [
         "[class*='login'] img[src*='qrcode']",
@@ -49,10 +50,8 @@ QR_SELECTORS = {
 QR_SELECTORS_RELAXED = {
     "xiaohongshu": [
         "img[src*='qrcode']",
-        "img[src*='qr']",
         "img[class*='qrcode']",
         "[class*='qrcode'] img",
-        "canvas",
     ],
     "douyin": [
         "img[src*='qrcode']",
@@ -104,6 +103,50 @@ class AuthManager:
     async def _capture_qr_image(self, page: Page, platform: str) -> str:
         selectors = QR_SELECTORS.get(platform, []) + QR_SELECTORS_RELAXED.get(platform, [])
         min_size = 90
+        max_size = 640
+        for selector in selectors:
+            try:
+                nodes = await page.query_selector_all(selector)
+            except Exception:
+                continue
+            for el in nodes:
+                try:
+                    if not await el.is_visible():
+                        continue
+                    # Avoid capturing unrelated feed images: QR must appear in a login/dialog context.
+                    if platform == "xiaohongshu":
+                        in_login_context = await el.evaluate(
+                            """(node) => {
+                                if (!node) return false;
+                                return Boolean(
+                                    node.closest("[role='dialog'], [class*='login'], [class*='Login'], [class*='modal'], [class*='dialog'], [class*='qrcode']")
+                                );
+                            }"""
+                        )
+                        if not in_login_context:
+                            continue
+                    box = await el.bounding_box()
+                    if not box:
+                        continue
+                    width = float(box.get("width") or 0)
+                    height = float(box.get("height") or 0)
+                    if width < min_size or height < min_size:
+                        continue
+                    if width > max_size or height > max_size:
+                        continue
+                    ratio = width / height if height > 0 else 0
+                    if ratio < 0.75 or ratio > 1.35:
+                        continue
+                    png = await el.screenshot(type="png")
+                    return base64.b64encode(png).decode("utf-8")
+                except Exception:
+                    continue
+        return ""
+
+    async def _is_qr_visible(self, page: Page, platform: str) -> bool:
+        selectors = QR_SELECTORS.get(platform, []) + QR_SELECTORS_RELAXED.get(platform, [])
+        min_size = 90
+        max_size = 640
         for selector in selectors:
             try:
                 nodes = await page.query_selector_all(selector)
@@ -120,31 +163,23 @@ class AuthManager:
                     height = float(box.get("height") or 0)
                     if width < min_size or height < min_size:
                         continue
-                    png = await el.screenshot(type="png")
-                    return base64.b64encode(png).decode("utf-8")
-                except Exception:
-                    continue
-        return ""
-
-    async def _is_qr_visible(self, page: Page, platform: str) -> bool:
-        selectors = QR_SELECTORS.get(platform, [])
-        min_size = 90
-        for selector in selectors:
-            try:
-                nodes = await page.query_selector_all(selector)
-            except Exception:
-                continue
-            for el in nodes:
-                try:
-                    if not await el.is_visible():
+                    if width > max_size or height > max_size:
                         continue
-                    box = await el.bounding_box()
-                    if not box:
+                    ratio = width / height if height > 0 else 0
+                    if ratio < 0.75 or ratio > 1.35:
                         continue
-                    width = float(box.get("width") or 0)
-                    height = float(box.get("height") or 0)
-                    if width >= min_size and height >= min_size:
-                        return True
+                    if platform == "xiaohongshu":
+                        in_login_context = await el.evaluate(
+                            """(node) => {
+                                if (!node) return false;
+                                return Boolean(
+                                    node.closest("[role='dialog'], [class*='login'], [class*='Login'], [class*='modal'], [class*='dialog'], [class*='qrcode']")
+                                );
+                            }"""
+                        )
+                        if not in_login_context:
+                            continue
+                    return True
                 except Exception:
                     continue
         return False
@@ -317,13 +352,8 @@ class AuthManager:
 
         try:
             playwright = await async_playwright().start()
-            proxy: Optional[dict[str, str]] = None
-            if settings.crawler_default_proxy_server:
-                proxy = {"server": settings.crawler_default_proxy_server}
-                if settings.crawler_default_proxy_username:
-                    proxy["username"] = settings.crawler_default_proxy_username
-                if settings.crawler_default_proxy_password:
-                    proxy["password"] = settings.crawler_default_proxy_password
+            proxy_binding = await session_store.acquire_proxy_binding(platform=platform, user_id=user_id)
+            proxy = proxy_binding.get("proxy") if isinstance(proxy_binding, dict) else None
 
             browser = await playwright.chromium.launch(
                 headless=settings.crawler_playwright_headless,
@@ -356,11 +386,29 @@ class AuthManager:
                         continue
 
             await page.wait_for_timeout(1200)
-            login_prompt_seen = await self._is_login_prompt_visible(page, platform)
-            if not login_prompt_seen:
-                login_prompt_seen = await self._is_qr_visible(page, platform)
             qr_image_base64 = ""
             for _ in range(4):
+                login_prompt_seen = await self._is_login_prompt_visible(page, platform)
+                if not login_prompt_seen:
+                    login_prompt_seen = await self._is_qr_visible(page, platform)
+                if not login_prompt_seen:
+                    # Login prompt is not visible yet, keep trying to open it first.
+                    for sel in [
+                        "text=登录",
+                        "text=扫码登录",
+                        "button:has-text('登录')",
+                        "a:has-text('登录')",
+                        "div:has-text('登录')",
+                    ]:
+                        try:
+                            btn = await page.query_selector(sel)
+                            if btn:
+                                await btn.click(timeout=1000)
+                                break
+                        except Exception:
+                            continue
+                    await page.wait_for_timeout(1000)
+                    continue
                 qr_image_base64 = await self._capture_qr_image(page, platform)
                 if qr_image_base64:
                     break

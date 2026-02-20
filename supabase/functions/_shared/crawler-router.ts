@@ -92,7 +92,26 @@ function extractCrawlerFailureDiagnostic(payload: CrawlerResultPayload | null): 
       const platform = String(item?.platform || "unknown");
       const err = String(item?.error || "").trim();
       if (!ok && err) reasons.push(`${platform}:${err}`);
+      const diag = item?.diagnostic;
+      if (diag && typeof diag === "object") {
+        const binding = String((diag as Record<string, unknown>).proxy_binding_id || "").trim();
+        if (binding) reasons.push(`${platform}:proxy_binding_id=${binding}`);
+        if (Boolean((diag as Record<string, unknown>).proxy_rotated)) {
+          reasons.push(`${platform}:proxy_rotated=true`);
+        }
+      }
     }
+  }
+
+  if (payload.diagnostic && typeof payload.diagnostic === "object") {
+    const binding = String(payload.diagnostic.proxy_binding_id || "").trim();
+    if (binding) reasons.push(`proxy_binding_id=${binding}`);
+    if (payload.diagnostic.proxy_rotated) reasons.push("proxy_rotated=true");
+    if (typeof payload.diagnostic.self_retry_count === "number") {
+      reasons.push(`self_retry_count=${payload.diagnostic.self_retry_count}`);
+    }
+    if (payload.diagnostic.fallback_used) reasons.push("fallback_used=true");
+    if (payload.diagnostic.fallback_reason) reasons.push(`fallback_reason=${payload.diagnostic.fallback_reason}`);
   }
 
   if (reasons.length <= 0) return "";

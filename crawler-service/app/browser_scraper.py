@@ -7,7 +7,7 @@ import json
 import random
 import re
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, quote, urlencode, urlparse, urlunparse
 
 from app.config import settings
@@ -40,6 +40,7 @@ async def _open_browser_context(
     playwright: Any,
     *,
     user_agent: str,
+    proxy_override: Optional[Dict[str, str]] = None,
 ) -> tuple[Any, Any, int]:
     """Open a browser context in launch/cdp mode.
 
@@ -60,13 +61,15 @@ async def _open_browser_context(
             if not settings.crawler_playwright_cdp_fallback_launch:
                 raise
 
-    proxy = None
-    if settings.crawler_default_proxy_server:
+    proxy = proxy_override
+    if proxy is None and settings.crawler_default_proxy_server:
         proxy = {"server": settings.crawler_default_proxy_server}
         if settings.crawler_default_proxy_username:
             proxy["username"] = settings.crawler_default_proxy_username
         if settings.crawler_default_proxy_password:
             proxy["password"] = settings.crawler_default_proxy_password
+        proxy_calls = 1
+    elif proxy is not None:
         proxy_calls = 1
 
     browser = await playwright.chromium.launch(
@@ -209,6 +212,32 @@ def _is_relevant_candidate_row(row: Dict[str, Any], terms: List[str] | None = No
     return _is_relevant_candidate_text(text, query_terms)
 
 
+def _note_comment_relevance_ok(
+    *,
+    title: str,
+    desc: str,
+    comments: List[Dict[str, Any]],
+    query_terms: List[str],
+) -> bool:
+    if not query_terms:
+        return True
+    note_text = f"{title} {desc}".strip()
+    if _is_relevant_candidate_text(note_text, query_terms):
+        return True
+    hit = 0
+    for row in comments:
+        text = str((row or {}).get("content") or "").strip()
+        if not text:
+            continue
+        if _is_relevant_candidate_text(text, query_terms):
+            hit += 1
+            # One strong comment hit is enough in quick mode scenarios,
+            # otherwise relevance filtering can become too strict and drop all samples.
+            if hit >= 1:
+                return True
+    return False
+
+
 async def _step_with_timeout(coro: Any, *, label: str, timeout_s: float, default: Any, errors: List[str]) -> Any:
     started = time.time()
     try:
@@ -225,6 +254,23 @@ async def _step_with_timeout(coro: Any, *, label: str, timeout_s: float, default
         errors.append(err)
         _xhs_debug(label, err)
         return default
+
+
+async def _safe_close_with_timeout(awaitable: Any, *, label: str, timeout_s: float = 2.5) -> None:
+    try:
+        await asyncio.wait_for(awaitable, timeout=max(0.5, timeout_s))
+    except Exception:
+        _xhs_debug("close", f"skip:{label}")
+
+
+def _budget_timeout_s(base_s: float, hard_deadline: float, reserve_s: float = 1.5) -> float:
+    remain = max(0.0, hard_deadline - time.time() - reserve_s)
+    return max(1.0, min(float(base_s), remain))
+
+
+def _budget_timeout_ms(base_ms: int, hard_deadline: float, reserve_s: float = 1.5) -> int:
+    remain_ms = int(max(0.0, hard_deadline - time.time() - reserve_s) * 1000)
+    return max(1200, min(int(base_ms), remain_ms))
 
 
 def _xhs_build_crc32_table() -> List[int]:
@@ -720,6 +766,67 @@ async def _human_delay(mode: str) -> None:
     if lo <= 0 and hi <= 0:
         return
     await asyncio.sleep(random.uniform(lo, hi) / 1000)
+
+
+async def _xhs_wait_note_ready(page: Any, *, timeout_ms: int = 8000) -> bool:
+    try:
+        await page.wait_for_selector("article, [class*='note'], [class*='content']", timeout=max(1200, timeout_ms))
+        await page.wait_for_timeout(350)
+        return True
+    except Exception:
+        return False
+
+
+async def _xhs_open_comment_panel(page: Any) -> bool:
+    try:
+        opened = await page.evaluate(
+            """
+            () => {
+              const targets = Array.from(document.querySelectorAll('button, a, span, div'));
+              const found = targets.find((el) => {
+                const text = (el.textContent || '').trim();
+                return /全部评论|查看全部|展开评论|评论/.test(text);
+              });
+              if (found && typeof found.click === 'function') {
+                found.click();
+                return true;
+              }
+              return false;
+            }
+            """
+        )
+        await page.wait_for_timeout(420 if opened else 260)
+        return bool(opened)
+    except Exception:
+        return False
+
+
+async def _xhs_scroll_comments(page: Any, *, mode: str, rounds: int) -> None:
+    step_px = 820 if mode == "quick" else 960
+    wait_ms = 880 if mode == "quick" else 1020
+    for _ in range(max(1, int(rounds))):
+        try:
+            await page.evaluate(
+                """(stepPx) => {
+                    const nodes = [
+                      document.querySelector("[class*='comment'][class*='container']"),
+                      document.querySelector("[class*='comment-list']"),
+                      document.querySelector("[class*='CommentList']"),
+                      document.querySelector("[class*='comments']")
+                    ].filter(Boolean);
+                    const scroller = nodes.find((n) => n && n.scrollHeight > n.clientHeight + 40);
+                    if (scroller) {
+                      scroller.scrollTop = Math.min(scroller.scrollTop + stepPx, scroller.scrollHeight);
+                      return "comment_scroller";
+                    }
+                    window.scrollBy(0, stepPx);
+                    return "window";
+                }""",
+                step_px,
+            )
+        except Exception:
+            await page.mouse.wheel(0, step_px)
+        await page.wait_for_timeout(wait_ms)
 
 
 async def _goto_with_fallback(page: Any, url: str, timeout_ms: int = 35000) -> str:
@@ -1235,6 +1342,7 @@ def _merge_note_sources(
 async def _crawl_xiaohongshu(
     payload: CrawlerJobPayload,
     session: Dict[str, Any],
+    proxy_binding: Optional[Dict[str, Any]] = None,
 ) -> Tuple[CrawlerPlatformResult, Dict[str, float]]:
     started = time.time()
     notes: List[CrawlerNormalizedNote] = []
@@ -1246,7 +1354,11 @@ async def _crawl_xiaohongshu(
     playwright = await async_playwright().start()
     try:
         ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
-        browser, context, proxy_calls = await _open_browser_context(playwright, user_agent=ua)
+        browser, context, proxy_calls = await _open_browser_context(
+            playwright,
+            user_agent=ua,
+            proxy_override=(proxy_binding or {}).get("proxy"),
+        )
         try:
             cookies = _normalize_cookies("xiaohongshu", list(session.get("cookies") or []))
             if cookies:
@@ -1275,29 +1387,54 @@ async def _crawl_xiaohongshu(
                     search_capture_tasks.append(asyncio.create_task(capture_search_response(response)))
 
                 page.on("response", on_search_response)
-                nav_warning = await _goto_with_fallback(page, search_url, timeout_ms=35000)
-                await page.wait_for_timeout(2000)
-                signed_search_notes, signed_search_errors = await _step_with_timeout(
-                    _fetch_xhs_search_notes_signed(
-                        page,
-                        query=search_query,
-                        mode=payload.mode,
-                        max_notes=payload.limits.notes,
-                        cookies=cookies,
-                    ),
-                    label="signed_search",
-                    timeout_s=12 if payload.mode == "quick" else 24,
-                    default=([], ["signed_search_timeout"]),
-                    errors=xhs_errors,
-                )
-                if signed_search_errors:
-                    xhs_errors.extend(signed_search_errors)
-                for _ in range(2 if payload.mode == "quick" else 3):
-                    await page.mouse.wheel(0, 1800)
-                    await page.wait_for_timeout(700)
-                if search_capture_tasks:
-                    await asyncio.gather(*search_capture_tasks, return_exceptions=True)
-                search_api_notes.extend(signed_search_notes)
+                nav_warning = ""
+                search_stage_done = False
+                search_entry_urls = [
+                    search_url,
+                    f"https://www.xiaohongshu.com/search_result?keyword={quote(search_query)}&source=web_search_result",
+                ]
+                search_rounds = 2 if payload.mode == "quick" else 3
+                for round_idx in range(search_rounds):
+                    for entry_url in search_entry_urls:
+                        if time.time() >= hard_deadline:
+                            break
+                        nav_warning = await _goto_with_fallback(
+                            page,
+                            entry_url,
+                            timeout_ms=_budget_timeout_ms(16000 if payload.mode == "quick" else 26000, hard_deadline),
+                        )
+                        await page.wait_for_timeout(1200 if payload.mode == "quick" else 1800)
+                        round_notes, signed_search_errors = await _step_with_timeout(
+                            _fetch_xhs_search_notes_signed(
+                                page,
+                                query=search_query,
+                                mode=payload.mode,
+                                max_notes=payload.limits.notes,
+                                cookies=cookies,
+                            ),
+                            label=f"signed_search_r{round_idx+1}",
+                            timeout_s=_budget_timeout_s(7 if payload.mode == "quick" else 14, hard_deadline),
+                            default=([], ["signed_search_timeout"]),
+                            errors=xhs_errors,
+                        )
+                        if signed_search_errors:
+                            xhs_errors.extend(signed_search_errors)
+                        for _ in range(2 if payload.mode == "quick" else 3):
+                            if time.time() >= hard_deadline:
+                                break
+                            await page.mouse.wheel(0, 1200 if payload.mode == "quick" else 1500)
+                            await page.wait_for_timeout(900 if payload.mode == "quick" else 1050)
+                        if search_capture_tasks:
+                            await asyncio.gather(*search_capture_tasks, return_exceptions=True)
+                        if round_notes:
+                            search_api_notes.extend(round_notes)
+                        if len(search_api_notes) > 0:
+                            search_stage_done = True
+                            break
+                    if search_stage_done:
+                        break
+                if not search_stage_done:
+                    xhs_errors.append("search_stage_empty_after_retries")
 
                 dom_notes = await page.evaluate(
                     """
@@ -1362,8 +1499,8 @@ async def _crawl_xiaohongshu(
                             for _ in range(2 if payload.mode == "quick" else 3):
                                 if time.time() >= hard_deadline:
                                     break
-                                await page.mouse.wheel(0, 1500)
-                                await page.wait_for_timeout(450 if payload.mode == "quick" else 600)
+                                await page.mouse.wheel(0, 1100 if payload.mode == "quick" else 1300)
+                                await page.wait_for_timeout(900 if payload.mode == "quick" else 1050)
                             alt_dom_notes = await page.evaluate(
                                 """
                                 () => {
@@ -1426,12 +1563,45 @@ async def _crawl_xiaohongshu(
                 nav_retry_limit = 1 if payload.mode == "quick" else 2
                 max_empty_comment_notes = 8 if payload.mode == "quick" else 20
                 empty_comment_notes = 0
+                comment_step_timeout_s = 3 if payload.mode == "quick" else 8
+                detail_eval_timeout_s = 3 if payload.mode == "quick" else 6
+                min_notes_return = (
+                    max(1, int(settings.crawler_xhs_quick_min_notes_return))
+                    if payload.mode == "quick"
+                    else max(1, int(settings.crawler_xhs_deep_min_notes_return))
+                )
+                min_comments_return = (
+                    max(1, int(settings.crawler_xhs_quick_min_comments_return))
+                    if payload.mode == "quick"
+                    else max(1, int(settings.crawler_xhs_deep_min_comments_return))
+                )
+                # Respect caller caps and keep minimum target realistic.
+                min_notes_return = min(min_notes_return, max(1, int(payload.limits.notes)))
+                min_comments_return = min(
+                    min_comments_return,
+                    max(1, int(payload.limits.notes)) * max(1, int(payload.limits.comments_per_note)),
+                )
 
                 max_note_candidates = min(
                     len(note_candidates),
                     max(int(payload.limits.notes), 8 if payload.mode == "quick" else 12),
                 )
+                per_note_budget_s = 16 if payload.mode == "quick" else 24
+                allowed_by_deadline = max(1, int(max(0.0, hard_deadline - time.time()) // per_note_budget_s))
+                if allowed_by_deadline < max_note_candidates:
+                    _xhs_debug("deadline", f"shrink note candidates {max_note_candidates}->{allowed_by_deadline}")
+                    max_note_candidates = allowed_by_deadline
                 for idx, item in enumerate(note_candidates[:max_note_candidates]):
+                    if len(notes) >= min_notes_return and len(comments) >= min_comments_return:
+                        _xhs_debug(
+                            "early_return",
+                            f"hit minimum target notes={len(notes)}/{min_notes_return}, comments={len(comments)}/{min_comments_return}",
+                        )
+                        break
+                    # Prioritize returning note samples instead of stalling on comments near deadline.
+                    if len(notes) >= min_notes_return and (hard_deadline - time.time()) <= 10:
+                        _xhs_debug("early_return", f"timebox reached with notes={len(notes)}, comments={len(comments)}")
+                        break
                     if time.time() >= hard_deadline:
                         xhs_errors.append("crawl_deadline_reached")
                         _xhs_debug("deadline", "break note loop due to hard deadline")
@@ -1447,6 +1617,8 @@ async def _crawl_xiaohongshu(
                         continue
                     note_xsec_token = str((item or {}).get("xsec_token") or "").strip()
                     note_xsec_source = str((item or {}).get("xsec_source") or "pc_search").strip()
+                    item_source = str((item or {}).get("source") or "").strip().lower()
+                    trusted_signed_candidate = item_source.startswith("api_signed:")
                     if note_xsec_token:
                         url = _with_xhs_tokens(url, note_xsec_token, note_xsec_source)
                     note_id = (
@@ -1475,7 +1647,7 @@ async def _crawl_xiaohongshu(
                                 cookies=cookies,
                             ),
                             label="comment_preflight",
-                            timeout_s=8 if payload.mode == "quick" else 14,
+                            timeout_s=_budget_timeout_s(comment_step_timeout_s, hard_deadline),
                             default=([], "preflight_timeout"),
                             errors=xhs_errors,
                         )
@@ -1484,10 +1656,20 @@ async def _crawl_xiaohongshu(
 
                     if preflight_comments:
                         preflight_comments.sort(key=lambda row: _safe_int(row.get("like_count"), 0), reverse=True)
+                        preflight_title = str((item or {}).get("title") or "")[:80]
+                        preflight_desc = str((item or {}).get("desc") or "")
+                        if (not trusted_signed_candidate) and (not _note_comment_relevance_ok(
+                            title=preflight_title,
+                            desc=preflight_desc,
+                            comments=preflight_comments,
+                            query_terms=query_terms,
+                        )):
+                            xhs_errors.append(f"irrelevant_preflight_note:{note_id}")
+                            continue
                         note = CrawlerNormalizedNote(
                             id=note_id,
-                            title=str((item or {}).get("title") or "")[:80],
-                            desc=str((item or {}).get("desc") or ""),
+                            title=preflight_title,
+                            desc=preflight_desc,
                             liked_count=_safe_int((item or {}).get("liked_count"), 0),
                             comments_count=max(len(preflight_comments), _safe_int((item or {}).get("comments_count"), 0)),
                             collected_count=_safe_int((item or {}).get("collected_count"), 0),
@@ -1514,6 +1696,9 @@ async def _crawl_xiaohongshu(
 
                     note_page = await context.new_page()
                     try:
+                        if hard_deadline - time.time() < 4.0:
+                            xhs_errors.append("crawl_deadline_near_end")
+                            break
                         note_api_comments: List[Dict[str, Any]] = []
                         note_comment_hints: List[Dict[str, Any]] = []
                         note_capture_tasks: List[asyncio.Task[Any]] = []
@@ -1561,9 +1746,10 @@ async def _crawl_xiaohongshu(
 
                         note_page.on("response", on_note_response)
                         opened = False
+                        dynamic_note_timeout_ms = _budget_timeout_ms(note_timeout_ms, hard_deadline, reserve_s=1.2)
                         for nav_attempt in range(nav_retry_limit):
                             try:
-                                await _goto_with_fallback(note_page, url, timeout_ms=note_timeout_ms)
+                                await _goto_with_fallback(note_page, url, timeout_ms=dynamic_note_timeout_ms)
                                 opened = True
                                 break
                             except Exception:
@@ -1580,23 +1766,25 @@ async def _crawl_xiaohongshu(
                                 if tokens.get("xsec_token"):
                                     runtime_xsec_token = str(tokens.get("xsec_token") or "").strip()
                                     runtime_xsec_source = str(tokens.get("xsec_source") or runtime_xsec_source or "pc_search").strip()
-                        await note_page.wait_for_timeout(1200)
-                        await note_page.evaluate(
-                            """
-                            () => {
-                              const targets = Array.from(document.querySelectorAll('button, a, span, div'));
-                              const found = targets.find((el) => {
-                                const text = (el.textContent || '').trim();
-                                return /全部评论|查看全部|展开评论|评论/.test(text);
-                              });
-                              if (found && typeof found.click === 'function') found.click();
-                            }
-                            """
+                        if time.time() >= hard_deadline:
+                            xhs_errors.append("crawl_deadline_reached")
+                            break
+                        ready = await _xhs_wait_note_ready(
+                            note_page,
+                            timeout_ms=7000 if payload.mode == "quick" else 12000,
                         )
-                        await note_page.wait_for_timeout(700)
+                        if not ready:
+                            xhs_errors.append(f"note_not_ready:{note_id}")
+                        await _xhs_open_comment_panel(note_page)
+                        if time.time() >= hard_deadline:
+                            xhs_errors.append("crawl_deadline_reached")
+                            break
+                        await note_page.wait_for_timeout(520 if payload.mode == "quick" else 760)
                         for _ in range(4 if payload.mode == "quick" else 7):
-                            await note_page.mouse.wheel(0, 1600)
-                            await note_page.wait_for_timeout(750 if payload.mode == "quick" else 900)
+                            if time.time() >= hard_deadline:
+                                xhs_errors.append("crawl_deadline_reached")
+                                break
+                            await _xhs_scroll_comments(note_page, mode=payload.mode, rounds=1)
                         if note_capture_tasks:
                             await asyncio.gather(*note_capture_tasks, return_exceptions=True)
                         seen_comment_keys = {
@@ -1614,7 +1802,7 @@ async def _crawl_xiaohongshu(
                                 seen_keys=seen_comment_keys,
                             ),
                             label="comment_paginated",
-                            timeout_s=8 if payload.mode == "quick" else 14,
+                            timeout_s=_budget_timeout_s(comment_step_timeout_s, hard_deadline),
                             default=[],
                             errors=xhs_errors,
                         )
@@ -1637,7 +1825,7 @@ async def _crawl_xiaohongshu(
                                     cookies=cookies,
                                 ),
                                 label="comment_direct",
-                                timeout_s=8 if payload.mode == "quick" else 14,
+                                timeout_s=_budget_timeout_s(comment_step_timeout_s, hard_deadline),
                                 default=([], "direct_timeout"),
                                 errors=xhs_errors,
                             )
@@ -1646,8 +1834,9 @@ async def _crawl_xiaohongshu(
                             if direct_comments:
                                 note_api_comments.extend(direct_comments)
                         note_api_comments.sort(key=lambda row: _safe_int(row.get("like_count"), 0), reverse=True)
-                        detail = await note_page.evaluate(
-                            f"""
+                        detail = await _step_with_timeout(
+                            note_page.evaluate(
+                                f"""
                             (maxComments) => {{
                               const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
                               const articleText = (document.querySelector('article')?.innerText || '').trim();
@@ -1695,7 +1884,12 @@ async def _crawl_xiaohongshu(
                               return {{ desc, comments: uniq }};
                             }}
                             """,
-                            payload.limits.comments_per_note,
+                                payload.limits.comments_per_note,
+                            ),
+                            label="note_detail_eval",
+                            timeout_s=_budget_timeout_s(detail_eval_timeout_s, hard_deadline),
+                            default={"desc": str((item or {}).get("desc") or ""), "comments": []},
+                            errors=xhs_errors,
                         )
                         merged_comments: List[Dict[str, Any]] = []
                         seen_comment: set[str] = set()
@@ -1749,10 +1943,22 @@ async def _crawl_xiaohongshu(
                                 empty_comment_notes += 1
                                 continue
 
+                        detail_desc = str((detail or {}).get("desc") or (item or {}).get("desc") or "")
+                        detail_title = str((item or {}).get("title") or "")[:80]
+                        if (not trusted_signed_candidate) and (not _note_comment_relevance_ok(
+                            title=detail_title,
+                            desc=detail_desc,
+                            comments=merged_comments,
+                            query_terms=query_terms,
+                        )):
+                            xhs_errors.append(f"irrelevant_note:{note_id}")
+                            empty_comment_notes += 1
+                            continue
+
                         note = CrawlerNormalizedNote(
                             id=note_id,
-                            title=str((item or {}).get("title") or "")[:80],
-                            desc=str((detail or {}).get("desc") or (item or {}).get("desc") or ""),
+                            title=detail_title,
+                            desc=detail_desc,
                             liked_count=_safe_int((item or {}).get("liked_count"), 0),
                             comments_count=max(len(merged_comments), _safe_int((item or {}).get("comments_count"), 0)),
                             collected_count=_safe_int((item or {}).get("collected_count"), 0),
@@ -1780,15 +1986,16 @@ async def _crawl_xiaohongshu(
                         # Skip noisy/blocked note pages instead of failing the whole crawl.
                         continue
                     finally:
-                        await note_page.close()
+                        await _safe_close_with_timeout(note_page.close(), label="note_page")
 
                 if nav_warning and not notes:
-                    raise RuntimeError(nav_warning)
-            await context.close()
+                    # Soft fallback timeout should not hard-fail the whole crawl.
+                    xhs_errors.append(nav_warning)
+            await _safe_close_with_timeout(context.close(), label="context", timeout_s=3.0)
         finally:
-            await browser.close()
+            await _safe_close_with_timeout(browser.close(), label="browser", timeout_s=3.0)
     finally:
-        await playwright.stop()
+        await _safe_close_with_timeout(playwright.stop(), label="playwright", timeout_s=3.0)
 
     success = len(notes) > 0
     _xhs_debug("finish", f"success={success} notes={len(notes)} comments={len(comments)} errors={len(xhs_errors)}")
@@ -1800,6 +2007,11 @@ async def _crawl_xiaohongshu(
             success=success,
             latency_ms=int((time.time() - started) * 1000),
             error=None if success else _xhs_normalize_error(xhs_errors),
+            diagnostic={
+                "proxy_binding_id": str((proxy_binding or {}).get("proxy_binding_id") or ""),
+                "proxy_rotated": bool((proxy_binding or {}).get("proxy_rotated") or False),
+                "errors_head": xhs_errors[:20],
+            },
         ),
         {
             "external_api_calls": 0.0,
@@ -1813,6 +2025,7 @@ async def _crawl_xiaohongshu(
 async def _crawl_douyin(
     payload: CrawlerJobPayload,
     session: Dict[str, Any],
+    proxy_binding: Optional[Dict[str, Any]] = None,
 ) -> Tuple[CrawlerPlatformResult, Dict[str, float]]:
     started = time.time()
     notes: List[CrawlerNormalizedNote] = []
@@ -1823,7 +2036,11 @@ async def _crawl_douyin(
     playwright = await async_playwright().start()
     try:
         ua = str(session.get("user_agent") or settings.crawler_user_agent_pool.split(",")[0].strip() or "Mozilla/5.0")
-        browser, context, proxy_calls = await _open_browser_context(playwright, user_agent=ua)
+        browser, context, proxy_calls = await _open_browser_context(
+            playwright,
+            user_agent=ua,
+            proxy_override=(proxy_binding or {}).get("proxy"),
+        )
         try:
             cookies = _normalize_cookies("douyin", list(session.get("cookies") or []))
             if cookies:
@@ -2073,11 +2290,11 @@ async def _crawl_douyin(
                         continue
                     finally:
                         await note_page.close()
-            await context.close()
+            await _safe_close_with_timeout(context.close(), label="context", timeout_s=3.0)
         finally:
-            await browser.close()
+            await _safe_close_with_timeout(browser.close(), label="browser", timeout_s=3.0)
     finally:
-        await playwright.stop()
+        await _safe_close_with_timeout(playwright.stop(), label="playwright", timeout_s=3.0)
 
     success = len(notes) > 0
     return (
@@ -2088,6 +2305,10 @@ async def _crawl_douyin(
             success=success,
             latency_ms=int((time.time() - started) * 1000),
             error=None if success else "session_crawl_empty",
+            diagnostic={
+                "proxy_binding_id": str((proxy_binding or {}).get("proxy_binding_id") or ""),
+                "proxy_rotated": bool((proxy_binding or {}).get("proxy_rotated") or False),
+            },
         ),
         {
             "external_api_calls": 0.0,
@@ -2102,6 +2323,7 @@ async def crawl_with_user_session(
     platform: str,
     payload: CrawlerJobPayload,
     session: Dict[str, Any],
+    proxy_binding: Optional[Dict[str, Any]] = None,
 ) -> Tuple[CrawlerPlatformResult, Dict[str, float]]:
     if not PLAYWRIGHT_AVAILABLE:
         return (
@@ -2114,9 +2336,9 @@ async def crawl_with_user_session(
             {"external_api_calls": 0.0, "proxy_calls": 0.0, "est_cost": 0.0, "provider_mix": {f"{platform}_session": 0.0}},
         )
     if platform == "xiaohongshu":
-        return await _crawl_xiaohongshu(payload, session)
+        return await _crawl_xiaohongshu(payload, session, proxy_binding=proxy_binding)
     if platform == "douyin":
-        return await _crawl_douyin(payload, session)
+        return await _crawl_douyin(payload, session, proxy_binding=proxy_binding)
     return (
         CrawlerPlatformResult(platform=platform, success=False, error="unsupported_platform", latency_ms=0),
         {"external_api_calls": 0.0, "proxy_calls": 0.0, "est_cost": 0.0, "provider_mix": {f"{platform}_session": 0.0}},

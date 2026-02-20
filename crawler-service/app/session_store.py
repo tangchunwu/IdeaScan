@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -88,6 +90,10 @@ class SessionStore:
         return f"crawler:session:index:{user_id}"
 
     @staticmethod
+    def _proxy_binding_key(platform: str, user_id: str) -> str:
+        return f"crawler:proxy_binding:{platform}:{user_id}"
+
+    @staticmethod
     def _should_auto_evict(reason: str) -> bool:
         return reason in AUTO_EVICT_REASONS
 
@@ -121,6 +127,118 @@ class SessionStore:
             await self._redis.set(key, self._serialize(payload))
         else:
             self._memory_sessions[key] = payload
+
+    def _build_proxy_from_binding(self, binding: Dict[str, Any]) -> Dict[str, str] | None:
+        server_raw = str(settings.crawler_default_proxy_server or "").strip()
+        if not server_raw:
+            return None
+
+        session_key = str(binding.get("session_key") or "")
+        server = server_raw
+        username = str(settings.crawler_default_proxy_username or "").strip()
+        password = str(settings.crawler_default_proxy_password or "").strip()
+        if "://" not in server:
+            scheme = str(settings.crawler_proxy_scheme or "socks5").strip().lower() or "socks5"
+            server = f"{scheme}://{server}"
+        if session_key:
+            server = server.replace("{session}", session_key)
+            username = username.replace("{session}", session_key)
+            password = password.replace("{session}", session_key)
+
+        proxy: Dict[str, str] = {"server": server}
+        if username:
+            proxy["username"] = username
+        if password:
+            proxy["password"] = password
+        return proxy
+
+    async def acquire_proxy_binding(self, *, platform: str, user_id: str) -> Dict[str, Any]:
+        mode = str(settings.crawler_proxy_mode or "sticky_user").strip().lower()
+        if mode == "off":
+            return {"proxy": None, "proxy_binding_id": "", "proxy_rotated": False}
+
+        server = str(settings.crawler_default_proxy_server or "").strip()
+        if not server:
+            return {"proxy": None, "proxy_binding_id": "", "proxy_rotated": False}
+
+        if mode == "global":
+            binding = {"binding_id": "global", "session_key": "global"}
+            return {
+                "proxy": self._build_proxy_from_binding(binding),
+                "proxy_binding_id": "global",
+                "proxy_rotated": False,
+            }
+
+        # sticky_user mode: keep a per-user binding in Redis/memory with TTL and fail counter.
+        now_ts = int(time.time())
+        ttl_s = max(60, int(settings.crawler_proxy_sticky_ttl_s))
+        rotate_threshold = max(1, int(settings.crawler_proxy_rotate_on_fails))
+        key = self._proxy_binding_key(platform, user_id)
+
+        payload: Dict[str, Any] | None = None
+        if await self._use_redis():
+            raw = await self._redis.get(key)
+            if raw:
+                payload = self._deserialize(raw)
+        else:
+            value = self._memory_sessions.get(key)
+            payload = value if isinstance(value, dict) else None
+
+        rotated = False
+        expires_at = int(payload.get("expires_at") or 0) if payload else 0
+        failures = int(payload.get("failures") or 0) if payload else 0
+        if (
+            not payload
+            or not payload.get("session_key")
+            or now_ts >= expires_at
+            or failures >= rotate_threshold
+        ):
+            session_key = secrets.token_hex(8)
+            payload = {
+                "platform": platform,
+                "user_id": user_id,
+                "binding_id": f"{platform}:{user_id}:{session_key[:6]}",
+                "session_key": session_key,
+                "created_at": now_ts,
+                "updated_at": now_ts,
+                "expires_at": now_ts + ttl_s,
+                "failures": 0,
+            }
+            rotated = True
+            await self._save_payload(key, payload)
+        else:
+            payload["updated_at"] = now_ts
+            await self._save_payload(key, payload)
+
+        return {
+            "proxy": self._build_proxy_from_binding(payload),
+            "proxy_binding_id": str(payload.get("binding_id") or ""),
+            "proxy_rotated": rotated,
+        }
+
+    async def mark_proxy_binding_result(self, *, platform: str, user_id: str, success: bool) -> None:
+        mode = str(settings.crawler_proxy_mode or "sticky_user").strip().lower()
+        if mode != "sticky_user":
+            return
+        key = self._proxy_binding_key(platform, user_id)
+
+        payload: Dict[str, Any] | None = None
+        if await self._use_redis():
+            raw = await self._redis.get(key)
+            if not raw:
+                return
+            payload = self._deserialize(raw)
+        else:
+            value = self._memory_sessions.get(key)
+            payload = value if isinstance(value, dict) else None
+        if not payload:
+            return
+        if success:
+            payload["failures"] = 0
+        else:
+            payload["failures"] = int(payload.get("failures") or 0) + 1
+        payload["updated_at"] = int(time.time())
+        await self._save_payload(key, payload)
 
     @staticmethod
     def validate_cookie_bundle(platform: str, cookies: List[Dict[str, Any]]) -> Tuple[bool, str]:

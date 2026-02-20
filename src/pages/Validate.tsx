@@ -256,8 +256,8 @@ const Validate = () => {
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: settings.enableDouyin,
           enableSelfCrawler: settings.enableSelfCrawler,
-          // quick: self-crawler only; deep: allow TikHub fallback by user setting
-          enableTikhubFallback: validationMode === 'deep' ? settings.enableTikhubFallback : false,
+          // Allow "self-crawler first, then fallback" for both quick/deep.
+          enableTikhubFallback: settings.enableTikhubFallback,
           searchKeys: {
             bocha: settings.bochaApiKey,
             you: settings.youApiKey,

@@ -64,6 +64,7 @@ class CrawlerPlatformResult(BaseModel):
     success: bool = True
     latency_ms: int = 0
     error: Optional[str] = None
+    diagnostic: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CrawlerResultQuality(BaseModel):
@@ -87,6 +88,7 @@ class CrawlerResultPayload(BaseModel):
     quality: CrawlerResultQuality = Field(default_factory=CrawlerResultQuality)
     cost: CrawlerResultCost = Field(default_factory=CrawlerResultCost)
     errors: List[str] = Field(default_factory=list)
+    diagnostic: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StartAuthSessionRequest(BaseModel):

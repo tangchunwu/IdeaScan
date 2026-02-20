@@ -93,9 +93,28 @@ serve(async (req) => {
       console.error("Error fetching report:", reportError);
     }
 
+    const summary = (report?.data_summary && typeof report.data_summary === "object")
+      ? report.data_summary as Record<string, unknown>
+      : {};
+    const stage = String(summary?.checkpointStage || "").toLowerCase();
+    const checkpointUpdatedAt = String(summary?.checkpointUpdatedAt || "");
+    const checkpointMs = checkpointUpdatedAt ? Date.parse(checkpointUpdatedAt) : 0;
+    const staleAnalyze = checkpointMs > 0 && (Date.now() - checkpointMs >= 120000);
+    const resumable = validation.status === "failed" || (
+      validation.status === "processing"
+      && staleAnalyze
+      && (stage.includes("analyze") || stage.includes("summarize"))
+    );
+
     return new Response(
       JSON.stringify({
-        validation,
+        validation: {
+          ...validation,
+          resumable,
+          resume_hint: resumable
+            ? (validation.status === "failed" ? "failed_record" : `stale_${stage || "processing"}`)
+            : "",
+        },
         report,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

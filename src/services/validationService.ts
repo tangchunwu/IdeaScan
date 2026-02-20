@@ -64,6 +64,8 @@ export interface Validation {
   overall_score: number | null;
   created_at: string;
   updated_at: string;
+  resumable?: boolean;
+  resume_hint?: string;
 }
 
 export interface CompetitorData {
@@ -268,8 +270,10 @@ export async function deleteValidation(validationId: string): Promise<void> {
 export interface SSEProgressEvent {
   event: 'progress' | 'complete' | 'error';
   stage?: string;
+  detailStage?: string;
   progress?: number;
   message?: string;
+  meta?: Record<string, unknown>;
   result?: {
     validationId: string;
     overallScore: number;

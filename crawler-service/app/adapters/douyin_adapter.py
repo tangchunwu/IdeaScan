@@ -64,8 +64,22 @@ class DouyinAdapter(BaseAdapter):
         if payload.user_id:
             session, invalid_reason = await session_store.get_valid_user_session(platform=self.platform, user_id=payload.user_id)
             if session:
+                proxy_binding = await session_store.acquire_proxy_binding(
+                    platform=self.platform,
+                    user_id=payload.user_id,
+                )
                 try:
-                    session_result, session_cost = await crawl_with_user_session(self.platform, payload, session)
+                    session_result, session_cost = await crawl_with_user_session(
+                        self.platform,
+                        payload,
+                        session,
+                        proxy_binding=proxy_binding,
+                    )
+                    await session_store.mark_proxy_binding_result(
+                        platform=self.platform,
+                        user_id=payload.user_id,
+                        success=bool(session_result.success),
+                    )
                     if session_result.success and session_result.notes and session_result.comments:
                         await session_store.touch_user_session(platform=self.platform, user_id=payload.user_id)
                         await session_store.mark_session_result(platform=self.platform, user_id=payload.user_id, success=True)
@@ -80,6 +94,11 @@ class DouyinAdapter(BaseAdapter):
                         )
                 except Exception as exc:
                     session_error = f"session_crawl_exception:{exc}"
+                    await session_store.mark_proxy_binding_result(
+                        platform=self.platform,
+                        user_id=payload.user_id,
+                        success=False,
+                    )
                     await session_store.mark_session_result(
                         platform=self.platform,
                         user_id=payload.user_id,
@@ -161,6 +180,11 @@ class DouyinAdapter(BaseAdapter):
                 success=success,
                 latency_ms=int((time.time() - started) * 1000),
                 error=None if success else session_error or "crawl_empty",
+                diagnostic={
+                    "fallback_used": bool(source == "douyin_tikhub"),
+                    "fallback_reason": session_error if source == "douyin_tikhub" else "",
+                    "self_retry_count": 0,
+                },
             ),
             {
                 "external_api_calls": external_calls,

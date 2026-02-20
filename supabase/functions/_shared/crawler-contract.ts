@@ -48,6 +48,7 @@ export interface CrawlerPlatformResult {
   success: boolean;
   latency_ms?: number;
   error?: string;
+  diagnostic?: Record<string, unknown>;
 }
 
 export interface CrawlerResultPayload {
@@ -66,6 +67,13 @@ export interface CrawlerResultPayload {
     est_cost: number;
   };
   errors: string[];
+  diagnostic?: {
+    proxy_binding_id?: string;
+    proxy_rotated?: boolean;
+    self_retry_count?: number;
+    fallback_used?: boolean;
+    fallback_reason?: string;
+  };
 }
 
 export interface RoutedSocialData {

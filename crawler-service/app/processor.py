@@ -69,6 +69,13 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
     proxy_calls = 0
     est_cost = 0.0
     provider_mix: dict[str, float] = {}
+    diagnostic: Dict[str, Any] = {
+        "proxy_binding_id": "",
+        "proxy_rotated": False,
+        "self_retry_count": 0,
+        "fallback_used": False,
+        "fallback_reason": "",
+    }
 
     for platform in payload.platforms:
         adapter = adapters.get(platform)
@@ -111,6 +118,18 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
                     provider_mix[str(k)] = provider_mix.get(str(k), 0.0) + float(v)
             if not result.success and result.error:
                 errors.append(f"{platform}:{result.error}")
+            if isinstance(getattr(result, "diagnostic", None), dict):
+                pd = result.diagnostic
+                if pd.get("proxy_binding_id"):
+                    diagnostic["proxy_binding_id"] = str(pd.get("proxy_binding_id"))
+                if bool(pd.get("proxy_rotated")):
+                    diagnostic["proxy_rotated"] = True
+                if bool(pd.get("fallback_used")):
+                    diagnostic["fallback_used"] = True
+                if pd.get("fallback_reason"):
+                    diagnostic["fallback_reason"] = str(pd.get("fallback_reason"))
+                if isinstance(pd.get("self_retry_count"), (int, float)):
+                    diagnostic["self_retry_count"] = int(pd.get("self_retry_count") or 0)
         except TimeoutError:
             timeout_error = f"crawl_timeout_{int(crawl_timeout_s * 1000)}ms"
             errors.append(f"{platform}:{timeout_error}")
@@ -147,6 +166,7 @@ async def process_job(message: Dict[str, Any]) -> CrawlerResultPayload:
             provider_mix=provider_mix,
         ),
         errors=errors,
+        diagnostic=diagnostic,
     )
 
     await job_store.set_status(job_id, status, {"result": result_payload.model_dump()})
