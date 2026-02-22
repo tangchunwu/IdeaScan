@@ -871,11 +871,16 @@ Deno.serve(async (req) => {
       const enableDy = config?.enableDouyin ?? false;
       const enableSelfCrawler = config?.enableSelfCrawler ?? true;
       const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
+
+      // Auto-degradation: if self-crawler env is not configured, treat it as unavailable
+      const crawlerServiceUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
+      const selfCrawlerAvailable = enableSelfCrawler && !!crawlerServiceUrl;
+      const effectiveEnableTikhubFallback = enableTikhubFallback || !selfCrawlerAvailable;
       
-      const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
-      let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
+      const userProvidedTikhub = effectiveEnableTikhubFallback && !!config?.tikhubToken;
+      let tikhubToken = effectiveEnableTikhubFallback ? config?.tikhubToken : undefined;
       
-      if (enableTikhubFallback && !userProvidedTikhub && !usedCache) {
+      if (effectiveEnableTikhubFallback && !userProvidedTikhub && !usedCache) {
         // Delay quota enforcement until third-party crawler is actually needed.
         tikhubToken = Deno.env.get("TIKHUB_TOKEN");
       }
@@ -928,7 +933,7 @@ Deno.serve(async (req) => {
       checkpointSocialData = socialData;
       checkpointCompetitorData = competitorData;
 
-      if (!usedCache && (enableXhs || enableDy) && !enableSelfCrawler && !enableTikhubFallback) {
+      if (!usedCache && (enableXhs || enableDy) && !selfCrawlerAvailable && !effectiveEnableTikhubFallback) {
         throw new ValidationError("DATA_SOURCE_DISABLED:已关闭自爬与TikHub兜底，且当前无可用缓存。请至少启用一个采集链路。");
       }
 
@@ -939,7 +944,7 @@ Deno.serve(async (req) => {
         let selfCrawlerRouteError = "";
         let selfCrawlerRouteDiagnostic = "";
 
-        const shouldAttemptSelfCrawler = enableSelfCrawler;
+        const shouldAttemptSelfCrawler = selfCrawlerAvailable;
         const effectiveCrawlerMode: "quick" | "deep" = mode === "deep" ? "deep" : "quick";
         const maxSelfRetries = 2;
         let selfRetryCount = 0;
@@ -1105,9 +1110,9 @@ Deno.serve(async (req) => {
         }
         crawlSelfRetryCount = selfRetryCount;
 
-        if (!usedSelfCrawler && enableTikhubFallback) {
-          if (!tikhubToken && !enableSelfCrawler) {
-            throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");
+        if (!usedSelfCrawler && effectiveEnableTikhubFallback) {
+          if (!tikhubToken && !selfCrawlerAvailable) {
+            throw new ValidationError("DATA_SOURCE_UNAVAILABLE:自爬服务未连接且未配置 TikHub Token。请联系管理员或在设置中配置 Token。");
           }
 
           if (!userProvidedTikhub && tikhubToken) {
