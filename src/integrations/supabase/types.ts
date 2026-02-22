@@ -101,6 +101,143 @@ export type Database = {
           },
         ]
       }
+      crawler_jobs: {
+        Row: {
+          attempt: number | null
+          cost_breakdown: Json | null
+          created_at: string
+          error: string | null
+          external_job_id: string | null
+          id: string
+          platforms: string[]
+          quality_score: number | null
+          query: string
+          request_payload: Json | null
+          result_payload: Json | null
+          source: string
+          status: string
+          trace_id: string | null
+          updated_at: string
+          validation_id: string | null
+        }
+        Insert: {
+          attempt?: number | null
+          cost_breakdown?: Json | null
+          created_at?: string
+          error?: string | null
+          external_job_id?: string | null
+          id?: string
+          platforms?: string[]
+          quality_score?: number | null
+          query?: string
+          request_payload?: Json | null
+          result_payload?: Json | null
+          source?: string
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+          validation_id?: string | null
+        }
+        Update: {
+          attempt?: number | null
+          cost_breakdown?: Json | null
+          created_at?: string
+          error?: string | null
+          external_job_id?: string | null
+          id?: string
+          platforms?: string[]
+          quality_score?: number | null
+          query?: string
+          request_payload?: Json | null
+          result_payload?: Json | null
+          source?: string
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+          validation_id?: string | null
+        }
+        Relationships: []
+      }
+      crawler_provider_metrics_daily: {
+        Row: {
+          avg_cost: number
+          avg_quality: number
+          day: string
+          p95_latency_ms: number
+          provider: string
+          success_rate: number
+          total_jobs: number
+          updated_at: string
+        }
+        Insert: {
+          avg_cost?: number
+          avg_quality?: number
+          day: string
+          p95_latency_ms?: number
+          provider: string
+          success_rate?: number
+          total_jobs?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_cost?: number
+          avg_quality?: number
+          day?: string
+          p95_latency_ms?: number
+          provider?: string
+          success_rate?: number
+          total_jobs?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crawler_samples: {
+        Row: {
+          content: string
+          content_hash: string
+          created_at: string
+          engagement: number | null
+          id: string
+          job_id: string
+          metadata: Json | null
+          platform: string
+          published_at: string | null
+          sample_type: string
+        }
+        Insert: {
+          content?: string
+          content_hash?: string
+          created_at?: string
+          engagement?: number | null
+          id?: string
+          job_id: string
+          metadata?: Json | null
+          platform?: string
+          published_at?: string | null
+          sample_type?: string
+        }
+        Update: {
+          content?: string
+          content_hash?: string
+          created_at?: string
+          engagement?: number | null
+          id?: string
+          job_id?: string
+          metadata?: Json | null
+          platform?: string
+          published_at?: string | null
+          sample_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crawler_samples_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "crawler_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demand_experiments: {
         Row: {
           checkout_start_count: number

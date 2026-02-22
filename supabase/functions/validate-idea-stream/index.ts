@@ -717,7 +717,7 @@ Deno.serve(async (req) => {
 
   // Process validation asynchronously
   (async () => {
-    let supabase: ReturnType<typeof createClient> | null = null;
+    let supabase: any = null;
     let validationId: string | null = null;
     let checkpointKeyword = "";
     let checkpointUserId = "";
