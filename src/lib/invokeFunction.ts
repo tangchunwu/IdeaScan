@@ -204,7 +204,7 @@ export async function invokeFunction<T = any>(
 
   const callViaFetch = async (tokenOverride?: string) => {
     // === [拦截器] 本地开发直连 Crawler Service 绕过 Supabase 云网络 ===
-    const isLocalDevelopment = import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const isLocalDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     if (isLocalDevelopment && functionName.startsWith("crawler-")) {
       const localCrawlerApp = "http://127.0.0.1:8001";
       let method = options.method || "POST";

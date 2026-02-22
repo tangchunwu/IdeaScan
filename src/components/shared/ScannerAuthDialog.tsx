@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Loader2, QrCode, Shield, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { invokeFunction } from "@/lib/invokeFunction";
 
 interface ScannerAuthDialogProps {
        open: boolean;
@@ -26,33 +27,34 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
               }
 
               if (!open) {
-                     // 关闭弹窗时清理状态
                      setQrBase64("");
                      setFlowId("");
                      setIsAuthorized(false);
               }
        }, [open]);
 
-       // 获取小红书二维码流
        const startAuthFlow = async () => {
               setLoadingQr(true);
               try {
-                     const res = await fetch("http://127.0.0.1:8001/internal/v1/auth/sessions/start", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ platform: "xiaohongshu", user_id: userId }),
-                     });
-                     const data = await res.json();
-                     if (data.status === "pending" || data.flow_id) {
-                            setFlowId(data.flow_id);
-                            setQrBase64(data.qr_image_base64);
-                            setAuthMessage(data.message || "请打开小红书 APP 扫码");
-                     } else {
-                            toast({ title: "爬虫流启失败", description: data.error, variant: "destructive" });
-                            onOpenChange(false);
-                     }
+              const result = await invokeFunction("crawler-auth-start", {
+                     body: { platform: "xiaohongshu", user_id: userId },
+              });
+              if (result.error) {
+                     toast({ title: "爬虫流启失败", description: result.error.message, variant: "destructive" });
+                     onOpenChange(false);
+                     return;
+              }
+              const data = result.data as any;
+              if (data.status === "pending" || data.flow_id) {
+                     setFlowId(data.flow_id);
+                     setQrBase64(data.qr_image_base64);
+                     setAuthMessage(data.message || "请打开小红书 APP 扫码");
+              } else {
+                     toast({ title: "爬虫流启失败", description: data.error, variant: "destructive" });
+                     onOpenChange(false);
+              }
               } catch (e) {
-                     toast({ title: "爬虫服务未连接", description: "请确保本地 8000 端口爬虫已启动", variant: "destructive" });
+                     toast({ title: "爬虫服务未连接", description: "认证服务暂不可用，请稍后重试", variant: "destructive" });
                      onOpenChange(false);
               } finally {
                      setLoadingQr(false);
@@ -63,17 +65,18 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
        useEffect(() => {
               if (!flowId || isAuthorized || !open) return;
 
-              // 轮询检查扫码动作（慢一点，降低压力）
               const interval = setInterval(async () => {
                      try {
-                            const res = await fetch(`http://127.0.0.1:8001/internal/v1/auth/sessions/${flowId}`);
-                            const data = await res.json();
+                            const result = await invokeFunction("crawler-auth-status", {
+                                   body: { flow_id: flowId },
+                            });
+                            if (result.error) return;
+                            const data = result.data as any;
 
                             if (data.status === "authorized" || data.session_saved) {
                                    setIsAuthorized(true);
                                    setAuthMessage("✅ 登录鉴权及 Cookie 持久化成功！");
                                    clearInterval(interval);
-                                   // 回调，将控制权和标识传回给验证主流程
                                    setTimeout(() => {
                                           onSuccess(data.user_id || userId);
                                           onOpenChange(false);
@@ -83,7 +86,6 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                                    clearInterval(interval);
                                    setFlowId("");
                             } else {
-                                   // Pending 状态，更新界面的提示文字
                                    if (data.message) {
                                           setAuthMessage(data.message);
                                    }
@@ -91,7 +93,7 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                      } catch (e) {
                             console.error("查状态报错", e);
                      }
-              }, 3000); // 3 秒查一次
+              }, 3000);
 
               return () => clearInterval(interval);
        }, [flowId, isAuthorized, open, onSuccess, onOpenChange, userId, toast]);
@@ -110,7 +112,6 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                             </DialogHeader>
 
                             <div className="flex flex-col items-center justify-center p-6 space-y-6">
-                                   {/* 二维码容器 */}
                                    <div className="relative w-48 h-48 bg-white/50 rounded-2xl border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden shadow-inner">
                                           {isAuthorized ? (
                                                  <div className="flex flex-col items-center text-primary animate-scale-in">
@@ -134,7 +135,6 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                                           )}
                                    </div>
 
-                                   {/* 状态文字和提示语 */}
                                    <div className="text-center space-y-2 w-full">
                                           <p className={`font-medium ${isAuthorized ? 'text-primary' : 'text-foreground'}`}>
                                                  {authMessage}
@@ -145,7 +145,6 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                                                  </p>
                                           )}
                                    </div>
-
                             </div>
                      </DialogContent>
               </Dialog>

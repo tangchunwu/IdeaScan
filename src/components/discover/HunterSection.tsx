@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { GlassCard, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,7 +104,8 @@ const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
        );
 };
 
-const CreateJobDialog = ({ onCreated }: { onCreated: () => void }) => {
+const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void }>(
+       ({ onCreated }, ref) => {
        const [open, setOpen] = useState(false);
        const [keywords, setKeywords] = useState("");
        const [isSubmitting, setIsSubmitting] = useState(false);
@@ -160,7 +161,8 @@ const CreateJobDialog = ({ onCreated }: { onCreated: () => void }) => {
                      </DialogContent>
               </Dialog>
        );
-};
+});
+CreateJobDialog.displayName = "CreateJobDialog";
 
 // === Main Section Component ===
 
