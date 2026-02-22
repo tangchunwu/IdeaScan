@@ -14,6 +14,7 @@ vi.mock('@/services/validationService', () => ({
 // Mock useSettings
 vi.mock('@/hooks/useSettings', () => ({
         useSettings: vi.fn(() => ({
+                llmFallbacks: [],
                 llmProvider: 'openai',
                 llmBaseUrl: 'https://api.openai.com/v1',
                 llmApiKey: 'test-key',
@@ -21,6 +22,8 @@ vi.mock('@/hooks/useSettings', () => ({
                 tikhubToken: 'test-token',
                 enableXiaohongshu: true,
                 enableDouyin: false,
+                enableSelfCrawler: true,
+                enableTikhubFallback: true,
                 bochaApiKey: '',
                 youApiKey: '',
                 tavilyApiKey: '',

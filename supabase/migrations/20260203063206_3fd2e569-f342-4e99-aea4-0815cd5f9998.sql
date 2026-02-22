@@ -104,7 +104,16 @@ BEGIN
 END;
 $$;
 
--- 5. Insert sample reports (using existing validations)
-INSERT INTO public.sample_reports (validation_id, title, display_order) VALUES
-  ('6ea1894d-3197-42de-affd-905a4d305a25', 'API 合规 SaaS 工具', 1),
-  ('7310d708-8727-4591-a20b-d1687f8cc2ef', '投资组合收益计算器', 2);
+-- 5. Insert sample reports (only when referenced validations exist)
+INSERT INTO public.sample_reports (validation_id, title, display_order)
+SELECT v.validation_id, v.title, v.display_order
+FROM (
+  VALUES
+    ('6ea1894d-3197-42de-affd-905a4d305a25'::uuid, 'API 合规 SaaS 工具', 1),
+    ('7310d708-8727-4591-a20b-d1687f8cc2ef'::uuid, '投资组合收益计算器', 2)
+) AS v(validation_id, title, display_order)
+WHERE EXISTS (
+  SELECT 1
+  FROM public.validations s
+  WHERE s.id = v.validation_id
+);

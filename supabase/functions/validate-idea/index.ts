@@ -34,11 +34,13 @@ import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_sha
 import { cleanCompetitorPages, isCleanableUrl } from "../_shared/jina-reader.ts";
 import { summarizeBatch, aggregateSummaries, type SummaryConfig } from "../_shared/summarizer.ts";
 import { applyContextBudget } from "../_shared/context-budgeter.ts";
+import { routeCrawlerSource } from "../_shared/crawler-router.ts";
 import {
   calculateEvidenceGrade,
   estimateCostBreakdown,
   createDefaultProofResult,
 } from "../_shared/report-metrics.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -59,12 +61,39 @@ interface RequestConfig {
   tikhubToken?: string;
   enableXiaohongshu?: boolean;
   enableDouyin?: boolean;
+  enableSelfCrawler?: boolean;
+  enableTikhubFallback?: boolean;
   searchKeys?: {
     bocha?: string;
     you?: string;
     tavily?: string;
   };
   mode?: 'quick' | 'deep';
+}
+
+function resolveSearchKeys(config?: RequestConfig) {
+  return {
+    tavily: config?.searchKeys?.tavily || Deno.env.get("TAVILY_API_KEY") || "",
+    bocha: config?.searchKeys?.bocha || Deno.env.get("BOCHA_API_KEY") || "",
+    you: config?.searchKeys?.you || Deno.env.get("YOU_API_KEY") || "",
+  };
+}
+
+function resolveLLMRuntime(config?: RequestConfig) {
+  const apiKey = config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+  const baseUrl = (config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1")
+    .replace(/\/$/, "")
+    .replace(/\/chat\/completions$/, "");
+  const model = config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  return { apiKey, baseUrl, model };
+}
+
+function countEnabledSearchProviders(keys: { tavily?: string; bocha?: string; you?: string }) {
+  let n = 0;
+  if (keys.tavily) n += 1;
+  if (keys.bocha) n += 1;
+  if (keys.you) n += 1;
+  return n;
 }
 
 /**
@@ -85,6 +114,8 @@ function validateConfig(config: unknown): RequestConfig {
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
     enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
+    enableSelfCrawler: typeof c.enableSelfCrawler === 'boolean' ? c.enableSelfCrawler : true,
+    enableTikhubFallback: typeof c.enableTikhubFallback === 'boolean' ? c.enableTikhubFallback : true,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -502,10 +533,10 @@ function createLightweightDataSummary(
 }
 
 async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
-  // Always use system LLM configuration
-  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  const llmRuntime = resolveLLMRuntime(config);
+  const apiKey = llmRuntime.apiKey;
+  const baseUrl = llmRuntime.baseUrl;
+  const model = llmRuntime.model;
   
   const result = await expandKeywords(idea, tags || [], {
     apiKey,
@@ -535,10 +566,10 @@ async function analyzeWithAI(
   dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
-  // Always use system LLM configuration
-  const apiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-  const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-  const model = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+  const llmRuntime = resolveLLMRuntime(config);
+  const apiKey = llmRuntime.apiKey;
+  const baseUrl = llmRuntime.baseUrl;
+  const model = llmRuntime.model;
 
   let cleanBaseUrl = baseUrl.replace(/\/$/, "");
   if (cleanBaseUrl.endsWith("/chat/completions")) {
@@ -913,22 +944,25 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Authenticate user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new ValidationError("Authorization required");
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new ValidationError("Invalid or expired session");
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     // Check rate limit
     await checkRateLimit(supabase, user.id, "validate-idea");
 
+    const mode = config?.mode || 'quick';
+    const enableXiaohongshu = config?.enableXiaohongshu ?? true;
+    const enableDouyin = config?.enableDouyin ?? false;
+    const enableSelfCrawler = config?.enableSelfCrawler ?? true;
+    // Single-crawler policy: if self crawler is enabled, do not switch to third-party fallback.
+    // This keeps runtime behavior deterministic and avoids mixed-route confusion.
+    const enableTikhubFallbackRaw = config?.enableTikhubFallback ?? (mode === 'deep');
+    const enableTikhubFallback = enableSelfCrawler ? false : enableTikhubFallbackRaw;
+
     // ============ TikHub Quota Check ============
-    const userProvidedTikhub = !!config?.tikhubToken;
-    let tikhubToken = config?.tikhubToken;
-    
-    if (!userProvidedTikhub) {
+    const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
+    let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
+
+    if (enableTikhubFallback && !userProvidedTikhub) {
       // Delay quota enforcement until we actually need third-party crawling.
       tikhubToken = Deno.env.get("TIKHUB_TOKEN");
     }
@@ -953,6 +987,9 @@ serve(async (req) => {
     console.log("Created validation:", validation.id);
     const startedAt = Date.now();
     let externalApiCalls = 0;
+    let crawlerCalls = 0;
+    let crawlerLatencyMs = 0;
+    const crawlerProviderMix: Record<string, number> = {};
 
     // 1.5 Extract keywords with multi-dimensional expansion (uses system LLM)
     console.log("Extracting keywords...");
@@ -961,9 +998,6 @@ serve(async (req) => {
 
     // 2. Crawl social media data (using multi-channel adapter architecture)
     const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
-    const mode = config?.mode || 'quick';
-    const enableXiaohongshu = config?.enableXiaohongshu ?? true;
-    const enableDouyin = config?.enableDouyin ?? false;
     let usedThirdPartyCrawler = false;
 
     let xiaohongshuData = {
@@ -978,13 +1012,54 @@ serve(async (req) => {
       sampleComments: []
     } as any;
 
-    const selfCrawlerRatio = Number(Deno.env.get("SELF_CRAWLER_RATIO") || "0.2");
-    if (shouldUseSelfCrawler(user.id, xhsSearchTerm, selfCrawlerRatio)) {
-      xiaohongshuData = await crawlFromSelfSignals(supabase, xhsSearchTerm, enableXiaohongshu, enableDouyin, mode);
-      externalApiCalls += 1;
+    if ((enableXiaohongshu || enableDouyin) && !enableSelfCrawler && !enableTikhubFallback) {
+      throw new ValidationError("DATA_SOURCE_DISABLED:已关闭自爬与TikHub兜底，且当前无可用缓存。请至少启用一个采集链路。");
     }
 
-    if ((xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 8) {
+    // Deterministic routing: when self-crawler is enabled, always try the same crawler-service first.
+    // Avoid ratio-based split that can make behavior look random across requests.
+    const shouldAttemptSelfCrawler = enableSelfCrawler;
+    const effectiveCrawlerMode: "quick" | "deep" = "deep";
+    if (shouldAttemptSelfCrawler) {
+      const crawlerStarted = Date.now();
+      const routed = await routeCrawlerSource({
+        supabase,
+        validationId: validation.id,
+        userId: user.id,
+        query: xhsSearchTerm,
+        mode: effectiveCrawlerMode,
+        enableXiaohongshu,
+        enableDouyin,
+        source: "self_crawler",
+        freshnessDays: 30,
+        timeoutMs: 90000,
+      });
+      if (routed.usedCrawlerService) {
+        crawlerCalls += 1;
+        crawlerLatencyMs += Date.now() - crawlerStarted;
+        const mix = (routed.costBreakdown.provider_mix || routed.costBreakdown.crawler_provider_mix || {}) as Record<string, unknown>;
+        for (const [provider, value] of Object.entries(mix)) {
+          crawlerProviderMix[provider] = Number(crawlerProviderMix[provider] || 0) + Number(value || 0);
+        }
+        externalApiCalls += Number(routed.costBreakdown.external_api_calls || 0);
+      }
+
+      if (routed.socialData) {
+        xiaohongshuData = {
+          ...xiaohongshuData,
+          ...routed.socialData,
+        };
+      } else {
+        console.log("[SourceRouter] crawler-service returned empty samples");
+      }
+    }
+
+    const needsThirdPartyFallback = (xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 12;
+    if (needsThirdPartyFallback && enableTikhubFallback) {
+      if (!tikhubToken && !enableSelfCrawler) {
+        throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");
+      }
+
       if (!userProvidedTikhub && tikhubToken) {
         const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
           p_user_id: user.id
@@ -998,16 +1073,24 @@ serve(async (req) => {
         }
       }
 
-      xiaohongshuData = await crawlSocialMediaData(
-        xhsSearchTerm,
-        tags || [],
-        tikhubToken,
-        mode,
-        enableXiaohongshu,
-        enableDouyin
-      );
-      usedThirdPartyCrawler = !!tikhubToken;
-      externalApiCalls += 1;
+      if (tikhubToken) {
+        xiaohongshuData = await crawlSocialMediaData(
+          xhsSearchTerm,
+          tags || [],
+          tikhubToken,
+          mode,
+          enableXiaohongshu,
+          enableDouyin
+        );
+        usedThirdPartyCrawler = true;
+        externalApiCalls += 1;
+      } else {
+        console.log("[SourceRouter] TikHub fallback enabled but token missing, skip fallback");
+      }
+    }
+
+    if (needsThirdPartyFallback && !enableTikhubFallback) {
+      throw new ValidationError("SELF_CRAWLER_EMPTY:自爬未抓到有效样本。请重新扫码登录，或开启 TikHub 兜底后重试。");
     }
 
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);
@@ -1016,25 +1099,26 @@ serve(async (req) => {
     // 2.5 Search competitors with enhanced pipeline
     let competitorData: SearchResult[] = [];
     let extractedCompetitors: any[] = [];
-    const tavilyKey = Deno.env.get("TAVILY_API_KEY");
-    const bochaKey = Deno.env.get("BOCHA_API_KEY");
-    const youKey = Deno.env.get("YOU_API_KEY");
-    const searchKeys = { tavily: tavilyKey, bocha: bochaKey, you: youKey };
-    const hasAnySearchKey = tavilyKey || bochaKey || youKey;
+    const searchKeys = resolveSearchKeys(config);
+    const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
     if (hasAnySearchKey) {
       console.log(`Searching competitors...`);
 
       // Initial search
       const searchPromises = webQueries.map(q => searchCompetitors(q, {
-        providers: tavilyKey ? ['tavily'] : (bochaKey ? ['bocha'] : ['you']),
+        providers: ([
+          searchKeys.tavily ? 'tavily' : null,
+          searchKeys.bocha ? 'bocha' : null,
+          searchKeys.you ? 'you' : null,
+        ].filter(Boolean) as ('bocha' | 'you' | 'tavily')[]),
         keys: searchKeys,
         mode: config?.mode
       }));
 
       const results = await Promise.all(searchPromises);
       const rawCompetitors = results.flat();
-      externalApiCalls += Math.max(1, webQueries.length);
+      externalApiCalls += Math.max(1, webQueries.length * Math.max(1, countEnabledSearchProviders(searchKeys)));
       console.log(`Found ${rawCompetitors.length} competitor results`);
 
       // Jina Reader 清洗
@@ -1067,9 +1151,9 @@ serve(async (req) => {
 
       // 竞品名称提取
       const llmConfig: LLMConfig = {
-        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-        baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+        apiKey: resolveLLMRuntime(config).apiKey,
+        baseUrl: resolveLLMRuntime(config).baseUrl,
+        model: resolveLLMRuntime(config).model
       };
 
       if (llmConfig.apiKey) {
@@ -1105,9 +1189,9 @@ serve(async (req) => {
     console.log("Summarizing raw data with tiered approach...");
     
     const summaryConfig: SummaryConfig = {
-      apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-      baseUrl: (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "").replace(/\/chat\/completions$/, ""),
-      model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview"
+      apiKey: resolveLLMRuntime(config).apiKey,
+      baseUrl: resolveLLMRuntime(config).baseUrl,
+      model: resolveLLMRuntime(config).model
     };
 
     let socialSummaries: string[] = [];
@@ -1165,9 +1249,9 @@ serve(async (req) => {
     let dataSummary: DataSummary;
     if (mode === "deep") {
       dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-        apiKey: Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
-        baseUrl: Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
-        model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+        apiKey: resolveLLMRuntime(config).apiKey,
+        baseUrl: resolveLLMRuntime(config).baseUrl,
+        model: resolveLLMRuntime(config).model,
         mode: config?.mode
       });
     } else {
@@ -1278,6 +1362,9 @@ serve(async (req) => {
       externalApiCalls,
       model: summaryConfig.model,
       latencyMs: Date.now() - startedAt,
+      crawlerCalls,
+      crawlerLatencyMs,
+      crawlerProviderMix,
     });
     const proofResult = createDefaultProofResult();
 

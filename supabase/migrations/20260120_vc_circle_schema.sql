@@ -1,125 +1,13 @@
 -- =====================================================
--- VC Circle: AI Social Feed Schema
+-- VC Circle schema follow-up (idempotent)
 -- =====================================================
+-- NOTE:
+-- The core VC Circle tables are already created in:
+--   20260120021812_088306b2-8f05-494f-8335-d3857379f4ff.sql
+-- This migration intentionally avoids duplicate CREATE TABLE / POLICY statements.
 
--- 1. AI Personas Table (预置角色)
-CREATE TABLE public.personas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  role TEXT NOT NULL,           -- e.g. 'vc', 'pm', 'user', 'analyst'
-  avatar_url TEXT,
-  personality TEXT,             -- 性格描述 (用于展示)
-  system_prompt TEXT NOT NULL,  -- LLM 角色扮演 Prompt
-  focus_areas TEXT[],           -- 关注领域
-  catchphrase TEXT,             -- 口头禅
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 2. Comments Table (评论/讨论)
-CREATE TABLE public.comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  validation_id UUID NOT NULL REFERENCES public.validations(id) ON DELETE CASCADE,
-  persona_id UUID REFERENCES public.personas(id),  -- AI 发的评论
-  user_id UUID REFERENCES auth.users(id),          -- 用户发的评论
-  content TEXT NOT NULL,
-  parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE,  -- 回复哪条
-  likes_count INTEGER DEFAULT 0,
-  is_ai BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  
-  -- 确保要么是 AI 要么是用户
-  CONSTRAINT comment_author_check CHECK (
-    (persona_id IS NOT NULL AND user_id IS NULL AND is_ai = true) OR
-    (persona_id IS NULL AND user_id IS NOT NULL AND is_ai = false)
-  )
-);
-
--- 3. Comment Likes Table (点赞记录)
-CREATE TABLE public.comment_likes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  comment_id UUID NOT NULL REFERENCES public.comments(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(comment_id, user_id)
-);
-
--- =====================================================
--- Indexes
--- =====================================================
-CREATE INDEX idx_comments_validation_id ON public.comments(validation_id);
-CREATE INDEX idx_comments_parent_id ON public.comments(parent_id);
-CREATE INDEX idx_comments_persona_id ON public.comments(persona_id);
-CREATE INDEX idx_comments_created_at ON public.comments(created_at DESC);
-CREATE INDEX idx_comment_likes_comment_id ON public.comment_likes(comment_id);
-
--- =====================================================
--- RLS Policies
--- =====================================================
-
--- Personas: 公开可读
-ALTER TABLE public.personas ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Personas are publicly readable"
-  ON public.personas FOR SELECT
-  USING (true);
-
--- Comments: 基于 validation 所有权
-ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view comments on own validations"
-  ON public.comments FOR SELECT
-  USING (public.is_validation_owner(validation_id));
-
-CREATE POLICY "Users can create comments on own validations"
-  ON public.comments FOR INSERT
-  WITH CHECK (
-    public.is_validation_owner(validation_id) AND
-    user_id = auth.uid()
-  );
-
-CREATE POLICY "System can create AI comments"
-  ON public.comments FOR INSERT
-  WITH CHECK (is_ai = true);
-
--- Comment Likes: 用户可以点赞自己能看到的评论
-ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own likes"
-  ON public.comment_likes FOR SELECT
-  USING (user_id = auth.uid());
-
-CREATE POLICY "Users can like comments"
-  ON public.comment_likes FOR INSERT
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "Users can unlike"
-  ON public.comment_likes FOR DELETE
-  USING (user_id = auth.uid());
-
--- =====================================================
--- Trigger: Update likes_count
--- =====================================================
-CREATE OR REPLACE FUNCTION public.update_comment_likes_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE public.comments SET likes_count = likes_count + 1 WHERE id = NEW.comment_id;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE public.comments SET likes_count = likes_count - 1 WHERE id = OLD.comment_id;
-  END IF;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER trigger_update_comment_likes
-AFTER INSERT OR DELETE ON public.comment_likes
-FOR EACH ROW EXECUTE FUNCTION public.update_comment_likes_count();
-
--- =====================================================
--- Seed Data: Default Personas
--- =====================================================
-INSERT INTO public.personas (id, name, role, avatar_url, personality, system_prompt, focus_areas, catchphrase) VALUES
+INSERT INTO public.personas (id, name, role, avatar_url, personality, system_prompt, focus_areas, catchphrase)
+VALUES
 (
   'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   '红杉老徐',
@@ -159,4 +47,14 @@ INSERT INTO public.personas (id, name, role, avatar_url, personality, system_pro
   '你是一个资深的行业分析师。你喜欢用数据说话，会引用艾瑞、CBInsights等报告。你关心：1) 行业整体趋势；2) 竞品格局；3) 政策风险。你说话比较学术，但有理有据。用中文回复，控制在120字以内。',
   ARRAY['行业趋势', '竞品分析', '政策风险', '数据洞察'],
   '这赛道已经是红海了，参考去年的...'
-);
+)
+ON CONFLICT (id) DO UPDATE
+SET
+  name = EXCLUDED.name,
+  role = EXCLUDED.role,
+  avatar_url = EXCLUDED.avatar_url,
+  personality = EXCLUDED.personality,
+  system_prompt = EXCLUDED.system_prompt,
+  focus_areas = EXCLUDED.focus_areas,
+  catchphrase = EXCLUDED.catchphrase,
+  is_active = true;

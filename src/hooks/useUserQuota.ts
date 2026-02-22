@@ -12,6 +12,7 @@ interface QuotaResult {
 export function useUserQuota() {
   const { user } = useAuth();
   const settings = useSettings();
+  const needsTikhubQuota = !settings.tikhubToken && settings.enableTikhubFallback;
 
   const { data: quota, isLoading, refetch } = useQuery({
     queryKey: ['user-quota', user?.id],
@@ -28,18 +29,19 @@ export function useUserQuota() {
       // RPC returns an array with one row
       return (data as QuotaResult[])?.[0] || null;
     },
-    enabled: !!user,
+    enabled: !!user && needsTikhubQuota,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // User has their own TikHub Token = unlimited usage
   const hasOwnTikhub = !!settings.tikhubToken;
+  const bypassQuota = hasOwnTikhub || !settings.enableTikhubFallback;
 
   return {
-    freeRemaining: hasOwnTikhub ? Infinity : Math.max(0, (quota?.total || 3) - (quota?.used || 0)),
+    freeRemaining: bypassQuota ? Infinity : Math.max(0, (quota?.total || 3) - (quota?.used || 0)),
     freeUsed: quota?.used || 0,
     freeTotal: quota?.total || 3,
-    canValidate: hasOwnTikhub || (quota?.can_use ?? true),
+    canValidate: bypassQuota || (quota?.can_use ?? true),
     hasOwnTikhub,
     isLoading: isLoading && !!user,
     refetch,

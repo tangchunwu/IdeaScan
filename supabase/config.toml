@@ -1,1 +1,46 @@
-project_id = "tayhqwtvsuurtwtpscai"
+project_id = "hwqzkkldhmfcrsqalade"
+
+[functions.crawler-health]
+verify_jwt = false
+
+[functions.crawler-auth-start]
+verify_jwt = false
+
+[functions.crawler-auth-status]
+verify_jwt = false
+
+[functions.crawler-auth-cancel]
+verify_jwt = false
+
+[functions.crawler-auth-sessions]
+verify_jwt = false
+
+[functions.crawler-auth-revoke]
+verify_jwt = false
+
+[functions.crawler-auth-import-cookies]
+verify_jwt = false
+
+[functions.suggest-keywords]
+verify_jwt = false
+
+[functions.validate-idea-stream]
+verify_jwt = false
+
+[functions.validate-idea]
+verify_jwt = false
+
+[functions.list-validations]
+verify_jwt = false
+
+[functions.get-validation]
+verify_jwt = false
+
+[functions.delete-validation]
+verify_jwt = false
+
+[functions.user-settings]
+verify_jwt = false
+
+[functions.verify-config]
+verify_jwt = false

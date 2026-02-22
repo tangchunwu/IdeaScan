@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 
 export interface UserSettings {
+  llmFallbacks: Array<{
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }>;
+
   // LLM Settings
   llmProvider: 'openai' | 'deepseek' | 'custom';
   llmBaseUrl: string;
@@ -15,6 +22,8 @@ export interface UserSettings {
   // Data Source Settings
   enableXiaohongshu: boolean;
   enableDouyin: boolean;
+  enableSelfCrawler: boolean;
+  enableTikhubFallback: boolean;
 
   // Search Settings
   bochaApiKey: string;
@@ -43,6 +52,7 @@ interface SettingsState extends UserSettings {
 }
 
 const defaultSettings: UserSettings = {
+  llmFallbacks: [],
   llmProvider: 'openai',
   llmBaseUrl: 'https://api.openai.com/v1',
   llmApiKey: '',
@@ -50,6 +60,8 @@ const defaultSettings: UserSettings = {
   tikhubToken: '',
   enableXiaohongshu: true,
   enableDouyin: false,
+  enableSelfCrawler: true,
+  enableTikhubFallback: true,
   bochaApiKey: '',
   youApiKey: '',
   tavilyApiKey: '',
@@ -86,9 +98,9 @@ export const useSettings = create<SettingsState>()(
             return;
           }
 
-          const { data, error } = await supabase.functions.invoke('user-settings', {
+          const { data, error } = await invokeFunction<{ settings: Partial<UserSettings> | null }>('user-settings', {
             method: 'GET',
-          });
+          }, true);
 
           if (error) {
             throw error;
@@ -131,10 +143,10 @@ export const useSettings = create<SettingsState>()(
 
           const settingsToSync = extractSettingsOnly(state);
 
-          const { error } = await supabase.functions.invoke('user-settings', {
+          const { error } = await invokeFunction('user-settings', {
             method: 'POST',
             body: { settings: settingsToSync },
-          });
+          }, true);
 
           if (error) {
             throw error;
@@ -155,11 +167,18 @@ export const useSettings = create<SettingsState>()(
       name: 'user-settings',
       // Only persist non-sensitive fields locally as backup
       partialize: (state) => ({
+        llmFallbacks: state.llmFallbacks.map((item) => ({
+          baseUrl: item.baseUrl,
+          model: item.model,
+          apiKey: '',
+        })),
         llmProvider: state.llmProvider,
         llmBaseUrl: state.llmBaseUrl,
         llmModel: state.llmModel,
         enableXiaohongshu: state.enableXiaohongshu,
         enableDouyin: state.enableDouyin,
+        enableSelfCrawler: state.enableSelfCrawler,
+        enableTikhubFallback: state.enableTikhubFallback,
         imageGenBaseUrl: state.imageGenBaseUrl,
         imageGenModel: state.imageGenModel,
         // API keys are NOT persisted locally for security

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateUUID, ValidationError, createErrorResponse, LIMITS } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,24 +16,11 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authorization
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new ValidationError("Authorization required");
-    }
-
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Validate JWT token
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     // Check rate limit
     await checkRateLimit(supabase, user.id, "get-validation");
@@ -105,9 +93,28 @@ serve(async (req) => {
       console.error("Error fetching report:", reportError);
     }
 
+    const summary = (report?.data_summary && typeof report.data_summary === "object")
+      ? report.data_summary as Record<string, unknown>
+      : {};
+    const stage = String(summary?.checkpointStage || "").toLowerCase();
+    const checkpointUpdatedAt = String(summary?.checkpointUpdatedAt || "");
+    const checkpointMs = checkpointUpdatedAt ? Date.parse(checkpointUpdatedAt) : 0;
+    const staleAnalyze = checkpointMs > 0 && (Date.now() - checkpointMs >= 120000);
+    const resumable = validation.status === "failed" || (
+      validation.status === "processing"
+      && staleAnalyze
+      && (stage.includes("analyze") || stage.includes("summarize"))
+    );
+
     return new Response(
       JSON.stringify({
-        validation,
+        validation: {
+          ...validation,
+          resumable,
+          resume_hint: resumable
+            ? (validation.status === "failed" ? "failed_record" : `stale_${stage || "processing"}`)
+            : "",
+        },
         report,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

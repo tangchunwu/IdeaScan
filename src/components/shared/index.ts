@@ -13,3 +13,4 @@ export * from "./BrandLoader";
 export * from "./PageTransition";
 export * from "./OnboardingTour";
 export * from "./ChartSkeleton";
+export * from "./ScannerAuthDialog";

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateUUID, ValidationError, createErrorResponse } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
+import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,24 +16,11 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authorization
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new ValidationError("Authorization required");
-    }
-
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Validate JWT token
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new ValidationError("Invalid or expired session");
-    }
+    const { user } = await resolveAuthUserOrBypass(supabase, req);
 
     // Check rate limit
     await checkRateLimit(supabase, user.id, "delete-validation");

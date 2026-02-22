@@ -404,6 +404,20 @@ const History = () => {
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 flex-shrink-0">
+                          {(item.status === 'failed' || item.resumable) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/validate?idea=${encodeURIComponent(item.idea)}&auto=true&resumeValidationId=${item.id}`);
+                              }}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              {item.status === 'processing' ? '尝试恢复' : '继续重试'}
+                            </Button>
+                          )}
                           {item.status === 'completed' && (
                             <Button
                               asChild
