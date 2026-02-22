@@ -1,4 +1,4 @@
-project_id = "hwqzkkldhmfcrsqalade"
+project_id = "tayhqwtvsuurtwtpscai"
 
 [functions.crawler-health]
 verify_jwt = false
@@ -43,4 +43,55 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.verify-config]
+verify_jwt = false
+
+[functions.crawler-callback]
+verify_jwt = false
+
+[functions.crawler-dispatch]
+verify_jwt = false
+
+[functions.crawler-scheduler]
+verify_jwt = false
+
+[functions.submit-mvp-lead]
+verify_jwt = false
+
+[functions.track-experiment-event]
+verify_jwt = false
+
+[functions.generate-mvp]
+verify_jwt = false
+
+[functions.scan-trending-topics]
+verify_jwt = false
+
+[functions.generate-discussion]
+verify_jwt = false
+
+[functions.get-sample-reports]
+verify_jwt = false
+
+[functions.re-analyze-validation]
+verify_jwt = false
+
+[functions.reply-to-comment]
+verify_jwt = false
+
+[functions.discover-topics]
+verify_jwt = false
+
+[functions.export-user-data]
+verify_jwt = false
+
+[functions.import-user-data]
+verify_jwt = false
+
+[functions.generate-persona-image]
+verify_jwt = false
+
+[functions.competitor-spy]
+verify_jwt = false
+
+[functions.signal-processor]
 verify_jwt = false

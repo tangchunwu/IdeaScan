@@ -87,7 +87,7 @@ function extractCrawlerFailureDiagnostic(payload: CrawlerResultPayload | null): 
   }
 
   if (Array.isArray(payload.platform_results)) {
-    for (const item of payload.platform_results as Array<Record<string, unknown>>) {
+    for (const item of (payload.platform_results as unknown as Array<Record<string, unknown>>)) {
       const ok = Boolean(item?.success);
       const platform = String(item?.platform || "unknown");
       const err = String(item?.error || "").trim();
