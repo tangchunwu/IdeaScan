@@ -1,113 +1,128 @@
 
 
-# 爬虫配置权限分离与 TikHub 自动降级
+# 优化四个 AI Agent 的能力
 
 ## 当前问题
 
-1. **`CRAWLER_SERVICE_BASE_URL` 和 `CRAWLER_SERVICE_TOKEN` 未配置为 Edge Function 密钥**，导致所有爬虫相关功能（扫码、health check）返回 "Crawler service disabled"
-2. **所有用户都能看到爬虫管理配置**（自爬开关、TikHub Token、采集策略等），普通用户会困惑
-3. **验证流程在自爬不可用时报错**，而不是自动降级到 TikHub
+1. **System Prompt 太笼统**：每个角色只有简单的性格描述，缺乏具体的评估框架和行为指令
+2. **上下文信息不足**：只传了 idea、tags、overall_score 和截断的 market/ai_analysis（各 500 字符），大量有价值的报告数据（dimensions 维度分数、sentiment 情绪分析、competitor 竞品、strengths/weaknesses/risks 等）完全没有利用
+3. **max_tokens 太小**：初始评论 200 tokens、回复 150 tokens，导致角色无法充分展开观点
+4. **回复缺乏深度**：reply-to-comment 的 prompt 过于简单，没有要求角色基于报告数据进行有针对性的反驳或认可
 
 ## 修改方案
 
-### 1. 配置爬虫服务密钥
+### 1. 升级数据库中的 System Prompt（4 条 UPDATE）
 
-需要添加两个 Edge Function 密钥：
-- `CRAWLER_SERVICE_BASE_URL` -- 你的爬虫服务公网域名（例如 `https://cenima.us.ci`）
-- `CRAWLER_SERVICE_TOKEN` -- 爬虫服务的认证 token（如果有的话）
-- `CRAWLER_CALLBACK_SECRET` -- 回调签名密钥（如果有的话）
+为每个角色设计更丰富的人设 prompt，包含：评估框架、语言风格指令、口头禅、具体行为规则。
 
-这些密钥配置后，所有 crawler 相关 Edge Function（health、auth-start、auth-status 等）就能正常连接你本地的爬虫服务。
+**红杉老徐（VC 合伙人）**：
+- 增加评估框架：TAM/SAM/SOM、护城河分析、10 倍增长逻辑
+- 要求引用具体维度分数来支撑观点
+- 加入口头禅和语气词（"说实话"、"坦率讲"）
+- 增加条件逻辑：高分项目要挑刺、低分项目要说为什么不投
 
-### 2. SettingsDialog 按角色分区显示
+**产品阿强（产品经理）**：
+- 增加 MVP 落地框架：冷启动策略、核心功能拆解、用户路径
+- 要求给出具体的产品建议而非泛泛而谈
+- 引用竞品数据进行对比
+- 加入产品思维的专业术语
 
-在 `src/components/shared/SettingsDialog.tsx` 中引入 `useAdminAuth`：
+**毒舌可可（用户代表）**：
+- 增加用户视角的具体场景模拟：第一次打开、付费决策、分享动机
+- 要求用生活化的比喻和吐槽
+- 加入情绪化表达和网络用语
+- 根据情感分析数据（positive/negative）调整吐槽力度
 
-**管理员可见（全部）：**
-- LLM 配置、TikHub Token、爬虫健康状态、已授权会话、采集策略开关、平台选择、搜索引擎、图片生成、导入导出
+**行业老王（分析师）**：
+- 增加数据引用框架：要求引用维度分数、竞争格局、趋势方向
+- 加入行业类比和案例引用的指令
+- 要求给出量化的市场判断
+- 引用 sentiment 数据作为论据
 
-**普通用户可见：**
-- LLM 配置
-- 扫码登录（小红书/抖音扫码按钮 + QR 码区域）-- 按钮不再依赖 `crawlerHealth?.healthy` 来禁用
-- 平台选择（小红书/抖音开关）
-- 搜索引擎配置
-- 图片生成配置
-- 导入导出
+### 2. 升级 generate-discussion 的 Context Prompt
 
-**普通用户隐藏：**
-- TikHub Token 输入框
-- 爬虫健康状态显示
-- 已授权会话列表
-- 采集执行策略开关（自爬/TikHub 兜底）
+当前只传了 idea + tags + score + 截断的 market/ai analysis。改为：
 
-### 3. 后端验证逻辑：自爬不可用时自动降级
+- 传入完整的 **dimensions**（6 个维度分数）
+- 传入 **ai_analysis** 的 strengths/weaknesses/risks/suggestions
+- 传入 **sentiment_analysis** 的正面/负面/中性比例及 topPositive/topNegative
+- 传入 **competitor_data** 摘要
+- 传入 **market_analysis** 的完整字段（targetAudience、competitionLevel、trendDirection）
 
-修改 `supabase/functions/validate-idea-stream/index.ts`：
+为每个角色定制不同的 context prompt 侧重点：
+- 红杉老徐：重点看 dimensions（市场需求、盈利潜力）+ risks + competitionLevel
+- 产品阿强：重点看 suggestions + strengths/weaknesses + targetAudience
+- 毒舌可可：重点看 sentiment（topPositive/topNegative）+ dimensions（可行性）
+- 行业老王：重点看 competitor_data + market_analysis + dimensions 全貌
 
-- 检测 `CRAWLER_SERVICE_BASE_URL` 是否配置，判断自爬是否真正可用
-- 自爬不可用时自动启用 TikHub 兜底，优先使用环境变量 `TIKHUB_TOKEN`
-- 只有自爬和 TikHub 都不可用时才报错
+### 3. 升级 reply-to-comment 的回复质量
+
+当前回复 prompt 太简单（"如果用户提出好观点就认可，否则追问"）。改为：
+
+- 要求角色引用具体报告数据来反驳或支持用户观点
+- 根据角色特性给出不同的回复策略
+- 增加"态度转变"机制：如果用户连续 3 轮都提出有力论据，角色可以被"说服"
+- 增加跨角色互动提示：AI 回复时可以提及其他角色的观点
+
+### 4. 调整 Token 限制
+
+- 初始评论：200 -> 400 tokens（让角色能充分展开）
+- 回复：150 -> 250 tokens（让对话更有深度）
 
 ---
 
 ## 技术实施细节
 
-### 步骤 1：添加密钥
+### 文件 1: 数据库 Migration - 更新 personas 表的 system_prompt
 
-使用 `add_secret` 工具请求用户输入：
-- `CRAWLER_SERVICE_BASE_URL`（爬虫服务的公网 HTTPS 域名）
-- `CRAWLER_SERVICE_TOKEN`（可选，爬虫服务认证 token）
-- `CRAWLER_CALLBACK_SECRET`（可选，回调签名密钥）
+4 条 UPDATE 语句，每个角色一条，更新 `system_prompt` 字段为更详细的人设。
 
-### 步骤 2：修改 `src/components/shared/SettingsDialog.tsx`
+### 文件 2: `supabase/functions/generate-discussion/index.ts`
 
-1. 添加 `import { useAdminAuth } from "@/hooks/useAdminAuth";`
-2. 组件内获取 `const { isAdmin } = useAdminAuth();`
-3. 用 `{isAdmin && (...)}` 包裹：
-   - TikHub Token 区域（第 1123-1142 行）
-   - 爬虫健康状态（第 1146-1158 行）
-   - 已授权会话列表（第 1233-1274 行）
-   - 采集执行策略开关区域（第 1277-1307 行）
-4. 扫码按钮区域（第 1159-1232 行）保留给所有用户，移除 `disabled={!crawlerHealth?.healthy}` 限制（改为仅在 `isAuthStarting` 时 disabled）
-
-### 步骤 3：修改 `supabase/functions/validate-idea-stream/index.ts`
-
-修改第 868-882 行和第 931-933 行以及第 1108-1111 行：
-
+1. 修改 `ValidationData` interface，增加更多字段：
 ```typescript
-// 第 868-882 行区域，增加自动降级逻辑
-const crawlerServiceUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
-const selfCrawlerAvailable = enableSelfCrawler && !!crawlerServiceUrl;
-const effectiveEnableTikhubFallback = enableTikhubFallback || !selfCrawlerAvailable;
-
-const userProvidedTikhub = effectiveEnableTikhubFallback && !!config?.tikhubToken;
-let tikhubToken = config?.tikhubToken || undefined;
-
-if (effectiveEnableTikhubFallback && !userProvidedTikhub && !usedCache) {
-  tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+interface ValidationData {
+  idea: string;
+  tags: string[];
+  overall_score: number;
+  dimensions?: Array<{ dimension: string; score: number }>;
+  report?: {
+    market_analysis?: {
+      targetAudience?: string;
+      competitionLevel?: string;
+      trendDirection?: string;
+      marketSize?: string;
+      keywords?: string[];
+    };
+    ai_analysis?: {
+      strengths?: string[];
+      weaknesses?: string[];
+      risks?: string[];
+      suggestions?: string[];
+      feasibilityScore?: number;
+    };
+    sentiment_analysis?: {
+      positive?: number;
+      negative?: number;
+      neutral?: number;
+      topPositive?: string[];
+      topNegative?: string[];
+    };
+    competitor_data?: Array<{ title: string; snippet: string }>;
+  };
 }
 ```
 
-```typescript
-// 第 931-933 行，移除硬性报错
-if (!usedCache && (enableXhs || enableDy) && !selfCrawlerAvailable && !effectiveEnableTikhubFallback && !tikhubToken) {
-  throw new ValidationError("DATA_SOURCE_DISABLED:...");
-}
-```
+2. 修改 `generatePersonaComment` 函数，根据 persona.role 构建不同侧重点的 context prompt
 
-```typescript
-// 第 942 行
-const shouldAttemptSelfCrawler = selfCrawlerAvailable;
-```
+3. 将 `max_tokens` 从 200 提升到 400
 
-```typescript
-// 第 1108-1111 行，改为使用 effectiveEnableTikhubFallback
-if (!usedSelfCrawler && effectiveEnableTikhubFallback) {
-  if (!tikhubToken) {
-    // 自爬不可用且无 TikHub token，给出友好提示
-    throw new ValidationError("DATA_SOURCE_UNAVAILABLE:自爬服务未连接且未配置 TikHub Token。请联系管理员或在设置中配置 Token。");
-  }
-  // ... 继续 TikHub 兜底流程
-}
-```
+4. 在 `validationData` 组装时，加入 dimensions 和更完整的 report 数据
+
+### 文件 3: `supabase/functions/reply-to-comment/index.ts`
+
+1. 在生成 AI 回复时，也查询 validation_reports 获取报告数据
+2. 升级 prompt，要求引用数据、保持角色深度
+3. 将 `max_tokens` 从 150 提升到 250
+4. 增加对话轮次感知（通过 conversationHistory 长度判断是否应该态度软化）
 
