@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Comment, Persona, CreateCommentInput } from "@/types/social";
 
+export interface LLMConfig {
+  llmBaseUrl?: string;
+  llmApiKey?: string;
+  llmModel?: string;
+}
+
 // Get all personas (only safe public fields, excludes sensitive system_prompt)
 export async function getPersonas(): Promise<Persona[]> {
   const { data, error } = await supabase
@@ -9,7 +15,6 @@ export async function getPersonas(): Promise<Persona[]> {
     .eq("is_active", true);
 
   if (error) throw error;
-  // Map to include system_prompt as empty string since it's not exposed to clients
   return (data || []).map(p => ({ ...p, system_prompt: '' }));
 }
 
@@ -25,7 +30,6 @@ export async function getComments(validationId: string): Promise<Comment[]> {
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  // Map persona data to include empty system_prompt
   return (data || []).map((c: any) => ({
     ...c,
     persona: c.persona ? { ...c.persona, system_prompt: '' } : undefined
@@ -33,15 +37,22 @@ export async function getComments(validationId: string): Promise<Comment[]> {
 }
 
 // Generate initial AI discussion
-export async function generateDiscussion(validationId: string): Promise<Comment[]> {
+export async function generateDiscussion(validationId: string, config?: LLMConfig): Promise<Comment[]> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
+  const body: any = { validation_id: validationId };
+  if (config?.llmApiKey || config?.llmBaseUrl || config?.llmModel) {
+    body.config = {
+      llmApiKey: config.llmApiKey || undefined,
+      llmBaseUrl: config.llmBaseUrl || undefined,
+      llmModel: config.llmModel || undefined,
+    };
+  }
+
   const response = await supabase.functions.invoke("generate-discussion", {
-    body: { validation_id: validationId },
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
+    body,
+    headers: { Authorization: `Bearer ${session.access_token}` },
   });
 
   if (response.error) throw response.error;
@@ -51,16 +62,24 @@ export async function generateDiscussion(validationId: string): Promise<Comment[
 // Reply to an AI comment
 export async function replyToComment(
   commentId: string,
-  userReply: string
+  userReply: string,
+  config?: LLMConfig
 ): Promise<{ userComment: Comment; aiReply: Comment }> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
+  const body: any = { comment_id: commentId, user_reply: userReply };
+  if (config?.llmApiKey || config?.llmBaseUrl || config?.llmModel) {
+    body.config = {
+      llmApiKey: config.llmApiKey || undefined,
+      llmBaseUrl: config.llmBaseUrl || undefined,
+      llmModel: config.llmModel || undefined,
+    };
+  }
+
   const response = await supabase.functions.invoke("reply-to-comment", {
-    body: { comment_id: commentId, user_reply: userReply },
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
+    body,
+    headers: { Authorization: `Bearer ${session.access_token}` },
   });
 
   if (response.error) throw response.error;
@@ -72,7 +91,6 @@ export async function toggleCommentLike(commentId: string): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Check if already liked - use maybeSingle to avoid 406 error
   const { data: existing, error: checkError } = await supabase
     .from("comment_likes")
     .select("id")
@@ -80,35 +98,36 @@ export async function toggleCommentLike(commentId: string): Promise<boolean> {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (checkError) {
-    console.error("Check like error:", checkError);
-    throw checkError;
-  }
+  if (checkError) { console.error("Check like error:", checkError); throw checkError; }
 
   if (existing) {
-    // Unlike
-    const { error: deleteError } = await supabase
-      .from("comment_likes")
-      .delete()
-      .eq("id", (existing as any).id);
+    const { error: deleteError } = await supabase.from("comment_likes").delete().eq("id", (existing as any).id);
     if (deleteError) throw deleteError;
     return false;
   } else {
-    // Like - handle potential conflict gracefully
-    const { error: insertError } = await supabase
-      .from("comment_likes")
-      .insert({ comment_id: commentId, user_id: user.id } as any);
-    
-    // If conflict (already liked), just return true
-    if (insertError?.code === '23505') {
-      return true;
-    }
+    const { error: insertError } = await supabase.from("comment_likes").insert({ comment_id: commentId, user_id: user.id } as any);
+    if (insertError?.code === '23505') return true;
     if (insertError) throw insertError;
     return true;
   }
 }
 
-// Create a user comment (not reply, just a standalone comment)
+// Check if user has liked specific comments
+export async function getUserLikes(commentIds: string[]): Promise<Set<string>> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || commentIds.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from("comment_likes")
+    .select("comment_id")
+    .eq("user_id", user.id)
+    .in("comment_id", commentIds);
+
+  if (error) { console.error("Get likes error:", error); return new Set(); }
+  return new Set((data || []).map((d: any) => d.comment_id));
+}
+
+// Create a user comment
 export async function createUserComment(input: CreateCommentInput): Promise<Comment> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");

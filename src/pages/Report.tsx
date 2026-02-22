@@ -1,172 +1,81 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, ChartSkeleton } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, EmptyState, ChartSkeleton } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Area,
-  AreaChart,
+  ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
+  PolarRadiusAxis, Radar, Tooltip,
 } from "recharts";
-
 import {
-  TrendingUp,
-  Users,
-  MessageCircle,
-  Heart,
-  Bookmark,
-  Share2,
-  Brain,
-  Target,
-  AlertTriangle,
-  CheckCircle,
-  Download,
-  ArrowLeft,
-  Calendar,
-  BarChart3,
-  PieChartIcon,
-  Activity,
-  AlertCircle,
-  Globe,
-  Swords,
-  Sparkles,
-  RefreshCw,
-  Loader2,
+  TrendingUp, Users, MessageCircle, Brain, Target, Download, ArrowLeft,
+  BarChart3, PieChartIcon, Activity, AlertCircle, Globe, Sparkles,
+  RefreshCw, Loader2, Share2, Swords,
 } from "lucide-react";
-import { FullValidation } from "@/services/validationService";
-import { DevPanel } from "@/components/report/DevPanel";
-import ReactMarkdown from 'react-markdown';
 import { useValidation } from "@/hooks/useValidation";
-import { exportToPdf, exportToHTML, exportToMultiPagePdf } from "@/lib/export";
+import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
 import { FileText, FileCode, ChevronDown } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { VCFeed, ShareCard } from "@/components/social";
+import { VCFeed } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
-import { Progress } from "@/components/ui/progress";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { DataInsightsTab } from "@/components/report/DataInsightsTab";
 import { ActionRecommendation } from "@/components/report/ActionRecommendation";
 import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
+import { DevPanel } from "@/components/report/DevPanel";
 import { captureEvent } from "@/lib/posthog";
+import ReactMarkdown from "react-markdown";
 
-const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
-const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
-const PLACEHOLDER_PATTERNS = [
-  "综合评估中",
-  "待分析",
-  "目标用户群体分析中",
-  "pending_experiment",
-  "未知",
-];
-
-const cleanDisplayText = (value: unknown, fallback: string) => {
-  const text = String(value ?? "").trim();
-  if (!text) return fallback;
-  if (PLACEHOLDER_PATTERNS.some((p) => text.includes(p))) return fallback;
-  return text;
-};
-
-const mapProofVerdictLabel = (value: unknown) => {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw || raw === "pending_experiment") return "待实验验证";
-  if (raw === "pass") return "通过";
-  if (raw === "fail") return "未通过";
-  return String(value);
-};
-
-type EvidenceItem = {
-  type: "note" | "comment" | "competitor";
-  title: string;
-  snippet: string;
-  fullText?: string;
-  url?: string;
-};
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="glass-card p-3 border border-border/50 shadow-xl backdrop-blur-md bg-card/80">
-        {label && <p className="font-medium text-sm mb-2 text-foreground">{label}</p>}
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-xs mb-1 last:mb-0">
-            <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: entry.color || entry.payload.fill }} />
-            <span className="text-muted-foreground">{entry.name}:</span>
-            <span className="font-medium text-foreground">{entry.value}</span>
-            {entry.unit && <span className="text-muted-foreground text-[10px]">{entry.unit}</span>}
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
-// (CustomTooltip already defined above - removed duplicate)
+// Extracted sub-components
+import { useReportData, cleanDisplayText } from "@/components/report/useReportData";
+import { CustomTooltip } from "@/components/report/CustomTooltip";
+import { OverviewTab } from "@/components/report/OverviewTab";
+import { MarketTab } from "@/components/report/MarketTab";
+import { SentimentTab } from "@/components/report/SentimentTab";
+import { CompetitorTab } from "@/components/report/CompetitorTab";
+import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
+import { ShareTab } from "@/components/report/ShareTab";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const settings = useSettings();
 
-  // Extract error message if it exists
   const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
+  const reportData = useReportData(data);
 
   // Check if data needs re-analysis
   const checkNeedsReanalysis = () => {
     if (!data?.report) return false;
     const report = data.report;
-
-    // Check persona
     const personaIncomplete = !report.persona ||
       !(report.persona as any)?.name ||
       !(report.persona as any)?.role ||
       ((report.persona as any)?.description?.includes("分析中"));
-
-    // Check dimensions
     const dimensions = Array.isArray(report.dimensions) ? report.dimensions : [];
     const dimensionsIncomplete = dimensions.length === 0 ||
       dimensions.some((d: any) =>
-        !d.reason ||
-        d.reason === "待AI分析" ||
-        d.reason.includes("数据加载中") ||
+        !d.reason || d.reason === "待AI分析" || d.reason.includes("数据加载中") ||
         (d.reason.length < 15 && !d.reason.includes("评估"))
       );
-
     return personaIncomplete || dimensionsIncomplete;
   };
 
   const needsReanalysis = data?.report ? checkNeedsReanalysis() : false;
 
-  // Track report view event
   useEffect(() => {
     if (data?.validation && !loading) {
       captureEvent('report_viewed', {
@@ -177,14 +86,8 @@ const Report = () => {
     }
   }, [data?.validation?.id, loading]);
 
-  // No explicit useEffect needed for fetching anymore
-
-  // Import settings for re-analysis
-  const settings = useSettings();
-
   const handleReanalyze = async () => {
     if (!id || isReanalyzing) return;
-
     setIsReanalyzing(true);
     try {
       const { data: result, error } = await supabase.functions.invoke('re-analyze-validation', {
@@ -199,241 +102,106 @@ const Report = () => {
           }
         }
       });
-
       if (error) throw error;
-
       if (result?.updated) {
-        toast({
-          title: "分析完成",
-          description: `已更新: ${result.updatedFields?.join(", ") || "数据"}`,
-        });
-        // Refetch to get updated data
+        toast({ title: "分析完成", description: `已更新: ${result.updatedFields?.join(", ") || "数据"}` });
         refetch();
       } else {
-        toast({
-          title: "数据已完整",
-          description: result?.message || "无需重新分析",
-        });
+        toast({ title: "数据已完整", description: result?.message || "无需重新分析" });
       }
     } catch (error) {
       console.error("Re-analyze error:", error);
-      toast({
-        title: "分析失败",
-        description: (error as Error).message || "请稍后重试",
-        variant: "destructive",
-      });
+      toast({ title: "分析失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
     } finally {
       setIsReanalyzing(false);
     }
   };
 
-  // Prepare report data for HTML export
-  const prepareReportData = (): ReportData | null => {
-    if (!data?.validation || !data?.report) return null;
-
-    const { validation, report } = data;
-    const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
-    const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
-    const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
-    const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
-    const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
-    const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
-
+  const prepareExportData = (): ReportData | null => {
+    if (!reportData) return null;
+    const { validation, aiAnalysis, marketAnalysis, sentimentAnalysis, xiaohongshuData, dimensions, personaData } = reportData;
     return {
       id: validation.id,
       idea: validation.idea,
-      score: (aiAnalysisRaw.feasibilityScore as number) ?? validation.overall_score ?? 0,
-      verdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
+      score: aiAnalysis.feasibilityScore ?? validation.overall_score ?? 0,
+      verdict: aiAnalysis.overallVerdict,
       tags: validation.tags || [],
       createdAt: validation.created_at,
-      dimensions: rawDimensions.length > 0
-        ? rawDimensions.map((d: any) => ({
-          dimension: d.dimension || "未知维度",
-          score: typeof d.score === 'number' ? d.score : 50,
-          reason: d.reason || "基于市场数据的综合评估"
-        }))
-        : [],
-      persona: rawPersona && rawPersona.name ? {
-        name: String(rawPersona.name || "目标用户"),
-        role: String(rawPersona.role || "潜在用户"),
-        age: String(rawPersona.age || "25-45岁"),
-        income: String(rawPersona.income || "中等收入"),
-        painPoints: Array.isArray(rawPersona.painPoints) ? rawPersona.painPoints as string[] : [],
-        goals: Array.isArray(rawPersona.goals) ? rawPersona.goals as string[] : [],
-        techSavviness: Number(rawPersona.techSavviness) || 65,
-        spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
-        description: String(rawPersona.description || "")
+      dimensions: dimensions.map((d: any) => ({ dimension: d.dimension, score: d.score, reason: d.reason })),
+      persona: personaData ? {
+        name: personaData.name, role: personaData.role, age: personaData.age,
+        income: personaData.income, painPoints: personaData.painPoints,
+        goals: personaData.goals, techSavviness: personaData.techSavviness,
+        spendingCapacity: personaData.spendingCapacity, description: personaData.description,
       } : null,
-      marketAnalysis: {
-        targetAudience: cleanDisplayText(marketAnalysisRaw.targetAudience, "目标用户已根据评论样本自动归纳"),
-        marketSize: cleanDisplayText(marketAnalysisRaw.marketSize, "中等规模（待更多样本补充）"),
-        competitionLevel: cleanDisplayText(marketAnalysisRaw.competitionLevel, "竞争程度中等"),
-        trendDirection: cleanDisplayText(marketAnalysisRaw.trendDirection, "趋势平稳"),
-        keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
-      },
-      sentiment: {
-        positive: (sentimentAnalysisRaw.positive as number) || 33,
-        neutral: (sentimentAnalysisRaw.neutral as number) || 34,
-        negative: (sentimentAnalysisRaw.negative as number) || 33,
-        topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
-        topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
-      },
+      marketAnalysis,
+      sentiment: sentimentAnalysis,
       xiaohongshu: {
-        totalNotes: (xiaohongshuDataRaw.totalNotes as number) ?? 0,
-        totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ?? 0,
-        avgLikes: (xiaohongshuDataRaw.avgLikes as number) ?? 0,
-        avgComments: (xiaohongshuDataRaw.avgComments as number) ?? 0,
-        avgCollects: (xiaohongshuDataRaw.avgCollects as number) ?? 0,
+        totalNotes: xiaohongshuData.totalNotes,
+        totalEngagement: xiaohongshuData.totalEngagement,
+        avgLikes: xiaohongshuData.avgLikes,
+        avgComments: xiaohongshuData.avgComments,
+        avgCollects: xiaohongshuData.avgCollects,
       },
-      aiAnalysis: {
-        feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
-        overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
-        strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
-        weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
-        suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
-        risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
-      }
+      aiAnalysis,
     };
   };
 
   const handleExportHTML = () => {
-    const reportData = prepareReportData();
-    if (!reportData) {
-      toast({
-        title: "导出失败",
-        description: "报告数据未加载完成",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    const rd = prepareExportData();
+    if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
     try {
-      const htmlContent = generateReportHTML(reportData);
-      const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
+      const htmlContent = generateReportHTML(rd);
+      const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
-
-      // Track export event
-      captureEvent('report_exported', {
-        validation_id: id,
-        format: 'html',
-      });
-
-      toast({
-        title: "导出成功",
-        description: "HTML 完整报告已下载，可离线查看",
-      });
-    } catch (error) {
-      toast({
-        title: "导出失败",
-        description: "请稍后重试",
-        variant: "destructive",
-      });
-    }
+      captureEvent('report_exported', { validation_id: id, format: 'html' });
+      toast({ title: "导出成功", description: "HTML 完整报告已下载，可离线查看" });
+    } catch { toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" }); }
   };
 
   const handleExportPdf = async () => {
-    const reportData = prepareReportData();
-    if (!reportData) {
-      toast({
-        title: "导出失败",
-        description: "报告数据未加载完成",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    const rd = prepareExportData();
+    if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
     try {
-      const pdfHtml = generatePDFHTML(reportData);
-      const ideaSlice = reportData.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
+      const pdfHtml = generatePDFHTML(rd);
+      const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
-
-      // Track export event
-      captureEvent('report_exported', {
-        validation_id: id,
-        format: 'pdf',
-      });
-
-      toast({
-        title: "导出成功",
-        description: "多页 PDF 报告已下载",
-      });
+      captureEvent('report_exported', { validation_id: id, format: 'pdf' });
+      toast({ title: "导出成功", description: "多页 PDF 报告已下载" });
     } catch (error) {
       console.error("PDF export error:", error);
-      toast({
-        title: "导出失败",
-        description: "请稍后重试",
-        variant: "destructive",
-      });
+      toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" });
     }
   };
-
-
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
     const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
     const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
-
-    // Try Web Share API first (mobile-friendly)
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl,
-        });
-
-        // Track share event
-        captureEvent('report_shared', {
-          validation_id: id,
-          method: 'native_share',
-        });
-
-        toast({
-          title: "分享成功",
-          description: "报告已分享",
-        });
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        captureEvent('report_shared', { validation_id: id, method: 'native_share' });
+        toast({ title: "分享成功", description: "报告已分享" });
         return;
-      } catch (err) {
-        // User cancelled or share failed, fall through to clipboard
-        if ((err as Error).name !== "AbortError") {
-          console.warn("Web Share failed:", err);
-        }
-      }
+      } catch (err) { if ((err as Error).name !== "AbortError") console.warn("Web Share failed:", err); }
     }
-
-    // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl);
-
-      // Track share event
-      captureEvent('report_shared', {
-        validation_id: id,
-        method: 'clipboard',
-      });
-
-      toast({
-        title: "链接已复制",
-        description: "报告链接已复制到剪贴板",
-      });
-    } catch (err) {
-      toast({
-        title: "复制失败",
-        description: "请手动复制浏览器地址栏链接",
-        variant: "destructive",
-      });
-    }
+      captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
+      toast({ title: "链接已复制", description: "报告链接已复制到剪贴板" });
+    } catch { toast({ title: "复制失败", description: "请手动复制浏览器地址栏链接", variant: "destructive" }); }
   };
 
+  // Loading state
   if (loading) {
     return (
       <PageBackground showClouds={false}>
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
-            {/* Header Skeleton */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -451,8 +219,6 @@ const Report = () => {
                 <Skeleton className="h-9 w-24 rounded-full" />
               </div>
             </div>
-
-            {/* Top Bento Row Skeleton */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-4">
                 <GlassCard className="h-full min-h-[300px] flex flex-col justify-center items-center">
@@ -463,26 +229,13 @@ const Report = () => {
               </div>
               <Skeleton className="lg:col-span-8 h-[300px] rounded-3xl" />
             </div>
-
-            {/* Middle Bento Row Skeleton */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 h-[300px]">
-                <ChartSkeleton />
-              </div>
+              <div className="lg:col-span-1 h-[300px]"><ChartSkeleton /></div>
               <GlassCard className="lg:col-span-2 h-[300px] p-6 space-y-4">
-                <div className="flex justify-between">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-6 w-12" />
-                </div>
-                <div className="space-y-3">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
+                <div className="flex justify-between"><Skeleton className="h-6 w-32" /><Skeleton className="h-6 w-12" /></div>
+                <div className="space-y-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
               </GlassCard>
             </div>
-
-            {/* Bottom Skeleton */}
             <Skeleton className="h-[200px] w-full rounded-2xl" />
           </div>
         </main>
@@ -490,223 +243,30 @@ const Report = () => {
     );
   }
 
-  if (error || !data) {
+  // Error state
+  if (error || !data || !reportData) {
     return (
       <PageBackground showClouds={false}>
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <EmptyState
-              icon={AlertCircle}
-              title="加载失败"
-              description={error || "未找到报告数据"}
-              actionLabel="重试"
-              onAction={() => refetch()}
-              className="py-16"
-            />
+            <EmptyState icon={AlertCircle} title="加载失败" description={error || "未找到报告数据"} actionLabel="重试" onAction={() => refetch()} className="py-16" />
           </div>
         </main>
       </PageBackground>
     );
   }
 
-  const { validation, report } = data;
-
-  // 准备显示数据
-  const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
-  const marketAnalysis = {
-    targetAudience: cleanDisplayText(marketAnalysisRaw.targetAudience, "目标用户已根据评论样本自动归纳"),
-    marketSize: cleanDisplayText(marketAnalysisRaw.marketSize, "中等规模（待更多样本补充）"),
-    competitionLevel: cleanDisplayText(marketAnalysisRaw.competitionLevel, "竞争程度中等"),
-    trendDirection: cleanDisplayText(marketAnalysisRaw.trendDirection, "趋势平稳"),
-    keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
-  };
-
-  const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
-  const xhsTotalNotes = (xiaohongshuDataRaw.totalNotes as number) ?? 0;
-  const xhsAvgLikes = (xiaohongshuDataRaw.avgLikes as number) ?? 0;
-  const xhsAvgComments = (xiaohongshuDataRaw.avgComments as number) ?? 0;
-  const xhsAvgCollects = (xiaohongshuDataRaw.avgCollects as number) ?? 0;
-
-  const xiaohongshuData = {
-    totalNotes: xhsTotalNotes,
-    avgLikes: xhsAvgLikes,
-    avgComments: xhsAvgComments,
-    avgCollects: xhsAvgCollects,
-    // Calculate totalEngagement if missing
-    totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ??
-      (xhsTotalNotes * (xhsAvgLikes + xhsAvgComments + xhsAvgCollects)),
-    // Provide default weekly trend if missing
-    weeklyTrend: Array.isArray(xiaohongshuDataRaw.weeklyTrend) && xiaohongshuDataRaw.weeklyTrend.length > 0
-      ? xiaohongshuDataRaw.weeklyTrend
-      : [
-        { name: "周一", value: Math.round(xhsTotalNotes * 0.12) || 85 },
-        { name: "周二", value: Math.round(xhsTotalNotes * 0.13) || 92 },
-        { name: "周三", value: Math.round(xhsTotalNotes * 0.14) || 100 },
-        { name: "周四", value: Math.round(xhsTotalNotes * 0.14) || 95 },
-        { name: "周五", value: Math.round(xhsTotalNotes * 0.16) || 110 },
-        { name: "周六", value: Math.round(xhsTotalNotes * 0.17) || 125 },
-        { name: "周日", value: Math.round(xhsTotalNotes * 0.14) || 115 },
-      ],
-    // Provide default content types if missing
-    contentTypes: Array.isArray(xiaohongshuDataRaw.contentTypes) && xiaohongshuDataRaw.contentTypes.length > 0
-      ? xiaohongshuDataRaw.contentTypes
-      : [
-        { name: "图文分享", value: 65 },
-        { name: "视频分享", value: 20 },
-        { name: "探店分享", value: 10 },
-        { name: "产品测评", value: 5 },
-      ],
-    sampleNotes: Array.isArray(xiaohongshuDataRaw.sampleNotes) ? xiaohongshuDataRaw.sampleNotes : [],
-    sampleComments: Array.isArray(xiaohongshuDataRaw.sampleComments) ? xiaohongshuDataRaw.sampleComments : [],
-  };
-
-  const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
-  const sentimentAnalysis = {
-    positive: (sentimentAnalysisRaw.positive as number) || 33,
-    neutral: (sentimentAnalysisRaw.neutral as number) || 34,
-    negative: (sentimentAnalysisRaw.negative as number) || 33,
-    topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
-    topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
-  };
-
-  const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
-  const aiAnalysis = {
-    feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
-    strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
-    weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
-    suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
-    risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
-    overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
-  };
-
-  const evidenceGrade = (["A", "B", "C", "D"].includes(String(report?.evidence_grade))
-    ? String(report?.evidence_grade)
-    : "C") as "A" | "B" | "C" | "D";
-  const proofResultRaw = (report?.proof_result ?? {}) as Record<string, unknown>;
-  const proofResult = {
-    paidIntentRate: Number(proofResultRaw.paid_intent_rate || 0),
-    waitlistRate: Number(proofResultRaw.waitlist_rate || 0),
-    sampleUv: Number(proofResultRaw.sample_uv || 0),
-    verdict: mapProofVerdictLabel(proofResultRaw.verdict),
-  };
-  const costBreakdownRaw = (report?.cost_breakdown ?? {}) as Record<string, unknown>;
-  const costBreakdown = {
-    llmCalls: Number(costBreakdownRaw.llm_calls || 0),
-    promptTokens: Number(costBreakdownRaw.prompt_tokens || 0),
-    completionTokens: Number(costBreakdownRaw.completion_tokens || 0),
-    externalApiCalls: Number(costBreakdownRaw.external_api_calls || 0),
-    estCost: Number(costBreakdownRaw.est_cost || 0),
-    latencyMs: Number(costBreakdownRaw.latency_ms || 0),
-    crawlerCalls: Number(costBreakdownRaw.crawler_calls || 0),
-    crawlerLatencyMs: Number(costBreakdownRaw.crawler_latency_ms || 0),
-  };
-
-  // Default dimension reasons for better UX
-  const defaultDimensionReasons: Record<string, string> = {
-    "需求痛感": "基于用户反馈和市场调研的需求强度评估",
-    "PMF潜力": "产品与市场匹配度的综合分析",
-    "市场规模": "目标市场容量和增长趋势评估",
-    "差异化": "与竞品的差异化程度分析",
-    "可行性": "技术和商业实现的可行性评估",
-    "盈利能力": "商业模式和盈利潜力分析",
-    "护城河": "竞争优势和可持续性分析",
-    "商业模式": "商业模式的可行性和盈利评估",
-    "技术可行性": "技术实现难度和资源需求",
-    "创新程度": "创新性和市场差异化程度"
-  };
-
-  // Map dimensions with enhanced fallbacks
-  const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
-  const dimensions = rawDimensions.length > 0
-    ? rawDimensions.map((d: any) => ({
-      dimension: d.dimension || "未知维度",
-      score: typeof d.score === 'number' ? d.score : 50,
-      reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
-        ? d.reason
-        : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
-    }))
-    : Object.keys(defaultDimensionReasons).slice(0, 6).map(dim => ({
-      dimension: dim,
-      score: 50,
-      reason: defaultDimensionReasons[dim]
-    }));
-
-  // Prepare radar chart data from dimensions
-  const radarData = dimensions.map((d: any) => ({
-    subject: d.dimension || "未知",
-    A: typeof d.score === 'number' ? d.score : 50,
-    fullMark: 100,
-  }));
-
-  // Enhanced persona data with defensive mapping
-  const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
-  const personaData = rawPersona && rawPersona.name ? {
-    name: String(rawPersona.name || "目标用户"),
-    role: String(rawPersona.role || "潜在用户"),
-    age: String(rawPersona.age || "25-45岁"),
-    income: String(rawPersona.income || "中等收入"),
-    painPoints: Array.isArray(rawPersona.painPoints) && rawPersona.painPoints.length > 0
-      ? (rawPersona.painPoints as string[])
-      : ["需要更高效的解决方案", "现有选择无法满足需求"],
-    goals: Array.isArray(rawPersona.goals) && rawPersona.goals.length > 0
-      ? (rawPersona.goals as string[])
-      : ["找到更好的产品体验", "提升生活/工作效率"],
-    techSavviness: Number(rawPersona.techSavviness) || 65,
-    spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
-    description: String(rawPersona.description || `对"${validation?.idea?.slice(0, 30) || '该产品'}..."感兴趣的用户群体`)
-  } : null;
-
-  const competitorRows = Array.isArray(report?.competitor_data) ? (report.competitor_data as any[]) : [];
-  const evidenceItems: EvidenceItem[] = [
-    ...xiaohongshuData.sampleNotes.slice(0, 4).map((n: any) => ({
-      type: "note" as const,
-      title: cleanDisplayText(n?.title, "样本笔记"),
-      snippet: cleanDisplayText(n?.desc, "").slice(0, 90),
-      fullText: cleanDisplayText(n?.desc, ""),
-      url: typeof n?.url === "string" ? n.url : undefined,
-    })),
-    ...xiaohongshuData.sampleComments.slice(0, 4).map((c: any) => ({
-      type: "comment" as const,
-      title: `评论 · ${cleanDisplayText(c?.user_nickname, "匿名用户")}`,
-      snippet: cleanDisplayText(c?.content, "").slice(0, 90),
-      fullText: cleanDisplayText(c?.content, ""),
-      url: typeof c?.url === "string" ? c.url : undefined,
-    })),
-    ...competitorRows.slice(0, 4).map((c: any) => ({
-      type: "competitor" as const,
-      title: cleanDisplayText(c?.title, "竞品页面"),
-      snippet: cleanDisplayText(c?.snippet, "").slice(0, 90),
-      fullText: cleanDisplayText(c?.snippet, ""),
-      url: typeof c?.url === "string" ? c.url : undefined,
-    })),
-  ].filter((e) => !!e.title);
-
-  const topEvidence = [
-    ...xiaohongshuData.sampleNotes
-      .slice(0, 2)
-      .map((n: any) => cleanDisplayText(n?.title, "").replace(/^\[[^\]]+\]\s*/, ""))
-      .filter(Boolean)
-      .map((t: string) => `笔记: ${t}`),
-    ...xiaohongshuData.sampleComments
-      .slice(0, 2)
-      .map((c: any) => cleanDisplayText(c?.content, ""))
-      .filter(Boolean)
-      .map((t: string) => `评论: ${t.slice(0, 42)}${t.length > 42 ? "..." : ""}`),
-    ...competitorRows
-      .slice(0, 2)
-      .map((c: any) => cleanDisplayText(c?.title, ""))
-      .filter(Boolean)
-      .map((t: string) => `竞品: ${t}`),
-  ].slice(0, 4);
+  const { validation, report, marketAnalysis, xiaohongshuData, sentimentAnalysis, aiAnalysis,
+    evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
+    competitorRows, evidenceItems, topEvidence } = reportData;
 
   return (
     <PageBackground showClouds={false}>
       <Navbar />
-
       <main className="pt-28 pb-16 px-4">
         <div id="report-content" className="max-w-6xl mx-auto">
-          {/* Header & Context */}
+          {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-8">
             <div>
               <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors text-sm font-medium">
@@ -718,107 +278,73 @@ const Report = () => {
                 需求验证报告 #{validation.id.slice(0, 8)}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-3">
-                {validation.idea.length > 20
-                  ? `${validation.idea.slice(0, 20)}...`
-                  : validation.idea}
+                {validation.idea.length > 20 ? `${validation.idea.slice(0, 20)}...` : validation.idea}
               </h1>
               <p className="text-muted-foreground max-w-2xl text-lg leading-relaxed">
                 {aiAnalysis.overallVerdict || "AI 正在生成深度分析结论..."}
               </p>
               <div className="flex flex-wrap gap-2 mt-4">
-                {validation.tags.map((tag, i) => (
-                  <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50 border-border/50">
-                    #{tag}
-                  </Badge>
+                {validation.tags.map((tag: string, i: number) => (
+                  <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50 border-border/50">#{tag}</Badge>
                 ))}
-                <Badge variant="outline" className="px-3 py-1 text-sm">
-                  证据等级 {evidenceGrade}
-                </Badge>
-                <Badge variant="outline" className="px-3 py-1 text-sm">
-                  商业可用性 {proofResult.verdict}
-                </Badge>
+                <Badge variant="outline" className="px-3 py-1 text-sm">证据等级 {evidenceGrade}</Badge>
+                <Badge variant="outline" className="px-3 py-1 text-sm">商业可用性 {proofResult.verdict}</Badge>
               </div>
             </div>
-
             <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
               {needsReanalysis && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
-                  onClick={handleReanalyze}
-                  disabled={isReanalyzing}
-                >
-                  {isReanalyzing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
+                <Button variant="outline" size="sm" className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
+                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                   {isReanalyzing ? "分析中..." : "补充分析"}
                 </Button>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="rounded-full h-9 border-dashed">
-                    <Download className="w-4 h-4 mr-2" />
-                    下载报告
-                    <ChevronDown className="w-3 h-3 ml-1" />
+                    <Download className="w-4 h-4 mr-2" />下载报告<ChevronDown className="w-3 h-3 ml-1" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-popover border border-border z-50">
                   <DropdownMenuItem onClick={handleExportHTML} className="cursor-pointer">
                     <FileCode className="w-4 h-4 mr-2 text-primary" />
-                    <div className="flex flex-col">
-                      <span>导出为 HTML</span>
-                      <span className="text-xs text-muted-foreground">完整报告，可离线查看</span>
-                    </div>
+                    <div className="flex flex-col"><span>导出为 HTML</span><span className="text-xs text-muted-foreground">完整报告，可离线查看</span></div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleExportPdf} className="cursor-pointer">
                     <FileText className="w-4 h-4 mr-2 text-red-500" />
-                    <div className="flex flex-col">
-                      <span>导出为 PDF</span>
-                      <span className="text-xs text-muted-foreground">多页完整报告</span>
-                    </div>
+                    <div className="flex flex-col"><span>导出为 PDF</span><span className="text-xs text-muted-foreground">多页完整报告</span></div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button variant="default" size="sm" className="rounded-full h-9 shadow-lg shadow-primary/20" onClick={handleShare}>
-                <Share2 className="w-4 h-4 mr-2" />
-                分享
+                <Share2 className="w-4 h-4 mr-2" />分享
               </Button>
             </div>
           </div>
 
-          {/* 2. Top Bento Row: Score + Persona */}
+          {/* Score + Persona Row */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-            {/* Score KPI Card (4 cols) */}
             <div className="lg:col-span-4 flex flex-col gap-6 animate-slide-up">
               <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
-
                 <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">需求真实度评分</span>
                 <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
-                  <ScoreCircle score={report?.ai_analysis?.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
+                  <ScoreCircle score={aiAnalysis.feasibilityScore || 0} customSize={160} strokeWidth={12} showText={false} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-5xl font-bold text-foreground tracking-tighter">{report?.ai_analysis?.feasibilityScore || 0}</span>
+                    <span className="text-5xl font-bold text-foreground tracking-tighter">{aiAnalysis.feasibilityScore || 0}</span>
                     <span className="text-sm text-muted-foreground mt-1 font-medium">/ 100</span>
                   </div>
                 </div>
-
                 <div className="mt-8 text-center space-y-2">
-                  <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
-                    (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
-                    {(report?.ai_analysis?.feasibilityScore || 0) >= 80 ? "✅ 真实刚需" :
-                      (report?.ai_analysis?.feasibilityScore || 0) >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
+                  <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${(aiAnalysis.feasibilityScore || 0) >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
+                    (aiAnalysis.feasibilityScore || 0) >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
+                    {(aiAnalysis.feasibilityScore || 0) >= 80 ? "✅ 真实刚需" : (aiAnalysis.feasibilityScore || 0) >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">基于 {xiaohongshuData.totalNotes} 条真实用户数据分析</p>
                 </div>
               </GlassCard>
             </div>
-
-            {/* Persona Card (8 cols) */}
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
               {personaData ? (
                 <PersonaCard persona={personaData} />
@@ -827,18 +353,8 @@ const Report = () => {
                   <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
                   <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
-                    onClick={handleReanalyze}
-                    disabled={isReanalyzing}
-                  >
-                    {isReanalyzing ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
+                  <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
+                    {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                     {isReanalyzing ? "分析中..." : "补充分析用户画像"}
                   </Button>
                 </GlassCard>
@@ -846,27 +362,18 @@ const Report = () => {
             </div>
           </div>
 
-          {/* NEW: Action Recommendation & Data Confidence */}
+          {/* Action Recommendation & Data Confidence */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* AI Action Recommendation (2 cols) */}
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <ActionRecommendation
                 score={validation.overall_score || 0}
                 strengths={aiAnalysis.strengths || []}
                 weaknesses={aiAnalysis.weaknesses || []}
-                sentiment={{
-                  positive: sentimentAnalysis.positive,
-                  negative: sentimentAnalysis.negative,
-                }}
+                sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
                 onValidateMore={() => window.location.href = '/validate'}
-                onStartBuilding={() => {
-                  captureEvent('start_building_clicked', { validation_id: validation.id });
-                  window.open('https://lovable.dev', '_blank');
-                }}
+                onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
               />
             </div>
-
-            {/* Data Confidence (1 col) */}
             <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: "200ms" }}>
               <DataConfidenceCard
                 sampleSize={xiaohongshuData.totalNotes || 0}
@@ -880,13 +387,11 @@ const Report = () => {
             </div>
           </div>
 
-          {/* 3. Middle Bento Grid: Dimensions & Analysis */}
+          {/* Radar + Dimensions */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Radar Chart (1 col) */}
             <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary" />
-                需求验证雷达
+                <Target className="w-5 h-5 text-primary" />需求验证雷达
               </h3>
               <div className="flex-1 min-h-[250px] w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -894,39 +399,25 @@ const Report = () => {
                     <PolarGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
                     <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar
-                      name="Score"
-                      dataKey="A"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={3}
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.2}
-                    />
+                    <Radar name="Score" dataKey="A" stroke="hsl(var(--primary))" strokeWidth={3} fill="hsl(var(--primary))" fillOpacity={0.2} />
                     <Tooltip content={<CustomTooltip />} />
-
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
             </GlassCard>
 
-            {/* Detailed Dimensions (2 cols) */}
             <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
               <h3 className="font-semibold mb-6 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-secondary" />
-                需求真伪分析
+                <Activity className="w-5 h-5 text-secondary" />需求真伪分析
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 {dimensions.map((d: any, i: number) => (
                   <div key={i} className="space-y-2 group">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground font-medium group-hover:text-foreground transition-colors">{d.dimension}</span>
-                      <span className={`font-bold ${d.score >= 80 ? 'text-green-500' : d.score >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
-                        {d.score}
-                      </span>
+                      <span className={`font-bold ${d.score >= 80 ? 'text-green-500' : d.score >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>{d.score}</span>
                     </div>
-                    <Progress value={d.score} className="h-2"
-                      indicatorClassName={d.score >= 80 ? 'bg-green-500' : d.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}
-                    />
+                    <Progress value={d.score} className="h-2" indicatorClassName={d.score >= 80 ? 'bg-green-500' : d.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'} />
                     {d.reason && (
                       <div className="text-xs text-muted-foreground/80 leading-relaxed pl-2 border-l-2 border-border mt-1.5 prose prose-invert max-w-none line-clamp-2 hover:line-clamp-none transition-all">
                         <ReactMarkdown>{d.reason}</ReactMarkdown>
@@ -938,42 +429,27 @@ const Report = () => {
             </GlassCard>
           </div>
 
-          {/* Demand Validation Decision Card */}
+          {/* Demand Decision Card */}
           <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
-
             <div className="p-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
-              {/* Left: Final Verdict */}
               <div className="col-span-1 lg:col-span-4 flex flex-col justify-center items-center lg:items-start border-b lg:border-b-0 lg:border-r border-border/50 pb-8 lg:pb-0 lg:pr-8">
-                <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-                  需求验证结论
-                </div>
+                <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-2">需求验证结论</div>
                 <div className="flex items-baseline gap-4 mb-4">
-                  <span className="text-7xl font-bold tracking-tighter text-foreground">
-                    {validation.overall_score || 0}
-                  </span>
+                  <span className="text-7xl font-bold tracking-tighter text-foreground">{validation.overall_score || 0}</span>
                   <span className="text-2xl text-muted-foreground font-light">/ 100</span>
                 </div>
-
                 <div className={`text-2xl font-bold px-6 py-2 rounded-full mb-4 ${(validation.overall_score || 0) >= 90 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
                   (validation.overall_score || 0) >= 70 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
                     (validation.overall_score || 0) >= 40 ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" :
-                      "bg-red-500/10 text-red-500 border border-red-500/20"
-                  }`}>
+                      "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
                   {(validation.overall_score || 0) >= 90 ? "🔥 强烈刚需" :
                     (validation.overall_score || 0) >= 70 ? "✅ 真实需求" :
-                      (validation.overall_score || 0) >= 40 ? "⚠️ 需求存疑" :
-                        "❌ 伪需求警告"}
+                      (validation.overall_score || 0) >= 40 ? "⚠️ 需求存疑" : "❌ 伪需求警告"}
                 </div>
-
-                <p className="text-sm text-center lg:text-left text-muted-foreground">
-                  (基于 {xiaohongshuData.totalNotes} 条真实用户反馈)
-                </p>
+                <p className="text-sm text-center lg:text-left text-muted-foreground">(基于 {xiaohongshuData.totalNotes} 条真实用户反馈)</p>
               </div>
-
-              {/* Right: Key Stats - Optimized Layout */}
               <div className="col-span-1 lg:col-span-8 flex flex-col gap-5 content-center">
-                {/* Top Row: 3 metrics side by side */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
                     <div className="text-xs text-muted-foreground uppercase tracking-wider">用户讨论量</div>
@@ -990,23 +466,15 @@ const Report = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Competition - Standalone with more space for text */}
                 <div className="p-4 rounded-xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 border border-orange-500/20">
                   <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-orange-500/10 shrink-0">
-                      <Swords className="w-5 h-5 text-orange-500" />
-                    </div>
+                    <div className="p-2 rounded-lg bg-orange-500/10 shrink-0"><Swords className="w-5 h-5 text-orange-500" /></div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">竞品拥挤度分析</div>
-                      <div className="text-sm text-foreground leading-relaxed">
-                        {marketAnalysis.competitionLevel || "暂无竞争分析数据"}
-                      </div>
+                      <div className="text-sm text-foreground leading-relaxed">{marketAnalysis.competitionLevel || "暂无竞争分析数据"}</div>
                     </div>
                   </div>
                 </div>
-
-                {/* Bottom Row: Target Audience & Core Strength */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
                     <Target className="w-5 h-5 text-secondary shrink-0" />
@@ -1023,7 +491,6 @@ const Report = () => {
                     </div>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
@@ -1045,14 +512,12 @@ const Report = () => {
                     </div>
                   </div>
                 </div>
-
                 <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20">
                   <div className="text-xs text-muted-foreground mb-1">结论证据摘要</div>
                   <div className="text-sm font-medium">
                     {topEvidence.length > 0 ? topEvidence.join(" · ") : "当前样本不足，建议增加关键词并重跑验证"}
                   </div>
                 </div>
-
                 <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
                   <div className="text-xs text-muted-foreground mb-2">证据溯源（可点击）</div>
                   {evidenceItems.length > 0 ? (
@@ -1063,43 +528,22 @@ const Report = () => {
                             <div className="font-medium truncate">
                               [{item.type === "note" ? "笔记" : item.type === "comment" ? "评论" : "竞品"}] {item.title}
                             </div>
-                            {item.snippet && (
-                              <div className="text-xs text-muted-foreground truncate">{item.snippet}</div>
-                            )}
+                            {item.snippet && <div className="text-xs text-muted-foreground truncate">{item.snippet}</div>}
                           </div>
                           {item.url ? (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline shrink-0"
-                            >
-                              查看来源
-                            </a>
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline shrink-0">查看来源</a>
                           ) : (
                             <div className="flex items-center gap-2 shrink-0">
                               <details className="text-xs">
                                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground">展开原文</summary>
-                                <div className="mt-1 max-w-[280px] break-words text-muted-foreground">
-                                  {item.fullText || item.snippet || "无内容"}
-                                </div>
+                                <div className="mt-1 max-w-[280px] break-words text-muted-foreground">{item.fullText || item.snippet || "无内容"}</div>
                               </details>
-                              <button
-                                type="button"
-                                className="text-xs text-primary hover:underline"
-                                onClick={async () => {
-                                  const content = item.fullText || item.snippet || "";
-                                  if (!content) return;
-                                  try {
-                                    await navigator.clipboard.writeText(content);
-                                    toast({ title: "已复制证据原文" });
-                                  } catch {
-                                    toast({ title: "复制失败", description: "请手动复制", variant: "destructive" });
-                                  }
-                                }}
-                              >
-                                复制
-                              </button>
+                              <button type="button" className="text-xs text-primary hover:underline" onClick={async () => {
+                                const content = item.fullText || item.snippet || "";
+                                if (!content) return;
+                                try { await navigator.clipboard.writeText(content); toast({ title: "已复制证据原文" }); }
+                                catch { toast({ title: "复制失败", description: "请手动复制", variant: "destructive" }); }
+                              }}>复制</button>
                             </div>
                           )}
                         </div>
@@ -1113,583 +557,29 @@ const Report = () => {
             </div>
           </GlassCard>
 
-          {/* Tabs Content */}
-          <Tabs defaultValue="overview" className="space-y-6">
+          {/* Tabs - Lazy rendered */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto">
-              <TabsTrigger value="overview" className="rounded-lg">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                概览
-              </TabsTrigger>
-              <TabsTrigger value="insights" className="rounded-lg">
-                <Sparkles className="w-4 h-4 mr-2" />
-                数据洞察
-              </TabsTrigger>
-              <TabsTrigger value="market" className="rounded-lg">
-                <Target className="w-4 h-4 mr-2" />
-                市场分析
-              </TabsTrigger>
-              <TabsTrigger value="sentiment" className="rounded-lg">
-                <PieChartIcon className="w-4 h-4 mr-2" />
-                情感分析
-              </TabsTrigger>
-              <TabsTrigger value="competitors" className="rounded-lg">
-                <Globe className="w-4 h-4 mr-2" />
-                竞品搜索
-              </TabsTrigger>
-              <TabsTrigger value="ai" className="rounded-lg">
-                <Brain className="w-4 h-4 mr-2" />
-                AI 深度点评
-              </TabsTrigger>
-              <TabsTrigger value="circle" className="rounded-lg">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                创投圈
-              </TabsTrigger>
-              <TabsTrigger value="share" className="rounded-lg">
-                <Share2 className="w-4 h-4 mr-2" />
-                分享
-              </TabsTrigger>
+              <TabsTrigger value="overview" className="rounded-lg"><BarChart3 className="w-4 h-4 mr-2" />概览</TabsTrigger>
+              <TabsTrigger value="insights" className="rounded-lg"><Sparkles className="w-4 h-4 mr-2" />数据洞察</TabsTrigger>
+              <TabsTrigger value="market" className="rounded-lg"><Target className="w-4 h-4 mr-2" />市场分析</TabsTrigger>
+              <TabsTrigger value="sentiment" className="rounded-lg"><PieChartIcon className="w-4 h-4 mr-2" />情感分析</TabsTrigger>
+              <TabsTrigger value="competitors" className="rounded-lg"><Globe className="w-4 h-4 mr-2" />竞品搜索</TabsTrigger>
+              <TabsTrigger value="ai" className="rounded-lg"><Brain className="w-4 h-4 mr-2" />AI 深度点评</TabsTrigger>
+              <TabsTrigger value="circle" className="rounded-lg"><MessageCircle className="w-4 h-4 mr-2" />创投圈</TabsTrigger>
+              <TabsTrigger value="share" className="rounded-lg"><Share2 className="w-4 h-4 mr-2" />分享</TabsTrigger>
             </TabsList>
 
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Trend Chart */}
-                <GlassCard className="animate-slide-up">
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" />
-                    一周热度趋势
-                  </h3>
-                  <div className="h-64">
-                    {xiaohongshuData.weeklyTrend.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={xiaohongshuData.weeklyTrend}>
-                          <defs>
-                            <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                          <XAxis
-                            dataKey="name"
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fontSize: 12 }}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fontSize: 12 }}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <Tooltip
-                            content={<CustomTooltip />}
-                            cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '5 5' }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="hsl(var(--primary))"
-                            strokeWidth={3}
-                            fillOpacity={1}
-                            fill="url(#colorTrend)"
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        暂无趋势数据
-                      </div>
-                    )}
-                  </div>
-                </GlassCard>
-
-                {/* Radar Chart */}
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Target className="w-5 h-5 text-secondary" />
-                    多维度评分
-                  </h3>
-                  <div className="h-64">
-                    {dimensions.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={dimensions}>
-                          <PolarGrid stroke="hsl(var(--border))" />
-                          <PolarAngleAxis dataKey="dimension" stroke="hsl(var(--muted-foreground))" />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
-                          <Radar
-                            name="评分"
-                            dataKey="score"
-                            stroke="hsl(var(--primary))"
-                            fill="hsl(var(--primary))"
-                            fillOpacity={0.3}
-                          />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        暂无维度数据
-                      </div>
-                    )}
-                  </div>
-                </GlassCard>
-              </div>
-
-              {/* Content Type Distribution */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <PieChartIcon className="w-5 h-5 text-accent" />
-                    内容类型分布
-                  </h3>
-                  <div className="h-64 flex items-center">
-                    {xiaohongshuData.contentTypes.length > 0 ? (
-                      <>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={xiaohongshuData.contentTypes}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {xiaohongshuData.contentTypes.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={CONTENT_COLORS[index % CONTENT_COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="space-y-2">
-                          {xiaohongshuData.contentTypes.map((item, index) => (
-                            <div key={item.name} className="flex items-center gap-2 text-sm">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: CONTENT_COLORS[index % CONTENT_COLORS.length] }}
-                              />
-                              <span className="text-muted-foreground">{item.name}</span>
-                              <span className="font-medium text-foreground">{item.value}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        暂无内容类型数据
-                      </div>
-                    )}
-                  </div>
-                </GlassCard>
-
-                {/* Key Metrics */}
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-ghibli-forest" />
-                    关键指标
-                  </h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: "总互动量", value: xiaohongshuData.totalEngagement.toLocaleString(), icon: Heart, color: "text-destructive" },
-                      { label: "平均收藏", value: xiaohongshuData.avgCollects, icon: Bookmark, color: "text-accent" },
-                      { label: "平均评论", value: xiaohongshuData.avgComments, icon: MessageCircle, color: "text-primary" },
-                      { label: "目标用户", value: marketAnalysis.targetAudience?.split("、")[0] || "未知", icon: Users, color: "text-secondary" },
-                    ].map((metric) => {
-                      const Icon = metric.icon;
-                      return (
-                        <div key={metric.label} className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                          <div className="flex items-center gap-3">
-                            <Icon className={`w-5 h-5 ${metric.color}`} />
-                            <span className="text-muted-foreground">{metric.label}</span>
-                          </div>
-                          <span className="font-semibold text-foreground">{metric.value}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </GlassCard>
-              </div>
-            </TabsContent>
-
-            {/* Data Insights Tab */}
-            <TabsContent value="insights" className="space-y-6">
-              <DataInsightsTab
-                dataSummary={report?.data_summary as any}
-                dataQualityScore={report?.data_quality_score ?? undefined}
-                keywordsUsed={report?.keywords_used as any}
-              />
-            </TabsContent>
-
-            {/* Market Analysis Tab */}
-            <TabsContent value="market" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { label: "市场规模", value: marketAnalysis.marketSize, icon: Target },
-                  { label: "竞争程度", value: marketAnalysis.competitionLevel, icon: Users },
-                  { label: "趋势方向", value: marketAnalysis.trendDirection, icon: TrendingUp },
-                  { label: "热度评级", value: "高", icon: Activity },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <GlassCard key={item.label} className="text-center animate-slide-up">
-                      <Icon className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <div className="text-xl font-bold text-foreground">{item.value}</div>
-                      <div className="text-sm text-muted-foreground">{item.label}</div>
-                    </GlassCard>
-                  );
-                })}
-              </div>
-
-              <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-                <h3 className="text-lg font-semibold text-foreground mb-4">目标用户画像</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {marketAnalysis.targetAudience}
-                </p>
-              </GlassCard>
-
-              <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-                <h3 className="text-lg font-semibold text-foreground mb-4">热门关键词</h3>
-                <div className="flex flex-wrap gap-2">
-                  {(marketAnalysis.keywords || []).map((keyword) => (
-                    <Badge key={keyword} variant="secondary" className="px-4 py-2 text-sm bg-primary/10 text-primary">
-                      {keyword}
-                    </Badge>
-                  ))}
-                  {(!marketAnalysis.keywords || marketAnalysis.keywords.length === 0) && (
-                    <span className="text-muted-foreground">暂无关键词数据</span>
-                  )}
-                </div>
-              </GlassCard>
-            </TabsContent>
-
-            {/* Sentiment Analysis Tab */}
-            <TabsContent value="sentiment" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <GlassCard className="animate-slide-up">
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <PieChartIcon className="w-5 h-5 text-primary" />
-                    情感分布
-                  </h3>
-                  <div className="h-64 flex items-center">
-                    <ResponsiveContainer width="60%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "正面", value: sentimentAnalysis.positive },
-                            { name: "中立", value: sentimentAnalysis.neutral },
-                            { name: "负面", value: sentimentAnalysis.negative },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={70}
-                          paddingAngle={3}
-                          dataKey="value"
-                        >
-                          {SENTIMENT_COLORS.map((color, index) => (
-                            <Cell key={`cell-${index}`} fill={color} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-3">
-                      {[
-                        { name: "正面评价", value: sentimentAnalysis.positive, color: SENTIMENT_COLORS[0] },
-                        { name: "中立评价", value: sentimentAnalysis.neutral, color: SENTIMENT_COLORS[1] },
-                        { name: "负面评价", value: sentimentAnalysis.negative, color: SENTIMENT_COLORS[2] },
-                      ].map((item) => (
-                        <div key={item.name} className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="text-muted-foreground">{item.name}</span>
-                          <span className="font-semibold text-foreground">{item.value}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </GlassCard>
-
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-secondary" />
-                    情感对比
-                  </h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
-                          { name: "正面", value: sentimentAnalysis.positive },
-                          { name: "中立", value: sentimentAnalysis.neutral },
-                          { name: "负面", value: sentimentAnalysis.negative },
-                        ]}
-                        layout="vertical"
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
-
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                          {SENTIMENT_COLORS.map((color, index) => (
-                            <Cell key={`cell-${index}`} fill={color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </GlassCard>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-secondary" />
-                    正面评价要点
-                  </h3>
-                  <div className="space-y-2">
-                    {(sentimentAnalysis.topPositive || []).map((item, index) => (
-                      <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/10">
-                        <span className="text-secondary">✓</span>
-                        <span className="text-foreground">{item}</span>
-                      </div>
-                    ))}
-                    {(!sentimentAnalysis.topPositive || sentimentAnalysis.topPositive.length === 0) && (
-                      <p className="text-muted-foreground">暂无正面评价数据</p>
-                    )}
-                  </div>
-                </GlassCard>
-
-                <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                    负面评价要点
-                  </h3>
-                  <div className="space-y-2">
-                    {(sentimentAnalysis.topNegative || []).map((item, index) => (
-                      <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-destructive/10">
-                        <span className="text-destructive">✗</span>
-                        <span className="text-foreground">{item}</span>
-                      </div>
-                    ))}
-                    {(!sentimentAnalysis.topNegative || sentimentAnalysis.topNegative.length === 0) && (
-                      <p className="text-muted-foreground">暂无负面评价数据</p>
-                    )}
-                  </div>
-                </GlassCard>
-              </div>
-            </TabsContent>
-
-            {/* Competitors Tab */}
-            <TabsContent value="competitors" className="space-y-6">
-              <div className="grid grid-cols-1 gap-6">
-                {(Array.isArray((report?.competitor_data)) && (report?.competitor_data as any[]).length > 0) ? (
-                  (report?.competitor_data as any[]).map((comp: any, i: number) => (
-                    <GlassCard key={i} className="animate-slide-up" style={{ animationDelay: `${i * 50}ms` }}>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex gap-2">
-                            <Badge variant={comp.source?.toLowerCase().includes('you') ? 'default' : comp.source?.toLowerCase().includes('tavily') ? 'secondary' : 'outline'}
-                              className={`${comp.source?.toLowerCase().includes('bocha') ? 'border-orange-500 text-orange-500' : ''} text-xs`}>
-                              {comp.source}
-                            </Badge>
-                          </div>
-                          <a href={comp.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                            访问链接 <ArrowLeft className="w-3 h-3 rotate-180" />
-                          </a>
-                        </div>
-                        <h4 className="font-semibold text-lg text-foreground mt-1">{comp.title}</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-3">{comp.snippet}</p>
-                      </div>
-                    </GlassCard>
-                  ))
-                ) : (
-                  <GlassCard className="text-center py-10">
-                    <p className="text-muted-foreground">未找到竞品搜索记录</p>
-                  </GlassCard>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* AI Analysis Tab (VC Deep Dive) */}
-            <TabsContent value="ai" className="space-y-8 animate-slide-up">
-
-              {/* 1. Radar Analysis */}
-              <GlassCard className="p-8">
-                <div className="flex flex-col md:flex-row items-center gap-10">
-                  <div className="flex-1 w-full h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                        <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                        <Radar
-                          name="Score"
-                          dataKey="A"
-                          stroke="hsl(var(--primary))"
-                          fill="hsl(var(--primary))"
-                          fillOpacity={0.3}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Six-Dimension Evaluation
-                    </h3>
-                    <div className="space-y-3">
-                      {dimensions.map((d: any, i: number) => (
-                        <div key={i} className="space-y-1">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">{d.dimension}</span>
-                            <span className={`font-semibold ${d.score >= 80 ? 'text-green-500' : d.score < 50 ? 'text-red-500' : 'text-foreground'}`}>
-                              {d.score}/100
-                            </span>
-                          </div>
-                          {d.reason && (
-                            <div className={`text-xs leading-relaxed pl-2 border-l-2 ${d.score < 50 ? 'border-red-500/50 text-red-400/80' : 'border-white/10 text-muted-foreground'} prose prose-invert max-w-none`}>
-                              <ReactMarkdown>{d.reason}</ReactMarkdown>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </GlassCard>
-
-              {/* 2. Thesis & Risks (Grid Layout) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Investment Thesis (Strengths) */}
-                <GlassCard className="h-full border-l-4 border-l-green-500 rounded-l-none">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-green-500">
-                    <TrendingUp className="w-5 h-5" />
-                    Core Investment Thesis
-                  </h3>
-                  <ul className="space-y-3">
-                    {aiAnalysis.strengths?.map((item: string, i: number) => (
-                      <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                        <div className="text-foreground/90 prose prose-invert max-w-none">
-                          <ReactMarkdown>{item}</ReactMarkdown>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </GlassCard>
-
-                {/* Deal Breakers (Weaknesses) */}
-                <GlassCard className="h-full border-l-4 border-l-red-500 rounded-l-none">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-500">
-                    <AlertCircle className="w-5 h-5" />
-                    Critical Risks & Deal Breakers
-                  </h3>
-                  <ul className="space-y-3">
-                    {aiAnalysis.weaknesses?.map((item: string, i: number) => (
-                      <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
-                        <div className="text-foreground/90 prose prose-invert max-w-none">
-                          <ReactMarkdown>{item}</ReactMarkdown>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </GlassCard>
-              </div>
-
-              {/* 3. Strategic Roadmap */}
-              <GlassCard>
-                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
-                  <Target className="w-5 h-5" />
-                  Strategic Roadmap (GTM & Product)
-                </h3>
-                <div className="grid grid-cols-1 gap-4">
-                  {aiAnalysis.suggestions?.map((item: any, i: number) => (
-                    <div key={i} className="flex gap-4 p-4 rounded-lg bg-card/50 border border-white/5">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        {typeof item === 'string' ? (
-                          <div className="text-sm text-foreground leading-relaxed prose prose-invert max-w-none">
-                            <ReactMarkdown>{item}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="text-sm text-foreground font-medium prose prose-invert max-w-none">
-                              <ReactMarkdown>{item.action}</ReactMarkdown>
-                            </div>
-                            {item.reference && (
-                              <p className="text-xs text-primary/80 flex items-center gap-1">
-                                <span className="opacity-60">📚 参考:</span> {item.reference}
-                              </p>
-                            )}
-                            {item.expectedResult && (
-                              <p className="text-xs text-muted-foreground">
-                                <span className="opacity-60">→ 预期效果:</span> {item.expectedResult}
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
-
-              {/* 4. Pre-Mortem Analysis (Risks) */}
-              {aiAnalysis.risks && aiAnalysis.risks.length > 0 && (
-                <GlassCard className="bg-red-500/5 border-red-500/10">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-400">
-                    <AlertTriangle className="w-5 h-5" />
-                    Pre-Mortem Analysis (Why this might fail)
-                  </h3>
-                  <div className="space-y-2">
-                    {aiAnalysis.risks.map((item: string, i: number) => (
-                      <div key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-red-500/50 mt-1.5">•</span>
-                        <div className="prose prose-invert max-w-none text-sm text-muted-foreground">
-                          <ReactMarkdown>{item}</ReactMarkdown>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
-            </TabsContent>
-
-            {/* VC Circle Tab */}
-            <TabsContent value="circle" className="space-y-6 animate-slide-up">
-              <VCFeed validationId={validation.id} />
-            </TabsContent>
-
-            {/* Share Tab */}
-            <TabsContent value="share" className="space-y-6 animate-slide-up">
-              <GlassCard className="p-6">
-                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
-                  <Share2 className="w-5 h-5" />
-                  生成分享卡片
-                </h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  生成一张精美的验证报告卡片，分享到朋友圈或小红书，展示你的创业想法！
-                </p>
-                <ShareCard
-                  idea={validation.idea}
-                  score={validation.overall_score || 0}
-                  verdict={aiAnalysis.overallVerdict || ""}
-                  dimensions={dimensions}
-                  tags={validation.tags || []}
-                />
-              </GlassCard>
-            </TabsContent>
+            <TabsContent value="overview">{activeTab === "overview" && <OverviewTab data={reportData} />}</TabsContent>
+            <TabsContent value="insights">{activeTab === "insights" && <DataInsightsTab dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
+            <TabsContent value="market">{activeTab === "market" && <MarketTab data={reportData} />}</TabsContent>
+            <TabsContent value="sentiment">{activeTab === "sentiment" && <SentimentTab data={reportData} />}</TabsContent>
+            <TabsContent value="competitors">{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
+            <TabsContent value="ai">{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
+            <TabsContent value="circle">{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
+            <TabsContent value="share">{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
           </Tabs>
 
-          {/* 开发者调试面板 - 仅管理员可见 */}
           <DevPanel report={report} validationId={validation.id} />
         </div>
       </main>
