@@ -1,157 +1,54 @@
 
-# 热门趋势改造计划
 
-## 背景分析
+# 项目问题修复计划
 
-你的决策非常正确！当前 `PopularValidations` 组件存在两个问题：
+## 发现的问题
 
-1. **隐私问题**：直接查询 `validations` 表，但 RLS 策略限制只能看到自己的验证（`user_id = auth.uid()`），所以组件实际上无法显示"热门验证"
-2. **创意泄露风险**：即使开放也会暴露用户的具体创意
+### 问题 1: CreateJobDialog React ref 警告
+`CreateJobDialog` 组件在 `HunterSection.tsx` 第 231 行作为 JSX 直接渲染，但其内部根元素是 `<Dialog>`（来自 Radix UI），Radix 内部会尝试给子组件传递 ref。由于 `CreateJobDialog` 是普通函数组件，无法接收 ref，导致控制台警告。
 
-**解决方案**：用 `trending_topics` 表（公开的聚合数据）替代，展示市场热度趋势而非用户验证详情。
+**修复方案**: 不需要 forwardRef -- 实际上这个警告来自 Radix Dialog 内部机制，通常无害。但为了消除警告，可以用 `React.forwardRef` 包裹 `CreateJobDialog`。
 
----
+### 问题 2: ScannerAuthDialog 硬编码 localhost 地址
+`src/components/shared/ScannerAuthDialog.tsx` 中直接硬编码了 `http://127.0.0.1:8001`，在生产/预览环境中这些请求会直接失败（从网络日志中已可看到 `Failed to fetch` 错误）。
 
-## 实施计划
+**修复方案**: 将 `ScannerAuthDialog` 改为使用 `invokeFunction` 统一调用层（该层已经包含了本地开发拦截和生产环境边缘函数调用逻辑）。
 
-### 第一步：修复构建错误
+### 问题 3: invokeFunction.ts 本地拦截器误触发
+`src/lib/invokeFunction.ts` 第 207 行的判断条件 `import.meta.env.DEV` 在 Lovable 预览环境中可能为 `true`，导致 crawler 相关请求被错误地路由到 `127.0.0.1:8001`，而该地址在云端不可达。
 
-`Report.tsx` 第 773 行引用了不存在的 `douyin_data` 字段。
-
-**问题**：
-```typescript
-// 当前代码（错误）
-...(report?.douyin_data ? [{ name: "抖音", count: (report.douyin_data as any)?.totalVideos || 0 }] : [])
-```
-
-**修复**：
-- `validation_reports` 表只有 `xiaohongshu_data`，没有 `douyin_data`
-- 移除对 `douyin_data` 的引用，或改用 `data_summary` 中的抖音数据
-
-### 第二步：重构 PopularValidations 组件
-
-将组件改名为 `TrendingInsights` 或 `HotTrends`，数据源从 `validations` 改为 `trending_topics`。
-
-**改造前（当前逻辑）**：
-```text
-validations 表 → 按 idea 分组 → 显示用户验证详情
-         ↓
-   RLS 限制：只能看自己的
-   隐私风险：暴露具体创意
-```
-
-**改造后（新逻辑）**：
-```text
-trending_topics 表 → 按热度/增长率排序 → 显示市场趋势
-         ↓
-   RLS：公开可见（is_active = true）
-   隐私安全：只展示聚合趋势
-```
-
-**新组件数据结构**：
-```typescript
-interface TrendingInsight {
-  id: string;
-  keyword: string;           // 趋势关键词（非用户创意）
-  category: string | null;
-  heat_score: number;        // 热度分数
-  growth_rate: number;       // 增长率
-  validation_count: number;  // 被验证次数
-  sample_count: number;      // 数据样本量
-}
-```
-
-**UI 改造**：
-| 原展示 | 新展示 |
-|--------|--------|
-| 用户创意文本 | 趋势关键词 |
-| "X人验证" | "热度 X" + 增长率 |
-| 验证评分 | quality_score 或 avg_validation_score |
-| 跳转到报告详情 | 跳转到验证页并预填关键词 |
-
-### 第三步：更新组件引用
-
-修改使用 `PopularValidations` 的页面（如 `Index.tsx`、`Validate.tsx`），替换为新组件。
+**修复方案**: 收紧本地开发判断条件，仅在 `window.location.hostname` 真正为 `localhost` 或 `127.0.0.1` 时才启用本地拦截，移除 `import.meta.env.DEV` 条件。
 
 ---
 
-## 技术细节
+## 技术实施细节
 
-### 文件修改清单
+### 文件 1: `src/lib/invokeFunction.ts` (第 207 行)
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `src/pages/Report.tsx` | 修改 | 移除 `douyin_data` 引用 |
-| `src/components/discover/PopularValidations.tsx` | 重构 | 改为使用 `trending_topics` |
-| `src/services/discoverService.ts` | 新增函数 | 添加 `getHotTrends()` |
-
-### Report.tsx 修复
-
+将:
 ```typescript
-// 修复后
-<DataConfidenceCard
-  sampleSize={xiaohongshuData.totalNotes || 0}
-  platforms={[
-    { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
-    // 如果 data_summary 有抖音数据，从那里取
-  ]}
-  dataFreshness="fresh"
-  className="h-full"
-/>
+const isLocalDevelopment = import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 ```
-
-### 新增 getHotTrends 函数
-
+改为:
 ```typescript
-// 在 discoverService.ts 中添加
-export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
-  const { data, error } = await supabase
-    .from('trending_topics')
-    .select('id, keyword, category, heat_score, growth_rate, validation_count, quality_score, sample_count, discovered_at')
-    .eq('is_active', true)
-    .order('quality_score', { ascending: false })
-    .limit(limit);
-
-  if (error) return [];
-  return data || [];
-}
+const isLocalDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 ```
 
-### 组件 UI 改造示意
+### 文件 2: `src/components/shared/ScannerAuthDialog.tsx`
 
-```text
-┌─────────────────────────────────────────┐
-│ 🔥 本周热门趋势           Top 5        │
-├─────────────────────────────────────────┤
-│ 1  [AI写作工具]                   ↑32%  │
-│    🔥 热度 850 · 📊 120个样本           │
-├─────────────────────────────────────────┤
-│ 2  [宠物智能硬件]                 ↑28%  │
-│    🔥 热度 720 · 📊 95个样本            │
-├─────────────────────────────────────────┤
-│    ...                                  │
-├─────────────────────────────────────────┤
-│  [🎯 去验证这个趋势]                    │
-└─────────────────────────────────────────┘
+将两处直接 `fetch("http://127.0.0.1:8001/...")` 替换为使用 `invokeFunction`：
+- 第 40 行 `startAuthFlow` -> 调用 `invokeFunction("crawler-auth-start", { body: { platform: "xiaohongshu", user_id: userId } })`
+- 第 69 行 轮询 -> 调用 `invokeFunction("crawler-auth-status", { body: { flow_id: flowId } })`
+
+### 文件 3: `src/components/discover/HunterSection.tsx` (第 107 行)
+
+用 `React.forwardRef` 包裹 `CreateJobDialog`，消除 Radix Dialog 的 ref 警告：
+```typescript
+const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void }>(
+  ({ onCreated }, ref) => {
+    // ... existing logic
+  }
+);
+CreateJobDialog.displayName = "CreateJobDialog";
 ```
 
----
-
-## 产品优势
-
-| 维度 | 改造前 | 改造后 |
-|------|--------|--------|
-| **隐私** | 可能暴露用户创意 | 只展示聚合趋势 |
-| **数据可用性** | RLS 阻止跨用户查询 | 公开数据，所有人可见 |
-| **社交证明** | "X人验证"可能为假 | 基于真实热度和样本量 |
-| **用户价值** | 看别人在验证什么 | 发现市场机会趋势 |
-| **行动引导** | 跳转看报告（无权限） | 跳转验证这个趋势 |
-
----
-
-## 验收标准
-
-1. 构建无 TypeScript 错误
-2. 热门趋势组件正确显示 `trending_topics` 数据
-3. 点击趋势卡片能跳转到验证页并预填关键词
-4. 热度、增长率、样本量等信息正确展示
