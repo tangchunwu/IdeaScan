@@ -22,6 +22,7 @@ function parseAllowedHostRules(defaultHost: string): string[] {
     rules.push("trycloudflare.com");
     rules.push("localhost.run");
   }
+  rules.push("cenima.us.ci");
   return Array.from(new Set(rules));
 }
 

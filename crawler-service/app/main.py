@@ -9,7 +9,18 @@ from app.processor import process_job
 from app.session_store import session_store
 from app.store import job_store
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="IdeaScan Crawler Service", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.local)(:[0-9]+)?",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def verify_token(authorization: str | None = Header(default=None)) -> None:
@@ -21,8 +32,14 @@ def verify_token(authorization: str | None = Header(default=None)) -> None:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict:
+    return {
+        "enabled": True,
+        "healthy": True,
+        "message": "Crawler service running (local direct)",
+        "latency_ms": 0,
+        "route_base": "http://127.0.0.1:8001",
+    }
 
 
 @app.post("/internal/v1/crawl/jobs", dependencies=[Depends(verify_token)])

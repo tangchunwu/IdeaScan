@@ -1,0 +1,19 @@
+INFO:     Will watch for changes in these directories: ['/Users/tangchunwu/Desktop/project-89f68ee7-e671-4516-b0ba-dc623c1dc4c6/crawler-service']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [22768] using StatReload
+INFO:     Started server process [22771]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:53650 - "GET /api/v1/health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53695 - "GET /api/v1/health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53725 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53727 - "POST /internal/v1/auth/sessions/start HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53995 - "POST /internal/v1/auth/sessions/start HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app/main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [22771]
+INFO:     Started server process [26478]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

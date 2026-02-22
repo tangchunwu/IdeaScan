@@ -23,11 +23,11 @@ class Settings(BaseSettings):
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64),"
         "Mozilla/5.0 (X11; Linux x86_64)"
     )
-    crawler_quick_delay_ms_min: int = 900
-    crawler_quick_delay_ms_max: int = 1800
-    crawler_deep_delay_ms_min: int = 600
-    crawler_deep_delay_ms_max: int = 1200
-    crawler_playwright_headless: bool = True
+    crawler_quick_delay_ms_min: int = 4000
+    crawler_quick_delay_ms_max: int = 7000
+    crawler_deep_delay_ms_min: int = 4000
+    crawler_deep_delay_ms_max: int = 7000
+    crawler_playwright_headless: bool = False  # 调试期依然打开浏览器方便观察
     crawler_playwright_mode: str = "launch"  # launch | cdp
     crawler_playwright_cdp_url: str = ""
     crawler_playwright_cdp_fallback_launch: bool = True

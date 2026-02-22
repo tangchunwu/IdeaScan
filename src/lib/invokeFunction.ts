@@ -203,6 +203,73 @@ export async function invokeFunction<T = any>(
   }
 
   const callViaFetch = async (tokenOverride?: string) => {
+    // === [拦截器] 本地开发直连 Crawler Service 绕过 Supabase 云网络 ===
+    const isLocalDevelopment = import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (isLocalDevelopment && functionName.startsWith("crawler-")) {
+      const localCrawlerApp = "http://127.0.0.1:8001";
+      let method = options.method || "POST";
+      let endpoint = "";
+      let finalBody: any = options.body ? { ...(options.body as Record<string, unknown>) } : {};
+      const sessionUserResp = await supabase.auth.getUser();
+      const currentUserId = sessionUserResp.data?.user?.id || "";
+
+      if (functionName === "crawler-health") {
+        endpoint = "/health";
+        method = "GET";
+        finalBody = undefined;
+      } else if (functionName === "crawler-auth-start") {
+        endpoint = "/internal/v1/auth/sessions/start";
+        finalBody.user_id = currentUserId;
+      } else if (functionName === "crawler-auth-status") {
+        const flowId = finalBody.flow_id;
+        const manualConfirm = finalBody.manual_confirm ? "true" : "false";
+        endpoint = `/internal/v1/auth/sessions/${flowId}?manual_confirm=${manualConfirm}`;
+        method = "GET";
+        finalBody = undefined;
+      } else if (functionName === "crawler-auth-cancel") {
+        const flowId = finalBody.flow_id;
+        endpoint = `/internal/v1/auth/sessions/cancel/${flowId}`;
+      } else if (functionName === "crawler-auth-sessions") {
+        endpoint = `/internal/v1/auth/sessions/user/${currentUserId}`;
+        method = "GET";
+        finalBody = undefined;
+      } else if (functionName === "crawler-auth-revoke") {
+        endpoint = `/internal/v1/auth/sessions/revoke`;
+        finalBody.user_id = currentUserId;
+      } else if (functionName === "crawler-dispatch") {
+        endpoint = "/internal/v1/crawl/jobs";
+        finalBody.user_id = currentUserId;
+      }
+
+      if (endpoint) {
+        try {
+          const response = await fetch(`${localCrawlerApp}${endpoint}`, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: method === "GET" || finalBody === undefined ? undefined : JSON.stringify(finalBody),
+          });
+          const text = await response.text();
+          let payload: any = null;
+          if (text) {
+            try { payload = JSON.parse(text); } catch { payload = { raw: text }; }
+          }
+          if (!response.ok) {
+            return {
+              data: payload,
+              error: { message: payload?.error || payload?.detail || `Local crawler error (${response.status})`, status: response.status }
+            };
+          }
+          return { data: payload, error: null };
+        } catch (e: any) {
+          return {
+            data: null,
+            error: { message: `无法连接到本地爬虫服务 (127.0.0.1:8001): ${e.message}`, status: 503 }
+          };
+        }
+      }
+    }
+    // === [拦截器结束] ===
+
     const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     const fallbackToken = sanitizeToken(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
     const authToken = effectiveRequireAuth ? sanitizeToken(tokenOverride || accessToken) : "";

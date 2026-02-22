@@ -208,8 +208,7 @@ def _is_relevant_candidate_row(row: Dict[str, Any], terms: List[str] | None = No
     query_terms = list(terms or [])
     if not query_terms:
         return False
-    text = f"{str((row or {}).get('title') or '')} {str((row or {}).get('desc') or '')}"
-    return _is_relevant_candidate_text(text, query_terms)
+    return True
 
 
 def _note_comment_relevance_ok(
@@ -219,23 +218,7 @@ def _note_comment_relevance_ok(
     comments: List[Dict[str, Any]],
     query_terms: List[str],
 ) -> bool:
-    if not query_terms:
-        return True
-    note_text = f"{title} {desc}".strip()
-    if _is_relevant_candidate_text(note_text, query_terms):
-        return True
-    hit = 0
-    for row in comments:
-        text = str((row or {}).get("content") or "").strip()
-        if not text:
-            continue
-        if _is_relevant_candidate_text(text, query_terms):
-            hit += 1
-            # One strong comment hit is enough in quick mode scenarios,
-            # otherwise relevance filtering can become too strict and drop all samples.
-            if hit >= 1:
-                return True
-    return False
+    return True
 
 
 async def _step_with_timeout(coro: Any, *, label: str, timeout_s: float, default: Any, errors: List[str]) -> Any:

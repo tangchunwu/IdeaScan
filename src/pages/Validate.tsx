@@ -78,6 +78,8 @@ const Validate = () => {
     source: 'core' | 'user_phrase' | 'trend' | 'competitor';
   }>>([]);
 
+
+
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
       setSelectedTags([...selectedTags, tag]);
@@ -219,6 +221,7 @@ const Validate = () => {
       setShowQuotaDialog(true);
       return;
     }
+
 
     // Track validation start event
     captureEvent('validation_started', {
@@ -720,7 +723,7 @@ const Validate = () => {
                     )}
                   </div>
                 )}
-                
+
                 <Button
                   id="validate-start-btn"
                   onClick={handleValidate}
@@ -765,11 +768,13 @@ const Validate = () => {
 
       {/* Settings Dialog triggered from quota dialog */}
       {showSettingsFromQuota && (
-        <SettingsDialog 
-          open={showSettingsFromQuota} 
-          onOpenChange={(open) => !open && setShowSettingsFromQuota(false)} 
+        <SettingsDialog
+          open={showSettingsFromQuota}
+          onOpenChange={(open) => !open && setShowSettingsFromQuota(false)}
         />
       )}
+
+
     </PageBackground>
   );
 };
