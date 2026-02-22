@@ -1,54 +1,113 @@
 
 
-# 项目问题修复计划
+# 爬虫配置权限分离与 TikHub 自动降级
 
-## 发现的问题
+## 当前问题
 
-### 问题 1: CreateJobDialog React ref 警告
-`CreateJobDialog` 组件在 `HunterSection.tsx` 第 231 行作为 JSX 直接渲染，但其内部根元素是 `<Dialog>`（来自 Radix UI），Radix 内部会尝试给子组件传递 ref。由于 `CreateJobDialog` 是普通函数组件，无法接收 ref，导致控制台警告。
+1. **`CRAWLER_SERVICE_BASE_URL` 和 `CRAWLER_SERVICE_TOKEN` 未配置为 Edge Function 密钥**，导致所有爬虫相关功能（扫码、health check）返回 "Crawler service disabled"
+2. **所有用户都能看到爬虫管理配置**（自爬开关、TikHub Token、采集策略等），普通用户会困惑
+3. **验证流程在自爬不可用时报错**，而不是自动降级到 TikHub
 
-**修复方案**: 不需要 forwardRef -- 实际上这个警告来自 Radix Dialog 内部机制，通常无害。但为了消除警告，可以用 `React.forwardRef` 包裹 `CreateJobDialog`。
+## 修改方案
 
-### 问题 2: ScannerAuthDialog 硬编码 localhost 地址
-`src/components/shared/ScannerAuthDialog.tsx` 中直接硬编码了 `http://127.0.0.1:8001`，在生产/预览环境中这些请求会直接失败（从网络日志中已可看到 `Failed to fetch` 错误）。
+### 1. 配置爬虫服务密钥
 
-**修复方案**: 将 `ScannerAuthDialog` 改为使用 `invokeFunction` 统一调用层（该层已经包含了本地开发拦截和生产环境边缘函数调用逻辑）。
+需要添加两个 Edge Function 密钥：
+- `CRAWLER_SERVICE_BASE_URL` -- 你的爬虫服务公网域名（例如 `https://cenima.us.ci`）
+- `CRAWLER_SERVICE_TOKEN` -- 爬虫服务的认证 token（如果有的话）
+- `CRAWLER_CALLBACK_SECRET` -- 回调签名密钥（如果有的话）
 
-### 问题 3: invokeFunction.ts 本地拦截器误触发
-`src/lib/invokeFunction.ts` 第 207 行的判断条件 `import.meta.env.DEV` 在 Lovable 预览环境中可能为 `true`，导致 crawler 相关请求被错误地路由到 `127.0.0.1:8001`，而该地址在云端不可达。
+这些密钥配置后，所有 crawler 相关 Edge Function（health、auth-start、auth-status 等）就能正常连接你本地的爬虫服务。
 
-**修复方案**: 收紧本地开发判断条件，仅在 `window.location.hostname` 真正为 `localhost` 或 `127.0.0.1` 时才启用本地拦截，移除 `import.meta.env.DEV` 条件。
+### 2. SettingsDialog 按角色分区显示
+
+在 `src/components/shared/SettingsDialog.tsx` 中引入 `useAdminAuth`：
+
+**管理员可见（全部）：**
+- LLM 配置、TikHub Token、爬虫健康状态、已授权会话、采集策略开关、平台选择、搜索引擎、图片生成、导入导出
+
+**普通用户可见：**
+- LLM 配置
+- 扫码登录（小红书/抖音扫码按钮 + QR 码区域）-- 按钮不再依赖 `crawlerHealth?.healthy` 来禁用
+- 平台选择（小红书/抖音开关）
+- 搜索引擎配置
+- 图片生成配置
+- 导入导出
+
+**普通用户隐藏：**
+- TikHub Token 输入框
+- 爬虫健康状态显示
+- 已授权会话列表
+- 采集执行策略开关（自爬/TikHub 兜底）
+
+### 3. 后端验证逻辑：自爬不可用时自动降级
+
+修改 `supabase/functions/validate-idea-stream/index.ts`：
+
+- 检测 `CRAWLER_SERVICE_BASE_URL` 是否配置，判断自爬是否真正可用
+- 自爬不可用时自动启用 TikHub 兜底，优先使用环境变量 `TIKHUB_TOKEN`
+- 只有自爬和 TikHub 都不可用时才报错
 
 ---
 
 ## 技术实施细节
 
-### 文件 1: `src/lib/invokeFunction.ts` (第 207 行)
+### 步骤 1：添加密钥
 
-将:
+使用 `add_secret` 工具请求用户输入：
+- `CRAWLER_SERVICE_BASE_URL`（爬虫服务的公网 HTTPS 域名）
+- `CRAWLER_SERVICE_TOKEN`（可选，爬虫服务认证 token）
+- `CRAWLER_CALLBACK_SECRET`（可选，回调签名密钥）
+
+### 步骤 2：修改 `src/components/shared/SettingsDialog.tsx`
+
+1. 添加 `import { useAdminAuth } from "@/hooks/useAdminAuth";`
+2. 组件内获取 `const { isAdmin } = useAdminAuth();`
+3. 用 `{isAdmin && (...)}` 包裹：
+   - TikHub Token 区域（第 1123-1142 行）
+   - 爬虫健康状态（第 1146-1158 行）
+   - 已授权会话列表（第 1233-1274 行）
+   - 采集执行策略开关区域（第 1277-1307 行）
+4. 扫码按钮区域（第 1159-1232 行）保留给所有用户，移除 `disabled={!crawlerHealth?.healthy}` 限制（改为仅在 `isAuthStarting` 时 disabled）
+
+### 步骤 3：修改 `supabase/functions/validate-idea-stream/index.ts`
+
+修改第 868-882 行和第 931-933 行以及第 1108-1111 行：
+
 ```typescript
-const isLocalDevelopment = import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+// 第 868-882 行区域，增加自动降级逻辑
+const crawlerServiceUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
+const selfCrawlerAvailable = enableSelfCrawler && !!crawlerServiceUrl;
+const effectiveEnableTikhubFallback = enableTikhubFallback || !selfCrawlerAvailable;
+
+const userProvidedTikhub = effectiveEnableTikhubFallback && !!config?.tikhubToken;
+let tikhubToken = config?.tikhubToken || undefined;
+
+if (effectiveEnableTikhubFallback && !userProvidedTikhub && !usedCache) {
+  tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+}
 ```
-改为:
+
 ```typescript
-const isLocalDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+// 第 931-933 行，移除硬性报错
+if (!usedCache && (enableXhs || enableDy) && !selfCrawlerAvailable && !effectiveEnableTikhubFallback && !tikhubToken) {
+  throw new ValidationError("DATA_SOURCE_DISABLED:...");
+}
 ```
 
-### 文件 2: `src/components/shared/ScannerAuthDialog.tsx`
-
-将两处直接 `fetch("http://127.0.0.1:8001/...")` 替换为使用 `invokeFunction`：
-- 第 40 行 `startAuthFlow` -> 调用 `invokeFunction("crawler-auth-start", { body: { platform: "xiaohongshu", user_id: userId } })`
-- 第 69 行 轮询 -> 调用 `invokeFunction("crawler-auth-status", { body: { flow_id: flowId } })`
-
-### 文件 3: `src/components/discover/HunterSection.tsx` (第 107 行)
-
-用 `React.forwardRef` 包裹 `CreateJobDialog`，消除 Radix Dialog 的 ref 警告：
 ```typescript
-const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void }>(
-  ({ onCreated }, ref) => {
-    // ... existing logic
+// 第 942 行
+const shouldAttemptSelfCrawler = selfCrawlerAvailable;
+```
+
+```typescript
+// 第 1108-1111 行，改为使用 effectiveEnableTikhubFallback
+if (!usedSelfCrawler && effectiveEnableTikhubFallback) {
+  if (!tikhubToken) {
+    // 自爬不可用且无 TikHub token，给出友好提示
+    throw new ValidationError("DATA_SOURCE_UNAVAILABLE:自爬服务未连接且未配置 TikHub Token。请联系管理员或在设置中配置 Token。");
   }
-);
-CreateJobDialog.displayName = "CreateJobDialog";
+  // ... 继续 TikHub 兜底流程
+}
 ```
 
