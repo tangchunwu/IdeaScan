@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { ExportDataButton } from "./ExportDataButton";
 import { ImportDataButton } from "./ImportDataButton";
 const PROVIDERS = {
@@ -99,7 +100,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               isLoading, isSynced, syncToCloud, syncFromCloud
        } = useSettings();
        
-       const { user } = useAuth();
+        const { user } = useAuth();
+        const { isAdmin } = useAdminAuth();
 
        const [internalOpen, setInternalOpen] = useState(false);
 
@@ -626,14 +628,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               toast({ variant: "destructive", title: "请先登录后再扫码" });
               return;
        }
-       if (!crawlerHealth?.healthy) {
-              toast({
-                     variant: "destructive",
-                     title: "扫码会话启动失败",
-                     description: crawlerHealth?.message || "Crawler service disabled"
-              });
-              return;
-       }
+        if (!crawlerHealth?.healthy) {
+              // Skip health check gate - let the backend handle availability
+              console.log('[CrawlerAuth] Starting without health check gate');
+        }
        setAuthPlatform(platform);
        setIsAuthStarting(true);
        try {
@@ -1121,6 +1119,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             <hr className="border-gray-100" />
 
                             {/* Tikhub Settings */}
+                            {isAdmin && (
                             <div className="space-y-4">
                                    <h4 className="font-medium flex items-center justify-between">
                                           <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
@@ -1140,9 +1139,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                  <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                           </div>
                                    </div>
+                            </div>
+                            )}
 
+                            <div className="space-y-4">
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">账号扫码登录（自爬优先）</Label>
+                                   {isAdmin && (
                                           <div className="rounded-lg border bg-muted/10 p-2">
                                                  {isCrawlerHealthLoading ? (
                                                         <p className="text-xs text-muted-foreground">检测自爬服务状态中...</p>
@@ -1156,13 +1159,14 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </p>
                                                  )}
                                           </div>
+                                   )}
                                           <div className="flex gap-2">
                                                  <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="flex-1"
                                                         onClick={() => handleStartCrawlerAuth('xiaohongshu')}
-                                                        disabled={isAuthStarting || !crawlerHealth?.healthy}
+                                                 disabled={isAuthStarting}
                                                  >
                                                         {isAuthStarting && authPlatform === 'xiaohongshu' ? (
                                                                <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
@@ -1173,7 +1177,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         size="sm"
                                                         className="flex-1"
                                                         onClick={() => handleStartCrawlerAuth('douyin')}
-                                                        disabled={isAuthStarting || !crawlerHealth?.healthy}
+                                                        disabled={isAuthStarting}
                                                  >
                                                         {isAuthStarting && authPlatform === 'douyin' ? (
                                                                <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
@@ -1230,6 +1234,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </div>
                                                  </div>
                                           )}
+                                          {isAdmin && (
                                           <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
                                                  <div className="flex items-center justify-between">
                                                         <p className="text-xs text-muted-foreground">已授权会话</p>
@@ -1272,8 +1277,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </div>
                                                  )}
                                           </div>
+                                          )}
                                    </div>
 
+                                   {isAdmin && (
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">采集执行策略</Label>
 
@@ -1304,9 +1311,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         ⚠️ 已关闭所有采集执行链路，仅能使用缓存数据
                                                  </p>
                                           )}
-                                   </div>
+                                    </div>
+                                    )}
 
-                                   {/* Data Source Toggles */}
+                                    {/* Data Source Toggles */}
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">选择数据源平台</Label>
                                           
