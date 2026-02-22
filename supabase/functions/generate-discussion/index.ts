@@ -27,11 +27,146 @@ interface ValidationData {
   idea: string;
   tags: string[];
   overall_score: number;
+  dimensions?: Array<{ dimension: string; score: number }>;
   report?: {
-    market_analysis?: any;
-    ai_analysis?: any;
-    sentiment_analysis?: any;
+    market_analysis?: {
+      targetAudience?: string;
+      competitionLevel?: string;
+      trendDirection?: string;
+      marketSize?: string;
+      keywords?: string[];
+    };
+    ai_analysis?: {
+      strengths?: string[];
+      weaknesses?: string[];
+      risks?: string[];
+      suggestions?: string[];
+      feasibilityScore?: number;
+    };
+    sentiment_analysis?: {
+      positive?: number;
+      negative?: number;
+      neutral?: number;
+      topPositive?: string[];
+      topNegative?: string[];
+    };
+    competitor_data?: Array<{ title: string; snippet: string }>;
   };
+}
+
+function buildRoleContextPrompt(persona: Persona, data: ValidationData): string {
+  const sanitizedIdea = sanitizeForPrompt(data.idea);
+  const sanitizedTags = data.tags.map(t => sanitizeForPrompt(t));
+  const report = data.report;
+  const dims = data.dimensions;
+
+  // Base context
+  let ctx = `你正在评估一个创业想法：
+- 创意: "${sanitizedIdea}"
+- 标签: ${sanitizedTags.join(", ")}
+- 总分: ${data.overall_score}/100
+`;
+
+  // Dimensions summary
+  if (dims && dims.length > 0) {
+    ctx += `\n📊 维度评分:\n`;
+    for (const d of dims) {
+      ctx += `  - ${d.dimension}: ${d.score}/100\n`;
+    }
+  }
+
+  const role = persona.role;
+
+  // Role-specific context emphasis
+  if (role.includes('VC') || role.includes('合伙人')) {
+    // VC: focus on market demand, profit potential, risks, competition
+    if (report?.market_analysis) {
+      const ma = report.market_analysis;
+      ctx += `\n🏛 市场分析:\n`;
+      if (ma.competitionLevel) ctx += `  - 竞争程度: ${ma.competitionLevel}\n`;
+      if (ma.trendDirection) ctx += `  - 趋势方向: ${ma.trendDirection}\n`;
+      if (ma.marketSize) ctx += `  - 市场规模: ${ma.marketSize}\n`;
+      if (ma.targetAudience) ctx += `  - 目标用户: ${ma.targetAudience}\n`;
+    }
+    if (report?.ai_analysis?.risks?.length) {
+      ctx += `\n⚠️ 风险:\n${report.ai_analysis.risks.map(r => `  - ${sanitizeForPrompt(r)}`).join('\n')}\n`;
+    }
+    if (report?.competitor_data?.length) {
+      ctx += `\n🏢 竞品 (${report.competitor_data.length}个):\n`;
+      for (const c of report.competitor_data.slice(0, 3)) {
+        ctx += `  - ${sanitizeForPrompt(c.title)}\n`;
+      }
+    }
+  } else if (role.includes('产品') || role.includes('PM')) {
+    // PM: focus on suggestions, strengths/weaknesses, target audience
+    if (report?.ai_analysis) {
+      const ai = report.ai_analysis;
+      if (ai.strengths?.length) {
+        ctx += `\n✅ 优势:\n${ai.strengths.map(s => `  - ${sanitizeForPrompt(s)}`).join('\n')}\n`;
+      }
+      if (ai.weaknesses?.length) {
+        ctx += `\n❌ 劣势:\n${ai.weaknesses.map(w => `  - ${sanitizeForPrompt(w)}`).join('\n')}\n`;
+      }
+      if (ai.suggestions?.length) {
+        ctx += `\n💡 建议:\n${ai.suggestions.map(s => `  - ${sanitizeForPrompt(s)}`).join('\n')}\n`;
+      }
+    }
+    if (report?.market_analysis?.targetAudience) {
+      ctx += `\n👤 目标用户: ${report.market_analysis.targetAudience}\n`;
+    }
+    if (report?.competitor_data?.length) {
+      ctx += `\n🏢 竞品:\n`;
+      for (const c of report.competitor_data.slice(0, 3)) {
+        ctx += `  - ${sanitizeForPrompt(c.title)}: ${sanitizeForPrompt(c.snippet?.slice(0, 80) || '')}\n`;
+      }
+    }
+  } else if (role.includes('用户') || role.includes('可可')) {
+    // User rep: focus on sentiment, feasibility, user voice
+    if (report?.sentiment_analysis) {
+      const sa = report.sentiment_analysis;
+      ctx += `\n😊 用户情绪:\n`;
+      ctx += `  - 正面: ${sa.positive ?? 0}% | 负面: ${sa.negative ?? 0}% | 中性: ${sa.neutral ?? 0}%\n`;
+      if (sa.topPositive?.length) {
+        ctx += `  - 用户好评: "${sanitizeForPrompt(sa.topPositive.slice(0, 2).join('"; "'))}"\n`;
+      }
+      if (sa.topNegative?.length) {
+        ctx += `  - 用户吐槽: "${sanitizeForPrompt(sa.topNegative.slice(0, 2).join('"; "'))}"\n`;
+      }
+    }
+    // Feasibility dimension
+    if (dims) {
+      const feasibility = dims.find(d => d.dimension.includes('可行') || d.dimension.includes('feasibility'));
+      if (feasibility) ctx += `\n🔧 可行性得分: ${feasibility.score}/100\n`;
+    }
+  } else if (role.includes('分析') || role.includes('老王')) {
+    // Analyst: full picture - all dimensions, competitor, market, sentiment
+    if (report?.market_analysis) {
+      const ma = report.market_analysis;
+      ctx += `\n🏛 市场分析:\n`;
+      if (ma.competitionLevel) ctx += `  - 竞争程度: ${ma.competitionLevel}\n`;
+      if (ma.trendDirection) ctx += `  - 趋势方向: ${ma.trendDirection}\n`;
+      if (ma.marketSize) ctx += `  - 市场规模: ${ma.marketSize}\n`;
+      if (ma.targetAudience) ctx += `  - 目标用户: ${ma.targetAudience}\n`;
+    }
+    if (report?.competitor_data?.length) {
+      ctx += `\n🏢 竞品 (${report.competitor_data.length}个):\n`;
+      for (const c of report.competitor_data.slice(0, 5)) {
+        ctx += `  - ${sanitizeForPrompt(c.title)}\n`;
+      }
+    }
+    if (report?.sentiment_analysis) {
+      const sa = report.sentiment_analysis;
+      ctx += `\n📈 社交媒体情绪: 正面${sa.positive ?? 0}% / 负面${sa.negative ?? 0}% / 中性${sa.neutral ?? 0}%\n`;
+    }
+    if (report?.ai_analysis?.risks?.length) {
+      ctx += `\n⚠️ 风险: ${report.ai_analysis.risks.map(r => sanitizeForPrompt(r)).join('；')}\n`;
+    }
+  }
+
+  ctx += `\n请用你的角色人设，对这个创意发表一条评论。
+注意：直接输出评论内容，不要任何前缀或解释。`;
+
+  return ctx;
 }
 
 async function generatePersonaComment(
@@ -42,22 +177,7 @@ async function generatePersonaComment(
   model: string
 ): Promise<string> {
   const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
-
-  // Sanitize inputs for prompt
-  const sanitizedIdea = sanitizeForPrompt(validationData.idea);
-  const sanitizedTags = validationData.tags.map(t => sanitizeForPrompt(t));
-
-  const contextPrompt = `
-你正在评估一个创业想法：
-- 创意: "${sanitizedIdea}"
-- 标签: ${sanitizedTags.join(", ")}
-- 总分: ${validationData.overall_score}/100
-${validationData.report?.market_analysis ? `- 市场分析: ${sanitizeForPrompt(JSON.stringify(validationData.report.market_analysis).slice(0, 500))}` : ""}
-${validationData.report?.ai_analysis ? `- AI评估: ${sanitizeForPrompt(JSON.stringify(validationData.report.ai_analysis).slice(0, 500))}` : ""}
-
-请用你的角色人设，对这个创意发表一条评论。
-注意：直接输出评论内容，不要任何前缀或解释。
-`;
+  const contextPrompt = buildRoleContextPrompt(persona, validationData);
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -72,7 +192,7 @@ ${validationData.report?.ai_analysis ? `- AI评估: ${sanitizeForPrompt(JSON.str
         { role: "user", content: contextPrompt }
       ],
       temperature: 0.8,
-      max_tokens: 200,
+      max_tokens: 400,
     }),
   });
 
@@ -93,10 +213,8 @@ serve(async (req) => {
   try {
     const body = await req.json();
     
-    // Validate inputs
     const validationId = validateUUID(body.validation_id, "validation_id");
     
-    // Validate config if provided
     const config = body.config && typeof body.config === "object" ? {
       llmApiKey: validateString(body.config.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       llmBaseUrl: validateBaseUrl(body.config.llmBaseUrl, "llmBaseUrl") || undefined,
@@ -108,7 +226,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get auth user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new ValidationError("Authorization required");
 
@@ -116,46 +233,36 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new ValidationError("Invalid or expired session");
 
-    // Check rate limit
     await checkRateLimit(supabase, user.id, "generate-discussion");
 
-    // 1. Get validation data
-    const { data: validation, error: vError } = await supabase
-      .from("validations")
-      .select("*")
-      .eq("id", validationId)
-      .single();
+    // Fetch validation and report in parallel
+    const [validationResult, reportResult, personasResult] = await Promise.all([
+      supabase.from("validations").select("*").eq("id", validationId).single(),
+      supabase.from("validation_reports").select("*").eq("validation_id", validationId).single(),
+      supabase.from("personas").select("*").eq("is_active", true),
+    ]);
 
-    if (vError || !validation) {
-      throw new Error("Validation not found");
-    }
+    const validation = validationResult.data;
+    if (validationResult.error || !validation) throw new Error("Validation not found");
 
-    // 2. Get report data
-    const { data: report } = await supabase
-      .from("validation_reports")
-      .select("*")
-      .eq("validation_id", validationId)
-      .single();
+    const report = reportResult.data;
+    const personas = personasResult.data;
+    if (personasResult.error || !personas || personas.length === 0) throw new Error("No personas configured");
 
-    // 3. Get active personas
-    const { data: personas, error: pError } = await supabase
-      .from("personas")
-      .select("*")
-      .eq("is_active", true);
-
-    if (pError || !personas || personas.length === 0) {
-      throw new Error("No personas configured");
-    }
-
-    // 4. Prepare validation data for prompts
+    // Build rich validation data
     const validationData: ValidationData = {
       idea: validation.idea,
       tags: validation.tags || [],
       overall_score: validation.overall_score || 50,
-      report: report || undefined,
+      dimensions: report?.dimensions as ValidationData['dimensions'] || undefined,
+      report: report ? {
+        market_analysis: report.market_analysis as ValidationData['report']['market_analysis'] || undefined,
+        ai_analysis: report.ai_analysis as ValidationData['report']['ai_analysis'] || undefined,
+        sentiment_analysis: report.sentiment_analysis as ValidationData['report']['sentiment_analysis'] || undefined,
+        competitor_data: report.competitor_data as ValidationData['report']['competitor_data'] || undefined,
+      } : undefined,
     };
 
-    // 5. Generate comments in parallel
     const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY") || "";
     const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
     const model = config?.llmModel || "google/gemini-3-flash-preview";
@@ -165,7 +272,6 @@ serve(async (req) => {
     const commentPromises = personas.map(async (persona: Persona) => {
       const content = await generatePersonaComment(persona, validationData, apiKey, baseUrl, model);
 
-      // Insert comment into DB
       const { data: comment, error: insertError } = await supabase
         .from("comments")
         .insert({
@@ -186,14 +292,10 @@ serve(async (req) => {
     });
 
     const comments = (await Promise.all(commentPromises)).filter(Boolean);
-
     console.log(`Generated ${comments.length} comments`);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        comments: comments,
-      }),
+      JSON.stringify({ success: true, comments }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
