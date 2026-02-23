@@ -212,7 +212,7 @@ const Validate = () => {
         description: "需要登录才能进行验证",
         variant: "destructive",
       });
-      navigate("/auth");
+      navigate("/auth?redirect=/validate");
       return;
     }
 
@@ -339,7 +339,7 @@ const Validate = () => {
   // 未登录状态 - 直接跳转到登录页
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth", { replace: true });
+      navigate("/auth?redirect=/validate", { replace: true });
     }
   }, [authLoading, user, navigate]);
 
@@ -402,7 +402,7 @@ const Validate = () => {
                     placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
                     value={idea}
                     onChange={(e) => setIdea(e.target.value)}
-                    className="min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
+                    className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
                     disabled={isValidating}
                   />
                   {/* Character count or hint could go here */}

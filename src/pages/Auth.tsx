@@ -31,6 +31,8 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirectTo = searchParams.get('redirect') || "/";
 
   // Login Form Hook
   const {
@@ -64,7 +66,7 @@ const Auth = () => {
         title: "登录成功",
         description: "欢迎回来！",
       });
-      navigate("/");
+      navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "登录失败";
       toast({
@@ -97,7 +99,7 @@ const Auth = () => {
         title: "注册成功",
         description: "欢迎加入！",
       });
-      navigate("/");
+      navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";
       toast({
