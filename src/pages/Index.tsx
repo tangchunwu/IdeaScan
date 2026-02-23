@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
 import { SocialProofCounter } from "@/components/social";
 import { HotTrends } from "@/components/discover/HotTrends";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
   TrendingUp,
@@ -52,6 +54,18 @@ const steps = [
 ];
 
 const Index = () => {
+  const { data: validationCount } = useQuery({
+    queryKey: ['validation-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('validations')
+        .select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    staleTime: 1000 * 60 * 10, // 10 min cache
+  });
+
   return (
     <PageBackground variant="vibrant">
       <Navbar />
@@ -108,7 +122,7 @@ const Index = () => {
 
             {/* Social Proof */}
             <div className="mt-12 flex justify-center animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-              <SocialProofCounter count={10258} label="个创意已通过验证" />
+              <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
             </div>
 
           </section>

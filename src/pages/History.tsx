@@ -31,6 +31,8 @@ const History = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
+  const PAGE_SIZE = 20;
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
@@ -342,7 +344,8 @@ const History = () => {
                     actionLink="/validate"
                   />
                 ) : (
-                  filteredItems.map((item, index) => (
+                  <>
+                  {filteredItems.slice(0, displayCount).map((item, index) => (
                     <GlassCard
                       key={item.id}
                       hover
@@ -443,7 +446,15 @@ const History = () => {
                         </div>
                       </div>
                     </GlassCard>
-                  ))
+                  ))}
+                  {displayCount < filteredItems.length && (
+                    <div className="flex justify-center pt-4">
+                      <Button variant="outline" className="rounded-xl" onClick={() => setDisplayCount(prev => prev + PAGE_SIZE)}>
+                        加载更多（还有 {filteredItems.length - displayCount} 条）
+                      </Button>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
 
