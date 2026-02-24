@@ -4,8 +4,8 @@ import { useLocation } from 'react-router-dom';
 
 // Initialize PostHog
 const isClient = typeof window !== 'undefined';
-const apiKey = import.meta.env.VITE_POSTHOG_KEY;
-const apiHost = import.meta.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';
+const apiKey = import.meta.env.VITE_POSTHOG_KEY || 'phc_7NxRghiQJS8qe61cRMaMQtSlQO0Ari9leudMgTlyS9R';
+const apiHost = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 if (isClient && apiKey) {
   posthog.init(apiKey, {
