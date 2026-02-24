@@ -55,7 +55,23 @@ const Auth = () => {
     const clientId = "lnCHca7XSPnBQxJMmpLoowYmqfUkCmij";
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback/linuxdo`);
     const state = encodeURIComponent(redirectTo);
-    window.location.href = `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+    const authUrl = `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+
+    const isEmbeddedPreview = window.self !== window.top;
+
+    if (isEmbeddedPreview) {
+      const popup = window.open(authUrl, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        toast({
+          title: "无法打开登录窗口",
+          description: "请允许浏览器弹窗后重试 Linux DO 登录",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    window.location.assign(authUrl);
   };
 
   const onLogin = async (data: LoginFormValues) => {
@@ -111,25 +127,29 @@ const Auth = () => {
           </Link>
 
           <div className="text-center mb-8 animate-fade-in">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center mx-auto mb-5 shadow-xl shadow-primary/30 rotate-3 hover:rotate-0 transition-transform duration-300">
+            <div className="inline-flex items-center rounded-full border border-border/50 bg-background/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm mb-4">
+              安全登录 · 一键进入验证控制台
+            </div>
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center mx-auto mb-5 shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-300">
               <Sparkles className="w-10 h-10 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">需求验证器</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">需求验证器</h1>
             <p className="text-muted-foreground">
               分辨<span className="text-primary font-medium">真刚需</span>与<span className="text-destructive font-medium">伪需求</span>，少走弯路
             </p>
           </div>
 
-          <GlassCard className="animate-slide-up p-6">
+          <GlassCard className="relative overflow-hidden animate-slide-up p-6 border border-border/50 bg-card/70 backdrop-blur-xl shadow-2xl shadow-primary/10">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
             {/* Linux DO OAuth */}
             <Button
               type="button"
-              variant="outline"
-              className="w-full h-12 rounded-xl font-medium text-base mb-4 border-border/50 hover:bg-accent/50"
+              variant="default"
+              className="group w-full h-12 rounded-xl font-semibold text-base mb-4 shadow-lg shadow-primary/25"
               disabled={isLoading}
               onClick={handleLinuxDOLogin}
             >
-              <ExternalLink className="w-4 h-4 mr-2" />
+              <ExternalLink className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:translate-x-0.5" />
               通过 Linux DO 登录
             </Button>
 

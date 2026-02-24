@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useMemo, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface PageBackgroundProps {
@@ -23,13 +23,13 @@ const generateClouds = (count: number) => {
   }));
 };
 
-export const PageBackground = ({
+export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
   children,
   className,
   showClouds = true,
   variant = "default",
-  short = false
-}: PageBackgroundProps) => {
+  short = false,
+}, ref) => {
   const clouds = useMemo(() => generateClouds(6), []);
 
   const gradientClass = {
@@ -39,7 +39,10 @@ export const PageBackground = ({
   }[variant];
 
   return (
-    <div className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}>
+    <div
+      ref={ref}
+      className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
+    >
       {/* 宫崎骏风格渐变背景 */}
       <div className={cn("fixed inset-0 -z-10", gradientClass)} />
 
@@ -77,6 +80,8 @@ export const PageBackground = ({
       </div>
     </div>
   );
-};
+});
+
+PageBackground.displayName = "PageBackground";
 
 export default PageBackground;
