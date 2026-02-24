@@ -604,11 +604,20 @@ const STAGES = {
 
 const MIN_NOTES_REQUIRED = 10;
 const MIN_COMMENTS_REQUIRED = 50;
+const MIN_COMMENTS_REQUIRED_TIKHUB = 8;
 
-function hasEnoughSocialSamples(socialData: any): boolean {
+function getRequiredSampleThresholds(options?: { usedThirdPartyCrawler?: boolean }) {
+  return {
+    notes: MIN_NOTES_REQUIRED,
+    comments: options?.usedThirdPartyCrawler ? MIN_COMMENTS_REQUIRED_TIKHUB : MIN_COMMENTS_REQUIRED,
+  };
+}
+
+function hasEnoughSocialSamples(socialData: any, options?: { usedThirdPartyCrawler?: boolean }): boolean {
   const notes = Array.isArray(socialData?.sampleNotes) ? socialData.sampleNotes.length : 0;
   const comments = Array.isArray(socialData?.sampleComments) ? socialData.sampleComments.length : 0;
-  return notes >= MIN_NOTES_REQUIRED && comments >= MIN_COMMENTS_REQUIRED;
+  const thresholds = getRequiredSampleThresholds(options);
+  return notes >= thresholds.notes && comments >= thresholds.comments;
 }
 
 function getSocialSampleCounts(socialData: any): { notes: number; comments: number } {
@@ -1163,7 +1172,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (!usedSelfCrawler && !enableTikhubFallback) {
+        if (!usedSelfCrawler && !effectiveEnableTikhubFallback) {
           const diagnostic = compactCrawlerDiagnostic(selfCrawlerRouteDiagnostic);
           const lowerDiagnostic = diagnostic.toLowerCase();
           const mergedCounts = getSocialSampleCounts(socialData);
@@ -1215,9 +1224,16 @@ Deno.serve(async (req) => {
       if (!usedCache && (enableXhs || enableDy)) {
         const noteCount = Array.isArray(socialData.sampleNotes) ? socialData.sampleNotes.length : 0;
         const commentCount = Array.isArray(socialData.sampleComments) ? socialData.sampleComments.length : 0;
-        if (noteCount < MIN_NOTES_REQUIRED || commentCount < MIN_COMMENTS_REQUIRED) {
+        const thresholds = getRequiredSampleThresholds({ usedThirdPartyCrawler });
+
+        if (noteCount < thresholds.notes || commentCount < thresholds.comments) {
+          if (usedThirdPartyCrawler) {
+            throw new ValidationError(
+              `TIKHUB_SAMPLE_LOW:样本不足（笔记${noteCount}/${thresholds.notes}，评论${commentCount}/${thresholds.comments}）。建议更换关键词后重试。`
+            );
+          }
           throw new ValidationError(
-            `SELF_CRAWLER_EMPTY:样本不足（笔记${noteCount}/${MIN_NOTES_REQUIRED}，评论${commentCount}/${MIN_COMMENTS_REQUIRED}）。请稍后重试，或开启 TikHub 兜底后重试。`
+            `SELF_CRAWLER_EMPTY:样本不足（笔记${noteCount}/${thresholds.notes}，评论${commentCount}/${thresholds.comments}）。请稍后重试，或开启 TikHub 兜底后重试。`
           );
         }
       }
