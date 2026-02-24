@@ -200,25 +200,28 @@ export async function crawlRealXiaohongshuData(
 }> {
        console.log(`[Tikhub] Searching for: ${idea} (mode: ${mode})`);
 
-       // Search for notes (2 pages max to stay within Edge Function limits)
+       // Search for notes (4 pages max for doubled data volume)
        const searchResult = await searchNotes(authToken, idea, 1);
        let allNotes: XhsNote[] = searchResult.notes;
 
-       // Try second page if first page has results
-       if (searchResult.notes.length > 0) {
+       // Fetch additional pages for more data
+       for (let page = 2; page <= 4; page++) {
+              if (allNotes.length === 0) break;
               try {
-                     const page2 = await searchNotes(authToken, idea, 2);
-                     allNotes = [...allNotes, ...page2.notes];
+                     const pageResult = await searchNotes(authToken, idea, page);
+                     if (pageResult.notes.length === 0) break;
+                     allNotes = [...allNotes, ...pageResult.notes];
               } catch (e) {
-                     console.warn("Failed to fetch page 2:", e);
+                     console.warn(`Failed to fetch page ${page}:`, e);
+                     break;
               }
        }
 
        console.log(`[Tikhub] Found ${allNotes.length} notes`);
 
-       // Get comments based on mode: Quick=5 notes x 4 comments, Deep=10 notes x 5 comments
-       const notesToFetch = mode === 'deep' ? Math.min(allNotes.length, 10) : Math.min(allNotes.length, 5);
-       const commentsPerNote = mode === 'deep' ? 5 : 4;
+       // Get comments based on mode: Quick=10 notes x 8 comments, Deep=20 notes x 10 comments
+       const notesToFetch = mode === 'deep' ? Math.min(allNotes.length, 20) : Math.min(allNotes.length, 10);
+       const commentsPerNote = mode === 'deep' ? 10 : 8;
        const topNotes = allNotes.slice(0, notesToFetch);
        let allComments: XhsComment[] = [];
 
@@ -306,7 +309,7 @@ export async function crawlRealXiaohongshuData(
       totalEngagement,
       weeklyTrend,
       contentTypes,
-      sampleNotes: allNotes.slice(0, 10),
-      sampleComments: allComments.slice(0, 20)
+      sampleNotes: allNotes.slice(0, 20),
+      sampleComments: allComments.slice(0, 40)
    };
 }
