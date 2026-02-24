@@ -431,10 +431,11 @@ function normalizeAnalysisResult(obj: any) {
   const safe = (obj && typeof obj === "object") ? obj : {};
   const overallScore = Number(safe.overallScore);
   const feasibilityScore = Number(safe?.aiAnalysis?.feasibilityScore);
-  const normalizedScore = Number.isFinite(overallScore)
-    ? Math.max(0, Math.min(100, Math.round(overallScore)))
-    : Number.isFinite(feasibilityScore)
-      ? Math.max(0, Math.min(100, Math.round(feasibilityScore)))
+  // Prioritize feasibilityScore as the canonical score for consistency
+  const normalizedScore = Number.isFinite(feasibilityScore)
+    ? Math.max(0, Math.min(100, Math.round(feasibilityScore)))
+    : Number.isFinite(overallScore)
+      ? Math.max(0, Math.min(100, Math.round(overallScore)))
       : 50;
 
   return {
@@ -536,7 +537,22 @@ function resolveLLMRuntimes(config?: RequestConfig) {
     baseUrl: normalizeLLMBaseUrl(config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1"),
     model: config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
   };
-  const candidates = dedupeLLMRuntimes([primary, ...configFallbacks, ...parseFallbackLLMsFromEnv()]).filter((item) => !!item.apiKey);
+
+  // Always include Lovable AI as the final safety-net fallback
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const lovableFallback: LLMRuntime = {
+    apiKey: lovableApiKey,
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    model: "google/gemini-2.5-flash",
+  };
+
+  const allCandidates = [primary, ...configFallbacks, ...parseFallbackLLMsFromEnv()];
+  // Append Lovable AI fallback if it's not already in the list
+  if (lovableApiKey) {
+    allCandidates.push(lovableFallback);
+  }
+
+  const candidates = dedupeLLMRuntimes(allCandidates).filter((item) => !!item.apiKey);
   return { primary, candidates };
 }
 
@@ -1378,8 +1394,13 @@ Deno.serve(async (req) => {
         model: llmRuntime.model
       };
 
-      let socialSummaries: string[] = resumeSocialSummaries;
-      let competitorSummaries: string[] = resumeCompetitorSummaries;
+      // If primary LLM is user-provided, prepare Lovable AI fallback for summarizer
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
+      const summaryFallbackConfig: SummaryConfig | null = (lovableKey && llmRuntime.baseUrl !== "https://ai.gateway.lovable.dev/v1") ? {
+        apiKey: lovableKey,
+        baseUrl: "https://ai.gateway.lovable.dev/v1",
+        model: "google/gemini-2.5-flash",
+      } : null;
       let aggregatedInsights = resumeAggregatedInsights;
 
       if (summaryConfig.apiKey) {
@@ -1454,13 +1475,39 @@ Deno.serve(async (req) => {
             }
           } catch (e) {
             console.error('[Summarizer] L1 error:', e);
-            await sendEvent({
-              event: "progress",
-              stage: "summarize_l1",
-              detailStage: "summarize_fallback",
-              progress: 74,
-              message: "摘要阶段超时或失败，已降级继续后续分析...",
-            });
+            // Retry with Lovable AI fallback if available
+            if (summaryFallbackConfig && socialSummaries.length === 0) {
+              try {
+                console.log('[Summarizer] L1 retrying with Lovable AI fallback...');
+                await sendEvent({
+                  event: "progress",
+                  stage: "summarize_l1",
+                  detailStage: "summarize_fallback_retry",
+                  progress: 73,
+                  message: "切换备用AI模型重试摘要...",
+                });
+                const allItems = [...socialItems, ...competitorItems];
+                const summaries = await withTimeout(
+                  summarizeBatch(allItems, summaryFallbackConfig, 4),
+                  60000,
+                  "summarize_l1_fallback_timeout",
+                );
+                socialSummaries = summaries.filter(s => s.type === 'social_post').map(s => s.content);
+                competitorSummaries = summaries.filter(s => s.type === 'competitor_page').map(s => s.content);
+                console.log('[Summarizer] L1 fallback done:', socialSummaries.length, 'social,', competitorSummaries.length, 'competitor');
+              } catch (fallbackError) {
+                console.error('[Summarizer] L1 fallback also failed:', fallbackError);
+              }
+            }
+            if (socialSummaries.length === 0) {
+              await sendEvent({
+                event: "progress",
+                stage: "summarize_l1",
+                detailStage: "summarize_fallback",
+                progress: 74,
+                message: "摘要阶段超时或失败，已降级继续后续分析...",
+              });
+            }
           } finally {
             if (l1Heartbeat !== undefined) clearInterval(l1Heartbeat);
           }
@@ -1514,13 +1561,29 @@ Deno.serve(async (req) => {
             }
           } catch (e) {
             console.error('[Summarizer] L2 error:', e);
-            await sendEvent({
-              event: "progress",
-              stage: "summarize_l2",
-              detailStage: "summarize_fallback",
-              progress: 80,
-              message: "聚合摘要超时或失败，已降级继续AI分析...",
-            });
+            // Retry L2 with Lovable AI fallback
+            if (summaryFallbackConfig && !hasAggregatedInsights(aggregatedInsights)) {
+              try {
+                console.log('[Summarizer] L2 retrying with Lovable AI fallback...');
+                aggregatedInsights = await withTimeout(
+                  aggregateSummaries(socialSummaries, competitorSummaries, summaryFallbackConfig),
+                  20000,
+                  "summarize_l2_fallback_timeout",
+                );
+                console.log('[Summarizer] L2 fallback done');
+              } catch (fallbackError) {
+                console.error('[Summarizer] L2 fallback also failed:', fallbackError);
+              }
+            }
+            if (!hasAggregatedInsights(aggregatedInsights)) {
+              await sendEvent({
+                event: "progress",
+                stage: "summarize_l2",
+                detailStage: "summarize_fallback",
+                progress: 80,
+                message: "聚合摘要超时或失败，已降级继续AI分析...",
+              });
+            }
           } finally {
             if (l2Heartbeat !== undefined) clearInterval(l2Heartbeat);
           }
