@@ -1,8 +1,26 @@
 # IdeaScan — AI 需求验证与市场洞察平台
 
 <p align="center">
-  <strong>输入一个想法，自动完成关键词扩展 → 社媒数据抓取 → 竞品分析 → 生成可追踪验证报告</strong>
+  <strong>输入一个想法，自动完成关键词扩展 → 社媒数据抓取 → 竞品分析 → 生成可追踪验证报告</strong><br/>
+  🌐 <a href="https://ideascan.lovable.app">ideascan.lovable.app</a>
 </p>
+
+---
+
+## 📑 目录
+
+- [产品亮点](#-产品亮点)
+- [技术架构](#-技术架构)
+- [目录结构](#-目录结构)
+- [快速开始](#-从零开始运行小白友好版)
+- [核心功能详解](#-核心功能详解)
+- [产品路线图](#-产品路线图-roadmap)
+- [常用开发命令](#-常用开发命令)
+- [常见问题](#-常见问题--故障排查)
+- [生产部署](#-生产部署)
+- [贡献指引](#-贡献指引)
+- [致谢](#-致谢)
+- [License](#-license)
 
 ---
 
@@ -30,7 +48,7 @@
 └──────────────────────┬──────────────────────────────────────┘
                        │ SSE / REST
 ┌──────────────────────▼──────────────────────────────────────┐
-│              Lovable Cloud (Supabase)                        │
+│              Lovable Cloud (Backend)                         │
 │  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────┐  │
 │  │ Postgres │  │Edge Funcs  │  │   Auth   │  │   RLS    │  │
 │  │ + RLS    │  │(Deno)      │  │          │  │ Policies │  │
@@ -51,7 +69,7 @@
 | 层 | 技术 |
 |---|------|
 | 前端 | Vite · React 18 · TypeScript · Tailwind CSS · shadcn/ui · Recharts · Framer Motion |
-| 后端 | Lovable Cloud (Supabase) — Postgres · Edge Functions (Deno) · Auth · RLS |
+| 后端 | Lovable Cloud — Postgres · Edge Functions (Deno) · Auth · RLS |
 | 爬虫 | Python 3.11 · FastAPI · Playwright · Redis（独立 `crawler-service`） |
 | AI | 多 LLM 路由（用户自配 + Lovable AI 兜底） |
 | 测试 | Vitest |
@@ -75,7 +93,7 @@ src/
 ├── hooks/               # 自定义 Hooks（认证、配额、设置、验证）
 ├── i18n/                # 国际化资源（中/英）
 ├── lib/                 # 工具函数（导出、PDF、报告生成等）
-└── integrations/        # Supabase 客户端（自动生成，勿修改）
+└── integrations/        # 后端客户端（自动生成，勿修改）
 
 supabase/
 ├── functions/           # Edge Functions（30+ 个后端函数）
@@ -94,34 +112,23 @@ crawler-service/         # Python 爬虫服务
 │   ├── worker.py        # 异步任务 Worker
 │   └── ...
 └── scripts/             # 运维脚本
-
-scripts/                 # 部署与运维脚本
 ```
 
 ---
 
 ## 🚀 从零开始运行（小白友好版）
 
-> 💡 **不想折腾后端？** 如果你只是想体验产品，可以直接访问线上版本：  
-> **https://sparkle-view-lab.lovable.app**  
-> 以下教程适用于想在本地开发或二次开发的同学。
+> 💡 **不想折腾后端？** 直接访问线上版本：**https://ideascan.lovable.app**
+> 以下教程适用于本地开发或二次开发。
 
-### 前置准备清单
+### 前置准备
 
-在开始之前，请确保你的电脑已安装以下工具：
-
-| 工具 | 用途 | 安装方式 | 验证命令 |
-|------|------|----------|----------|
-| **Node.js 18+** | 运行前端 | [下载](https://nodejs.org/) 或 `brew install node` | `node -v` |
-| **npm** | 包管理器 | 随 Node.js 一起安装 | `npm -v` |
-| **Git** | 代码管理 | [下载](https://git-scm.com/) 或 `brew install git` | `git -v` |
-| **Supabase CLI** | 数据库管理 | `brew install supabase/tap/supabase` | `supabase --version` |
-| **Python 3.11+** | 爬虫服务（可选） | [下载](https://www.python.org/) 或 `brew install python` | `python3 --version` |
-| **Redis** | 爬虫队列（可选） | `brew install redis` | `redis-cli ping` |
-
-> 🍎 macOS 用户推荐使用 [Homebrew](https://brew.sh/) 一键安装：`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
-
----
+| 工具 | 用途 | 验证命令 |
+|------|------|----------|
+| **Node.js 18+** | 运行前端 | `node -v` |
+| **Git** | 代码管理 | `git -v` |
+| **Python 3.11+** | 爬虫服务（可选） | `python3 --version` |
+| **Redis** | 爬虫队列（可选） | `redis-cli ping` |
 
 ### 第一步：克隆项目
 
@@ -130,164 +137,64 @@ git clone <你的仓库地址>
 cd project-ideascan
 ```
 
----
-
-### 第二步：启动前端（约 2 分钟）
+### 第二步：启动前端
 
 ```bash
-# 1. 安装依赖
 npm install
-
-# 2. 复制环境变量模板
 cp .env.example .env
-
-# 3. 编辑 .env，填入你的 Supabase 信息
-#    如果使用 Lovable Cloud，这些值会自动填充，无需手动修改
-#    如果自建 Supabase，需要填写：
-#      VITE_SUPABASE_URL=https://你的项目ID.supabase.co
-#      VITE_SUPABASE_PUBLISHABLE_KEY=你的anon_key
-#      VITE_SUPABASE_PROJECT_ID=你的项目ID
-
-# 4. 启动开发服务器
+# 编辑 .env，填入后端连接信息（Lovable Cloud 用户无需修改）
 npm run dev
 ```
 
-看到以下输出就说明前端启动成功了 🎉：
-```
-  VITE v5.x.x  ready in xxx ms
+浏览器打开 `http://localhost:5173` 即可看到页面。
 
-  ➜  Local:   http://localhost:5173/
-```
+### 第三步：初始化数据库
 
-在浏览器打开 `http://localhost:5173` 即可看到页面。
-
-> ⚠️ **此时前端可以浏览，但验证功能需要后端支持。** 继续下面的步骤配置后端。
-
----
-
-### 第三步：初始化数据库（约 3 分钟）
-
-#### 方式 A：本地 Docker 模式（推荐新手）
-
-需要先安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
+**方式 A：本地 Docker 模式**（需 [Docker Desktop](https://www.docker.com/products/docker-desktop/)）
 
 ```bash
-# 启动本地 Supabase 并初始化数据库
 ./scripts/bootstrap.sh local
 ```
 
-运行成功后会输出本地 Supabase 的 URL 和 Key，将它们填入 `.env` 文件。
-
-#### 方式 B：远端 Supabase 模式
-
-如果你已经有 Supabase 项目并完成了 `supabase link`：
+**方式 B：远端模式**（已完成 `supabase link`）
 
 ```bash
-# 推送数据库迁移并部署 Edge Functions
 DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote
 ```
 
-#### 方式 C：Lovable Cloud（最简单）
-
-如果你在 [Lovable](https://lovable.dev) 上运行此项目，数据库和 Edge Functions **已自动配置**，无需任何手动操作。直接跳到第四步。
-
----
+**方式 C：Lovable Cloud**（最简单）— 数据库和后端函数已自动配置，直接跳到第四步。
 
 ### 第四步：配置 AI 和搜索服务
 
-验证功能的核心依赖是 LLM（大语言模型）。你需要配置至少一个 AI 服务：
-
-#### 选项 1：使用兼容 OpenAI 格式的 API（推荐）
-
-在 Supabase 项目的 Secrets 中配置：
-
-| Secret 名称 | 值 | 去哪获取 |
-|-------------|-----|----------|
-| `LLM_BASE_URL` | `https://api.openai.com/v1` | OpenAI 或兼容服务商 |
-| `LLM_MODEL` | `gpt-4o-mini` | 你选择的模型名称 |
-| `LLM_API_KEY` | `sk-xxx...` | API Key |
-
-> 💡 **兼容服务商推荐**：[DeepSeek](https://platform.deepseek.com/)、[SiliconFlow](https://siliconflow.cn/)、[Moonshot](https://platform.moonshot.cn/) 等国内服务商也提供 OpenAI 兼容接口，价格更优惠。
-
-#### 选项 2：使用 Lovable AI（零配置）
-
-如果在 Lovable Cloud 上运行，系统内置 Lovable AI 作为兜底，即使不配置任何 LLM 也能完成基础验证。
-
-#### 搜索服务（竞品分析增强，可选）
-
-| Secret 名称 | 用途 | 获取地址 |
-|-------------|------|----------|
-| `TAVILY_API_KEY` | Web 搜索 | [tavily.com](https://tavily.com/) |
-| `BOCHA_API_KEY` | 中文搜索增强 | [bochaai.com](https://bochaai.com/) |
-| `TIKHUB_TOKEN` | 小红书/抖音数据兜底 | [tikhub.io](https://tikhub.io/) |
-
----
-
-### 第五步：启动爬虫服务（可选，社媒数据抓取需要）
-
-> 💡 **不启动爬虫也能用！** 系统会自动降级到 TikHub 第三方数据源（需配置 `TIKHUB_TOKEN`）或 Web 搜索。  
-> 爬虫服务的优势是数据更新鲜、更完整，适合深度验证。
-
-```bash
-# 1. 进入爬虫服务目录
-cd crawler-service
-
-# 2. 创建 Python 虚拟环境（首次运行需要）
-python3 -m venv .venv
-
-# 3. 激活虚拟环境
-source .venv/bin/activate       # macOS / Linux
-# .venv\Scripts\activate        # Windows
-
-# 4. 安装依赖
-pip install -r requirements.txt
-
-# 5. 安装浏览器内核（首次需要，约 100MB）
-playwright install chromium
-
-# 6. 启动 API 服务
-uvicorn app.main:app --reload --port 8100
-```
-
-看到以下输出说明启动成功：
-```
-INFO:     Uvicorn running on http://127.0.0.1:8100 (Press CTRL+C to quit)
-```
-
-如需异步任务处理（大批量抓取），**另开一个终端窗口**：
-
-```bash
-cd crawler-service
-source .venv/bin/activate
-python run_worker.py
-```
-
-最后，在 Supabase Secrets 中配置爬虫服务连接：
+至少配置一个 LLM 服务（在后端 Secrets 中设置）：
 
 | Secret 名称 | 值 | 说明 |
 |-------------|-----|------|
-| `CRAWLER_SERVICE_BASE_URL` | `http://localhost:8100` | 本地开发地址 |
-| `CRAWLER_SERVICE_TOKEN` | 自定义一个长字符串 | 爬虫端也需要设同样的值 |
-| `CRAWLER_CALLBACK_SECRET` | 自定义一个长字符串 | 回调签名密钥 |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` | OpenAI 或兼容服务商 |
+| `LLM_MODEL` | `gpt-4o-mini` | 模型名称 |
+| `LLM_API_KEY` | `sk-xxx...` | API Key |
 
----
+> 💡 兼容服务商推荐：[DeepSeek](https://platform.deepseek.com/)、[SiliconFlow](https://siliconflow.cn/)、[Moonshot](https://platform.moonshot.cn/)
 
-### 🎉 启动完成！
+**可选搜索增强：**
 
-恭喜！你的 IdeaScan 本地开发环境已准备就绪。
+| Secret 名称 | 用途 |
+|-------------|------|
+| `TAVILY_API_KEY` | Web 搜索 |
+| `BOCHA_API_KEY` | 中文搜索增强 |
+| `TIKHUB_TOKEN` | 小红书/抖音数据兜底 |
 
-| 服务 | 地址 | 状态 |
-|------|------|------|
-| 前端 | http://localhost:5173 | 必需 ✅ |
-| Supabase | 本地 Docker 或远端 | 必需 ✅ |
-| 爬虫服务 | http://localhost:8100 | 可选 ⚡ |
-| Redis | localhost:6379 | 爬虫队列需要 ⚡ |
+### 第五步：启动爬虫服务（可选）
 
-**接下来你可以：**
-1. 🔐 注册一个账号（首页右上角）
-2. 💡 输入你的创业想法，点击"开始验证"
-3. 📊 等待 1-3 分钟，查看完整验证报告
-4. 🔥 在"发现"页浏览热点雷达
+> 不启动爬虫也能用——系统会自动降级到 TikHub 或 Web 搜索。
+
+```bash
+cd crawler-service
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+uvicorn app.main:app --reload --port 8100
+```
 
 ---
 
@@ -321,7 +228,6 @@ AI 综合评分 & 报告生成
 
 - **数据来源**：用户验证结果自动回填 + 定时扫描
 - **质量评分**：热度 × 0.45 + 验证分数 × 0.4 + 样本量 × 0.15
-- **智能过滤**：自动跳过失败验证、截断关键词、零分记录
 - **个性化推荐**：基于用户历史验证 tags 匹配相关热点
 
 ### MVP 落地页
@@ -332,30 +238,59 @@ AI 综合评分 & 报告生成
 
 ---
 
+## 🗺 产品路线图 (Roadmap)
+
+### ✅ 已完成 (v1.0)
+
+- 端到端需求验证（关键词扩展 → 多平台抓取 → AI 评分报告）
+- 热点雷达与个性化推荐
+- MVP 落地页一键生成 + Waitlist 线索收集
+- AI 专家团圆桌讨论（多角色模拟 VC/PM/用户/分析师视角）
+- 竞品透视分析
+- 多 LLM 三级回退（用户自配 → 服务端默认 → Lovable AI）
+- 数据导入/导出 & PDF 报告
+- 中英双语国际化
+
+### 🚧 近期规划 (v2.0) — 社媒数据库 + MVP 原型升级
+
+| 方向 | 说明 |
+|------|------|
+| **社媒数据库** | 将每次验证抓取的社媒数据（小红书、抖音帖子/评论）持久化为结构化数据资产，支持跨验证复用、趋势回溯，不再用完即弃 |
+| **MVP 原型增强** | 从静态落地页升级为可交互原型（多页面、表单流、模拟支付），更真实地测试用户意愿 |
+| **社媒发布闭环** | 验证完成后一键生成适配小红书、抖音等平台格式的推广内容（图文笔记、短视频脚本），直接发布或导出素材包 |
+| **邮件通知** | Waitlist 提交后自动发送确认邮件给用户，同时通知创业者 |
+
+### 🔭 远期愿景 (v3.0) — 全链路创业操作系统
+
+| 方向 | 说明 |
+|------|------|
+| **狩猎雷达 (The Hunter)** | 24h 定时扫描特定圈层讨论，自动发现未被满足的需求，构建"潜在需求库" |
+| **智能匹配** | 将发现的市场机会一键导入 MVP 生成器，直接生成落地页验证 |
+| **增长飞轮 (Growth Pilot)** | 利用社媒发布能力自动为 MVP 导流，形成"发现 → 验证 → 落地 → 增长"完整闭环 |
+| **高级主题与 SEO** | 动态 OG Image、多主题模板、搜索引擎优化 |
+
+---
+
 ## 🧪 常用开发命令
 
 ```bash
 # 前端开发
 npm run dev            # 启动开发服务器
 npm run build          # 生产构建
-npm run preview        # 预览构建产物
-npm run lint           # 代码检查
 npm run test           # 运行测试
 
 # 数据库
 supabase db push       # 推送迁移到远端
 supabase db reset      # 重置本地数据库
-supabase status        # 查看本地 Supabase 状态
 
 # Edge Functions
 supabase functions deploy validate-idea-stream   # 部署单个函数
-DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote   # 部署全部核心函数
+DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote   # 部署全部
 
 # 爬虫服务
 cd crawler-service && source .venv/bin/activate
-uvicorn app.main:app --reload --port 8100   # 启动 API
-python run_worker.py                         # 启动 Worker
-./scripts/crawler/status.sh                  # 查看服务状态
+uvicorn app.main:app --reload --port 8100
+python run_worker.py
 ```
 
 ---
@@ -365,106 +300,65 @@ python run_worker.py                         # 启动 Worker
 <details>
 <summary><strong>❓ npm install 报错</strong></summary>
 
-1. 确保 Node.js 版本 ≥ 18：`node -v`
-2. 清理缓存重试：
-```bash
-rm -rf node_modules package-lock.json
-npm install
-```
-3. 如果仍有问题，尝试使用 `bun install` 代替
+1. 确保 Node.js ≥ 18：`node -v`
+2. 清理缓存：`rm -rf node_modules package-lock.json && npm install`
 </details>
 
 <details>
-<summary><strong>❓ 页面打开是白屏</strong></summary>
+<summary><strong>❓ 页面白屏</strong></summary>
 
-1. 打开浏览器开发者工具（F12），查看控制台是否有红色报错
-2. 最常见原因：`.env` 文件缺失或 Supabase 配置错误
-3. 确认 `.env` 中的 URL 和 Key 正确（不要有多余空格或引号）
+打开浏览器开发者工具（F12）查看控制台。最常见原因：`.env` 文件缺失或后端配置错误。
 </details>
 
 <details>
-<summary><strong>❓ 注册/登录不了</strong></summary>
+<summary><strong>❓ 点击验证后一直转圈</strong></summary>
 
-1. 确认 Supabase 项目已正确初始化（数据库迁移已执行）
-2. 本地模式：确认 Docker Desktop 正在运行
-3. 远端模式：确认 `supabase link` 已完成并 `supabase db push` 成功
+1. 未配置 LLM — 至少配置一个 AI 服务（见第四步）
+2. 后端函数未部署 — 运行 `DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote`
+3. 查看后端日志排查具体错误
 </details>
 
 <details>
-<summary><strong>❓ 点击验证后一直转圈 / 报错</strong></summary>
+<summary><strong>❓ 扫码登录成功但抓取失败</strong></summary>
 
-1. **没有配置 LLM**：至少需要配置一个 AI 服务（见第四步）
-2. **Edge Functions 未部署**：运行 `DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote`
-3. **查看函数日志**：在 Supabase Dashboard → Edge Functions → Logs 中排查
-4. 系统内置 Lovable AI 兜底，如果用户模型失败会自动切换
-</details>
-
-<details>
-<summary><strong>❓ 扫码登录小红书成功但抓取失败</strong></summary>
-
-1. 确认 `crawler-service` 正在运行（`http://localhost:8100` 可访问）
-2. 可能是平台风控，建议：
-   - 等待 5-10 分钟后重试
-   - 配置 `TIKHUB_TOKEN` 作为兜底
-   - 查看 crawler 日志排查具体错误
+1. 确认 `crawler-service` 正在运行
+2. 可能触发平台风控，等待 5-10 分钟后重试
+3. 配置 `TIKHUB_TOKEN` 作为兜底
 </details>
 
 <details>
 <summary><strong>❓ 报错 SELF_CRAWLER_EMPTY 或样本不足</strong></summary>
 
-常见原因：账号触发风控 / 关键词过窄 / 会话冷却期
-
-建议：启用 TikHub 兜底、增加关键词扩展数量、增加重试间隔
-</details>
-
-<details>
-<summary><strong>❓ 小红书 api_error_-104</strong></summary>
-
-小红书搜索接口权限或风控限制，即使扫码成功也可能出现。系统已支持错误识别、真实浏览器模式（CDP）、第三方兜底。此错误无法 100% 消除。
-</details>
-
-<details>
-<summary><strong>❓ playwright install 失败</strong></summary>
-
-1. 网络问题（国内）：设置镜像
-```bash
-PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright pip install playwright
-playwright install chromium
-```
-2. 权限问题：`sudo playwright install-deps` 安装系统依赖
+常见原因：账号触发风控 / 关键词过窄 / 会话冷却期。建议启用 TikHub 兜底。
 </details>
 
 ---
 
 ## 🚢 生产部署
 
-### 快速部署（推荐 Lovable Cloud）
+### Lovable Cloud（推荐）
 
-在 [Lovable](https://lovable.dev) 上直接运行项目，前端/数据库/Edge Functions 全部自动部署，点击 Publish 即可上线。
+在 [Lovable](https://lovable.dev) 上运行项目，前端/数据库/后端函数全部自动部署，点击 Publish 即可上线。
 
 ### 自建部署
 
-1. **数据库**：先执行迁移 `supabase db push`，再部署 Edge Functions
-2. **前端**：`npm run build` 后将 `dist/` 部署到任意静态托管（Vercel / Netlify / Cloudflare Pages）
-3. **爬虫服务**：使用 Docker / PM2 / systemd / launchd 常驻
-4. **网络**：`CRAWLER_SERVICE_BASE_URL` 须为公网可访问地址
-5. **LLM 冗余**：配置用户自有模型 + Lovable AI 双路兜底
+1. **数据库**：执行迁移 `supabase db push`，部署 Edge Functions
+2. **前端**：`npm run build` → 将 `dist/` 部署到 Vercel / Netlify / Cloudflare Pages
+3. **爬虫服务**：Docker / PM2 / systemd 常驻
+4. **LLM 冗余**：配置用户自有模型 + Lovable AI 双路兜底
 
 ---
 
-## 🤝 欢迎共建
+## 🤝 贡献指引
 
-如果你也在做中文场景的需求验证、增长分析或社媒数据产品，欢迎一起参与：
+欢迎参与以下方向的共建：
 
-- **爬虫稳定性**：风控对抗、重试策略、会话健康检测、限流熔断
-- **数据质量**：去重清洗、异常识别、证据可追溯性、置信度评估
-- **数据源扩展**：新平台接入、字段标准化、跨源融合
-- **工程质量**：监控告警、压测脚本、错误分级、文档完善
+- **爬虫稳定性**：风控对抗、重试策略、会话健康检测
+- **数据质量**：去重清洗、异常识别、置信度评估
+- **数据源扩展**：新平台接入、字段标准化
+- **工程质量**：监控告警、测试覆盖、文档完善
 
-提交建议：
-- 小步 PR，附上复现步骤与预期结果
-- 涉及爬虫/数据逻辑的改动，附带样本与对比说明
-- **严禁提交任何真实密钥、Cookie 或敏感数据**
+> ⚠️ **严禁提交任何真实密钥、Cookie 或敏感数据**
 
 ---
 
