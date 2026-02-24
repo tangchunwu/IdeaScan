@@ -10,6 +10,7 @@ import {
   LIMITS 
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
+import { requestChatCompletion, extractAssistantContent } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +22,20 @@ interface Persona {
   name: string;
   role: string;
   system_prompt: string;
+  personality?: string;
+  focus_areas?: string[];
+  catchphrase?: string;
+  avatar_url?: string;
+}
+
+interface SafePersona {
+  id: string;
+  name: string;
+  role: string;
+  personality?: string;
+  focus_areas?: string[];
+  catchphrase?: string;
+  avatar_url?: string;
 }
 
 interface ValidationData {
@@ -54,20 +69,126 @@ interface ValidationData {
   };
 }
 
+interface LLMCandidate {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  label: string;
+}
+
+function stripSystemPrompt(persona: Persona): SafePersona {
+  const { system_prompt: _, ...safe } = persona;
+  return safe;
+}
+
+function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): LLMCandidate[] {
+  const candidates: LLMCandidate[] = [];
+  
+  // 1. User custom config (if provided)
+  if (config?.llmApiKey) {
+    candidates.push({
+      baseUrl: config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1",
+      apiKey: config.llmApiKey,
+      model: config.llmModel || "google/gemini-3-flash-preview",
+      label: "custom",
+    });
+  }
+
+  // 2. Server-configured LLM (env vars)
+  const envKey = Deno.env.get("LLM_API_KEY");
+  const envBase = Deno.env.get("LLM_BASE_URL");
+  if (envKey && envBase) {
+    const envModel = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+    // Avoid duplicate if same as custom
+    if (envKey !== config?.llmApiKey || envBase !== config?.llmBaseUrl) {
+      candidates.push({
+        baseUrl: envBase,
+        apiKey: envKey,
+        model: envModel,
+        label: "server",
+      });
+    }
+  }
+
+  // 3. Lovable AI fallback (always available)
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    candidates.push({
+      baseUrl: "https://ai.gateway.lovable.dev/v1",
+      apiKey: lovableKey,
+      model: "google/gemini-3-flash-preview",
+      label: "lovable",
+    });
+  }
+
+  return candidates;
+}
+
+async function generateWithFallback(
+  candidates: LLMCandidate[],
+  systemPrompt: string,
+  userPrompt: string,
+  temperature = 0.8,
+  maxTokens = 400,
+): Promise<{ content: string; provider: string; warnings: string[] }> {
+  const warnings: string[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      const result = await requestChatCompletion({
+        baseUrl: candidate.baseUrl,
+        apiKey: candidate.apiKey,
+        model: candidate.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature,
+        maxTokens,
+        timeoutMs: 30000,
+      });
+
+      const content = extractAssistantContent(result.json).trim();
+      if (!content) {
+        warnings.push(`${candidate.label}: empty response`);
+        continue;
+      }
+
+      return { content, provider: candidate.label, warnings };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`LLM candidate ${candidate.label} failed:`, msg.slice(0, 200));
+      warnings.push(`${candidate.label}: ${msg.slice(0, 100)}`);
+    }
+  }
+
+  throw new Error("all_llm_candidates_failed");
+}
+
+function cleanCommentContent(content: string, personaName: string): string {
+  // Remove "[名字]:" or "名字:" prefix
+  let cleaned = content
+    .replace(new RegExp(`^\\[?${personaName}\\]?[:：]\\s*`, 'i'), '')
+    .replace(/^\[.*?\][:：]\s*/, '')
+    .trim();
+  
+  // Normalize whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned || content;
+}
+
 function buildRoleContextPrompt(persona: Persona, data: ValidationData): string {
   const sanitizedIdea = sanitizeForPrompt(data.idea);
   const sanitizedTags = data.tags.map(t => sanitizeForPrompt(t));
   const report = data.report;
   const dims = data.dimensions;
 
-  // Base context
   let ctx = `你正在评估一个创业想法：
 - 创意: "${sanitizedIdea}"
 - 标签: ${sanitizedTags.join(", ")}
 - 总分: ${data.overall_score}/100
 `;
 
-  // Dimensions summary
   if (dims && dims.length > 0) {
     ctx += `\n📊 维度评分:\n`;
     for (const d of dims) {
@@ -77,9 +198,7 @@ function buildRoleContextPrompt(persona: Persona, data: ValidationData): string 
 
   const role = persona.role;
 
-  // Role-specific context emphasis
   if (role.includes('VC') || role.includes('合伙人')) {
-    // VC: focus on market demand, profit potential, risks, competition
     if (report?.market_analysis) {
       const ma = report.market_analysis;
       ctx += `\n🏛 市场分析:\n`;
@@ -98,7 +217,6 @@ function buildRoleContextPrompt(persona: Persona, data: ValidationData): string 
       }
     }
   } else if (role.includes('产品') || role.includes('PM')) {
-    // PM: focus on suggestions, strengths/weaknesses, target audience
     if (report?.ai_analysis) {
       const ai = report.ai_analysis;
       if (ai.strengths?.length) {
@@ -114,14 +232,7 @@ function buildRoleContextPrompt(persona: Persona, data: ValidationData): string 
     if (report?.market_analysis?.targetAudience) {
       ctx += `\n👤 目标用户: ${report.market_analysis.targetAudience}\n`;
     }
-    if (report?.competitor_data?.length) {
-      ctx += `\n🏢 竞品:\n`;
-      for (const c of report.competitor_data.slice(0, 3)) {
-        ctx += `  - ${sanitizeForPrompt(c.title)}: ${sanitizeForPrompt(c.snippet?.slice(0, 80) || '')}\n`;
-      }
-    }
   } else if (role.includes('用户') || role.includes('可可')) {
-    // User rep: focus on sentiment, feasibility, user voice
     if (report?.sentiment_analysis) {
       const sa = report.sentiment_analysis;
       ctx += `\n😊 用户情绪:\n`;
@@ -133,13 +244,11 @@ function buildRoleContextPrompt(persona: Persona, data: ValidationData): string 
         ctx += `  - 用户吐槽: "${sanitizeForPrompt(sa.topNegative.slice(0, 2).join('"; "'))}"\n`;
       }
     }
-    // Feasibility dimension
     if (dims) {
       const feasibility = dims.find(d => d.dimension.includes('可行') || d.dimension.includes('feasibility'));
       if (feasibility) ctx += `\n🔧 可行性得分: ${feasibility.score}/100\n`;
     }
   } else if (role.includes('分析') || role.includes('老王')) {
-    // Analyst: full picture - all dimensions, competitor, market, sentiment
     if (report?.market_analysis) {
       const ma = report.market_analysis;
       ctx += `\n🏛 市场分析:\n`;
@@ -167,42 +276,6 @@ function buildRoleContextPrompt(persona: Persona, data: ValidationData): string 
 注意：直接输出评论内容，不要任何前缀或解释。`;
 
   return ctx;
-}
-
-async function generatePersonaComment(
-  persona: Persona,
-  validationData: ValidationData,
-  apiKey: string,
-  baseUrl: string,
-  model: string
-): Promise<string> {
-  const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
-  const contextPrompt = buildRoleContextPrompt(persona, validationData);
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [
-        { role: "system", content: persona.system_prompt },
-        { role: "user", content: contextPrompt }
-      ],
-      temperature: 0.8,
-      max_tokens: 400,
-    }),
-  });
-
-  if (!response.ok) {
-    console.error(`Persona ${persona.name} generation failed:`, await response.text());
-    return `[${persona.name}]: 我需要更多信息才能评价这个想法。`;
-  }
-
-  const data = await response.json();
-  return data.choices[0]?.message?.content?.trim() || `[${persona.name}]: 暂无评论。`;
 }
 
 serve(async (req) => {
@@ -235,27 +308,25 @@ serve(async (req) => {
 
     await checkRateLimit(supabase, user.id, "generate-discussion");
 
-    // Fetch validation and report in parallel
+    // Fetch validation, report, personas in parallel
     const [validationResult, reportResult, personasResult] = await Promise.all([
-      supabase.from("validations").select("*").eq("id", validationId).single(),
+      supabase.from("validations").select("*").eq("id", validationId).eq("user_id", user.id).single(),
       supabase.from("validation_reports").select("*").eq("validation_id", validationId).single(),
       supabase.from("personas").select("*").eq("is_active", true),
     ]);
 
     const validation = validationResult.data;
-    if (validationResult.error || !validation) throw new Error("Validation not found");
+    if (validationResult.error || !validation) throw new ValidationError("Validation not found or access denied");
 
     const report = reportResult.data;
-    const personas = personasResult.data;
+    const personas = personasResult.data as Persona[];
     if (personasResult.error || !personas || personas.length === 0) throw new Error("No personas configured");
 
-    // Build rich validation data
     const validationData: ValidationData = {
       idea: validation.idea,
       tags: validation.tags || [],
       overall_score: validation.overall_score || 50,
       dimensions: report?.dimensions as ValidationData['dimensions'] || undefined,
-      // deno-lint-ignore no-explicit-any
       report: report ? {
         market_analysis: (report as any).market_analysis || undefined,
         ai_analysis: (report as any).ai_analysis || undefined,
@@ -264,39 +335,80 @@ serve(async (req) => {
       } : undefined,
     };
 
-    const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY") || "";
-    const baseUrl = config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1";
-    const model = config?.llmModel || "google/gemini-3-flash-preview";
+    const candidates = buildLLMCandidates(config);
+    if (candidates.length === 0) throw new Error("No LLM provider available");
 
-    console.log(`Generating comments for ${personas.length} personas...`);
+    console.log(`Generating comments for ${personas.length} personas with ${candidates.length} LLM candidates...`);
 
-    const commentPromises = personas.map(async (persona: Persona) => {
-      const content = await generatePersonaComment(persona, validationData, apiKey, baseUrl, model);
+    let fallbackUsed = false;
+    const allWarnings: string[] = [];
+    const successfulComments: any[] = [];
+    const failedPersonas: string[] = [];
 
-      const { data: comment, error: insertError } = await supabase
-        .from("comments")
-        .insert({
-          validation_id: validationId,
-          persona_id: persona.id,
-          content: content,
-          is_ai: true,
-        })
-        .select()
-        .single();
+    // Generate comments for each persona
+    for (const persona of personas) {
+      try {
+        const contextPrompt = buildRoleContextPrompt(persona, validationData);
+        const result = await generateWithFallback(candidates, persona.system_prompt, contextPrompt);
 
-      if (insertError) {
-        console.error(`Failed to insert comment for ${persona.name}:`, insertError);
-        return null;
+        if (result.provider !== "custom" && config?.llmApiKey) {
+          fallbackUsed = true;
+        }
+        if (result.warnings.length > 0) {
+          allWarnings.push(...result.warnings);
+        }
+
+        const cleanedContent = cleanCommentContent(result.content, persona.name);
+
+        const { data: comment, error: insertError } = await supabase
+          .from("comments")
+          .insert({
+            validation_id: validationId,
+            persona_id: persona.id,
+            content: cleanedContent,
+            is_ai: true,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error(`Failed to insert comment for ${persona.name}:`, insertError);
+          failedPersonas.push(persona.name);
+          continue;
+        }
+
+        successfulComments.push({ ...comment, persona: stripSystemPrompt(persona) });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`All LLM candidates failed for ${persona.name}:`, msg);
+        failedPersonas.push(persona.name);
+        allWarnings.push(`${persona.name}: ${msg.slice(0, 100)}`);
       }
+    }
 
-      return { ...comment, persona };
-    });
+    // If ALL personas failed, return error (don't insert garbage)
+    if (successfulComments.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "所有 AI 模型均不可用，请检查自定义模型配置或稍后重试。",
+          details: allWarnings.slice(0, 5),
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    const comments = (await Promise.all(commentPromises)).filter(Boolean);
-    console.log(`Generated ${comments.length} comments`);
+    console.log(`Generated ${successfulComments.length} comments, ${failedPersonas.length} failed`);
 
     return new Response(
-      JSON.stringify({ success: true, comments }),
+      JSON.stringify({
+        success: true,
+        comments: successfulComments,
+        meta: {
+          fallbackUsed,
+          failedPersonas,
+          warnings: allWarnings.length > 0 ? allWarnings.slice(0, 5) : undefined,
+        },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
