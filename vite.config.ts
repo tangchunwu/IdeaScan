@@ -10,18 +10,18 @@ export default defineConfig(({ mode }) => {
   const supabaseUrl =
     env.VITE_SUPABASE_URL ||
     env.SUPABASE_URL ||
-    "https://invalid.local";
+    "https://tayhqwtvsuurtwtpscai.supabase.co";
 
   const supabasePublishableKey =
     env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     env.SUPABASE_PUBLISHABLE_KEY ||
     env.SUPABASE_ANON_KEY ||
-    "missing-publishable-key";
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhxd3R2c3V1cnR3dHBzY2FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjQzNjksImV4cCI6MjA4NTY0MDM2OX0.750sYYNHGZaXDgb5nHCpAmpWDDLk16u77DFuPHprxDk";
 
   const supabaseProjectId =
     env.VITE_SUPABASE_PROJECT_ID ||
     env.SUPABASE_PROJECT_ID ||
-    "";
+    "tayhqwtvsuurtwtpscai";
 
   return {
     server: {
@@ -44,3 +44,4 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
