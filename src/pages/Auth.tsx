@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Mail, Lock, User, ArrowLeft, Loader2 } from "lucide-react";
+import { Sparkles, Mail, Lock, User, ArrowLeft, Loader2, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,7 +35,6 @@ const Auth = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const redirectTo = searchParams.get('redirect') || "/";
 
-  // Login Form Hook
   const {
     register: registerLogin,
     handleSubmit: handleLoginSubmit,
@@ -43,7 +43,6 @@ const Auth = () => {
     resolver: zodResolver(loginSchema),
   });
 
-  // Signup Form Hook
   const {
     register: registerSignup,
     handleSubmit: handleSignupSubmit,
@@ -52,6 +51,13 @@ const Auth = () => {
     resolver: zodResolver(signupSchema),
   });
 
+  const handleLinuxDOLogin = () => {
+    const clientId = "lnCHca7XSPnBQxJMmpLoowYmqfUkCmij";
+    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback/linuxdo`);
+    const state = encodeURIComponent(redirectTo);
+    window.location.href = `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+  };
+
   const onLogin = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
@@ -59,21 +65,12 @@ const Auth = () => {
         email: data.email,
         password: data.password,
       });
-
       if (error) throw error;
-
-      toast({
-        title: "登录成功",
-        description: "欢迎回来！",
-      });
+      toast({ title: "登录成功", description: "欢迎回来！" });
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "登录失败";
-      toast({
-        title: "登录失败",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "登录失败", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -86,27 +83,16 @@ const Auth = () => {
         email: data.email,
         password: data.password,
         options: {
-          data: {
-            full_name: data.name,
-          },
+          data: { full_name: data.name },
           emailRedirectTo: window.location.origin,
         },
       });
-
       if (error) throw error;
-
-      toast({
-        title: "注册成功",
-        description: "欢迎加入！",
-      });
+      toast({ title: "注册成功", description: "欢迎加入！" });
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";
-      toast({
-        title: "注册失败",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "注册失败", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +102,6 @@ const Auth = () => {
     <PageBackground>
       <main className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
-          {/* Back Link */}
           <Link
             to="/"
             className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -125,7 +110,6 @@ const Auth = () => {
             返回首页
           </Link>
 
-          {/* Logo */}
           <div className="text-center mb-8 animate-fade-in">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center mx-auto mb-5 shadow-xl shadow-primary/30 rotate-3 hover:rotate-0 transition-transform duration-300">
               <Sparkles className="w-10 h-10 text-primary-foreground" />
@@ -136,15 +120,31 @@ const Auth = () => {
             </p>
           </div>
 
-          {/* Auth Card */}
           <GlassCard className="animate-slide-up p-6">
+            {/* Linux DO OAuth */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12 rounded-xl font-medium text-base mb-4 border-border/50 hover:bg-accent/50"
+              disabled={isLoading}
+              onClick={handleLinuxDOLogin}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              通过 Linux DO 登录
+            </Button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">或使用邮箱</span>
+              <Separator className="flex-1" />
+            </div>
+
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
                 <TabsTrigger value="login" className="text-base">登录</TabsTrigger>
                 <TabsTrigger value="signup" className="text-base">免费注册</TabsTrigger>
               </TabsList>
 
-              {/* Login Tab */}
               <TabsContent value="login">
                 <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-5">
                   <div className="space-y-2">
@@ -160,9 +160,7 @@ const Auth = () => {
                         disabled={isLoading}
                       />
                     </div>
-                    {loginErrors.email && (
-                      <p className="text-xs text-destructive ml-1">{loginErrors.email.message}</p>
-                    )}
+                    {loginErrors.email && <p className="text-xs text-destructive ml-1">{loginErrors.email.message}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -178,29 +176,15 @@ const Auth = () => {
                         disabled={isLoading}
                       />
                     </div>
-                    {loginErrors.password && (
-                      <p className="text-xs text-destructive ml-1">{loginErrors.password.message}</p>
-                    )}
+                    {loginErrors.password && <p className="text-xs text-destructive ml-1">{loginErrors.password.message}</p>}
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        登录中...
-                      </>
-                    ) : (
-                      "登录账户"
-                    )}
+                  <Button type="submit" className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />登录中...</> : "登录账户"}
                   </Button>
                 </form>
               </TabsContent>
 
-              {/* Signup Tab */}
               <TabsContent value="signup">
                 <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-5">
                   <div className="space-y-2">
@@ -216,9 +200,7 @@ const Auth = () => {
                         disabled={isLoading}
                       />
                     </div>
-                    {signupErrors.name && (
-                      <p className="text-xs text-destructive ml-1">{signupErrors.name.message}</p>
-                    )}
+                    {signupErrors.name && <p className="text-xs text-destructive ml-1">{signupErrors.name.message}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -234,9 +216,7 @@ const Auth = () => {
                         disabled={isLoading}
                       />
                     </div>
-                    {signupErrors.email && (
-                      <p className="text-xs text-destructive ml-1">{signupErrors.email.message}</p>
-                    )}
+                    {signupErrors.email && <p className="text-xs text-destructive ml-1">{signupErrors.email.message}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -252,26 +232,13 @@ const Auth = () => {
                         disabled={isLoading}
                       />
                     </div>
-                    {signupErrors.password && (
-                      <p className="text-xs text-destructive ml-1">{signupErrors.password.message}</p>
-                    )}
+                    {signupErrors.password && <p className="text-xs text-destructive ml-1">{signupErrors.password.message}</p>}
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        注册中...
-                      </>
-                    ) : (
-                      "开始验证需求"
-                    )}
+                  <Button type="submit" className="w-full h-12 rounded-xl font-medium shadow-md hover:shadow-lg transition-all text-base" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />注册中...</> : "开始验证需求"}
                   </Button>
-                  
+
                   <p className="text-xs text-center text-muted-foreground mt-4">
                     注册即表示同意我们的服务条款和隐私政策
                   </p>
