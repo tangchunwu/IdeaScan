@@ -51,6 +51,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
                                    personaName: persona.name,
                                    personaRole: persona.role,
                                    age: persona.age,
+                                   validationId,
                                    // 如果用户配置了自定义 API，使用用户配置
                                    imageGenBaseUrl: settings.imageGenApiKey ? settings.imageGenBaseUrl : undefined,
                                    imageGenApiKey: settings.imageGenApiKey || undefined,
@@ -65,35 +66,11 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
                       if (data?.imageUrl) {
                              setImageUrl(data.imageUrl);
                              toast.success(`${persona.name} 头像生成成功`);
-                             
-                             // Save avatar URL to validation_reports.persona JSON
-                             if (validationId) {
-                                    try {
-                                           const { data: reports } = await supabase
-                                                  .from('validation_reports')
-                                                  .select('id, persona')
-                                                  .eq('validation_id', validationId)
-                                                  .limit(1)
-                                                  .single();
-                                           
-                                           if (reports) {
-                                                  const updatedPersona = {
-                                                         ...(reports.persona as Record<string, unknown> || {}),
-                                                         avatarUrl: data.imageUrl,
-                                                  };
-                                                  await supabase
-                                                         .from('validation_reports')
-                                                         .update({ persona: updatedPersona })
-                                                         .eq('id', reports.id);
-                                           }
-                                    } catch (saveErr) {
-                                           console.error("Failed to save avatar URL:", saveErr);
-                                    }
-                             }
-                            toast.error("图片生成服务暂不可用");
-                     } else {
-                            throw new Error(data?.error || "生成失败");
-                     }
+                      } else if (data?.needsConfig) {
+                             toast.error("图片生成服务暂不可用");
+                      } else {
+                             throw new Error(data?.error || "生成失败");
+                      }
               } catch (error) {
                      console.error("Failed to generate persona image:", error);
                      setHasError(true);
