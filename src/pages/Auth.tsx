@@ -57,21 +57,24 @@ const Auth = () => {
     const state = encodeURIComponent(redirectTo);
     const authUrl = `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
 
-    const isEmbeddedPreview = window.self !== window.top;
-
-    if (isEmbeddedPreview) {
-      const popup = window.open(authUrl, "_blank", "noopener,noreferrer");
-      if (!popup) {
+    // 在嵌入式预览中，用 _top 导航顶层窗口；否则直接导航
+    try {
+      if (window.self !== window.top && window.top) {
+        window.top.location.href = authUrl;
+      } else {
+        window.location.assign(authUrl);
+      }
+    } catch {
+      // 跨域限制时 fallback 到 window.open
+      const w = window.open(authUrl, "_blank");
+      if (!w) {
         toast({
-          title: "无法打开登录窗口",
-          description: "请允许浏览器弹窗后重试 Linux DO 登录",
+          title: "请在已发布的域名上测试",
+          description: "Linux DO 登录需在 ideascan.lovable.app 上使用，预览环境不支持 OAuth 回调",
           variant: "destructive",
         });
       }
-      return;
     }
-
-    window.location.assign(authUrl);
   };
 
   const onLogin = async (data: LoginFormValues) => {
