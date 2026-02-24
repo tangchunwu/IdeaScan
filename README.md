@@ -1,12 +1,20 @@
 # IdeaScan
 
-IdeaScan 是一个面向中文创业者/独立开发者的 AI 需求验证系统。你输入一个需求想法，系统会自动完成关键词扩展、社媒抓取、竞品分析、报告生成。
+IdeaScan 是一个面向中文创业者和独立开发者的 AI 需求验证系统。输入一个想法后，系统会自动完成关键词扩展、社媒抓取、竞品分析，并生成可追踪的验证报告。
 
-## 技术栈（含后端爬虫）
+## 项目能力
+
+- 端到端需求验证流水线（抓取、清洗、摘要、分析、报告）
+- 扫码登录小红书/抖音并持久化用户会话
+- 自爬与第三方数据源（TikHub）混合路由，支持降级兜底
+- 实时进度流（SSE）与失败重试机制
+- 报告证据等级（A/B/C/D）与成本拆解
+
+## 技术栈
 
 - 前端：Vite + React + TypeScript + Tailwind + shadcn/ui
-- 后端：Supabase (Postgres + Edge Functions + Auth + RLS)
-- 爬虫服务：Python 3.11 + FastAPI + Playwright + Redis（独立 `crawler-service`）
+- 后端：Supabase（Postgres + Edge Functions + Auth + RLS）
+- 爬虫：Python 3.11 + FastAPI + Playwright + Redis（独立 `crawler-service`）
 - 测试：Vitest
 
 ## 目录结构
@@ -15,29 +23,29 @@ IdeaScan 是一个面向中文创业者/独立开发者的 AI 需求验证系统
 src/                         前端应用
 supabase/functions/          Edge Functions
 supabase/migrations/         数据库迁移
-crawler-service/             独立爬虫服务（API + Worker）
+crawler-service/             爬虫服务（API + Worker）
 scripts/bootstrap.sh         数据库初始化/迁移脚本
 scripts/crawler/             爬虫服务运维脚本
 ```
 
-## 10 分钟快速上手（推荐）
+## 快速开始（推荐 10 分钟）
 
-### 1) 安装依赖
+### 1. 安装依赖
 
 ```bash
 npm i
 ```
 
-### 2) 配置前端环境变量
+### 2. 配置前端环境变量
 
-创建 `.env`：
+在仓库根目录创建 `.env`：
 
 ```bash
-VITE_SUPABASE_URL=你的 Supabase URL
-VITE_SUPABASE_PUBLISHABLE_KEY=你的 Supabase Anon Key
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
 ```
 
-### 3) 初始化数据库（脚本）
+### 3. 初始化数据库
 
 本地数据库（Docker Supabase）：
 
@@ -45,19 +53,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Supabase Anon Key
 ./scripts/bootstrap.sh local
 ```
 
-远端数据库（已 `supabase link`）：
+远端数据库（已完成 `supabase link`）：
 
 ```bash
 ./scripts/bootstrap.sh remote
 ```
 
-如需同时部署核心函数：
+初始化时一并部署核心函数：
 
 ```bash
 DEPLOY_FUNCTIONS=true ./scripts/bootstrap.sh remote
 ```
 
-### 4) 启动前端
+### 4. 启动前端
 
 ```bash
 npm run dev
@@ -76,7 +84,7 @@ playwright install chromium
 uvicorn app.main:app --reload --port 8100
 ```
 
-新开一个终端（异步队列模式需要）：
+异步队列模式需要另开一个终端启动 worker：
 
 ```bash
 cd crawler-service
@@ -84,16 +92,16 @@ source .venv/bin/activate
 python run_worker.py
 ```
 
-### 方式 B：macOS launchd 常驻（适合长期运行）
+### 方式 B：macOS launchd 常驻（长期运行）
 
 ```bash
 ./scripts/crawler/install-launchd.sh
 ./scripts/crawler/status.sh
 ```
 
-## Supabase 必配 Secrets
+## Supabase Secrets 配置
 
-在 Supabase Project Secrets 中至少配置：
+在 Supabase Project Secrets 中至少配置以下变量：
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -102,7 +110,7 @@ python run_worker.py
 - `CRAWLER_CALLBACK_SECRET`
 - `LLM_BASE_URL`
 - `LLM_MODEL`
-- `OPENAI_API_KEY`（或你使用的兼容 Key）
+- `OPENAI_API_KEY`（或兼容供应商 Key）
 
 常用补充：
 
@@ -111,32 +119,22 @@ python run_worker.py
 - `SELF_CRAWLER_RATIO`
 - `CRAWLER_CALLBACK_URL`（可选）
 
-## 核心能力
-
-- 流式验证进度（抓取、清洗、摘要、分析）
-- 扫码登录小红书/抖音并保存用户会话
-- 自爬 + 第三方（TikHub）混合路由
-- 失败记录重试与验证历史沉淀
-- 报告证据等级（A/B/C/D）与成本拆解
-
-## 打包与部署
-
-### 前端打包
+## 常用开发命令
 
 ```bash
+# 前端开发
+npm run dev
+
+# 前端构建与预览
 npm run build
 npm run preview
+
+# 代码检查与测试
+npm run lint
+npm run test
 ```
 
-产物目录：`dist/`
-
-### 后端部署建议（生产）
-
-1. Supabase：执行迁移 + 部署函数。
-2. 爬虫服务：以 Docker/PM2/systemd/launchd 形式常驻。
-3. 在 Supabase Secrets 中将 `CRAWLER_SERVICE_BASE_URL` 配成公网地址（不要用本地回环地址）。
-
-## 后端数据库与函数运维
+## 后端运维
 
 ### 数据库迁移
 
@@ -144,7 +142,7 @@ npm run preview
 supabase db push
 ```
 
-### 部署所有函数
+### 部署全部函数
 
 ```bash
 supabase functions deploy $(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name "_*" -exec basename {} \; | tr '\n' ' ')
@@ -165,77 +163,83 @@ supabase functions deploy \
   crawler-auth-import-cookies crawler-auth-sessions crawler-auth-revoke
 ```
 
-## FAQ（常见问题）
+## 部署建议（生产）
 
-### 1) 扫码成功了，但没有保存 cookie
+1. Supabase：先执行迁移，再部署 Edge Functions。
+2. 爬虫服务：使用 Docker、PM2、systemd 或 launchd 常驻。
+3. 将 `CRAWLER_SERVICE_BASE_URL` 配置为可公网访问地址（不要使用本地回环地址）。
 
-先检查：
+## 故障排查
 
-- `crawler-service` 是否在跑
-- `crawler-auth-status` 返回是否 `authorized`
-- `crawler-auth-sessions` 是否能看到该用户活跃会话
+### 1. 扫码成功但未保存 cookie
+
+优先检查：
+
+- `crawler-service` 是否运行中
+- `crawler-auth-status` 返回是否为 `authorized`
+- `crawler-auth-sessions` 是否存在该用户活跃会话
 
 本地可用脚本直连验证：
 
 ```bash
 source crawler-service/.venv/bin/activate
-python scripts/crawler/qr_session_probe.py --platform xiaohongshu --user-id <你的用户UUID> --open
+python scripts/crawler/qr_session_probe.py --platform xiaohongshu --user-id <your-user-uuid> --open
 ```
 
-### 2) 报错 `SELF_CRAWLER_EMPTY` / 样本不足
+### 2. 报错 `SELF_CRAWLER_EMPTY` 或样本不足
 
 常见原因：
 
 - 账号触发平台风控
-- 关键词过窄或语义不适配
+- 关键词过窄或语义不匹配
 - 会话处于冷却期
 
 建议：
 
-- 开启 TikHub 兜底
+- 启用 TikHub 兜底
 - 增加关键词扩展数量
-- 间隔重试，避免短时间高频请求
+- 增加重试间隔，避免短时间高频请求
 
-### 3) 小红书 `api_error_-104` 是什么
+### 3. 小红书 `api_error_-104`
 
-这是小红书搜索接口权限/风控限制。即使扫码登录成功，也可能出现该错误。项目已支持：
+该错误通常表示小红书搜索接口权限或风控限制。即使扫码登录成功，也可能出现。项目已支持：
 
 - 错误识别与清晰提示
 - 真实浏览器模式（CDP）
 - 第三方兜底
 
-但当前现实是：`-104` 无法通过简单代码修改 100% 消除。
+注意：`-104` 目前无法通过单纯代码修改实现 100% 消除。
 
-### 4) 卡在“智能摘要/分析中”怎么办
+### 4. 卡在“智能摘要/分析中”
 
 优先检查：
 
 - LLM 配置是否可用（Base URL / API Key / Model）
-- 函数日志是否有 `LLM_UNAVAILABLE`
-- 对应函数是否已部署成功
+- 函数日志是否出现 `LLM_UNAVAILABLE`
+- 对应函数是否已成功部署
 
-### 5) 为什么前端能开，但抓取一直失败
+### 5. 前端可运行但抓取始终失败
 
 通常是后端链路未打通：
 
 - `CRAWLER_SERVICE_BASE_URL` 仍指向本地地址
-- `CRAWLER_SERVICE_TOKEN` 与 crawler 侧不一致
-- crawler 回调密钥不匹配
+- `CRAWLER_SERVICE_TOKEN` 与 crawler 端配置不一致
+- 回调密钥（`CRAWLER_CALLBACK_SECRET`）不匹配
 
-### 6) 如何判断系统是否真的在工作
+### 6. 如何确认系统正在正常工作
 
 - 前端 SSE 进度是否持续推进
 - `crawler-health` 是否正常
-- `crawler_jobs / crawler_samples` 表是否有新增
-- `list-validations` 状态是否从 `pending/analyzing` 进入 `completed/failed`
+- `crawler_jobs` / `crawler_samples` 是否持续有新增
+- `list-validations` 是否从 `pending/analyzing` 进入 `completed/failed`
 
-## 当前已知限制（公开说明）
+## 已知限制
 
-小红书搜索反爬机制较严格，若触发风控（典型为 `-104`），会导致“扫码成功但关键词抓取失败”。
+小红书反爬机制较严格，触发风控（典型 `-104`）时可能出现“扫码成功但关键词抓取失败”。
 
-当前生产建议：
+生产建议：
 
-- 保留用户扫码登录能力（优先自爬）
+- 保留扫码登录能力（优先自爬）
 - 同时启用第三方兜底（如 TikHub）保证可用性
 
 ## License
