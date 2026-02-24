@@ -29,3 +29,11 @@ __pycache__/
 *.py[cod]
 .venv/
 .tmp-ref/
+
+# Environment files
+.env
+.env.*
+!.env.example
+crawler-service/.env
+crawler-service/.env.*
+!crawler-service/.env.example
