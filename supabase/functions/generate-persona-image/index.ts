@@ -11,6 +11,7 @@ interface PersonaImageRequest {
   personaName: string;
   personaRole: string;
   age?: string;
+  validationId?: string;
   // 用户配置的图片生成API
   imageGenBaseUrl?: string;
   imageGenApiKey?: string;
@@ -51,7 +52,8 @@ serve(async (req) => {
       personaDescription, 
       personaName, 
       personaRole, 
-      age
+      age,
+      validationId
     } = body;
 
     if (!personaDescription || !personaName) {
@@ -59,6 +61,48 @@ serve(async (req) => {
         JSON.stringify({ error: "Persona description and name are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    let reportIdToUpdate: string | null = null;
+    let reportPersonaBase: Record<string, unknown> = {};
+
+    if (validationId) {
+      const { data: ownerValidation, error: ownerValidationError } = await supabase
+        .from("validations")
+        .select("id")
+        .eq("id", validationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (ownerValidationError) {
+        console.error("Validation ownership check failed:", ownerValidationError);
+        return new Response(
+          JSON.stringify({ error: "Failed to verify validation ownership" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!ownerValidation) {
+        return new Response(
+          JSON.stringify({ error: "Validation not found or access denied" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: reportRow, error: reportLookupError } = await supabase
+        .from("validation_reports")
+        .select("id, persona")
+        .eq("validation_id", validationId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (reportLookupError) {
+        console.error("Report lookup failed:", reportLookupError);
+      } else if (reportRow?.id) {
+        reportIdToUpdate = reportRow.id;
+        reportPersonaBase = (reportRow.persona as Record<string, unknown> | null) ?? {};
+      }
     }
 
     // Always use system image generation configuration
@@ -265,6 +309,23 @@ ${personaDescription}
 
     console.log("Image generated successfully for:", personaName);
 
+    if (reportIdToUpdate) {
+      const updatedPersona = {
+        ...reportPersonaBase,
+        avatarUrl: imageUrl,
+      };
+
+      const { error: updateError } = await supabase
+        .from("validation_reports")
+        .update({ persona: updatedPersona })
+        .eq("id", reportIdToUpdate);
+
+      if (updateError) {
+        console.error("Failed to persist avatar URL:", updateError);
+      } else {
+        console.log("Avatar URL persisted to validation report:", reportIdToUpdate);
+      }
+    }
     return new Response(
       JSON.stringify({ 
         success: true,
