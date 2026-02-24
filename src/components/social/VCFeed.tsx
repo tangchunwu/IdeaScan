@@ -21,11 +21,12 @@ export function VCFeed({ validationId }: VCFeedProps) {
   const feedEndRef = useRef<HTMLDivElement>(null);
   const settings = useSettings();
 
-  const llmConfig = {
+  // Only send custom LLM config if user has configured an API key
+  const llmConfig = settings.llmApiKey ? {
     llmBaseUrl: settings.llmBaseUrl || undefined,
-    llmApiKey: settings.llmApiKey || undefined,
+    llmApiKey: settings.llmApiKey,
     llmModel: settings.llmModel || undefined,
-  };
+  } : undefined;
 
   const buildCommentTree = (flatComments: Comment[]): Comment[] => {
     const commentMap = new Map<string, Comment>();
