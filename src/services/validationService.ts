@@ -53,6 +53,7 @@ export interface Persona {
   techSavviness: number;
   spendingCapacity: number;
   description: string;
+  avatarUrl?: string;
 }
 
 export interface Validation {

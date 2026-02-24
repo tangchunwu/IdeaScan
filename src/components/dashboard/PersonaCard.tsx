@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 interface PersonaCardProps {
        persona: Persona;
+       validationId?: string;
 }
 
 // Helper to ensure persona has all required fields with defaults
@@ -26,12 +27,13 @@ const normalizePersona = (persona: Persona): Persona => ({
     : ["找到更好的产品体验"],
   techSavviness: typeof persona.techSavviness === 'number' ? persona.techSavviness : 65,
   spendingCapacity: typeof persona.spendingCapacity === 'number' ? persona.spendingCapacity : 60,
-  description: persona.description || "AI正在分析用户画像..."
+  description: persona.description || "AI正在分析用户画像...",
+  avatarUrl: persona.avatarUrl,
 });
 
-export const PersonaCard = ({ persona: rawPersona }: PersonaCardProps) => {
+export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardProps) => {
        const persona = normalizePersona(rawPersona);
-       const [imageUrl, setImageUrl] = useState<string | null>(null);
+       const [imageUrl, setImageUrl] = useState<string | null>(persona.avatarUrl || null);
        const [isGenerating, setIsGenerating] = useState(false);
        const [hasError, setHasError] = useState(false);
        const settings = useSettings();
@@ -60,10 +62,34 @@ export const PersonaCard = ({ persona: rawPersona }: PersonaCardProps) => {
                             throw error;
                      }
 
-                     if (data?.imageUrl) {
-                            setImageUrl(data.imageUrl);
-                            toast.success(`${persona.name} 头像生成成功`);
-                     } else if (data?.needsConfig) {
+                      if (data?.imageUrl) {
+                             setImageUrl(data.imageUrl);
+                             toast.success(`${persona.name} 头像生成成功`);
+                             
+                             // Save avatar URL to validation_reports.persona JSON
+                             if (validationId) {
+                                    try {
+                                           const { data: reports } = await supabase
+                                                  .from('validation_reports')
+                                                  .select('id, persona')
+                                                  .eq('validation_id', validationId)
+                                                  .limit(1)
+                                                  .single();
+                                           
+                                           if (reports) {
+                                                  const updatedPersona = {
+                                                         ...(reports.persona as Record<string, unknown> || {}),
+                                                         avatarUrl: data.imageUrl,
+                                                  };
+                                                  await supabase
+                                                         .from('validation_reports')
+                                                         .update({ persona: updatedPersona })
+                                                         .eq('id', reports.id);
+                                           }
+                                    } catch (saveErr) {
+                                           console.error("Failed to save avatar URL:", saveErr);
+                                    }
+                             }
                             toast.error("图片生成服务暂不可用");
                      } else {
                             throw new Error(data?.error || "生成失败");
