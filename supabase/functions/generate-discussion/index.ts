@@ -255,11 +255,12 @@ serve(async (req) => {
       tags: validation.tags || [],
       overall_score: validation.overall_score || 50,
       dimensions: report?.dimensions as ValidationData['dimensions'] || undefined,
+      // deno-lint-ignore no-explicit-any
       report: report ? {
-        market_analysis: report.market_analysis as ValidationData['report']['market_analysis'] || undefined,
-        ai_analysis: report.ai_analysis as ValidationData['report']['ai_analysis'] || undefined,
-        sentiment_analysis: report.sentiment_analysis as ValidationData['report']['sentiment_analysis'] || undefined,
-        competitor_data: report.competitor_data as ValidationData['report']['competitor_data'] || undefined,
+        market_analysis: (report as any).market_analysis || undefined,
+        ai_analysis: (report as any).ai_analysis || undefined,
+        sentiment_analysis: (report as any).sentiment_analysis || undefined,
+        competitor_data: (report as any).competitor_data || undefined,
       } : undefined,
     };
 
