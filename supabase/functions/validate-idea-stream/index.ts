@@ -879,11 +879,6 @@ Deno.serve(async (req) => {
       
       const userProvidedTikhub = effectiveEnableTikhubFallback && !!config?.tikhubToken;
       let tikhubToken = effectiveEnableTikhubFallback ? config?.tikhubToken : undefined;
-      
-      if (effectiveEnableTikhubFallback && !userProvidedTikhub && !usedCache) {
-        // Delay quota enforcement until third-party crawler is actually needed.
-        tikhubToken = Deno.env.get("TIKHUB_TOKEN");
-      }
 
       let socialData = {
         totalNotes: 0,
@@ -1115,17 +1110,9 @@ Deno.serve(async (req) => {
             throw new ValidationError("DATA_SOURCE_UNAVAILABLE:自爬服务未连接且未配置 TikHub Token。请联系管理员或在设置中配置 Token。");
           }
 
-          if (!userProvidedTikhub && tikhubToken) {
-            const { data: quotaResult, error: quotaError } = await supabase.rpc('check_tikhub_quota', {
-              p_user_id: user.id
-            });
-            if (quotaError) {
-              console.error('Quota check error:', quotaError);
-            }
-            const quota = quotaResult?.[0];
-            if (!quota?.can_use) {
-              throw new ValidationError('FREE_QUOTA_EXCEEDED:免费验证次数已用完。请在设置中配置您的 TikHub API Token 后继续使用。');
-            }
+          // No free quota - require user's own TikHub token
+          if (!tikhubToken) {
+            throw new ValidationError("TIKHUB_TOKEN_REQUIRED:请在设置中配置您的 TikHub API Token 后继续使用。");
           }
 
           if (tikhubToken) {
@@ -1675,15 +1662,6 @@ Deno.serve(async (req) => {
 
       if (!saved) throw new Error("Failed to save report");
 
-      // ============ Consume TikHub Quota ============
-      if (!userProvidedTikhub && !usedCache && usedThirdPartyCrawler) {
-        const { error: consumeError } = await supabase.rpc('use_tikhub_quota', {
-          p_user_id: user.id
-        });
-        if (consumeError) {
-          console.error('Failed to consume quota:', consumeError);
-        }
-      }
 
       // Update validation status
       await supabase
