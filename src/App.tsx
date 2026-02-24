@@ -19,6 +19,7 @@ const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
 const Discover = lazy(() => import("./pages/Discover"));
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
 const PublicLandingPage = lazy(() => import("./pages/MVP/PublicLandingPage"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -41,6 +42,7 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
         <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+        <Route path="/auth/callback/linuxdo" element={<AuthCallback />} />
         <Route path="/validate" element={<PageTransition><Validate /></PageTransition>} />
         <Route path="/report/:id" element={<PageTransition><Report /></PageTransition>} />
         <Route path="/history" element={<PageTransition><History /></PageTransition>} />
@@ -63,10 +65,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AnalyticsProvider>
       <AuthProvider>
-        {/* TooltipProvider 使用静默错误边界 - 出错时降级而非白屏 */}
         <SilentErrorBoundary name="TooltipProvider">
           <TooltipProvider>
-            {/* Toaster 组件使用静默错误边界 */}
             <SilentErrorBoundary name="Toaster">
               <Toaster />
             </SilentErrorBoundary>
@@ -76,7 +76,6 @@ const App = () => (
             </SilentErrorBoundary>
 
             <BrowserRouter>
-              {/* 页面路由使用页面级错误边界 */}
               <PageErrorBoundary name="Routes">
                 <Suspense
                   fallback={<BrandLoader fullScreen text="正在加载创意空间..." />}

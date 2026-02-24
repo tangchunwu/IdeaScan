@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.signal-processor]
 verify_jwt = false
+
+[functions.linuxdo-auth]
+verify_jwt = false
