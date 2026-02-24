@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { 
   validateString, 
   validateUUID,
-  validateBaseUrl,
+  validateUserProvidedUrl,
   sanitizeForPrompt,
   ValidationError,
   createErrorResponse,
@@ -93,7 +93,7 @@ serve(async (req) => {
     
     const config = body.config && typeof body.config === "object" ? {
       llmApiKey: validateString(body.config.llmApiKey, "llmApiKey", LIMITS.API_KEY_MAX_LENGTH) || undefined,
-      llmBaseUrl: validateBaseUrl(body.config.llmBaseUrl, "llmBaseUrl") || undefined,
+      llmBaseUrl: validateUserProvidedUrl(body.config.llmBaseUrl, "llmBaseUrl") || undefined,
       llmModel: validateString(body.config.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
     } : undefined;
 
