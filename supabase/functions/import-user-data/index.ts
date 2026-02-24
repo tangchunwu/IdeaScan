@@ -45,6 +45,9 @@ const ValidationReportSchema = z.object({
   data_summary: z.record(z.any()).optional(),
   data_quality_score: z.number().int().min(0).max(100).nullable().optional(),
   keywords_used: z.array(z.string().max(100)).max(50).optional(),
+  cost_breakdown: z.record(z.any()).optional(),
+  proof_result: z.record(z.any()).optional(),
+  evidence_grade: z.string().max(10).nullable().optional(),
   created_at: z.string().optional(),
 });
 
@@ -139,9 +142,15 @@ const ImportDataSchema = z.object({
     comments: TableDataSchema.optional(),
     trending_topics: TableDataSchema.optional(),
     user_topic_interests: TableDataSchema.optional(),
+    user_topic_clicks: TableDataSchema.optional(),
     scan_jobs: TableDataSchema.optional(),
     mvp_landing_pages: TableDataSchema.optional(),
     mvp_leads: TableDataSchema.optional(),
+    demand_experiments: TableDataSchema.optional(),
+    experiment_events: TableDataSchema.optional(),
+    idea_proof_snapshots: TableDataSchema.optional(),
+    user_feedback: TableDataSchema.optional(),
+    user_settings: TableDataSchema.optional(),
   }),
   summary: z.object({
     totalRecords: z.number().int().min(0).max(100000),
@@ -239,6 +248,7 @@ serve(async (req) => {
         validations: {},
         mvp_landing_pages: {},
         trending_topics: {},
+        demand_experiments: {},
       },
     };
 
@@ -325,6 +335,9 @@ serve(async (req) => {
             data_summary: report.data_summary,
             data_quality_score: report.data_quality_score,
             keywords_used: report.keywords_used,
+            cost_breakdown: report.cost_breakdown || {},
+            proof_result: report.proof_result || null,
+            evidence_grade: report.evidence_grade || null,
             created_at: report.created_at,
           };
 
@@ -633,6 +646,161 @@ serve(async (req) => {
           }
         } catch (e) {
           result.tables.mvp_leads.skipped++;
+        }
+      }
+    }
+
+    // 9. Import user_topic_clicks
+    if (tables.user_topic_clicks?.data?.length > 0) {
+      initTableResult("user_topic_clicks");
+
+      for (const click of tables.user_topic_clicks.data) {
+        try {
+          const newTopicId = click.topic_id 
+            ? result.idMappings.trending_topics[click.topic_id] || click.topic_id
+            : null;
+
+          const { error } = await supabaseAdmin
+            .from("user_topic_clicks")
+            .insert({
+              user_id: user.id,
+              topic_id: newTopicId,
+              keyword: click.keyword || "",
+              click_type: click.click_type || "view",
+              created_at: click.created_at,
+            });
+
+          if (error) {
+            result.tables.user_topic_clicks.skipped++;
+          } else {
+            result.tables.user_topic_clicks.imported++;
+          }
+        } catch (e) {
+          result.tables.user_topic_clicks.skipped++;
+        }
+      }
+    }
+
+    // 10. Import demand_experiments
+    if (tables.demand_experiments?.data?.length > 0) {
+      initTableResult("demand_experiments");
+
+      for (const exp of tables.demand_experiments.data) {
+        try {
+          const oldId = exp.id;
+          const newValidationId = exp.validation_id
+            ? result.idMappings.validations[exp.validation_id]
+            : null;
+          const newLandingPageId = exp.landing_page_id
+            ? result.idMappings.mvp_landing_pages[exp.landing_page_id]
+            : null;
+
+          const { data: inserted, error } = await supabaseAdmin
+            .from("demand_experiments")
+            .insert({
+              user_id: user.id,
+              validation_id: newValidationId,
+              landing_page_id: newLandingPageId,
+              idea: exp.idea || "",
+              status: exp.status || "draft",
+              cta_type: exp.cta_type || "paid_intent",
+              cta_label: exp.cta_label,
+              uv_count: exp.uv_count || 0,
+              cta_click_count: exp.cta_click_count || 0,
+              checkout_start_count: exp.checkout_start_count || 0,
+              paid_intent_count: exp.paid_intent_count || 0,
+              waitlist_submit_count: exp.waitlist_submit_count || 0,
+              paid_intent_rate: exp.paid_intent_rate || 0,
+              waitlist_rate: exp.waitlist_rate || 0,
+              evidence_verdict: exp.evidence_verdict || "insufficient_data",
+              created_at: exp.created_at,
+              updated_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+
+          if (error) {
+            result.tables.demand_experiments.errors.push(`Experiment: ${error.message}`);
+            result.tables.demand_experiments.skipped++;
+          } else {
+            result.idMappings.demand_experiments[oldId] = inserted.id;
+            result.tables.demand_experiments.imported++;
+          }
+        } catch (e) {
+          result.tables.demand_experiments.skipped++;
+        }
+      }
+      console.log(`[ImportData] Experiments: ${result.tables.demand_experiments.imported} imported`);
+    }
+
+    // 11. Import experiment_events (requires experiment ID mapping)
+    if (tables.experiment_events?.data?.length > 0) {
+      initTableResult("experiment_events");
+
+      for (const event of tables.experiment_events.data) {
+        try {
+          const newExperimentId = result.idMappings.demand_experiments[event.experiment_id];
+          if (!newExperimentId) {
+            result.tables.experiment_events.skipped++;
+            continue;
+          }
+
+          const { error } = await supabaseAdmin
+            .from("experiment_events")
+            .insert({
+              experiment_id: newExperimentId,
+              event_type: event.event_type,
+              user_id: event.user_id === importData.userId ? user.id : event.user_id,
+              anon_id: event.anon_id,
+              session_id: event.session_id,
+              metadata: event.metadata || {},
+              created_at: event.created_at,
+            });
+
+          if (error) {
+            result.tables.experiment_events.skipped++;
+          } else {
+            result.tables.experiment_events.imported++;
+          }
+        } catch (e) {
+          result.tables.experiment_events.skipped++;
+        }
+      }
+    }
+
+    // 12. Import idea_proof_snapshots (requires experiment ID mapping)
+    if (tables.idea_proof_snapshots?.data?.length > 0) {
+      initTableResult("idea_proof_snapshots");
+
+      for (const snapshot of tables.idea_proof_snapshots.data) {
+        try {
+          const newExperimentId = result.idMappings.demand_experiments[snapshot.experiment_id];
+          if (!newExperimentId) {
+            result.tables.idea_proof_snapshots.skipped++;
+            continue;
+          }
+
+          const { error } = await supabaseAdmin
+            .from("idea_proof_snapshots")
+            .insert({
+              experiment_id: newExperimentId,
+              snapshot_date: snapshot.snapshot_date,
+              uv_count: snapshot.uv_count || 0,
+              paid_intent_count: snapshot.paid_intent_count || 0,
+              waitlist_submit_count: snapshot.waitlist_submit_count || 0,
+              paid_intent_rate: snapshot.paid_intent_rate || 0,
+              waitlist_rate: snapshot.waitlist_rate || 0,
+              evidence_verdict: snapshot.evidence_verdict || "insufficient_data",
+              created_at: snapshot.created_at,
+            });
+
+          if (error) {
+            result.tables.idea_proof_snapshots.skipped++;
+          } else {
+            result.tables.idea_proof_snapshots.imported++;
+          }
+        } catch (e) {
+          result.tables.idea_proof_snapshots.skipped++;
         }
       }
     }

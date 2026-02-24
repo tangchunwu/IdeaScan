@@ -198,7 +198,6 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!setError && settings) {
-      // Mark as encrypted - user will need to re-enter in new project
       result.tables.user_settings = { 
         count: 1, 
         data: [{ 
@@ -209,6 +208,60 @@ serve(async (req) => {
       result.summary.totalRecords += 1;
       result.summary.tablesExported++;
       console.log(`[ExportData] Exported user settings (encrypted)`);
+    }
+
+    // 11. Export demand_experiments (user's demand validation experiments)
+    const { data: experiments, error: expError } = await supabaseAdmin
+      .from("demand_experiments")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!expError && experiments && experiments.length > 0) {
+      result.tables.demand_experiments = { count: experiments.length, data: experiments };
+      result.summary.totalRecords += experiments.length;
+      result.summary.tablesExported++;
+      console.log(`[ExportData] Exported ${experiments.length} demand experiments`);
+
+      // 12. Export experiment_events (for user's experiments)
+      const experimentIds = experiments.map(e => e.id);
+      const { data: events, error: evtError } = await supabaseAdmin
+        .from("experiment_events")
+        .select("*")
+        .in("experiment_id", experimentIds);
+
+      if (!evtError && events && events.length > 0) {
+        result.tables.experiment_events = { count: events.length, data: events };
+        result.summary.totalRecords += events.length;
+        result.summary.tablesExported++;
+        console.log(`[ExportData] Exported ${events.length} experiment events`);
+      }
+
+      // 13. Export idea_proof_snapshots (for user's experiments)
+      const { data: snapshots, error: snapError } = await supabaseAdmin
+        .from("idea_proof_snapshots")
+        .select("*")
+        .in("experiment_id", experimentIds);
+
+      if (!snapError && snapshots && snapshots.length > 0) {
+        result.tables.idea_proof_snapshots = { count: snapshots.length, data: snapshots };
+        result.summary.totalRecords += snapshots.length;
+        result.summary.tablesExported++;
+        console.log(`[ExportData] Exported ${snapshots.length} proof snapshots`);
+      }
+    }
+
+    // 14. Export user_feedback
+    const { data: feedback, error: fbError } = await supabaseAdmin
+      .from("user_feedback")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (!fbError && feedback && feedback.length > 0) {
+      result.tables.user_feedback = { count: feedback.length, data: feedback };
+      result.summary.totalRecords += feedback.length;
+      result.summary.tablesExported++;
+      console.log(`[ExportData] Exported ${feedback.length} feedback entries`);
     }
 
     console.log(`[ExportData] Export complete: ${result.summary.totalRecords} records from ${result.summary.tablesExported} tables`);
