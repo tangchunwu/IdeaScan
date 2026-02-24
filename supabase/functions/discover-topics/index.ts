@@ -174,7 +174,17 @@ Deno.serve(async (req) => {
       if (reportsError) throw reportsError;
       const reportMap = new Map((reports || []).map(r => [r.validation_id, r]));
 
-      const rows = validations.map((v: any) => {
+      const rows = validations
+        .filter((v: any) => {
+          // Skip validations without a score or with very low scores (likely failed/incomplete)
+          if (!v.overall_score || v.overall_score <= 0) return false;
+          // Skip validations without a report (no real data collected)
+          if (!reportMap.has(v.id)) return false;
+          // Skip validations with empty or very short ideas
+          if (!v.idea || String(v.idea).trim().length < 4) return false;
+          return true;
+        })
+        .map((v: any) => {
         const tags = Array.isArray(v.tags) ? v.tags : [];
         const report: any = reportMap.get(v.id) || {};
         const xhs = (report.xiaohongshu_data && typeof report.xiaohongshu_data === "object") ? report.xiaohongshu_data : {};
@@ -216,7 +226,7 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
         };
-      }).filter((row) => row.keyword.length > 0);
+      }).filter((row) => row.keyword.length >= 4);
 
       if (rows.length > 0) {
         const { error: upsertError } = await supabase
