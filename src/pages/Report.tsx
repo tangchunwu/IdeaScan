@@ -302,7 +302,7 @@ const Report = () => {
             </div>
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
               {personaData ? (
-                <PersonaCard persona={personaData} />
+                <PersonaCard persona={personaData} validationId={validation.id} />
               ) : (
                 <GlassCard className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed min-h-[400px]">
                   <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />

@@ -172,7 +172,8 @@ export function useReportData(data: FullValidation | null | undefined) {
       : ["找到更好的产品体验", "提升生活/工作效率"],
     techSavviness: Number(rawPersona.techSavviness) || 65,
     spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
-    description: String(rawPersona.description || `对"${validation?.idea?.slice(0, 30) || '该产品'}..."感兴趣的用户群体`)
+    description: String(rawPersona.description || `对"${validation?.idea?.slice(0, 30) || '该产品'}..."感兴趣的用户群体`),
+    avatarUrl: rawPersona.avatarUrl ? String(rawPersona.avatarUrl) : undefined,
   } : null;
 
   const competitorRows = Array.isArray(report?.competitor_data) ? (report.competitor_data as any[]) : [];
