@@ -10,6 +10,7 @@ import {
   LIMITS 
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
+import { requestChatCompletion, extractAssistantContent } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,14 +22,98 @@ interface Persona {
   name: string;
   role: string;
   system_prompt: string;
+  personality?: string;
+  focus_areas?: string[];
+  catchphrase?: string;
+  avatar_url?: string;
 }
 
-interface Comment {
-  id: string;
-  content: string;
-  persona_id: string | null;
-  user_id: string | null;
-  is_ai: boolean;
+interface LLMCandidate {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  label: string;
+}
+
+function stripSystemPrompt(persona: any): any {
+  if (!persona) return persona;
+  const { system_prompt: _, ...safe } = persona;
+  return safe;
+}
+
+function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): LLMCandidate[] {
+  const candidates: LLMCandidate[] = [];
+  
+  if (config?.llmApiKey) {
+    candidates.push({
+      baseUrl: config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1",
+      apiKey: config.llmApiKey,
+      model: config.llmModel || "google/gemini-3-flash-preview",
+      label: "custom",
+    });
+  }
+
+  const envKey = Deno.env.get("LLM_API_KEY");
+  const envBase = Deno.env.get("LLM_BASE_URL");
+  if (envKey && envBase) {
+    const envModel = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
+    if (envKey !== config?.llmApiKey || envBase !== config?.llmBaseUrl) {
+      candidates.push({ baseUrl: envBase, apiKey: envKey, model: envModel, label: "server" });
+    }
+  }
+
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    candidates.push({
+      baseUrl: "https://ai.gateway.lovable.dev/v1",
+      apiKey: lovableKey,
+      model: "google/gemini-3-flash-preview",
+      label: "lovable",
+    });
+  }
+
+  return candidates;
+}
+
+async function generateWithFallback(
+  candidates: LLMCandidate[],
+  systemPrompt: string,
+  userPrompt: string,
+  temperature = 0.8,
+  maxTokens = 250,
+): Promise<{ content: string; provider: string; warnings: string[] }> {
+  const warnings: string[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      const result = await requestChatCompletion({
+        baseUrl: candidate.baseUrl,
+        apiKey: candidate.apiKey,
+        model: candidate.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature,
+        maxTokens,
+        timeoutMs: 25000,
+      });
+
+      const content = extractAssistantContent(result.json).trim();
+      if (!content) {
+        warnings.push(`${candidate.label}: empty response`);
+        continue;
+      }
+
+      return { content, provider: candidate.label, warnings };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Reply LLM candidate ${candidate.label} failed:`, msg.slice(0, 200));
+      warnings.push(`${candidate.label}: ${msg.slice(0, 100)}`);
+    }
+  }
+
+  throw new Error("all_llm_candidates_failed");
 }
 
 function buildReportContext(report: any, persona: Persona): string {
@@ -37,7 +122,6 @@ function buildReportContext(report: any, persona: Persona): string {
   let ctx = "\n\n📋 报告数据参考（请在回复中引用具体数据来支撑你的观点）:\n";
   const role = persona.role;
 
-  // Dimensions
   if (report.dimensions && Array.isArray(report.dimensions) && report.dimensions.length > 0) {
     ctx += `维度评分: ${report.dimensions.map((d: any) => `${d.dimension}:${d.score}`).join(', ')}\n`;
   }
@@ -111,7 +195,7 @@ serve(async (req) => {
 
     await checkRateLimit(supabase, user.id, "reply-to-comment");
 
-    // 1. Get the original AI comment
+    // Get the original AI comment
     const { data: originalComment, error: cError } = await supabase
       .from("comments")
       .select("*, persona:personas(*)")
@@ -121,9 +205,19 @@ serve(async (req) => {
     if (cError || !originalComment) throw new Error("Comment not found");
     if (!originalComment.is_ai || !originalComment.persona) throw new ValidationError("Can only reply to AI comments");
 
+    // Ownership check: verify the user owns this validation
+    const { data: ownerCheck } = await supabase
+      .from("validations")
+      .select("id")
+      .eq("id", originalComment.validation_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!ownerCheck) throw new ValidationError("Access denied: you don't own this validation");
+
     const persona: Persona = originalComment.persona;
 
-    // 2. Save user's reply first
+    // Save user's reply first
     const { data: userComment, error: insertUserError } = await supabase
       .from("comments")
       .insert({
@@ -141,7 +235,7 @@ serve(async (req) => {
       throw new Error("Failed to save reply");
     }
 
-    // 3. Get validation context and report data in parallel
+    // Get validation context and report data in parallel
     const [validationResult, reportResult, conversationResult] = await Promise.all([
       supabase.from("validations").select("*").eq("id", originalComment.validation_id).single(),
       supabase.from("validation_reports").select("*").eq("validation_id", originalComment.validation_id).single(),
@@ -160,18 +254,14 @@ serve(async (req) => {
       .map((c: any) => `${c.is_ai ? c.persona?.name || 'AI' : '用户'}: ${sanitizeForPrompt(c.content)}`)
       .join("\n");
 
-    // Count user reply rounds for attitude mechanism
     const userReplies = conversationHistory.filter((c: any) => !c.is_ai).length;
     const attitudeHint = userReplies >= 3
       ? "\n🔄 用户已经进行了多轮有力回复，你可以适当软化态度，表现出被部分说服的样子，但仍然保持你的核心关注点。"
       : "";
 
-    // Build report context based on role
     const reportContext = buildReportContext(report, persona);
-
-    const apiKey = config?.llmApiKey || Deno.env.get("LOVABLE_API_KEY") || "";
-    const baseUrl = (config?.llmBaseUrl || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "");
-    const model = config?.llmModel || "google/gemini-3-flash-preview";
+    const candidates = buildLLMCandidates(config);
+    if (candidates.length === 0) throw new Error("No LLM provider available");
 
     const sanitizedIdea = sanitizeForPrompt(validation?.idea || '未知');
     const sanitizedReply = sanitizeForPrompt(userReply);
@@ -193,32 +283,15 @@ ${reportContext}${attitudeHint}
 
 直接输出回复内容，不要任何前缀。控制在150字以内。`;
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: "system", content: persona.system_prompt },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.8,
-        max_tokens: 250,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("AI reply failed:", await response.text());
-      throw new Error("AI service temporarily unavailable");
+    let fallbackUsed = false;
+    const result = await generateWithFallback(candidates, persona.system_prompt, prompt);
+    if (result.provider !== "custom" && config?.llmApiKey) {
+      fallbackUsed = true;
     }
 
-    const data = await response.json();
-    const aiReplyContent = data.choices[0]?.message?.content?.trim() || "让我再想想...";
+    const aiReplyContent = result.content;
 
-    // 6. Save AI reply
+    // Save AI reply
     const { data: aiReply, error: insertAiError } = await supabase
       .from("comments")
       .insert({
@@ -228,7 +301,7 @@ ${reportContext}${attitudeHint}
         parent_id: userComment.id,
         is_ai: true,
       })
-      .select("*, persona:personas(*)")
+      .select("*, persona:personas(id, name, role, avatar_url, personality, focus_areas, catchphrase, is_active, created_at)")
       .single();
 
     if (insertAiError) {
@@ -237,7 +310,15 @@ ${reportContext}${attitudeHint}
     }
 
     return new Response(
-      JSON.stringify({ success: true, userComment, aiReply }),
+      JSON.stringify({
+        success: true,
+        userComment,
+        aiReply,
+        meta: {
+          fallbackUsed,
+          warnings: result.warnings.length > 0 ? result.warnings.slice(0, 3) : undefined,
+        },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

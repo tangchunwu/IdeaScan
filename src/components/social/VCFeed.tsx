@@ -3,6 +3,7 @@ import { MessageSquare, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { FeedItem } from "./FeedItem";
+import { toast } from "sonner";
 import type { Comment } from "@/types/social";
 import { getComments, generateDiscussion, replyToComment, toggleCommentLike, getUserLikes } from "@/services/socialService";
 import { useSettings } from "@/hooks/useSettings";
@@ -21,7 +22,6 @@ export function VCFeed({ validationId }: VCFeedProps) {
   const feedEndRef = useRef<HTMLDivElement>(null);
   const settings = useSettings();
 
-  // Only send custom LLM config if user has configured an API key
   const llmConfig = settings.llmApiKey ? {
     llmBaseUrl: settings.llmBaseUrl || undefined,
     llmApiKey: settings.llmApiKey,
@@ -43,18 +43,6 @@ export function VCFeed({ validationId }: VCFeedProps) {
     return rootComments;
   };
 
-  const getAllCommentIds = useCallback((comments: Comment[]): string[] => {
-    const ids: string[] = [];
-    const collect = (list: Comment[]) => {
-      for (const c of list) {
-        ids.push(c.id);
-        if (c.replies) collect(c.replies);
-      }
-    };
-    collect(comments);
-    return ids;
-  }, []);
-
   const loadComments = async () => {
     setIsLoading(true);
     setError(null);
@@ -62,7 +50,6 @@ export function VCFeed({ validationId }: VCFeedProps) {
       const data = await getComments(validationId);
       const tree = buildCommentTree(data);
       setComments(tree);
-      // Load like statuses
       const allIds = data.map(c => c.id);
       const likes = await getUserLikes(allIds);
       setLikedIds(likes);
@@ -78,11 +65,25 @@ export function VCFeed({ validationId }: VCFeedProps) {
     setIsGenerating(true);
     setError(null);
     try {
-      await generateDiscussion(validationId, llmConfig);
+      const result = await generateDiscussion(validationId, llmConfig);
+      
+      // Show fallback toast if applicable
+      if (result.meta?.fallbackUsed) {
+        toast.info("自定义模型不可用，已自动切换内置模型生成讨论", { duration: 5000 });
+      }
+      if (result.meta?.failedPersonas?.length) {
+        toast.warning(`部分专家生成失败: ${result.meta.failedPersonas.join(", ")}`, { duration: 4000 });
+      }
+
       await loadComments();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to generate discussion:", e);
-      setError("生成讨论失败，请稍后重试");
+      const errorMsg = e?.message || "";
+      if (errorMsg.includes("所有 AI 模型均不可用") || errorMsg.includes("all_llm_candidates_failed")) {
+        setError("所有 AI 模型均不可用。请检查设置中的自定义模型配置，或稍后重试。");
+      } else {
+        setError("生成讨论失败，请稍后重试");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -91,9 +92,11 @@ export function VCFeed({ validationId }: VCFeedProps) {
   const handleReply = async (commentId: string, content: string) => {
     setReplyingTo(commentId);
     try {
-      await replyToComment(commentId, content, llmConfig);
+      const result = await replyToComment(commentId, content, llmConfig);
+      if (result.meta?.fallbackUsed) {
+        toast.info("自定义模型不可用，AI 回复已使用内置模型", { duration: 4000 });
+      }
       await loadComments();
-      // Auto-scroll to bottom
       setTimeout(() => feedEndRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
     } catch (e) {
       console.error("Reply failed:", e);

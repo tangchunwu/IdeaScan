@@ -7,6 +7,23 @@ export interface LLMConfig {
   llmModel?: string;
 }
 
+export interface DiscussionMeta {
+  fallbackUsed?: boolean;
+  failedPersonas?: string[];
+  warnings?: string[];
+}
+
+export interface DiscussionResult {
+  comments: Comment[];
+  meta?: DiscussionMeta;
+}
+
+export interface ReplyResult {
+  userComment: Comment;
+  aiReply: Comment;
+  meta?: DiscussionMeta;
+}
+
 // Get all personas (only safe public fields, excludes sensitive system_prompt)
 export async function getPersonas(): Promise<Persona[]> {
   const { data, error } = await supabase
@@ -37,7 +54,7 @@ export async function getComments(validationId: string): Promise<Comment[]> {
 }
 
 // Generate initial AI discussion
-export async function generateDiscussion(validationId: string, config?: LLMConfig): Promise<Comment[]> {
+export async function generateDiscussion(validationId: string, config?: LLMConfig): Promise<DiscussionResult> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
@@ -55,8 +72,16 @@ export async function generateDiscussion(validationId: string, config?: LLMConfi
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
 
-  if (response.error) throw response.error;
-  return response.data?.comments || [];
+  if (response.error) {
+    // Try to extract meaningful error from response data
+    const errMsg = response.data?.error || response.error.message || "生成讨论失败";
+    throw new Error(errMsg);
+  }
+
+  return {
+    comments: response.data?.comments || [],
+    meta: response.data?.meta,
+  };
 }
 
 // Reply to an AI comment
@@ -64,7 +89,7 @@ export async function replyToComment(
   commentId: string,
   userReply: string,
   config?: LLMConfig
-): Promise<{ userComment: Comment; aiReply: Comment }> {
+): Promise<ReplyResult> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
@@ -82,8 +107,16 @@ export async function replyToComment(
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
 
-  if (response.error) throw response.error;
-  return response.data;
+  if (response.error) {
+    const errMsg = response.data?.error || response.error.message || "回复失败";
+    throw new Error(errMsg);
+  }
+
+  return {
+    userComment: response.data?.userComment,
+    aiReply: response.data?.aiReply,
+    meta: response.data?.meta,
+  };
 }
 
 // Like/Unlike a comment

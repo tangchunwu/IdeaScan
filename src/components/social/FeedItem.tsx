@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { PersonaAvatar } from "./PersonaAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { getRoleLabel } from "./roleUtils";
 import type { Comment } from "@/types/social";
 
 interface FeedItemProps {
@@ -76,7 +77,7 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
             <span className="font-semibold text-foreground">{comment.is_ai && persona ? persona.name : "我"}</span>
             {comment.is_ai && persona && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                {persona.role === 'vc' ? 'VC' : persona.role === 'pm' ? 'PM' : persona.role === 'user' ? '用户' : '分析师'}
+                {getRoleLabel(persona.role, persona.name)}
               </span>
             )}
             <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
@@ -104,7 +105,6 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
             )}
           </div>
 
-          {/* Typing indicator when waiting for AI reply */}
           {isWaitingForAI && (
             <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
               <Loader2 className="w-3 h-3 animate-spin" />
