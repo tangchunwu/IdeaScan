@@ -59,11 +59,12 @@ const Index = () => {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('validations')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed');
       if (error) throw error;
       return count || 0;
     },
-    staleTime: 1000 * 60 * 10, // 10 min cache
+    staleTime: 1000 * 60 * 10,
   });
 
   return (
