@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, EmptyState, ChartSkeleton } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ import { ActionRecommendation } from "@/components/report/ActionRecommendation";
 import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { DevPanel } from "@/components/report/DevPanel";
 import { captureEvent } from "@/lib/posthog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 // Extracted sub-components
 import { useReportData, cleanDisplayText } from "@/components/report/useReportData";
@@ -39,6 +40,7 @@ import { DemandDecisionCard } from "@/components/report/DemandDecisionCard";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
@@ -251,6 +253,14 @@ const Report = () => {
     evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
     competitorRows, evidenceItems, topEvidence } = reportData;
 
+  const isIncomplete = validation.status === 'failed' || validation.status === 'processing' || (validation as any).resumable === true;
+  const displayScore = aiAnalysis.feasibilityScore || validation.overall_score || 0;
+
+  const handleResume = () => {
+    const idea = encodeURIComponent(validation.idea);
+    navigate(`/validate?idea=${idea}&auto=true&resumeValidationId=${validation.id}`);
+  };
+
   return (
     <PageBackground showClouds={false}>
       <Navbar />
@@ -263,16 +273,32 @@ const Report = () => {
             proofResult={proofResult}
             needsReanalysis={needsReanalysis}
             isReanalyzing={isReanalyzing}
+            isIncomplete={isIncomplete}
             onReanalyze={handleReanalyze}
+            onResume={handleResume}
             onExportHTML={handleExportHTML}
             onExportPdf={handleExportPdf}
             onShare={handleShare}
           />
 
+          {/* Incomplete Report Banner */}
+          {isIncomplete && (
+            <Alert className="mb-8 border-amber-500/50 bg-amber-500/5 animate-fade-in">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertTitle className="text-amber-500">验证未完成</AlertTitle>
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="text-muted-foreground">本次验证中途中断，部分数据尚未采集完成。您可以继续验证以补全分析结果。</span>
+                <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10 shrink-0" onClick={handleResume}>
+                  <RefreshCw className="w-4 h-4 mr-2" />继续验证
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Score + Persona Row */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
             <div className="lg:col-span-4 flex flex-col gap-6 animate-slide-up">
-              <ScoreHeroCard score={aiAnalysis.feasibilityScore || 0} totalNotes={xiaohongshuData.totalNotes} />
+              <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={isIncomplete} />
             </div>
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
               {personaData ? (
@@ -320,6 +346,7 @@ const Report = () => {
 
           <DemandDecisionCard
             validation={validation}
+            score={displayScore}
             xiaohongshuData={xiaohongshuData}
             sentimentAnalysis={sentimentAnalysis}
             marketAnalysis={marketAnalysis}

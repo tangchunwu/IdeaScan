@@ -3,9 +3,10 @@ import { GlassCard, ScoreCircle } from "@/components/shared";
 interface ScoreHeroCardProps {
   score: number;
   totalNotes: number;
+  isIncomplete?: boolean;
 }
 
-export const ScoreHeroCard = ({ score, totalNotes }: ScoreHeroCardProps) => (
+export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCardProps) => (
   <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
     <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
@@ -23,6 +24,9 @@ export const ScoreHeroCard = ({ score, totalNotes }: ScoreHeroCardProps) => (
         {score >= 80 ? "✅ 真实刚需" : score >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
       </div>
       <p className="text-xs text-muted-foreground mt-2">基于 {totalNotes} 条真实用户数据分析</p>
+      {isIncomplete && (
+        <p className="text-xs text-amber-500 mt-1">⚠ 数据采集未完成，评分可能不准确</p>
+      )}
     </div>
   </GlassCard>
 );

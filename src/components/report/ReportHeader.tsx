@@ -17,7 +17,9 @@ interface ReportHeaderProps {
   proofResult: { verdict: string };
   needsReanalysis: boolean;
   isReanalyzing: boolean;
+  isIncomplete?: boolean;
   onReanalyze: () => void;
+  onResume?: () => void;
   onExportHTML: () => void;
   onExportPdf: () => void;
   onShare: () => void;
@@ -25,7 +27,7 @@ interface ReportHeaderProps {
 
 export const ReportHeader = ({
   validation, aiAnalysis, evidenceGrade, proofResult,
-  needsReanalysis, isReanalyzing, onReanalyze, onExportHTML, onExportPdf, onShare,
+  needsReanalysis, isReanalyzing, isIncomplete, onReanalyze, onResume, onExportHTML, onExportPdf, onShare,
 }: ReportHeaderProps) => (
   <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-8">
     <div>
@@ -52,7 +54,12 @@ export const ReportHeader = ({
       </div>
     </div>
     <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-      {needsReanalysis && (
+      {isIncomplete && onResume && (
+        <Button variant="outline" size="sm" className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={onResume}>
+          <RefreshCw className="w-4 h-4 mr-2" />继续验证
+        </Button>
+      )}
+      {needsReanalysis && !isIncomplete && (
         <Button variant="outline" size="sm" className="rounded-full h-9 border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={onReanalyze} disabled={isReanalyzing}>
           {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
           {isReanalyzing ? "分析中..." : "补充分析"}

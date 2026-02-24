@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface DemandDecisionCardProps {
   validation: { id: string; overall_score: number | null };
+  score: number;
   xiaohongshuData: { totalNotes: number; totalEngagement: number };
   sentimentAnalysis: { positive: number };
   marketAnalysis: { competitionLevel?: string; targetAudience?: string };
@@ -15,11 +16,11 @@ interface DemandDecisionCardProps {
 }
 
 export const DemandDecisionCard = ({
-  validation, xiaohongshuData, sentimentAnalysis, marketAnalysis,
+  validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
   aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceItems,
 }: DemandDecisionCardProps) => {
   const { toast } = useToast();
-  const score = validation.overall_score || 0;
+  const score = displayScore;
 
   return (
     <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
@@ -78,14 +79,14 @@ export const DemandDecisionCard = ({
               <Target className="w-5 h-5 text-secondary shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-muted-foreground">目标用户</div>
-                <div className="text-sm font-medium line-clamp-2">{marketAnalysis.targetAudience}</div>
+                <div className="text-sm font-medium line-clamp-2">{marketAnalysis.targetAudience || "数据未完成采集"}</div>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
               <Brain className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-muted-foreground">核心痛点</div>
-                <div className="text-sm font-medium line-clamp-2">{aiAnalysis.strengths?.[0] || "-"}</div>
+                <div className="text-sm font-medium line-clamp-2">{aiAnalysis.strengths?.[0] || "数据未完成采集"}</div>
               </div>
             </div>
           </div>
