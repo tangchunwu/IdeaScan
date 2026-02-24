@@ -19,6 +19,7 @@ import {
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureEvent } from "@/lib/posthog";
 
 const features = [
   {
@@ -103,6 +104,7 @@ const Index = () => {
                 asChild
                 size="lg"
                 className="text-lg px-10 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 btn-ripple"
+                onClick={() => captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' })}
               >
                 <Link to="/validate">
                   验证我的想法
@@ -114,6 +116,7 @@ const Index = () => {
                 variant="outline"
                 size="lg"
                 className="text-lg px-10 py-7 rounded-2xl glass-button border-border/50"
+                onClick={() => captureEvent('cta_clicked', { button: 'hero_history', page: 'index' })}
               >
                 <Link to="/history">
                   查看历史记录

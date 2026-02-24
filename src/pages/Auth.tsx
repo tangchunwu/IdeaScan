@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { PageBackground, GlassCard } from "@/components/shared";
+import { captureEvent } from "@/lib/posthog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +53,7 @@ const Auth = () => {
   });
 
   const handleLinuxDOLogin = () => {
+    captureEvent('login_attempt', { method: 'linuxdo' });
     const clientId = "lnCHca7XSPnBQxJMmpLoowYmqfUkCmij";
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback/linuxdo`);
     const state = encodeURIComponent(redirectTo);
@@ -85,10 +87,12 @@ const Auth = () => {
         password: data.password,
       });
       if (error) throw error;
+      captureEvent('login_success', { method: 'email' });
       toast({ title: "登录成功", description: "欢迎回来！" });
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "登录失败";
+      captureEvent('login_failed', { method: 'email', error: errorMessage.substring(0, 100) });
       toast({ title: "登录失败", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -107,10 +111,12 @@ const Auth = () => {
         },
       });
       if (error) throw error;
+      captureEvent('signup_success', { method: 'email' });
       toast({ title: "注册成功", description: "欢迎加入！" });
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";
+      captureEvent('signup_failed', { method: 'email', error: errorMessage.substring(0, 100) });
       toast({ title: "注册失败", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);

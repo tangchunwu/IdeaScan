@@ -24,6 +24,7 @@ import {
   Scale,
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
+import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -75,6 +76,7 @@ const History = () => {
     setDeletingId(id);
     try {
       await deleteMutation.mutateAsync(id);
+      captureEvent('validation_deleted', { validation_id: id });
       toast({
         title: "删除成功",
         description: "验证记录已删除",
@@ -102,6 +104,7 @@ const History = () => {
     setIsBatchDeleting(true);
     try {
       await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
+      captureEvent('validation_batch_deleted', { count: selectedIds.size });
       toast({
         title: "批量删除成功",
         description: `已删除 ${selectedIds.size} 条记录`,

@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
 
@@ -30,6 +31,7 @@ export default function Discover() {
   const activeTab = searchParams.get("tab") || "market";
 
   const handleTabChange = (value: string) => {
+    captureEvent('discover_tab_changed', { tab: value });
     setSearchParams(prev => {
       prev.set("tab", value);
       return prev;
@@ -77,6 +79,7 @@ export default function Discover() {
   }, [user]);
 
   const handleInterestChange = (topicId: string, interest: 'saved' | 'validated' | 'dismissed' | null) => {
+    captureEvent('discover_interest_changed', { topic_id: topicId, interest_type: interest });
     setUserInterests(prev => {
       const next = new Map(prev);
       if (interest === null) {
@@ -105,7 +108,7 @@ export default function Discover() {
   }));
 
   const handleBubbleClick = (item: any) => {
-    // Navigate to validation page with topic
+    captureEvent('discover_topic_clicked', { topic: item.name, source: 'bubble_chart' });
     navigate(`/validate?topic=${encodeURIComponent(item.name)}`);
   };
 
