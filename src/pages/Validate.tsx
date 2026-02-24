@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog, QuotaExhaustedDialog } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserQuota } from "@/hooks/useUserQuota";
+
 import { validationKeys } from "@/hooks/useValidation";
 import { createValidationStream, getValidation } from "@/services/validationService";
 import { useSettings } from "@/hooks/useSettings";
@@ -57,7 +57,7 @@ const Validate = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
-  const { freeRemaining, freeTotal, canValidate, hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
+  const hasOwnTikhub = !!settings.tikhubToken;
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -67,7 +67,6 @@ const Validate = () => {
   const [progressMessage, setProgressMessage] = useState("");
   const sseControllerRef = useRef<{ abort: () => void } | null>(null);
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
-  const [showQuotaDialog, setShowQuotaDialog] = useState(false);
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [resumeValidationId, setResumeValidationId] = useState<string>("");
@@ -216,9 +215,14 @@ const Validate = () => {
       return;
     }
 
-    // Check quota before starting
-    if (!canValidate) {
-      setShowQuotaDialog(true);
+    // Check if user has TikHub token configured
+    if (!hasOwnTikhub && !settings.enableSelfCrawler) {
+      toast({
+        title: "请先配置 TikHub Token",
+        description: "需要在设置中配置您的 TikHub API Token 才能使用验证功能",
+        variant: "destructive",
+        action: <ToastAction altText="去配置" onClick={() => setShowSettingsFromQuota(true)}>去配置</ToastAction>,
+      });
       return;
     }
 
@@ -303,8 +307,6 @@ const Validate = () => {
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
 
-        // Refresh quota after successful validation
-        refetchQuota();
 
         // 预加载报告数据
         await queryClient.prefetchQuery({
@@ -323,12 +325,7 @@ const Validate = () => {
           mode: validationMode,
         });
 
-        // Check if it's a quota exceeded error
-        if (error.includes('FREE_QUOTA_EXCEEDED') || error.includes('免费验证次数已用完')) {
-          setShowQuotaDialog(true);
-        } else {
-          toast({ title: "验证失败", description: error, variant: "destructive" });
-        }
+        toast({ title: "验证失败", description: error, variant: "destructive" });
         setIsValidating(false);
         setProgress(0);
         setCurrentStep(0);
@@ -708,19 +705,13 @@ const Validate = () => {
               </GlassCard>
             ) : (
               <div className="space-y-3">
-                {/* Quota Indicator */}
-                {!hasOwnTikhub && (
+                {/* TikHub Token Reminder */}
+                {!hasOwnTikhub && !settings.enableSelfCrawler && (
                   <div className="flex items-center justify-center gap-2 text-sm">
-                    {freeRemaining > 0 ? (
-                      <span className="text-muted-foreground">
-                        免费验证次数剩余: <span className="font-semibold text-primary">{freeRemaining}</span>/{freeTotal}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-warning">
-                        <AlertTriangle className="w-4 h-4" />
-                        免费次数已用完
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1 text-warning">
+                      <AlertTriangle className="w-4 h-4" />
+                      请先在设置中配置 TikHub Token
+                    </span>
                   </div>
                 )}
 
@@ -756,17 +747,7 @@ const Validate = () => {
         </div>
       </main>
 
-      {/* Quota Exhausted Dialog */}
-      <QuotaExhaustedDialog
-        open={showQuotaDialog}
-        onOpenChange={setShowQuotaDialog}
-        onOpenSettings={() => {
-          setShowQuotaDialog(false);
-          setShowSettingsFromQuota(true);
-        }}
-      />
-
-      {/* Settings Dialog triggered from quota dialog */}
+      {/* Settings Dialog triggered from token reminder */}
       {showSettingsFromQuota && (
         <SettingsDialog
           open={showSettingsFromQuota}
