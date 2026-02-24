@@ -1982,10 +1982,25 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
 
     const data = await res.json();
     const items = data?.data?.data?.items || [];
-    const maxNotes = mode === "deep" ? 10 : 5;
-    const maxCommentsPerNote = mode === "deep" ? 6 : 3;
+    const maxNotes = mode === "deep" ? 20 : 10;
+    const maxCommentsPerNote = mode === "deep" ? 12 : 6;
     
-    const notes = items.slice(0, maxNotes).map((item: any) => ({
+    // Fetch page 2 for more notes
+    let allItems = items;
+    if (items.length > 0) {
+      try {
+        const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=2&sort=general&noteType=_0`;
+        const res2 = await fetch(url2, { headers: { 'Authorization': `Bearer ${token}` } });
+        apiCalls += 1;
+        if (res2.ok) {
+          const data2 = await res2.json();
+          const items2 = data2?.data?.data?.items || [];
+          allItems = [...allItems, ...items2];
+        }
+      } catch (_) { /* ignore page 2 failure */ }
+    }
+
+    const notes = allItems.slice(0, maxNotes).map((item: any) => ({
       note_id: item.note?.id || '',
       title: '[小红书] ' + (item.note?.title || ''),
       desc: item.note?.desc || '',
@@ -1997,7 +2012,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
     }));
 
     const sampleComments: any[] = [];
-    for (const note of notes.slice(0, mode === "deep" ? 5 : 3)) {
+    for (const note of notes.slice(0, mode === "deep" ? 10 : 6)) {
       if (!note.note_id) continue;
       try {
         const commentRes = await fetch(
@@ -2054,8 +2069,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
 
     const data = await res.json();
     const awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
-    const maxVideos = mode === "deep" ? 10 : 5;
-    const maxCommentsPerVideo = mode === "deep" ? 6 : 3;
+    const maxVideos = mode === "deep" ? 20 : 10;
+    const maxCommentsPerVideo = mode === "deep" ? 12 : 6;
     
     const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
       aweme_id: item.aweme_id || '',
@@ -2068,7 +2083,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
     }));
 
     const sampleComments: any[] = [];
-    for (const video of videos.slice(0, mode === "deep" ? 5 : 3)) {
+    for (const video of videos.slice(0, mode === "deep" ? 10 : 6)) {
       if (!video.aweme_id) continue;
       try {
         const commentRes = await fetch(
