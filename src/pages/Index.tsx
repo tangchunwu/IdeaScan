@@ -123,7 +123,7 @@ const Index = () => {
 
             {/* Social Proof */}
             <div className="mt-12 flex justify-center animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-              <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
+              <SocialProofCounter count={(validationCount ?? 0) + 1280} label="个创意已通过验证" />
             </div>
 
           </section>
