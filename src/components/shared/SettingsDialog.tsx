@@ -207,87 +207,56 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        };
 
        const handleSave = async () => {
-              setIsSaving(true);
-              updateSettings(localSettings);
-              
-              // Sync to cloud if user is logged in
-              if (user) {
-                     try {
-                            await syncToCloud();
-                            toast({
-                                   title: "配置已保存到云端",
-                                   description: "您的设置已加密保存，下次登录自动恢复。",
-                                   className: "bg-green-50 border-green-200 text-green-800"
-                            });
-                     } catch (error) {
-                            toast({
-                                   title: "配置已保存到本地",
-                                   description: "云端同步失败，配置仅保存在本地。",
-                                   variant: "destructive"
-                            });
-                     }
-              } else {
-                     toast({
-                            title: "配置已保存到本地",
-                            description: "登录后可同步到云端，跨设备使用。",
-                     });
-              }
-              
-              setIsSaving(false);
-              setOpen?.(false);
-       };
+               setIsSaving(true);
+               updateSettings(localSettings);
+               toast({
+                      title: "配置已保存",
+                      description: "设置已保存到浏览器本地。",
+                      className: "bg-green-50 border-green-200 text-green-800"
+               });
+               setIsSaving(false);
+               setOpen?.(false);
+        };
 
-       // Auto-save when dialog closes with unsaved changes
-      const handleOpenChange = (newOpen: boolean) => {
-             if (!newOpen && open) {
-                     const localFallbacks = JSON.stringify(localSettings.llmFallbacks || []);
-                     const cloudFallbacks = JSON.stringify(llmFallbacks || []);
-                     // Check if there are unsaved changes
-                     const hasChanges =
-                            localFallbacks !== cloudFallbacks ||
-                            localSettings.llmApiKey !== llmApiKey ||
-                            localSettings.llmBaseUrl !== llmBaseUrl ||
-                            localSettings.llmProvider !== llmProvider ||
-                            localSettings.llmModel !== llmModel ||
-                            localSettings.tikhubToken !== tikhubToken ||
-                            localSettings.enableXiaohongshu !== enableXiaohongshu ||
-                            localSettings.enableDouyin !== enableDouyin ||
-                            localSettings.enableSelfCrawler !== enableSelfCrawler ||
-                            localSettings.enableTikhubFallback !== enableTikhubFallback ||
-                            localSettings.bochaApiKey !== bochaApiKey ||
-                            localSettings.youApiKey !== youApiKey ||
-                            localSettings.tavilyApiKey !== tavilyApiKey ||
-                            localSettings.imageGenBaseUrl !== imageGenBaseUrl ||
-                            localSettings.imageGenApiKey !== imageGenApiKey ||
-                            localSettings.imageGenModel !== imageGenModel;
+       const handleSaveToCloud = async () => {
+               setIsSaving(true);
+               updateSettings(localSettings);
+               try {
+                      await syncToCloud();
+                      toast({
+                             title: "配置已保存到云端",
+                             description: "您的设置已加密保存，可跨设备使用。",
+                             className: "bg-green-50 border-green-200 text-green-800"
+                      });
+               } catch (error) {
+                      toast({
+                             title: "云端同步失败",
+                             description: "配置已保存到本地，云端同步失败。",
+                             variant: "destructive"
+                      });
+               }
+               setIsSaving(false);
+        };
 
-                     if (hasChanges) {
-                            // Auto-save on close
-                            updateSettings(localSettings);
-                            
-                            // Sync to cloud if user is logged in
-                            if (user) {
-                                   syncToCloud().then(() => {
-                                          toast({
-                                                 title: "配置已自动保存到云端",
-                                                 description: "您的设置已加密保存。",
-                                          });
-                                   }).catch(() => {
-                                          toast({
-                                                 title: "配置已保存到本地",
-                                                 description: "云端同步失败。",
-                                          });
-                                   });
-                            } else {
-                                   toast({
-                                          title: "配置已自动保存",
-                                          description: "登录后可同步到云端。",
-                                   });
-                            }
-                     }
-              }
-              setOpen?.(newOpen);
-       };
+       const handleLoadFromCloud = async () => {
+               try {
+                      await syncFromCloud();
+                      toast({
+                             title: "已从云端恢复配置",
+                             description: "云端配置已加载到本地。",
+                             className: "bg-green-50 border-green-200 text-green-800"
+                      });
+               } catch (error) {
+                      toast({
+                             title: "从云端恢复失败",
+                             variant: "destructive"
+                      });
+               }
+        };
+
+       const handleOpenChange = (newOpen: boolean) => {
+               setOpen?.(newOpen);
+        };
 
        const handleReset = () => {
               if (confirm("确定要恢复默认设置吗？")) {
@@ -1497,21 +1466,35 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    </div>
                             )}
                             
-                            {/* Main action buttons */}
-                            <div className="flex justify-between">
-                                   <Button variant="outline" onClick={handleReset} className="text-muted-foreground">
-                                          <RotateCcw className="w-4 h-4 mr-2" />
-                                          重置默认
-                                   </Button>
-                                   <Button onClick={handleSave} disabled={isSaving || isLoading}>
-                                          {isSaving ? (
-                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                          ) : (
-                                                 <Save className="w-4 h-4 mr-2" />
-                                          )}
-                                          {user ? "保存到云端" : "保存配置"}
-                                   </Button>
-                            </div>
+                             {/* Cloud sync buttons */}
+                             {user && (
+                                    <div className="flex gap-2 pt-2 border-t border-border/50">
+                                           <Button variant="outline" size="sm" onClick={handleLoadFromCloud} disabled={isLoading} className="flex-1">
+                                                  <Cloud className="w-4 h-4 mr-1" />
+                                                  从云端恢复
+                                           </Button>
+                                           <Button variant="outline" size="sm" onClick={handleSaveToCloud} disabled={isSaving || isLoading} className="flex-1">
+                                                  <Upload className="w-4 h-4 mr-1" />
+                                                  同步到云端
+                                           </Button>
+                                    </div>
+                             )}
+
+                             {/* Main action buttons */}
+                             <div className="flex justify-between">
+                                    <Button variant="outline" onClick={handleReset} className="text-muted-foreground">
+                                           <RotateCcw className="w-4 h-4 mr-2" />
+                                           重置默认
+                                    </Button>
+                                    <Button onClick={handleSave} disabled={isSaving}>
+                                           {isSaving ? (
+                                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                           ) : (
+                                                  <Save className="w-4 h-4 mr-2" />
+                                           )}
+                                           保存配置
+                                    </Button>
+                             </div>
                      </div>
               </DialogContent>
        </Dialog>

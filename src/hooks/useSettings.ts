@@ -167,36 +167,26 @@ export const useSettings = create<SettingsState>()(
       name: 'user-settings',
       // Only persist non-sensitive fields locally as backup
       partialize: (state) => ({
-        llmFallbacks: state.llmFallbacks.map((item) => ({
-          baseUrl: item.baseUrl,
-          model: item.model,
-          apiKey: '',
-        })),
+        llmFallbacks: state.llmFallbacks,
         llmProvider: state.llmProvider,
         llmBaseUrl: state.llmBaseUrl,
+        llmApiKey: state.llmApiKey,
         llmModel: state.llmModel,
+        tikhubToken: state.tikhubToken,
         enableXiaohongshu: state.enableXiaohongshu,
         enableDouyin: state.enableDouyin,
         enableSelfCrawler: state.enableSelfCrawler,
         enableTikhubFallback: state.enableTikhubFallback,
+        bochaApiKey: state.bochaApiKey,
+        youApiKey: state.youApiKey,
+        tavilyApiKey: state.tavilyApiKey,
         imageGenBaseUrl: state.imageGenBaseUrl,
+        imageGenApiKey: state.imageGenApiKey,
         imageGenModel: state.imageGenModel,
-        // API keys are NOT persisted locally for security
-        // They will be synced from cloud on login
       }),
     }
   )
 );
 
-// Auto-sync when user logs in
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    // Sync settings from cloud on login
-    setTimeout(() => {
-      useSettings.getState().syncFromCloud();
-    }, 500);
-  } else if (event === 'SIGNED_OUT') {
-    // Clear sensitive data on logout
-    useSettings.getState().resetSettings();
-  }
-});
+// No auto-sync: settings are stored in browser localStorage by default.
+// Users can manually sync to/from cloud via the settings dialog.
