@@ -102,7 +102,24 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
         }
         
         if (data?.code === 200 || result.status === 200) {
-          const items = data?.data?.items || data?.data?.notes || data?.data?.note_list || data?.data?.data || [];
+          // TikHub wraps response: { code, data: { code, data: { items/notes/... }, message }, message }
+          const innerData = data?.data?.data;
+          console.log(`[TikHub-XHS] innerData type: ${typeof innerData}, isArray: ${Array.isArray(innerData)}, keys: ${innerData && typeof innerData === 'object' && !Array.isArray(innerData) ? JSON.stringify(Object.keys(innerData)).slice(0, 300) : 'N/A'}`);
+          
+          let items: any[] = [];
+          if (Array.isArray(innerData)) {
+            items = innerData;
+          } else if (innerData && typeof innerData === 'object') {
+            // innerData could be { items: [...] } or { notes: [...] } etc.
+            items = innerData.items || innerData.notes || innerData.note_list || [];
+          }
+          // Also check top-level data.data arrays
+          if (items.length === 0) {
+            items = Array.isArray(data?.data?.items) ? data.data.items : 
+                    Array.isArray(data?.data?.notes) ? data.data.notes : 
+                    Array.isArray(data?.data?.note_list) ? data.data.note_list : [];
+          }
+          if (!Array.isArray(items)) items = [];
           console.log(`[TikHub-XHS] Found ${items.length} items`);
           for (const item of items.slice(0, 14)) {
             const note = item?.note_card || item;
