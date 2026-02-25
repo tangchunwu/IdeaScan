@@ -104,10 +104,11 @@ const Report = () => {
       if (error) throw error;
       if (result?.updated) {
         toast({ title: "分析完成", description: `已更新: ${result.updatedFields?.join(", ") || "数据"}` });
-        refetch();
       } else {
         toast({ title: "数据已完整", description: result?.message || "无需重新分析" });
       }
+      // Always refetch to ensure UI shows latest data from DB
+      refetch();
     } catch (error) {
       console.error("Re-analyze error:", error);
       toast({ title: "分析失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
