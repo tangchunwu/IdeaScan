@@ -84,75 +84,82 @@ ${sanitizedTags ? `**标签**: ${sanitizedTags}` : ""}
   "trendKeywords": ["趋势词1", "趋势词2"]
 }`;
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-      }),
+  // Build candidate configs: user-provided first, then Lovable AI fallback
+  const candidates: Array<{ ep: string; key: string; mdl: string }> = [];
+  candidates.push({ ep: endpoint, key: apiKey, mdl: model });
+  
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey && apiKey !== lovableKey) {
+    candidates.push({
+      ep: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      key: lovableKey,
+      mdl: "google/gemini-3-flash-preview",
     });
-
-    if (!response.ok) {
-      console.error("Keyword expansion API error:", response.status);
-      const fallback = createFallbackKeywords(idea, tags);
-      return {
-        xhsKeywords: fallback.coreKeywords.slice(0, 2),
-        webQueries: fallback.competitorQueries.slice(0, 2),
-        expanded: fallback
-      };
-    }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content || "";
-
-    try {
-      const parsed = parseKeywordJson(content);
-      
-      // Combine for compatibility with existing flow
-      const xhsKeywords = [
-        ...(parsed.coreKeywords || []).slice(0, 2),
-        ...(parsed.userPhrases || []).slice(0, 1)
-      ].slice(0, 3);
-      
-      const webQueries = [
-        ...(parsed.competitorQueries || []).slice(0, 2),
-        ...(parsed.trendKeywords || []).slice(0, 1)
-      ].slice(0, 3);
-
-      return {
-        xhsKeywords,
-        webQueries,
-        expanded: {
-          coreKeywords: parsed.coreKeywords || [],
-          userPhrases: parsed.userPhrases || [],
-          competitorQueries: parsed.competitorQueries || [],
-          trendKeywords: parsed.trendKeywords || []
-        }
-      };
-    } catch (e) {
-      console.error("Keyword JSON parse failed:", e);
-      const fallback = createFallbackKeywords(idea, tags);
-      return {
-        xhsKeywords: fallback.coreKeywords.slice(0, 2),
-        webQueries: fallback.competitorQueries.slice(0, 2),
-        expanded: fallback
-      };
-    }
-  } catch (e) {
-    console.error("Keyword expansion failed:", e);
-    const fallback = createFallbackKeywords(idea, tags);
-    return {
-      xhsKeywords: fallback.coreKeywords.slice(0, 2),
-      webQueries: fallback.competitorQueries.slice(0, 2),
-      expanded: fallback
-    };
   }
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate.ep, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${candidate.key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: candidate.mdl,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`Keyword expansion API error (${candidate.ep}):`, response.status);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content || "";
+
+      try {
+        const parsed = parseKeywordJson(content);
+        
+        const xhsKeywords = [
+          ...(parsed.coreKeywords || []).slice(0, 2),
+          ...(parsed.userPhrases || []).slice(0, 1)
+        ].slice(0, 3);
+        
+        const webQueries = [
+          ...(parsed.competitorQueries || []).slice(0, 2),
+          ...(parsed.trendKeywords || []).slice(0, 1)
+        ].slice(0, 3);
+
+        return {
+          xhsKeywords,
+          webQueries,
+          expanded: {
+            coreKeywords: parsed.coreKeywords || [],
+            userPhrases: parsed.userPhrases || [],
+            competitorQueries: parsed.competitorQueries || [],
+            trendKeywords: parsed.trendKeywords || []
+          }
+        };
+      } catch (e) {
+        console.error("Keyword JSON parse failed, trying next:", e);
+        continue;
+      }
+    } catch (e) {
+      console.error("Keyword expansion candidate failed:", e);
+      continue;
+    }
+  }
+
+  // All candidates failed
+  const fallback = createFallbackKeywords(idea, tags);
+  return {
+    xhsKeywords: fallback.coreKeywords.slice(0, 2),
+    webQueries: fallback.competitorQueries.slice(0, 2),
+    expanded: fallback
+  };
 }
 
 /**
