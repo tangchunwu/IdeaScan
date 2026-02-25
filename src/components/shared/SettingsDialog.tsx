@@ -990,7 +990,18 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      </DialogHeader>
                      <div className="grid gap-6 py-4">
 
-                            {/* LLM Settings */}
+                            {/* Built-in config notice for non-admin users */}
+                            {!isAdmin && (
+                                   <div className="rounded-lg bg-muted/50 border p-3 space-y-1">
+                                          <p className="text-sm font-medium">✨ 内置配置已就绪</p>
+                                          <p className="text-xs text-muted-foreground">
+                                                 大模型（LLM）、竞品搜索、AI 绘图均已内置配置，无需额外设置即可使用。如需自定义 TikHub Token 以获取更多社交数据，可在下方填写。
+                                          </p>
+                                   </div>
+                            )}
+
+                            {/* LLM Settings - Admin only */}
+                            {isAdmin && (
                             <div className="space-y-4">
                                    <h4 className="font-medium flex items-center justify-between">
                                           <span className="flex items-center gap-2">🤖 大模型配置 (LLM)</span>
@@ -1115,11 +1126,11 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           )}
                                    </div>
                             </div>
+                            )}
 
                             <hr className="border-gray-100" />
 
-                            {/* Tikhub Settings */}
-                            {isAdmin && (
+                            {/* Tikhub Settings - visible to all users */}
                             <div className="space-y-4">
                                    <h4 className="font-medium flex items-center justify-between">
                                           <span className="flex items-center gap-2">📊 数据源配置 (Tikhub)</span>
@@ -1140,7 +1151,6 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           </div>
                                    </div>
                             </div>
-                            )}
 
                             <div className="space-y-4">
                                    <div className="space-y-3 pt-2">
@@ -1358,7 +1368,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
                             <hr className="border-gray-100" />
 
-                            {/* Search Settings Section */}
+                            {/* Search Settings Section - Admin only */}
+                            {isAdmin && (
                             <div className="space-y-4">
                                    <h4 className="font-medium flex items-center gap-2">
                                           🔍 竞品搜索配置 (多源并行)
@@ -1455,10 +1466,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           </div>
                                    </div>
                             </div>
+                            )}
 
+                            {/* Image Generation Settings - Admin only */}
+                            {isAdmin && (
+                            <>
                             <hr className="border-gray-100" />
-
-                            {/* Image Generation Settings */}
                             <div className="space-y-4">
                                    <h4 className="font-medium flex items-center justify-between">
                                           <span className="flex items-center gap-2">🎨 AI 绘图配置 (OpenAI Compatible)</span>
@@ -1495,10 +1508,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           />
                                    </div>
                             </div>
+                            </>
+                            )}
                      </div>
 
                      <div className="flex flex-col gap-3 mt-4">
-                            {/* Import/Export buttons */}
+                            {/* Import/Export buttons - Admin only */}
+                            {isAdmin && (
                             <div className="flex gap-2">
                                    <Button variant="outline" size="sm" onClick={handleImport} className="flex-1">
                                           <Upload className="w-4 h-4 mr-2" />
@@ -1509,6 +1525,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                           导出配置
                                    </Button>
                             </div>
+                            )}
                             
                             {/* Data export/import for migration */}
                             {user && (
