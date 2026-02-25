@@ -67,6 +67,8 @@ const Validate = () => {
   const [progressMessage, setProgressMessage] = useState("");
   const sseControllerRef = useRef<{ abort: () => void } | null>(null);
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [currentValidationId, setCurrentValidationId] = useState<string | null>(null);
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [resumeValidationId, setResumeValidationId] = useState<string>("");
@@ -203,6 +205,57 @@ const Validate = () => {
     };
   }, []);
 
+  const handleCancelAndKeep = async () => {
+    if (!currentValidationId || isCancelling) return;
+    setIsCancelling(true);
+    
+    // Abort the SSE stream first
+    sseControllerRef.current?.abort();
+    sseControllerRef.current = null;
+
+    try {
+      const { data, error } = await invokeFunction<{ success: boolean; validationId: string; overallScore: number }>(
+        "cancel-validation",
+        { body: { validationId: currentValidationId } },
+        true,
+      );
+
+      if (error) throw new Error(error.message || "取消失败");
+
+      toast({
+        title: "已保留部分结果",
+        description: `基于已采集数据生成了降级报告（评分：${data.overallScore}分）`,
+      });
+
+      // Prefetch and navigate
+      await queryClient.prefetchQuery({
+        queryKey: validationKeys.detail(currentValidationId),
+        queryFn: () => getValidation(currentValidationId!),
+        staleTime: 1000 * 60 * 5,
+      });
+
+      captureEvent('validation_cancelled_with_partial', {
+        validation_id: currentValidationId,
+        score: data.overallScore,
+        progress_at_cancel: progress,
+      });
+
+      navigate(`/report/${currentValidationId}`);
+    } catch (e) {
+      toast({
+        title: "取消失败",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCancelling(false);
+      setIsValidating(false);
+      setProgress(0);
+      setCurrentStep(0);
+      setCurrentValidationId(null);
+    }
+  };
+
   const handleValidate = async () => {
     if (!idea.trim()) return;
 
@@ -278,6 +331,11 @@ const Validate = () => {
         if (event.progress !== undefined) setProgress(event.progress);
         if (event.message) setProgressMessage(event.message);
 
+        // Capture validationId from early progress event
+        if (event.meta?.validationId && typeof event.meta.validationId === 'string') {
+          setCurrentValidationId(event.meta.validationId);
+        }
+
         // 根据 stage 映射到 currentStep - 优化后的进度阶段
         const stageMap: Record<string, number> = {
           init: 0,
@@ -330,6 +388,7 @@ const Validate = () => {
         setIsValidating(false);
         setProgress(0);
         setCurrentStep(0);
+        setCurrentValidationId(null);
       }
     );
   };
@@ -703,6 +762,34 @@ const Validate = () => {
                     })}
                   </div>
                 </div>
+
+                {/* Cancel and keep partial results button */}
+                {currentValidationId && (
+                  <div className="pt-4 border-t border-border/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelAndKeep}
+                      disabled={isCancelling}
+                      className="w-full text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl"
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          正在保存已采集数据...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-4 h-4 mr-2" />
+                          取消验证并保留部分结果
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground/60 text-center mt-1.5">
+                      将基于已采集到的数据生成降级报告
+                    </p>
+                  </div>
+                )}
               </GlassCard>
             ) : (
               <div className="space-y-3">
