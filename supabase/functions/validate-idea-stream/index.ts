@@ -484,6 +484,11 @@ function resolveSearchKeys(config?: RequestConfig) {
   };
 }
 
+function isDefaultOpenAIUrl(url?: string): boolean {
+  if (!url) return false;
+  return /api\.openai\.com/i.test(url);
+}
+
 function normalizeLLMBaseUrl(input?: string) {
   return normalizeLlmBaseUrl(input || "https://ai.gateway.lovable.dev/v1");
 }
@@ -532,10 +537,17 @@ function resolveLLMRuntimes(config?: RequestConfig) {
         .filter((item) => !!item.apiKey && !!item.baseUrl && !!item.model)
     : [];
 
+  // If the frontend sends the default api.openai.com URL, treat it as unconfigured
+  // and prefer system env vars (LLM_BASE_URL / LLM_API_KEY) instead
+  const frontendUrlIsDefault = isDefaultOpenAIUrl(config?.llmBaseUrl);
+  const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config?.llmBaseUrl;
+  const effectiveApiKey = frontendUrlIsDefault ? undefined : config?.llmApiKey;
+  const effectiveModel = frontendUrlIsDefault ? undefined : config?.llmModel;
+
   const primary: LLMRuntime = {
-    apiKey: config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-    baseUrl: normalizeLLMBaseUrl(config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1"),
-    model: config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+    apiKey: effectiveApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+    baseUrl: normalizeLLMBaseUrl(effectiveBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1"),
+    model: effectiveModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
   };
 
   // Always include Lovable AI as the final safety-net fallback

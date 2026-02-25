@@ -113,10 +113,16 @@ serve(async (req) => {
     const tags = validateStringArray(body.tags, "tags", LIMITS.TAG_MAX_COUNT, LIMITS.TAG_MAX_LENGTH);
     const config = validateConfig(body.config);
 
+    // If frontend sends default api.openai.com URL, skip it and use system env vars
+    const frontendUrlIsDefault = /api\.openai\.com/i.test(config.llmBaseUrl || "");
+    const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config.llmBaseUrl;
+    const effectiveApiKey = frontendUrlIsDefault ? undefined : config.llmApiKey;
+    const effectiveModel = frontendUrlIsDefault ? undefined : config.llmModel;
+
     const expanded = await expandKeywords(idea, tags, {
-      apiKey: config.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-      baseUrl: config.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
-      model: config.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+      apiKey: effectiveApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
+      baseUrl: effectiveBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
+      model: effectiveModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
     });
 
     const suggestions = buildSuggestions(expanded.expanded);
