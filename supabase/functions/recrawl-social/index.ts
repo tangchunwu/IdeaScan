@@ -39,10 +39,15 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
   if (enableXhs) {
     try {
       const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
+      console.log(`[TikHub-XHS] Requesting: ${url}`);
+      console.log(`[TikHub-XHS] Token prefix: ${token.slice(0, 10)}...`);
       const resp = await fetch(url, { headers });
+      console.log(`[TikHub-XHS] Response status: ${resp.status}`);
+      const data = await resp.json();
+      console.log(`[TikHub-XHS] Response keys: ${JSON.stringify(Object.keys(data))}`);
       if (resp.ok) {
-        const data = await resp.json();
         const items = data?.data?.items || data?.data?.notes || [];
+        console.log(`[TikHub-XHS] Found ${items.length} items`);
         for (const item of items.slice(0, 14)) {
           const note = item?.note_card || item;
           sampleNotes.push({
@@ -57,6 +62,8 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
           });
           totalEngagement += Number(note.liked_count || 0) + Number(note.comment_count || 0);
         }
+      } else {
+        console.error(`[TikHub-XHS] API error ${resp.status}: ${JSON.stringify(data).slice(0, 500)}`);
       }
     } catch (e) {
       console.error("[TikHub-XHS] Error:", e);
@@ -224,7 +231,7 @@ serve(async (req) => {
 
     const enableXhs = config?.enableXiaohongshu !== false;
     const enableDy = config?.enableDouyin === true;
-    const enableSelfCrawler = config?.enableSelfCrawler !== false;
+    const enableSelfCrawler = false; // 已关闭自爬
     const tikhubToken = config?.tikhubToken || "";
     const enableTikhubFallback = config?.enableTikhubFallback !== false;
 
