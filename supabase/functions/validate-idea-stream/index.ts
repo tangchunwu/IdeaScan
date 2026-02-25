@@ -1161,7 +1161,20 @@ Deno.serve(async (req) => {
                 detailStage: "fallback_crawl_xhs",
                 meta: { branch: "tikhub_fallback", selfRetryCount },
               });
-              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5));
+              let fallbackXhsTick = 0;
+              const fallbackXhsHeartbeat = setInterval(() => {
+                fallbackXhsTick += 1;
+                void sendEvent({
+                  event: "progress",
+                  stage: "crawl_xhs",
+                  detailStage: "fallback_crawl_xhs_heartbeat",
+                  progress: 25,
+                  message: `TikHub 小红书抓取中（已等待 ${fallbackXhsTick * 6}s）...`,
+                  meta: { branch: "tikhub_fallback", selfRetryCount },
+                });
+              }, 6000);
+              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5))
+                .finally(() => clearInterval(fallbackXhsHeartbeat));
               socialData.totalNotes += xhsData.totalNotes;
               socialData.avgLikes += xhsData.avgLikes;
               socialData.avgComments += xhsData.avgComments;
@@ -1175,7 +1188,20 @@ Deno.serve(async (req) => {
                 detailStage: "fallback_crawl_douyin",
                 meta: { branch: "tikhub_fallback", selfRetryCount },
               });
-              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5));
+              let fallbackDyTick = 0;
+              const fallbackDyHeartbeat = setInterval(() => {
+                fallbackDyTick += 1;
+                void sendEvent({
+                  event: "progress",
+                  stage: "crawl_dy",
+                  detailStage: "fallback_crawl_douyin_heartbeat",
+                  progress: 40,
+                  message: `TikHub 抖音抓取中（已等待 ${fallbackDyTick * 6}s）...`,
+                  meta: { branch: "tikhub_fallback", selfRetryCount },
+                });
+              }, 6000);
+              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5))
+                .finally(() => clearInterval(fallbackDyHeartbeat));
               socialData.totalNotes += dyData.totalNotes;
               socialData.avgLikes += dyData.avgLikes;
               socialData.avgComments += dyData.avgComments;
@@ -2088,7 +2114,10 @@ function shortenKeywordForTikhub(raw: string): string[] {
 async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  
+  const searchTimeoutMs = mode === "deep" ? 15000 : 10000;
+  const commentTimeoutMs = mode === "deep" ? 12000 : 8000;
+  const maxKeywordVariants = mode === "deep" ? 8 : 5;
+
   // Build comprehensive keyword variants from primary + extra keywords
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
   const variantSet = new Set<string>();
@@ -2097,9 +2126,9 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       variantSet.add(v);
     }
   }
-  const keywordVariants = Array.from(variantSet).slice(0, 8);
+  const keywordVariants = Array.from(variantSet).slice(0, maxKeywordVariants);
   console.log(`[XHS Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
-  
+
   let allItems: any[] = [];
   let totalFromApi = 0;
 
@@ -2108,7 +2137,8 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     try {
       const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&noteType=_0`;
       const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: AbortSignal.timeout(searchTimeoutMs),
       });
       apiCalls += 1;
 
@@ -2122,24 +2152,31 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       const items = data?.data?.data?.items || [];
       totalFromApi = Math.max(totalFromApi, Number(data?.data?.data?.total || items.length));
       console.log(`[XHS Simple] Keyword "${kw}" returned ${items.length} items`);
-      
+
       if (items.length === 0) continue;
       allItems = [...allItems, ...items];
 
-      // Fetch page 2 for more notes
-      try {
-        const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&noteType=_0`;
-        const res2 = await fetch(url2, { headers: { 'Authorization': `Bearer ${token}` } });
-        apiCalls += 1;
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const items2 = data2?.data?.data?.items || [];
-          allItems = [...allItems, ...items2];
-        } else {
-          await res2.text(); // consume body
+      // Page 2 only in deep mode to reduce cost/time in quick mode
+      if (mode === "deep") {
+        try {
+          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&noteType=_0`;
+          const res2 = await fetch(url2, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: AbortSignal.timeout(searchTimeoutMs),
+          });
+          apiCalls += 1;
+          if (res2.ok) {
+            const data2 = await res2.json();
+            const items2 = data2?.data?.data?.items || [];
+            allItems = [...allItems, ...items2];
+          } else {
+            await res2.text(); // consume body
+          }
+        } catch (_) {
+          // ignore page 2 failure
         }
-      } catch (_) { /* ignore page 2 failure */ }
-      
+      }
+
       break; // Found results, no need to try more variants
     } catch (e) {
       console.warn(`[XHS Simple] Error for "${kw}":`, e);
@@ -2153,6 +2190,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
 
   const maxNotes = mode === "deep" ? 20 : 10;
   const maxCommentsPerNote = mode === "deep" ? 12 : 6;
+  const maxCommentFetchNotes = mode === "deep" ? 6 : 4;
 
   const notes = allItems.slice(0, maxNotes).map((item: any) => ({
     note_id: item.note?.id || '',
@@ -2166,12 +2204,15 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
   }));
 
   const sampleComments: any[] = [];
-  for (const note of notes.slice(0, mode === "deep" ? 10 : 6)) {
+  for (const note of notes.slice(0, maxCommentFetchNotes)) {
     if (!note.note_id) continue;
     try {
       const commentRes = await fetch(
         `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: AbortSignal.timeout(commentTimeoutMs),
+        }
       );
       apiCalls += 1;
       if (!commentRes.ok) {
@@ -2210,7 +2251,10 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
 async function crawlDouyinSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  
+  const searchTimeoutMs = mode === "deep" ? 12000 : 9000;
+  const commentTimeoutMs = mode === "deep" ? 10000 : 7000;
+  const maxKeywordVariants = mode === "deep" ? 8 : 5;
+
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
   const variantSet = new Set<string>();
   for (const kw of allSourceKeywords) {
@@ -2218,7 +2262,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
       variantSet.add(v);
     }
   }
-  const keywordVariants = Array.from(variantSet).slice(0, 8);
+  const keywordVariants = Array.from(variantSet).slice(0, maxKeywordVariants);
   console.log(`[Douyin Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
 
   let awemeList: any[] = [];
@@ -2227,7 +2271,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     try {
       const url = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(kw)}&offset=0&count=5&sort_type=0`;
       const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: AbortSignal.timeout(searchTimeoutMs),
       });
       apiCalls += 1;
 
@@ -2252,7 +2297,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
 
   const maxVideos = mode === "deep" ? 20 : 10;
   const maxCommentsPerVideo = mode === "deep" ? 12 : 6;
-  
+  const maxCommentFetchVideos = mode === "deep" ? 6 : 4;
+
   const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
     aweme_id: item.aweme_id || '',
     title: '[抖音] ' + (item.desc || '').slice(0, 30),
@@ -2264,12 +2310,15 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
   }));
 
   const sampleComments: any[] = [];
-  for (const video of videos.slice(0, mode === "deep" ? 10 : 6)) {
+  for (const video of videos.slice(0, maxCommentFetchVideos)) {
     if (!video.aweme_id) continue;
     try {
       const commentRes = await fetch(
         `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(video.aweme_id)}&cursor=0&count=${maxCommentsPerVideo}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: AbortSignal.timeout(commentTimeoutMs),
+        }
       );
       apiCalls += 1;
       if (!commentRes.ok) {
