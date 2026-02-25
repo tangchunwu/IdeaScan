@@ -40,7 +40,7 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
     try {
       const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
       console.log(`[TikHub-XHS] Requesting: ${url}`);
-      console.log(`[TikHub-XHS] Token prefix: ${token.slice(0, 10)}...`);
+      console.log(`[TikHub-XHS] Token length: ${token.length}, prefix: ${token.slice(0, 10)}..., suffix: ...${token.slice(-6)}`);
       const resp = await fetch(url, { headers });
       console.log(`[TikHub-XHS] Response status: ${resp.status}`);
       const data = await resp.json();
