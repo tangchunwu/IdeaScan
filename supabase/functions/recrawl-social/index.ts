@@ -27,7 +27,7 @@ interface RecrawlRequest {
   };
 }
 
-async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 1): Promise<any> {
+async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 0): Promise<any> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const resp = await fetch(url, { headers });
@@ -328,8 +328,8 @@ serve(async (req) => {
       ...tags.map((t: string) => cleanTag(t).slice(0, 10)),
       idea.slice(0, 10),
     ].filter(Boolean);
-    // Deduplicate and limit to 4 keywords to avoid timeout
-    const uniqueKeywords = [...new Set(keywordCandidates)].slice(0, 4);
+    // Deduplicate and limit to 2 keywords in recrawl to minimize API spend
+    const uniqueKeywords = [...new Set(keywordCandidates)].slice(0, 2);
 
     const enableXhs = config?.enableXiaohongshu !== false;
     const enableDy = config?.enableDouyin === true;

@@ -863,9 +863,16 @@ Deno.serve(async (req) => {
       await sendProgress('KEYWORDS');
 
       // ============ Keyword Expansion ============
+      const mode: 'quick' | 'deep' = config?.mode === 'deep' ? 'deep' : 'quick';
+      const lowCostMode = mode === 'quick';
       const xhsKeywords = await expandKeywordsSimple(idea, tags, config);
-      const xhsSearchTerm = xhsKeywords[0] || idea.slice(0, 20);
+      const normalizedExpandedKeywords = xhsKeywords
+        .map((k) => compactKeywordForCrawl(k) || normalizeKeywordForSearch(k))
+        .filter(Boolean);
+      const crawlKeywords = Array.from(new Set(normalizedExpandedKeywords)).slice(0, lowCostMode ? 2 : 5);
+      const xhsSearchTerm = crawlKeywords[0] || compactKeywordForCrawl(idea) || idea.slice(0, 20);
       checkpointKeyword = xhsSearchTerm;
+      console.log(`[CostMode] mode=${mode}, lowCost=${lowCostMode}, crawlKeywords=${JSON.stringify(crawlKeywords)}`);
 
       // ============ Cache Check ============
       await sendProgress('CACHE_CHECK');
@@ -912,11 +919,14 @@ Deno.serve(async (req) => {
       }
 
       // ============ TikHub Quota Check ============
-      const mode = config?.mode || 'quick';
       const enableXhs = config?.enableXiaohongshu ?? true;
-      const enableDy = config?.enableDouyin ?? false;
+      const requestedEnableDy = config?.enableDouyin ?? false;
+      const enableDy = lowCostMode ? false : requestedEnableDy;
       const enableSelfCrawler = config?.enableSelfCrawler ?? true;
       const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
+      if (lowCostMode && requestedEnableDy) {
+        console.log("[CostMode] Quick mode enabled: Douyin crawl is disabled to reduce API spend");
+      }
 
       // Auto-degradation: if self-crawler env is not configured, treat it as unavailable
       const crawlerServiceUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
@@ -987,19 +997,21 @@ Deno.serve(async (req) => {
 
         const shouldAttemptSelfCrawler = selfCrawlerAvailable;
         const effectiveCrawlerMode: "quick" | "deep" = mode === "deep" ? "deep" : "quick";
-        const maxSelfRetries = 2;
+        const maxSelfRetries = lowCostMode ? 0 : 2;
         let selfRetryCount = 0;
         let fallbackReason = "";
         if (shouldAttemptSelfCrawler) {
           // Keep timeout long enough for crawler runtime + callback roundtrip.
-          // In practice xhs session crawl can take ~70s per keyword; shorter timeout will false-report as zero.
-          const crawlerTimeoutMs = mode === "deep" ? 180000 : 130000;
-          const preferredMinNotes = MIN_NOTES_REQUIRED;
-          const preferredMinComments = MIN_COMMENTS_REQUIRED;
-          const crawlQueries = [xhsSearchTerm, ...xhsKeywords.filter((k) => !isKeywordNearDuplicate(k, xhsSearchTerm))].slice(0, 4);
+          // In low-cost quick mode we use a stricter timeout and fewer queries to avoid unnecessary spend.
+          const crawlerTimeoutMs = mode === "deep" ? 180000 : 55000;
+          const preferredMinNotes = lowCostMode ? 6 : MIN_NOTES_REQUIRED;
+          const preferredMinComments = lowCostMode ? 20 : MIN_COMMENTS_REQUIRED;
+          const maxCrawlQueries = lowCostMode ? 2 : 4;
+          const crawlQueries = [xhsSearchTerm, ...crawlKeywords.filter((k) => !isKeywordNearDuplicate(k, xhsSearchTerm))].slice(0, maxCrawlQueries);
           for (let attempt = 0; attempt <= maxSelfRetries; attempt++) {
             for (let qi = 0; qi < crawlQueries.length; qi++) {
-              if (hasEnoughSocialSamples(socialData)) break;
+              const loopCounts = getSocialSampleCounts(socialData);
+              if (loopCounts.notes >= preferredMinNotes && loopCounts.comments >= preferredMinComments) break;
               const query = compactKeywordForCrawl(crawlQueries[qi]) || crawlQueries[qi];
               const crawlerStarted = Date.now();
               let crawlTick = 0;
@@ -1101,7 +1113,8 @@ Deno.serve(async (req) => {
               }
             }
 
-            if (hasEnoughSocialSamples(socialData)) break;
+            const afterLoopCounts = getSocialSampleCounts(socialData);
+            if (afterLoopCounts.notes >= preferredMinNotes && afterLoopCounts.comments >= preferredMinComments) break;
             const retryable = isSelfCrawlerRetryable(selfCrawlerRouteDiagnostic, selfCrawlerRouteError);
             if (!retryable || attempt >= maxSelfRetries) break;
             selfRetryCount = attempt + 1;
@@ -1120,7 +1133,8 @@ Deno.serve(async (req) => {
             });
             await sleep(waitMs);
           }
-          if (hasEnoughSocialSamples(socialData)) {
+          const finalLoopCounts = getSocialSampleCounts(socialData);
+          if (finalLoopCounts.notes >= preferredMinNotes && finalLoopCounts.comments >= preferredMinComments) {
             usedSelfCrawler = true;
             console.log("[SourceRouter] Using merged crawler-service data");
           } else {
@@ -1194,7 +1208,7 @@ Deno.serve(async (req) => {
                   meta: { branch: "tikhub_fallback", selfRetryCount },
                 });
               }, 6000);
-              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5))
+              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
                 .finally(() => clearInterval(fallbackXhsHeartbeat));
               socialData.totalNotes += xhsData.totalNotes;
               socialData.avgLikes += xhsData.avgLikes;
@@ -1221,7 +1235,7 @@ Deno.serve(async (req) => {
                   meta: { branch: "tikhub_fallback", selfRetryCount },
                 });
               }, 6000);
-              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5))
+              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
                 .finally(() => clearInterval(fallbackDyHeartbeat));
               socialData.totalNotes += dyData.totalNotes;
               socialData.avgLikes += dyData.avgLikes;
@@ -1784,7 +1798,7 @@ Deno.serve(async (req) => {
           fallbackReason: crawlFallbackReason,
         },
         data_quality_score: dataQualityScore,
-        keywords_used: { coreKeywords: xhsKeywords },
+        keywords_used: { coreKeywords: crawlKeywords, expandedKeywords: xhsKeywords, lowCostMode },
         evidence_grade: evidenceGrade,
         cost_breakdown: costBreakdown,
         proof_result: proofResult,
@@ -2135,9 +2149,9 @@ function shortenKeywordForTikhub(raw: string): string[] {
 async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 15000 : 10000;
-  const commentTimeoutMs = mode === "deep" ? 12000 : 8000;
-  const maxKeywordVariants = mode === "deep" ? 8 : 5;
+  const searchTimeoutMs = mode === "deep" ? 15000 : 6000;
+  const commentTimeoutMs = mode === "deep" ? 12000 : 5000;
+  const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   // Build comprehensive keyword variants from primary + extra keywords
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
@@ -2209,9 +2223,9 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     return { ...emptyResult, apiCalls };
   }
 
-  const maxNotes = mode === "deep" ? 20 : 10;
-  const maxCommentsPerNote = mode === "deep" ? 12 : 6;
-  const maxCommentFetchNotes = mode === "deep" ? 6 : 4;
+  const maxNotes = mode === "deep" ? 20 : 8;
+  const maxCommentsPerNote = mode === "deep" ? 12 : 4;
+  const maxCommentFetchNotes = mode === "deep" ? 6 : 2;
 
   const notes = allItems.slice(0, maxNotes).map((item: any) => ({
     note_id: item.note?.id || '',
@@ -2272,9 +2286,9 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
 async function crawlDouyinSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 12000 : 9000;
-  const commentTimeoutMs = mode === "deep" ? 10000 : 7000;
-  const maxKeywordVariants = mode === "deep" ? 8 : 5;
+  const searchTimeoutMs = mode === "deep" ? 12000 : 6000;
+  const commentTimeoutMs = mode === "deep" ? 10000 : 5000;
+  const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
   const variantSet = new Set<string>();
@@ -2316,9 +2330,9 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     return { ...emptyResult, apiCalls };
   }
 
-  const maxVideos = mode === "deep" ? 20 : 10;
-  const maxCommentsPerVideo = mode === "deep" ? 12 : 6;
-  const maxCommentFetchVideos = mode === "deep" ? 6 : 4;
+  const maxVideos = mode === "deep" ? 20 : 6;
+  const maxCommentsPerVideo = mode === "deep" ? 12 : 4;
+  const maxCommentFetchVideos = mode === "deep" ? 6 : 2;
 
   const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
     aweme_id: item.aweme_id || '',
