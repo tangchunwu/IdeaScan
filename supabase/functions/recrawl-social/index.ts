@@ -44,9 +44,11 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
       const resp = await fetch(url, { headers });
       console.log(`[TikHub-XHS] Response status: ${resp.status}`);
       const data = await resp.json();
-      console.log(`[TikHub-XHS] Response keys: ${JSON.stringify(Object.keys(data))}`);
-      if (resp.ok) {
-        const items = data?.data?.items || data?.data?.notes || [];
+      console.log(`[TikHub-XHS] Response code: ${data?.code}, message: ${data?.message || data?.message_zh || 'none'}`);
+      console.log(`[TikHub-XHS] data.data type: ${typeof data?.data}, keys: ${data?.data ? JSON.stringify(Object.keys(data.data)).slice(0, 300) : 'null'}`);
+      console.log(`[TikHub-XHS] Full response (first 500): ${JSON.stringify(data).slice(0, 500)}`);
+      if (resp.ok && data?.code === 200) {
+        const items = data?.data?.items || data?.data?.notes || data?.data?.note_list || [];
         console.log(`[TikHub-XHS] Found ${items.length} items`);
         for (const item of items.slice(0, 14)) {
           const note = item?.note_card || item;
