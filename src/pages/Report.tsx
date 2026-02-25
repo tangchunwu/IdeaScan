@@ -121,12 +121,14 @@ const Report = () => {
   const handleRecrawlSocial = async () => {
     if (!id || isRecrawling) return;
     setIsRecrawling(true);
+    const token = settings.tikhubToken;
+    console.log(`[Recrawl] Token from settings: length=${token?.length}, prefix=${token?.slice(0, 8)}..., suffix=...${token?.slice(-6)}`);
     try {
       const { data: result, error } = await supabase.functions.invoke('recrawl-social', {
         body: {
           validationId: id,
           config: {
-            tikhubToken: settings.tikhubToken,
+            tikhubToken: token,
             enableXiaohongshu: settings.enableXiaohongshu,
             enableDouyin: settings.enableDouyin,
             enableSelfCrawler: settings.enableSelfCrawler,
