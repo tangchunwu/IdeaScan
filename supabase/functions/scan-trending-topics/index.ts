@@ -446,14 +446,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const tikhubToken = Deno.env.get("TIKHUB_TOKEN");
-    
-    if (!tikhubToken) {
-      return new Response(
-        JSON.stringify({ error: "TIKHUB_TOKEN not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // TikHub token is user-only (configured via frontend settings).
+    // scan-trending-topics is a system job that cannot use user tokens,
+    // so it should rely on cached data or skip social crawling.
+    const tikhubToken: string | undefined = undefined;
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     

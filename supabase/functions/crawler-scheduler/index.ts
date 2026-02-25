@@ -142,7 +142,8 @@ serve(async (req) => {
                         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
                 );
 
-                const tikhubToken = Deno.env.get("TIKHUB_TOKEN");
+		// TikHub token is user-only; scheduler cannot use system token
+		const tikhubToken: string | undefined = undefined;
 
                 // 1. Fetch active scan jobs that are due
                 const { data: jobs, error: jobsError } = await supabase
