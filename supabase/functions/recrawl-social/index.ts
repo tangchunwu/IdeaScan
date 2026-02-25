@@ -104,8 +104,10 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
         if (data?.code === 200 || result.status === 200) {
           // TikHub wraps response: { code, data: { code, data: { items/notes/... }, message }, message }
           const innerData = data?.data?.data;
+          // Log full data.data structure for debugging
+          console.log(`[TikHub-XHS] data.data (first 800): ${JSON.stringify(data?.data).slice(0, 800)}`);
           console.log(`[TikHub-XHS] innerData type: ${typeof innerData}, isArray: ${Array.isArray(innerData)}, keys: ${innerData && typeof innerData === 'object' && !Array.isArray(innerData) ? JSON.stringify(Object.keys(innerData)).slice(0, 300) : 'N/A'}`);
-          
+
           let items: any[] = [];
           if (Array.isArray(innerData)) {
             items = innerData;
@@ -301,7 +303,14 @@ serve(async (req) => {
 
     const idea = validation.idea;
     const tags = validation.tags || [];
-    const keyword = tags[0] || idea.slice(0, 20);
+    // Build keyword candidates: try each tag, then idea substring
+    const keywordCandidates = [
+      ...tags,
+      idea.slice(0, 20),
+      idea.slice(0, 10),
+    ].filter(Boolean);
+    // Deduplicate
+    const uniqueKeywords = [...new Set(keywordCandidates)];
 
     const enableXhs = config?.enableXiaohongshu !== false;
     const enableDy = config?.enableDouyin === true;
@@ -309,17 +318,18 @@ serve(async (req) => {
     const tikhubToken = config?.tikhubToken || "";
     const enableTikhubFallback = config?.enableTikhubFallback !== false;
 
-    console.log(`[Recrawl] Starting for ${validationId}, keyword: ${keyword}`);
+    console.log(`[Recrawl] Starting for ${validationId}, keywords: ${JSON.stringify(uniqueKeywords)}`);
     console.log(`[Recrawl] Config: selfCrawler=${enableSelfCrawler}, tikhub=${!!tikhubToken}, xhs=${enableXhs}, dy=${enableDy}`);
 
     let socialData: any = null;
     let source = "none";
+    let usedKeyword = uniqueKeywords[0] || idea.slice(0, 20);
 
     // Strategy 1: Self-hosted crawler service
     if (enableSelfCrawler && Deno.env.get("CRAWLER_SERVICE_BASE_URL")) {
       console.log("[Recrawl] Attempting self-crawler...");
       const routed = await routeCrawlerSource({
-        supabase, validationId, userId, query: keyword,
+        supabase, validationId, userId, query: usedKeyword,
         mode: "deep", enableXiaohongshu: enableXhs, enableDouyin: enableDy,
         source: "self_crawler", freshnessDays: 30, timeoutMs: 90000,
       });
@@ -333,20 +343,24 @@ serve(async (req) => {
       }
     }
 
-    // Strategy 2: TikHub direct API
+    // Strategy 2: TikHub direct API — try each keyword until data found
     if (!socialData && enableTikhubFallback && tikhubToken) {
-      console.log("[Recrawl] Attempting TikHub...");
-      try {
-        socialData = await crawlViaTikhub(keyword, tikhubToken, enableXhs, enableDy);
-        if ((socialData?.sampleNotes?.length || 0) > 0) {
-          source = "tikhub";
-          console.log(`[Recrawl] TikHub success: ${socialData.sampleNotes.length} notes`);
-        } else {
-          socialData = null;
-          console.log("[Recrawl] TikHub returned no data");
+      for (const kw of uniqueKeywords) {
+        console.log(`[Recrawl] Attempting TikHub with keyword: "${kw}"`);
+        try {
+          socialData = await crawlViaTikhub(kw, tikhubToken, enableXhs, enableDy);
+          if ((socialData?.sampleNotes?.length || 0) > 0) {
+            source = "tikhub";
+            usedKeyword = kw;
+            console.log(`[Recrawl] TikHub success with "${kw}": ${socialData.sampleNotes.length} notes`);
+            break;
+          } else {
+            socialData = null;
+            console.log(`[Recrawl] TikHub no data for "${kw}", trying next...`);
+          }
+        } catch (e) {
+          console.error(`[Recrawl] TikHub error for "${kw}":`, e);
         }
-      } catch (e) {
-        console.error("[Recrawl] TikHub error:", e);
       }
     }
 
