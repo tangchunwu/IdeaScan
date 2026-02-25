@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp, Users, MessageCircle, Brain, Target,
   BarChart3, PieChartIcon, Activity, AlertCircle, Globe, Sparkles,
-  RefreshCw, Loader2, Share2,
+  RefreshCw, Loader2, Share2, Download,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
@@ -44,6 +44,7 @@ const Report = () => {
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [isRecrawling, setIsRecrawling] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const settings = useSettings();
 
@@ -114,6 +115,44 @@ const Report = () => {
       toast({ title: "分析失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
     } finally {
       setIsReanalyzing(false);
+    }
+  };
+
+  const handleRecrawlSocial = async () => {
+    if (!id || isRecrawling) return;
+    setIsRecrawling(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('recrawl-social', {
+        body: {
+          validationId: id,
+          config: {
+            tikhubToken: settings.tikhubToken,
+            enableXiaohongshu: settings.enableXiaohongshu,
+            enableDouyin: settings.enableDouyin,
+            enableSelfCrawler: settings.enableSelfCrawler,
+            enableTikhubFallback: settings.enableTikhubFallback,
+          }
+        }
+      });
+      if (error) throw error;
+      if (result?.success) {
+        toast({
+          title: "社交数据补充成功",
+          description: `来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`,
+        });
+        refetch();
+      } else {
+        toast({
+          title: "未获取到数据",
+          description: result?.message || "请在设置中配置 TikHub Token 或确认自爬虫服务运行中",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Recrawl error:", error);
+      toast({ title: "爬取失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
+    } finally {
+      setIsRecrawling(false);
     }
   };
 
@@ -298,6 +337,21 @@ const Report = () => {
                 <span className="text-muted-foreground">本次验证中途中断，部分数据尚未采集完成。您可以继续验证以补全分析结果。</span>
                 <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10 shrink-0" onClick={handleResume}>
                   <RefreshCw className="w-4 h-4 mr-2" />继续验证
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Social Data Missing Banner */}
+          {(xiaohongshuData.totalNotes === 0 && (xiaohongshuData.sampleNotes?.length || 0) === 0) && (
+            <Alert className="mb-8 border-blue-500/50 bg-blue-500/5 animate-fade-in">
+              <Download className="h-4 w-4 text-blue-500" />
+              <AlertTitle className="text-blue-500">社交平台数据缺失</AlertTitle>
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="text-muted-foreground">本报告未包含小红书/抖音等社交平台的用户讨论数据。点击按钮重新爬取以补充互动数据。</span>
+                <Button variant="outline" size="sm" className="rounded-full border-blue-500/50 text-blue-500 hover:bg-blue-500/10 shrink-0" onClick={handleRecrawlSocial} disabled={isRecrawling}>
+                  {isRecrawling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {isRecrawling ? "爬取中..." : "补充社交数据"}
                 </Button>
               </AlertDescription>
             </Alert>
