@@ -256,7 +256,7 @@ serve(async (req) => {
     if (!socialData && enableTikhubFallback && tikhubToken) {
       console.log("[Recrawl] Attempting TikHub...");
       try {
-        socialData = await crawlSocialMediaDirect(keyword, tags, tikhubToken, enableXhs, enableDy);
+        socialData = await crawlViaTikhub(keyword, tikhubToken, enableXhs, enableDy);
         if ((socialData?.sampleNotes?.length || 0) > 0) {
           source = "tikhub";
           console.log(`[Recrawl] TikHub success: ${socialData.sampleNotes.length} notes`);
