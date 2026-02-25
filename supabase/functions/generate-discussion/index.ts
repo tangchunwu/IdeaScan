@@ -84,8 +84,9 @@ function stripSystemPrompt(persona: Persona): SafePersona {
 function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): LLMCandidate[] {
   const candidates: LLMCandidate[] = [];
   
-  // 1. User custom config (if provided)
-  if (config?.llmApiKey) {
+  // 1. User custom config (if provided) - skip default api.openai.com URLs
+  const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
+  if (config?.llmApiKey && !frontendUrlIsDefault) {
     candidates.push({
       baseUrl: config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1",
       apiKey: config.llmApiKey,

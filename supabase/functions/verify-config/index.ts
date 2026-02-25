@@ -110,7 +110,7 @@ serve(async (req) => {
 
     if (type === 'llm') {
       try {
-        const cleanBaseUrl = normalizeLlmBaseUrl(baseUrl || "https://api.openai.com/v1");
+        const cleanBaseUrl = normalizeLlmBaseUrl(baseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1");
         const timeoutMs = 45000;
         const probePrompt = `你是创业分析助手。请基于以下简短样本给出严格JSON，不能输出额外文本。
 
@@ -169,7 +169,7 @@ serve(async (req) => {
       }
     } else if (type === 'image_gen') {
       try {
-        let cleanBaseUrl = (baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+        let cleanBaseUrl = (baseUrl || Deno.env.get("IMAGE_GEN_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "");
         const endpoint = `${cleanBaseUrl}/models`;
 
         const res = await fetch(endpoint, {

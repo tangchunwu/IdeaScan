@@ -133,11 +133,39 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
   let headers: Record<string, string>;
   let body: Record<string, unknown>;
 
-  if (config?.llmApiKey && config?.llmBaseUrl) {
+  // Skip default api.openai.com URL, prefer system env vars
+  const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
+  const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl && !frontendUrlIsDefault;
+
+  // Try system env vars first if frontend is default
+  const envKey = Deno.env.get("LLM_API_KEY");
+  const envBase = Deno.env.get("LLM_BASE_URL");
+  const envModel = Deno.env.get("LLM_MODEL");
+
+  if (hasCustomLLM) {
     // Use custom LLM
     apiUrl = `${config.llmBaseUrl}/chat/completions`;
-    apiKey = config.llmApiKey;
+    apiKey = config.llmApiKey!;
     model = config.llmModel || "gpt-4o-mini";
+    headers = {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    };
+    body = {
+      model,
+      messages: [
+        { role: "system", content: "你是一位资深的需求验证和用户研究专家。请用中文回答。" },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+    };
+  } else if (envKey && envBase) {
+    // Use system-configured LLM
+    const cleanBase = envBase.replace(/\/$/, "").replace(/\/chat\/completions$/i, "");
+    apiUrl = `${cleanBase}/chat/completions`;
+    apiKey = envKey;
+    model = envModel || "google/gemini-3-flash-preview";
     headers = {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json"
