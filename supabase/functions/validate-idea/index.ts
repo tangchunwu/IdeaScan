@@ -240,7 +240,7 @@ async function crawlSocialMediaData(
   enableXiaohongshu: boolean = true,
   enableDouyin: boolean = false
 ) {
-  const token = tikhubToken || Deno.env.get("TIKHUB_TOKEN");
+  const token = tikhubToken; // TikHub token must be provided by user via frontend settings
 
   const emptyResult = {
     totalNotes: 0,
@@ -962,10 +962,8 @@ serve(async (req) => {
     const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
     let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
 
-    if (enableTikhubFallback && !userProvidedTikhub) {
-      // Delay quota enforcement until we actually need third-party crawling.
-      tikhubToken = Deno.env.get("TIKHUB_TOKEN");
-    }
+    // TikHub token is user-only; no system fallback.
+    // If user didn't provide a token and tikhub fallback is needed, it will fail gracefully.
 
     // 1. Create validation record
     const { data: validation, error: createError } = await supabase
