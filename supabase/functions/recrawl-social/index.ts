@@ -27,6 +27,50 @@ interface RecrawlRequest {
   };
 }
 
+async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 2): Promise<any> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const resp = await fetch(url, { headers });
+      console.log(`[TikHub] Attempt ${attempt + 1}: status=${resp.status} for ${url.slice(0, 80)}`);
+      
+      const contentType = resp.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await resp.text();
+        console.error(`[TikHub] Non-JSON response (${contentType}): ${text.slice(0, 200)}`);
+        if (attempt < maxRetries) {
+          const delay = 2000 * (attempt + 1);
+          console.log(`[TikHub] Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return null;
+      }
+      
+      if (resp.status === 504 || resp.status === 502 || resp.status === 503) {
+        await resp.text(); // consume body
+        if (attempt < maxRetries) {
+          const delay = 2000 * (attempt + 1);
+          console.log(`[TikHub] Server error ${resp.status}, retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return null;
+      }
+      
+      const data = await resp.json();
+      return { status: resp.status, data };
+    } catch (e) {
+      console.error(`[TikHub] Attempt ${attempt + 1} error:`, e);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
 async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean, enableDy: boolean) {
   const TIKHUB_BASE = "https://api.tikhub.io";
   const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
@@ -35,37 +79,48 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
   const sampleComments: any[] = [];
   let totalEngagement = 0;
 
+  console.log(`[TikHub] Token length: ${token.length}, prefix: ${token.slice(0, 8)}..., suffix: ...${token.slice(-6)}`);
+
   // Xiaohongshu search
   if (enableXhs) {
     try {
       const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
       console.log(`[TikHub-XHS] Requesting: ${url}`);
-      console.log(`[TikHub-XHS] Token length: ${token.length}, prefix: ${token.slice(0, 10)}..., suffix: ...${token.slice(-6)}`);
-      const resp = await fetch(url, { headers });
-      console.log(`[TikHub-XHS] Response status: ${resp.status}`);
-      const data = await resp.json();
-      console.log(`[TikHub-XHS] Response code: ${data?.code}, message: ${data?.message || data?.message_zh || 'none'}`);
-      console.log(`[TikHub-XHS] data.data type: ${typeof data?.data}, keys: ${data?.data ? JSON.stringify(Object.keys(data.data)).slice(0, 300) : 'null'}`);
-      console.log(`[TikHub-XHS] Full response (first 500): ${JSON.stringify(data).slice(0, 500)}`);
-      if (resp.ok && data?.code === 200) {
-        const items = data?.data?.items || data?.data?.notes || data?.data?.note_list || [];
-        console.log(`[TikHub-XHS] Found ${items.length} items`);
-        for (const item of items.slice(0, 14)) {
-          const note = item?.note_card || item;
-          sampleNotes.push({
-            note_id: note.note_id || note.id || "",
-            title: "[小红书] " + (note.display_title || note.title || "").slice(0, 60),
-            desc: (note.desc || note.display_title || "").slice(0, 280),
-            liked_count: Number(note.liked_count || note.interact_info?.liked_count || 0),
-            collected_count: Number(note.collected_count || note.interact_info?.collected_count || 0),
-            comments_count: Number(note.comment_count || note.interact_info?.comment_count || 0),
-            user_nickname: note.user?.nickname || note.nickname || "",
-            _platform: "xiaohongshu",
-          });
-          totalEngagement += Number(note.liked_count || 0) + Number(note.comment_count || 0);
-        }
+      const result = await fetchWithRetry(url, headers);
+      
+      if (!result) {
+        console.error("[TikHub-XHS] All retries failed");
       } else {
-        console.error(`[TikHub-XHS] API error ${resp.status}: ${JSON.stringify(data).slice(0, 500)}`);
+        const data = result.data;
+        console.log(`[TikHub-XHS] Response code: ${data?.code}, message: ${data?.message || data?.message_zh || 'none'}`);
+        
+        // Log response structure for debugging
+        if (data?.data) {
+          console.log(`[TikHub-XHS] data.data keys: ${JSON.stringify(Object.keys(data.data)).slice(0, 300)}`);
+        } else {
+          console.log(`[TikHub-XHS] Full response (first 500): ${JSON.stringify(data).slice(0, 500)}`);
+        }
+        
+        if (data?.code === 200 || result.status === 200) {
+          const items = data?.data?.items || data?.data?.notes || data?.data?.note_list || data?.data?.data || [];
+          console.log(`[TikHub-XHS] Found ${items.length} items`);
+          for (const item of items.slice(0, 14)) {
+            const note = item?.note_card || item;
+            sampleNotes.push({
+              note_id: note.note_id || note.id || "",
+              title: "[小红书] " + (note.display_title || note.title || "").slice(0, 60),
+              desc: (note.desc || note.display_title || "").slice(0, 280),
+              liked_count: Number(note.liked_count || note.interact_info?.liked_count || 0),
+              collected_count: Number(note.collected_count || note.interact_info?.collected_count || 0),
+              comments_count: Number(note.comment_count || note.interact_info?.comment_count || 0),
+              user_nickname: note.user?.nickname || note.nickname || "",
+              _platform: "xiaohongshu",
+            });
+            totalEngagement += Number(note.liked_count || 0) + Number(note.comment_count || 0);
+          }
+        } else {
+          console.error(`[TikHub-XHS] API error: code=${data?.code}, msg=${data?.message || data?.message_zh}`);
+        }
       }
     } catch (e) {
       console.error("[TikHub-XHS] Error:", e);
@@ -76,9 +131,9 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
   if (enableDy) {
     try {
       const url = `${TIKHUB_BASE}/api/v1/douyin/web/fetch_general_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=20&sort_type=0`;
-      const resp = await fetch(url, { headers });
-      if (resp.ok) {
-        const data = await resp.json();
+      const result = await fetchWithRetry(url, headers);
+      if (result?.data) {
+        const data = result.data;
         const items = data?.data?.data || [];
         for (const item of items.slice(0, 10)) {
           const aweme = item?.aweme_info || item;
