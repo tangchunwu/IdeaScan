@@ -1,13 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_API_URL = "https://api.lovable.dev/v1";
 
 interface ReAnalyzeRequest {
   validationId: string;
@@ -148,106 +146,83 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
 `;
   }
 
-  prompt += `\n请确保输出是有效的JSON格式。`;
-
-  // Call AI API
-  let apiUrl: string;
-  let apiKey: string;
-  let model: string;
-  let headers: Record<string, string>;
-  let body: Record<string, unknown>;
-
-  // Skip default api.openai.com URL, prefer system env vars
+  // Resolve LLM config with priority: custom > system env > Lovable AI
   const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
   const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl && !frontendUrlIsDefault;
 
-  // Try system env vars first if frontend is default
   const envKey = Deno.env.get("LLM_API_KEY");
   const envBase = Deno.env.get("LLM_BASE_URL");
   const envModel = Deno.env.get("LLM_MODEL");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+  // Build ordered list of LLM candidates to try
+  type LLMCandidate = { baseUrl: string; apiKey: string; model: string };
+  const candidates: LLMCandidate[] = [];
 
   if (hasCustomLLM) {
-    // Use custom LLM
-    apiUrl = `${config.llmBaseUrl}/chat/completions`;
-    apiKey = config.llmApiKey!;
-    model = config.llmModel || "gpt-4o-mini";
-    headers = {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    };
-    body = {
-      model,
-      messages: [
-        { role: "system", content: "你是一位资深的需求验证和用户研究专家。请用中文回答。" },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    };
-  } else if (envKey && envBase) {
-    // Use system-configured LLM
-    const cleanBase = envBase.replace(/\/$/, "").replace(/\/chat\/completions$/i, "");
-    apiUrl = `${cleanBase}/chat/completions`;
-    apiKey = envKey;
-    model = envModel || "google/gemini-3-flash-preview";
-    headers = {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    };
-    body = {
-      model,
-      messages: [
-        { role: "system", content: "你是一位资深的需求验证和用户研究专家。请用中文回答。" },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    };
-  } else if (LOVABLE_API_KEY) {
-    // Use Lovable AI
-    apiUrl = `${LOVABLE_API_URL}/chat/completions`;
-    apiKey = LOVABLE_API_KEY;
-    model = "google/gemini-2.5-flash";
-    headers = {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    };
-    body = {
-      model,
-      messages: [
-        { role: "system", content: "你是一位资深的需求验证和用户研究专家。请用中文回答。" },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    };
-  } else {
+    candidates.push({
+      baseUrl: normalizeLlmBaseUrl(config!.llmBaseUrl),
+      apiKey: config!.llmApiKey!,
+      model: config!.llmModel || "gpt-4o-mini",
+    });
+  }
+  if (envKey && envBase) {
+    candidates.push({
+      baseUrl: normalizeLlmBaseUrl(envBase),
+      apiKey: envKey,
+      model: envModel || "google/gemini-3-flash-preview",
+    });
+  }
+  if (LOVABLE_API_KEY) {
+    candidates.push({
+      baseUrl: "https://ai.gateway.lovable.dev/v1",
+      apiKey: LOVABLE_API_KEY,
+      model: "google/gemini-2.5-flash",
+    });
+  }
+
+  if (candidates.length === 0) {
     throw new Error("No AI provider configured");
   }
 
-  console.log(`[Re-analyze] Calling AI to regenerate: persona=${needsPersona}, dimensions=${needsDimensions}`);
+  const messages = [
+    { role: "system", content: "你是一位资深的需求验证和用户研究专家。请用中文回答。" },
+    { role: "user", content: prompt },
+  ];
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
+  let content = "";
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[Re-analyze] AI API error:", errorText);
-    throw new Error(`AI API error: ${response.status}`);
+  for (const candidate of candidates) {
+    try {
+      console.log(`[Re-analyze] Trying LLM: ${candidate.baseUrl}, model=${candidate.model}`);
+      const result = await requestChatCompletion({
+        baseUrl: candidate.baseUrl,
+        apiKey: candidate.apiKey,
+        model: candidate.model,
+        messages,
+        temperature: 0.7,
+        maxTokens: 2000,
+        timeoutMs: 60000,
+      });
+      content = extractAssistantContent(result.json);
+      console.log(`[Re-analyze] AI response OK from ${result.endpoint}, length=${content.length}`);
+      lastError = null;
+      break;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[Re-analyze] LLM candidate failed: ${lastError.message.slice(0, 200)}`);
+    }
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "";
-  
-  console.log("[Re-analyze] AI response length:", content.length);
+  if (lastError || !content) {
+    throw lastError || new Error("All LLM candidates failed");
+  }
 
   // Parse JSON from response
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error("[Re-analyze] No JSON found in response");
+    console.error("[Re-analyze] No JSON found in response:", content.slice(0, 200));
     throw new Error("Invalid AI response format");
   }
 
