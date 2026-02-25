@@ -1153,9 +1153,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             </div>
 
                             <div className="space-y-4">
+                            {isAdmin && (
+                                   <>
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">账号扫码登录（自爬优先）</Label>
-                                   {isAdmin && (
                                           <div className="rounded-lg border bg-muted/10 p-2">
                                                  {isCrawlerHealthLoading ? (
                                                         <p className="text-xs text-muted-foreground">检测自爬服务状态中...</p>
@@ -1169,32 +1170,19 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </p>
                                                  )}
                                           </div>
-                                   )}
                                           <div className="flex gap-2">
-                                                 <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="flex-1"
-                                                        onClick={() => handleStartCrawlerAuth('xiaohongshu')}
-                                                 disabled={isAuthStarting}
-                                                 >
+                                                 <Button variant="outline" size="sm" className="flex-1" onClick={() => handleStartCrawlerAuth('xiaohongshu')} disabled={isAuthStarting}>
                                                         {isAuthStarting && authPlatform === 'xiaohongshu' ? (
                                                                <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
                                                         ) : '小红书扫码'}
                                                  </Button>
-                                                 <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="flex-1"
-                                                        onClick={() => handleStartCrawlerAuth('douyin')}
-                                                        disabled={isAuthStarting}
-                                                 >
+                                                 <Button variant="outline" size="sm" className="flex-1" onClick={() => handleStartCrawlerAuth('douyin')} disabled={isAuthStarting}>
                                                         {isAuthStarting && authPlatform === 'douyin' ? (
                                                                <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />生成中</span>
                                                         ) : '抖音扫码'}
                                                  </Button>
                                           </div>
-                                         {authQrImage && (
+                                          {authQrImage && (
                                                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
                                                         <p className="text-xs text-muted-foreground">
                                                                当前会话：{authPlatform === 'xiaohongshu' ? '小红书' : '抖音'} | 状态：{formatAuthStatus(authStatus)}{isAuthPolling ? '（检测中）' : ''}
@@ -1223,17 +1211,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </p>
                                                         {(typeof authTtlSec === 'number' && typeof authExpiresInSec === 'number' && authTtlSec > 0) && (
                                                                <div className="h-1.5 w-full rounded bg-muted">
-                                                                      <div
-                                                                             className="h-1.5 rounded bg-primary transition-all duration-500"
-                                                                             style={{ width: `${Math.max(0, Math.min(100, (authExpiresInSec / authTtlSec) * 100))}%` }}
-                                                                      />
+                                                                      <div className="h-1.5 rounded bg-primary transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, (authExpiresInSec / authTtlSec) * 100))}%` }} />
                                                                </div>
                                                         )}
-                                                        <img
-                                                               src={`data:image/png;base64,${authQrImage}`}
-                                                               alt="crawler login qr"
-                                                               className="w-44 h-44 object-contain bg-white rounded border"
-                                                        />
+                                                        <img src={`data:image/png;base64,${authQrImage}`} alt="crawler login qr" className="w-44 h-44 object-contain bg-white rounded border" />
                                                         <div className="flex gap-2">
                                                                <Button variant="outline" size="sm" onClick={() => handleCheckCrawlerAuthStatus(false, true)} disabled={isAuthPolling}>
                                                                       {isAuthPolling ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />检测中</span> : '检查登录状态'}
@@ -1244,18 +1225,10 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         </div>
                                                  </div>
                                           )}
-                                          {isAdmin && (
                                           <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
                                                  <div className="flex items-center justify-between">
                                                         <p className="text-xs text-muted-foreground">已授权会话</p>
-                                                        <Button
-                                                               variant="ghost"
-                                                               size="sm"
-                                                               onClick={() => fetchCrawlerSessions(false)}
-                                                               disabled={isSessionsLoading}
-                                                        >
-                                                               刷新
-                                                        </Button>
+                                                        <Button variant="ghost" size="sm" onClick={() => fetchCrawlerSessions(false)} disabled={isSessionsLoading}>刷新</Button>
                                                  </div>
                                                  {isSessionsLoading ? (
                                                         <p className="text-xs text-muted-foreground">加载中...</p>
@@ -1268,64 +1241,47 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                                              <div>
                                                                                     <p className="text-xs font-medium">
                                                                                            {session.platform === 'xiaohongshu' ? '小红书' : session.platform === 'douyin' ? '抖音' : session.platform}
-                                                                                           {' · '}
-                                                                                           {session.status}
+                                                                                           {' · '}{session.status}
                                                                                     </p>
                                                                                     <p className="text-[11px] text-muted-foreground">
                                                                                            {session.updated_at ? new Date(session.updated_at).toLocaleString() : '未知时间'}
                                                                                     </p>
                                                                              </div>
-                                                                             <Button
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() => handleRevokeCrawlerSession((session.platform === 'douyin' ? 'douyin' : 'xiaohongshu'))}
-                                                                             >
-                                                                                    吊销
-                                                                             </Button>
+                                                                             <Button variant="ghost" size="sm" onClick={() => handleRevokeCrawlerSession((session.platform === 'douyin' ? 'douyin' : 'xiaohongshu'))}>吊销</Button>
                                                                       </div>
                                                                ))}
                                                         </div>
                                                  )}
                                           </div>
-                                          )}
                                    </div>
 
-                                   {isAdmin && (
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">采集执行策略</Label>
-
                                           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
                                                  <div>
                                                         <p className="font-medium text-sm">启用自爬服务 (Self Crawler)</p>
                                                         <p className="text-xs text-muted-foreground">优先走本地/独立爬虫，降低 TikHub 成本</p>
                                                  </div>
-                                                 <Switch
-                                                        checked={localSettings.enableSelfCrawler}
-                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableSelfCrawler: checked }))}
-                                                 />
+                                                 <Switch checked={localSettings.enableSelfCrawler} onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableSelfCrawler: checked }))} />
                                           </div>
-
                                           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
                                                  <div>
                                                         <p className="font-medium text-sm">启用 TikHub 兜底</p>
                                                         <p className="text-xs text-muted-foreground">自爬样本不足时，自动回退 TikHub</p>
                                                  </div>
-                                                 <Switch
-                                                        checked={localSettings.enableTikhubFallback}
-                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableTikhubFallback: checked }))}
-                                                 />
+                                                 <Switch checked={localSettings.enableTikhubFallback} onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableTikhubFallback: checked }))} />
                                           </div>
-
                                           {!localSettings.enableSelfCrawler && !localSettings.enableTikhubFallback && (
                                                  <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
                                                         ⚠️ 已关闭所有采集执行链路，仅能使用缓存数据
                                                  </p>
                                           )}
-                                    </div>
-                                    )}
+                                   </div>
+                                   </>
+                            )}
 
-                                    {/* Data Source Toggles */}
-                                   <div className="space-y-3 pt-2">
+                                     {/* Data Source Toggles */}
+                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">选择数据源平台</Label>
                                           
                                           {/* Xiaohongshu Toggle */}
