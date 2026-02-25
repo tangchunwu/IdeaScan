@@ -27,7 +27,7 @@ interface RecrawlRequest {
   };
 }
 
-async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 2): Promise<any> {
+async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 1): Promise<any> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const resp = await fetch(url, { headers });
@@ -149,7 +149,8 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
   // Douyin search
   if (enableDy) {
     try {
-      const url = `${TIKHUB_BASE}/api/v1/douyin/web/fetch_general_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=20&sort_type=0`;
+      const url = `${TIKHUB_BASE}/api/v1/douyin/web/fetch_general_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=10&sort_type=0&publish_time=0&filter_duration=0&search_source=tab_search`;
+      console.log(`[TikHub-DY] Requesting: ${url.slice(0, 120)}`);
       const result = await fetchWithRetry(url, headers);
       if (result?.data) {
         const data = result.data;
@@ -303,14 +304,32 @@ serve(async (req) => {
 
     const idea = validation.idea;
     const tags = validation.tags || [];
-    // Build keyword candidates: try each tag, then idea substring
+    // Build keyword candidates: prioritize short, generic terms
+    // Strip special chars and split into shorter tokens
+    const cleanTag = (t: string) => t.replace(/[「」【】（）\(\)\+\-\/\s]+/g, ' ').trim();
+    const shortTokens = tags
+      .flatMap((t: string) => {
+        const cleaned = cleanTag(t);
+        // Split long tags into 2-4 char segments
+        const parts = cleaned.split(/\s+/).filter((p: string) => p.length >= 2);
+        return [cleaned.slice(0, 8), ...parts.slice(0, 3)];
+      })
+      .filter(Boolean);
+    
+    // Also extract simple terms from the idea
+    const ideaTokens = idea.replace(/[「」【】（）\(\)\+\-\/]+/g, ' ')
+      .split(/\s+/)
+      .filter((t: string) => t.length >= 2 && t.length <= 8)
+      .slice(0, 3);
+
     const keywordCandidates = [
-      ...tags,
-      idea.slice(0, 20),
+      ...shortTokens,
+      ...ideaTokens,
+      ...tags.map((t: string) => cleanTag(t).slice(0, 10)),
       idea.slice(0, 10),
     ].filter(Boolean);
-    // Deduplicate
-    const uniqueKeywords = [...new Set(keywordCandidates)];
+    // Deduplicate and limit to 4 keywords to avoid timeout
+    const uniqueKeywords = [...new Set(keywordCandidates)].slice(0, 4);
 
     const enableXhs = config?.enableXiaohongshu !== false;
     const enableDy = config?.enableDouyin === true;
