@@ -63,7 +63,14 @@ const Report = () => {
         !d.reason || d.reason === "待AI分析" || d.reason.includes("数据加载中") ||
         (d.reason.length < 15 && !d.reason.includes("评估"))
       );
-    return personaIncomplete || dimensionsIncomplete;
+    // Also check if AI analysis is incomplete
+    const ai = (report.ai_analysis ?? {}) as Record<string, unknown>;
+    const aiIncomplete = !ai.overallVerdict ||
+      String(ai.overallVerdict).includes("综合评估中") ||
+      String(ai.overallVerdict).includes("正在生成") ||
+      !Array.isArray(ai.strengths) || (ai.strengths as unknown[]).length === 0 ||
+      !Array.isArray(ai.weaknesses) || (ai.weaknesses as unknown[]).length === 0;
+    return personaIncomplete || dimensionsIncomplete || aiIncomplete;
   };
 
   const needsReanalysis = data?.report ? checkNeedsReanalysis() : false;

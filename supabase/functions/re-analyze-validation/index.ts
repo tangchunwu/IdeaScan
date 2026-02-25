@@ -43,6 +43,15 @@ function isPersonaIncomplete(persona: any): boolean {
   return false;
 }
 
+// Check if AI analysis data is incomplete
+function isAiAnalysisIncomplete(ai: any): boolean {
+  if (!ai) return true;
+  if (!ai.overallVerdict || ai.overallVerdict.includes("综合评估中") || ai.overallVerdict.includes("正在生成")) return true;
+  if (!Array.isArray(ai.strengths) || ai.strengths.length === 0) return true;
+  if (!Array.isArray(ai.weaknesses) || ai.weaknesses.length === 0) return true;
+  return false;
+}
+
 // Check if dimensions data is incomplete
 function isDimensionsIncomplete(dimensions: any[]): boolean {
   if (!Array.isArray(dimensions) || dimensions.length === 0) return true;
@@ -62,8 +71,9 @@ async function regenerateMissingData(
   existingReport: any,
   needsPersona: boolean,
   needsDimensions: boolean,
+  needsAiAnalysis: boolean,
   config?: ReAnalyzeRequest['config']
-): Promise<{ persona?: any; dimensions?: any[] }> {
+): Promise<{ persona?: any; dimensions?: any[]; aiAnalysis?: any }> {
   
   const existingContext = {
     marketAnalysis: existingReport.market_analysis || {},
@@ -78,6 +88,7 @@ async function regenerateMissingData(
   const tasks: string[] = [];
   if (needsPersona) tasks.push("生成详细的目标用户画像");
   if (needsDimensions) tasks.push("为每个评估维度提供详细的分析理由");
+  if (needsAiAnalysis) tasks.push("生成综合分析结论（包含一句话总结、优势、劣势和建议）");
   
   prompt += tasks.join("并") + "。\n\n";
   prompt += `## 创业想法\n${idea}\n\n`;
@@ -121,6 +132,19 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
   { "dimension": "维度名称", "score": 分数, "reason": "详细分析理由..." },
   ...
 ]
+`;
+  }
+
+  if (needsAiAnalysis) {
+    prompt += `
+**aiAnalysis** (综合分析结论):
+{
+  "overallVerdict": "一句话总结这个创业想法的可行性和前景（50-80字，直接给出结论性判断）",
+  "strengths": ["优势1（15-30字）", "优势2", "优势3"],
+  "weaknesses": ["劣势/风险1（15-30字）", "劣势2", "劣势3"],
+  "suggestions": ["建议1（15-30字）", "建议2", "建议3"],
+  "risks": ["风险1（15-30字）", "风险2"]
+}
 `;
   }
 
@@ -231,7 +255,8 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
     const parsed = JSON.parse(jsonMatch[0]);
     return {
       persona: needsPersona ? parsed.persona : undefined,
-      dimensions: needsDimensions ? parsed.dimensions : undefined
+      dimensions: needsDimensions ? parsed.dimensions : undefined,
+      aiAnalysis: needsAiAnalysis ? parsed.aiAnalysis : undefined,
     };
   } catch (e) {
     console.error("[Re-analyze] JSON parse error:", e);
@@ -310,11 +335,12 @@ serve(async (req) => {
     // Check what needs regeneration
     const needsPersona = isPersonaIncomplete(report.persona);
     const needsDimensions = isDimensionsIncomplete(report.dimensions as any[]);
+    const needsAiAnalysis = isAiAnalysisIncomplete(report.ai_analysis);
 
     console.log(`[Re-analyze] Validation: ${validationId}`);
-    console.log(`[Re-analyze] Needs persona: ${needsPersona}, Needs dimensions: ${needsDimensions}`);
+    console.log(`[Re-analyze] Needs persona: ${needsPersona}, Needs dimensions: ${needsDimensions}, Needs aiAnalysis: ${needsAiAnalysis}`);
 
-    if (!needsPersona && !needsDimensions) {
+    if (!needsPersona && !needsDimensions && !needsAiAnalysis) {
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -331,6 +357,7 @@ serve(async (req) => {
       report,
       needsPersona,
       needsDimensions,
+      needsAiAnalysis,
       config
     );
 
@@ -340,6 +367,24 @@ serve(async (req) => {
     if (regenerated.persona && needsPersona) {
       updateData.persona = regenerated.persona;
       console.log("[Re-analyze] Updating persona");
+    }
+
+    if (regenerated.aiAnalysis && needsAiAnalysis) {
+      // Merge with existing ai_analysis, preserving feasibilityScore
+      const existingAi = (report.ai_analysis || {}) as Record<string, unknown>;
+      updateData.ai_analysis = {
+        ...existingAi,
+        overallVerdict: regenerated.aiAnalysis.overallVerdict || existingAi.overallVerdict,
+        strengths: Array.isArray(regenerated.aiAnalysis.strengths) && regenerated.aiAnalysis.strengths.length > 0
+          ? regenerated.aiAnalysis.strengths : existingAi.strengths,
+        weaknesses: Array.isArray(regenerated.aiAnalysis.weaknesses) && regenerated.aiAnalysis.weaknesses.length > 0
+          ? regenerated.aiAnalysis.weaknesses : existingAi.weaknesses,
+        suggestions: Array.isArray(regenerated.aiAnalysis.suggestions) && regenerated.aiAnalysis.suggestions.length > 0
+          ? regenerated.aiAnalysis.suggestions : existingAi.suggestions,
+        risks: Array.isArray(regenerated.aiAnalysis.risks) && regenerated.aiAnalysis.risks.length > 0
+          ? regenerated.aiAnalysis.risks : existingAi.risks,
+      };
+      console.log("[Re-analyze] Updating ai_analysis");
     }
 
     if (regenerated.dimensions && needsDimensions) {
@@ -355,7 +400,6 @@ serve(async (req) => {
             reason: updated.reason
           };
         }
-        // Use default reason if still missing
         return {
           ...existing,
           reason: existing.reason && existing.reason !== "待AI分析" 
