@@ -1161,7 +1161,7 @@ Deno.serve(async (req) => {
                 detailStage: "fallback_crawl_xhs",
                 meta: { branch: "tikhub_fallback", selfRetryCount },
               });
-              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode);
+              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5));
               socialData.totalNotes += xhsData.totalNotes;
               socialData.avgLikes += xhsData.avgLikes;
               socialData.avgComments += xhsData.avgComments;
@@ -1175,7 +1175,7 @@ Deno.serve(async (req) => {
                 detailStage: "fallback_crawl_douyin",
                 meta: { branch: "tikhub_fallback", selfRetryCount },
               });
-              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode);
+              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, xhsKeywords.slice(1, 5));
               socialData.totalNotes += dyData.totalNotes;
               socialData.avgLikes += dyData.avgLikes;
               socialData.avgComments += dyData.avgComments;
@@ -2057,13 +2057,23 @@ function shortenKeywordForTikhub(raw: string): string[] {
   const candidates: string[] = [full];
   // Add shortened Chinese-only version
   if (zh.length >= 4) {
-    candidates.push(zh.slice(0, 8));
+    candidates.push(zh.slice(0, 10));
+    if (zh.length > 6) candidates.push(zh.slice(0, 6));
     if (zh.length > 8) candidates.push(zh.slice(0, 5));
   }
   // Add first meaningful segment (split by spaces/punctuation)
-  const segments = full.split(/[\s，,。！？!?：:；;、]+/).filter(Boolean);
-  if (segments.length > 1 && segments[0].length >= 2) {
-    candidates.push(segments[0].slice(0, 12));
+  const segments = full.split(/[\s，,。！？!?：:；;、]+/).filter(s => s.length >= 2);
+  if (segments.length > 1) {
+    candidates.push(segments[0].slice(0, 14));
+    // Also try combining first two segments
+    if (segments.length >= 2) {
+      candidates.push((segments[0] + segments[1]).slice(0, 14));
+    }
+  }
+  // Add English+Chinese mixed short form
+  const enWords = full.match(/[A-Za-z][A-Za-z0-9+-]*/g) || [];
+  if (enWords.length > 0 && zh.length >= 2) {
+    candidates.push((enWords[0] + zh.slice(0, 4)).slice(0, 12));
   }
   // Deduplicate
   const seen = new Set<string>();
@@ -2075,12 +2085,19 @@ function shortenKeywordForTikhub(raw: string): string[] {
   });
 }
 
-async function crawlXhsSimple(keyword: string, token: string, mode: string) {
+async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
   
-  // Try multiple keyword variants (shorter keywords work better on TikHub)
-  const keywordVariants = shortenKeywordForTikhub(keyword);
+  // Build comprehensive keyword variants from primary + extra keywords
+  const allSourceKeywords = [keyword, ...(extraKeywords || [])];
+  const variantSet = new Set<string>();
+  for (const kw of allSourceKeywords) {
+    for (const v of shortenKeywordForTikhub(kw)) {
+      variantSet.add(v);
+    }
+  }
+  const keywordVariants = Array.from(variantSet).slice(0, 8);
   console.log(`[XHS Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
   
   let allItems: any[] = [];
@@ -2190,11 +2207,18 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string) {
   };
 }
 
-async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
+async function crawlDouyinSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
   
-  const keywordVariants = shortenKeywordForTikhub(keyword);
+  const allSourceKeywords = [keyword, ...(extraKeywords || [])];
+  const variantSet = new Set<string>();
+  for (const kw of allSourceKeywords) {
+    for (const v of shortenKeywordForTikhub(kw)) {
+      variantSet.add(v);
+    }
+  }
+  const keywordVariants = Array.from(variantSet).slice(0, 8);
   console.log(`[Douyin Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
 
   let awemeList: any[] = [];
