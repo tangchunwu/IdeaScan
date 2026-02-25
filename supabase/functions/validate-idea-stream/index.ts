@@ -839,6 +839,15 @@ Deno.serve(async (req) => {
       }
       validationId = validation.id;
 
+      // Send validationId early so frontend can cancel
+      await sendEvent({
+        event: 'progress',
+        stage: 'init',
+        progress: 8,
+        message: '验证记录已创建...',
+        meta: { validationId: validation.id },
+      });
+
       await sendProgress('KEYWORDS');
 
       // ============ Keyword Expansion ============
