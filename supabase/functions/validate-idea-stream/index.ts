@@ -1418,6 +1418,8 @@ Deno.serve(async (req) => {
         baseUrl: "https://ai.gateway.lovable.dev/v1",
         model: "google/gemini-2.5-flash",
       } : null;
+      let socialSummaries = resumeSocialSummaries;
+      let competitorSummaries = resumeCompetitorSummaries;
       let aggregatedInsights = resumeAggregatedInsights;
 
       if (summaryConfig.apiKey) {
