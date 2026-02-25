@@ -337,7 +337,7 @@ serve(async (req) => {
     const tikhubToken = config?.tikhubToken || "";
     const enableTikhubFallback = config?.enableTikhubFallback !== false;
 
-    console.log(`[Recrawl] Starting for ${validationId}, keywords: ${JSON.stringify(uniqueKeywords)}`);
+    console.log(`[Recrawl] Starting for ${validationId}, keywords: ${JSON.stringify(uniqueKeywords)}, maxKeywords=${uniqueKeywords.length}`);
     console.log(`[Recrawl] Config: selfCrawler=${enableSelfCrawler}, tikhub=${!!tikhubToken}, xhs=${enableXhs}, dy=${enableDy}`);
 
     let socialData: any = null;
@@ -383,13 +383,18 @@ serve(async (req) => {
       }
     }
 
-    // Strategy 3: raw_market_signals fallback
+    // Strategy 3: raw_market_signals fallback (try each keyword)
     if (!socialData) {
       console.log("[Recrawl] Trying raw_market_signals fallback...");
-      socialData = await crawlFromSignals(supabase, keyword);
-      if (socialData) {
-        source = "raw_signals";
-        console.log(`[Recrawl] Signals fallback: ${socialData.totalNotes} items`);
+      for (const kw of uniqueKeywords) {
+        const fallbackData = await crawlFromSignals(supabase, kw);
+        if (fallbackData && (fallbackData.sampleNotes?.length || 0) > 0) {
+          socialData = fallbackData;
+          source = "raw_signals";
+          usedKeyword = kw;
+          console.log(`[Recrawl] Signals fallback success with "${kw}": ${fallbackData.totalNotes} items`);
+          break;
+        }
       }
     }
 
