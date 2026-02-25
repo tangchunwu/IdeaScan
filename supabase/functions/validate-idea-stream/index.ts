@@ -1237,20 +1237,37 @@ Deno.serve(async (req) => {
         }
       }
 
+      let socialDataDegraded = false;
       if (!usedCache && (enableXhs || enableDy)) {
         const noteCount = Array.isArray(socialData.sampleNotes) ? socialData.sampleNotes.length : 0;
         const commentCount = Array.isArray(socialData.sampleComments) ? socialData.sampleComments.length : 0;
         const thresholds = getRequiredSampleThresholds({ usedThirdPartyCrawler });
 
         if (noteCount < thresholds.notes || commentCount < thresholds.comments) {
-          if (usedThirdPartyCrawler) {
-            throw new ValidationError(
-              `TIKHUB_SAMPLE_LOW:样本不足（笔记${noteCount}/${thresholds.notes}，评论${commentCount}/${thresholds.comments}）。建议更换关键词后重试。`
-            );
+          // If we have SOME data (>0 notes or comments), continue in degraded mode
+          // instead of throwing a hard error - the report will note limited data
+          if (noteCount > 0 || commentCount > 0) {
+            console.warn(`[SampleCheck] Below threshold but has partial data (notes=${noteCount}/${thresholds.notes}, comments=${commentCount}/${thresholds.comments}), continuing in degraded mode`);
+            socialDataDegraded = true;
+            await sendEvent({
+              event: "progress",
+              stage: "crawl_done",
+              progress: 36,
+              message: `社媒样本偏少（笔记${noteCount}，评论${commentCount}），将结合竞品数据继续分析...`,
+              meta: { degraded: true, noteCount, commentCount },
+            });
+          } else {
+            // Completely zero data - still try to continue with competitor-only analysis
+            console.warn(`[SampleCheck] Zero social samples, will attempt competitor-only analysis`);
+            socialDataDegraded = true;
+            await sendEvent({
+              event: "progress",
+              stage: "crawl_done",
+              progress: 36,
+              message: `社媒数据暂时无法获取，将使用竞品搜索数据进行分析...`,
+              meta: { degraded: true, noteCount: 0, commentCount: 0 },
+            });
           }
-          throw new ValidationError(
-            `SELF_CRAWLER_EMPTY:样本不足（笔记${noteCount}/${thresholds.notes}，评论${commentCount}/${thresholds.comments}）。请稍后重试，或开启 TikHub 兜底后重试。`
-          );
         }
       }
 
@@ -2030,162 +2047,236 @@ async function persistSocialSignals(
     .upsert(rows, { onConflict: "content_hash", ignoreDuplicates: true });
 }
 
+function shortenKeywordForTikhub(raw: string): string[] {
+  const full = String(raw || "").trim();
+  if (!full) return [];
+  // Extract Chinese characters
+  const zh = full.replace(/[^\u4e00-\u9fff]/g, "");
+  const candidates: string[] = [full];
+  // Add shortened Chinese-only version
+  if (zh.length >= 4) {
+    candidates.push(zh.slice(0, 8));
+    if (zh.length > 8) candidates.push(zh.slice(0, 5));
+  }
+  // Add first meaningful segment (split by spaces/punctuation)
+  const segments = full.split(/[\s，,。！？!?：:；;、]+/).filter(Boolean);
+  if (segments.length > 1 && segments[0].length >= 2) {
+    candidates.push(segments[0].slice(0, 12));
+  }
+  // Deduplicate
+  const seen = new Set<string>();
+  return candidates.filter(c => {
+    const key = c.toLowerCase();
+    if (seen.has(key) || !key) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function crawlXhsSimple(keyword: string, token: string, mode: string) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
   
-  try {
-    const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&noteType=_0`;
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    apiCalls += 1;
+  // Try multiple keyword variants (shorter keywords work better on TikHub)
+  const keywordVariants = shortenKeywordForTikhub(keyword);
+  console.log(`[XHS Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
+  
+  let allItems: any[] = [];
+  let totalFromApi = 0;
 
-    if (!res.ok) return emptyResult;
+  for (const kw of keywordVariants) {
+    if (allItems.length >= 10) break; // enough notes already
+    try {
+      const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&noteType=_0`;
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      apiCalls += 1;
 
-    const data = await res.json();
-    const items = data?.data?.data?.items || [];
-    const maxNotes = mode === "deep" ? 20 : 10;
-    const maxCommentsPerNote = mode === "deep" ? 12 : 6;
-    
-    // Fetch page 2 for more notes
-    let allItems = items;
-    if (items.length > 0) {
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`[XHS Simple] Search failed for "${kw}": ${res.status} ${errText.slice(0, 200)}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const items = data?.data?.data?.items || [];
+      totalFromApi = Math.max(totalFromApi, Number(data?.data?.data?.total || items.length));
+      console.log(`[XHS Simple] Keyword "${kw}" returned ${items.length} items`);
+      
+      if (items.length === 0) continue;
+      allItems = [...allItems, ...items];
+
+      // Fetch page 2 for more notes
       try {
-        const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=2&sort=general&noteType=_0`;
+        const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&noteType=_0`;
         const res2 = await fetch(url2, { headers: { 'Authorization': `Bearer ${token}` } });
         apiCalls += 1;
         if (res2.ok) {
           const data2 = await res2.json();
           const items2 = data2?.data?.data?.items || [];
           allItems = [...allItems, ...items2];
+        } else {
+          await res2.text(); // consume body
         }
       } catch (_) { /* ignore page 2 failure */ }
+      
+      break; // Found results, no need to try more variants
+    } catch (e) {
+      console.warn(`[XHS Simple] Error for "${kw}":`, e);
     }
-
-    const notes = allItems.slice(0, maxNotes).map((item: any) => ({
-      note_id: item.note?.id || '',
-      title: '[小红书] ' + (item.note?.title || ''),
-      desc: item.note?.desc || '',
-      liked_count: item.note?.liked_count || 0,
-      comments_count: item.note?.comments_count || 0,
-      collected_count: item.note?.collected_count || 0,
-      publish_time: item.note?.time || item.note?.publish_time || item.note?.last_update_time || null,
-      _platform: 'xiaohongshu'
-    }));
-
-    const sampleComments: any[] = [];
-    for (const note of notes.slice(0, mode === "deep" ? 10 : 6)) {
-      if (!note.note_id) continue;
-      try {
-        const commentRes = await fetch(
-          `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        apiCalls += 1;
-        if (!commentRes.ok) continue;
-        const commentData = await commentRes.json();
-        const comments = commentData?.data?.data?.comments || [];
-        sampleComments.push(...comments.slice(0, maxCommentsPerNote).map((c: any) => ({
-          comment_id: c.id || '',
-          content: c.content || '',
-          like_count: c.like_count || 0,
-          user_nickname: c.user?.nickname || '',
-          ip_location: c.ip_location || '',
-          create_time: c.create_time || c.time || null,
-          _platform: 'xiaohongshu',
-        })));
-      } catch (_commentError) {
-        // Ignore single-note comment failures to keep the flow resilient.
-      }
-    }
-
-    const totalLikes = notes.reduce((sum: number, n: any) => sum + n.liked_count, 0);
-    const totalComments = notes.reduce((sum: number, n: any) => sum + (n.comments_count || 0), 0);
-
-    return {
-      totalNotes: Number(data?.data?.data?.total || notes.length),
-      avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
-      avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
-      sampleNotes: notes,
-      sampleComments,
-      apiCalls,
-    };
-  } catch (e) {
-    console.error("[XHS Simple] Error:", e);
-    return emptyResult;
   }
+
+  if (allItems.length === 0) {
+    console.warn(`[XHS Simple] All keyword variants returned 0 results`);
+    return { ...emptyResult, apiCalls };
+  }
+
+  const maxNotes = mode === "deep" ? 20 : 10;
+  const maxCommentsPerNote = mode === "deep" ? 12 : 6;
+
+  const notes = allItems.slice(0, maxNotes).map((item: any) => ({
+    note_id: item.note?.id || '',
+    title: '[小红书] ' + (item.note?.title || ''),
+    desc: item.note?.desc || '',
+    liked_count: item.note?.liked_count || 0,
+    comments_count: item.note?.comments_count || 0,
+    collected_count: item.note?.collected_count || 0,
+    publish_time: item.note?.time || item.note?.publish_time || item.note?.last_update_time || null,
+    _platform: 'xiaohongshu'
+  }));
+
+  const sampleComments: any[] = [];
+  for (const note of notes.slice(0, mode === "deep" ? 10 : 6)) {
+    if (!note.note_id) continue;
+    try {
+      const commentRes = await fetch(
+        `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      apiCalls += 1;
+      if (!commentRes.ok) {
+        await commentRes.text(); // consume body
+        continue;
+      }
+      const commentData = await commentRes.json();
+      const comments = commentData?.data?.data?.comments || [];
+      sampleComments.push(...comments.slice(0, maxCommentsPerNote).map((c: any) => ({
+        comment_id: c.id || '',
+        content: c.content || '',
+        like_count: c.like_count || 0,
+        user_nickname: c.user?.nickname || '',
+        ip_location: c.ip_location || '',
+        create_time: c.create_time || c.time || null,
+        _platform: 'xiaohongshu',
+      })));
+    } catch (_commentError) {
+      // Ignore single-note comment failures to keep the flow resilient.
+    }
+  }
+
+  const totalLikes = notes.reduce((sum: number, n: any) => sum + n.liked_count, 0);
+  const totalComments = notes.reduce((sum: number, n: any) => sum + (n.comments_count || 0), 0);
+
+  return {
+    totalNotes: Math.max(totalFromApi, notes.length),
+    avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
+    avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
+    sampleNotes: notes,
+    sampleComments,
+    apiCalls,
+  };
 }
 
 async function crawlDouyinSimple(keyword: string, token: string, mode: string) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
   
-  try {
-    const url = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=5&sort_type=0`;
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    apiCalls += 1;
+  const keywordVariants = shortenKeywordForTikhub(keyword);
+  console.log(`[Douyin Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
 
-    if (!res.ok) return emptyResult;
+  let awemeList: any[] = [];
+  for (const kw of keywordVariants) {
+    if (awemeList.length > 0) break;
+    try {
+      const url = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(kw)}&offset=0&count=5&sort_type=0`;
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      apiCalls += 1;
 
-    const data = await res.json();
-    const awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
-    const maxVideos = mode === "deep" ? 20 : 10;
-    const maxCommentsPerVideo = mode === "deep" ? 12 : 6;
-    
-    const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
-      aweme_id: item.aweme_id || '',
-      title: '[抖音] ' + (item.desc || '').slice(0, 30),
-      desc: item.desc || '',
-      digg_count: item.statistics?.digg_count || 0,
-      comment_count: item.statistics?.comment_count || 0,
-      create_time: item.create_time || null,
-      _platform: 'douyin'
-    }));
-
-    const sampleComments: any[] = [];
-    for (const video of videos.slice(0, mode === "deep" ? 10 : 6)) {
-      if (!video.aweme_id) continue;
-      try {
-        const commentRes = await fetch(
-          `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(video.aweme_id)}&cursor=0&count=${maxCommentsPerVideo}`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        apiCalls += 1;
-        if (!commentRes.ok) continue;
-        const commentData = await commentRes.json();
-        const comments = commentData?.data?.data?.comments || commentData?.data?.comments || [];
-        sampleComments.push(...comments.slice(0, maxCommentsPerVideo).map((c: any) => ({
-          comment_id: c.cid || '',
-          content: c.text || '',
-          like_count: c.digg_count || 0,
-          user_nickname: c.user?.nickname || '',
-          ip_location: c.ip_label || '',
-          create_time: c.create_time || null,
-          _platform: 'douyin',
-        })));
-      } catch (_commentError) {
-        // Ignore single-video comment failures.
+      if (!res.ok) {
+        await res.text();
+        continue;
       }
+
+      const data = await res.json();
+      awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
+      console.log(`[Douyin Simple] Keyword "${kw}" returned ${awemeList.length} videos`);
+      if (awemeList.length > 0) break;
+    } catch (e) {
+      console.warn(`[Douyin Simple] Error for "${kw}":`, e);
     }
-
-    const totalLikes = videos.reduce((sum: number, v: any) => sum + v.digg_count, 0);
-    const totalComments = videos.reduce((sum: number, v: any) => sum + (v.comment_count || 0), 0);
-
-    return {
-      totalNotes: videos.length,
-      avgLikes: videos.length > 0 ? Math.round(totalLikes / videos.length) : 0,
-      avgComments: videos.length > 0 ? Math.round(totalComments / videos.length) : 0,
-      sampleNotes: videos,
-      sampleComments,
-      apiCalls,
-    };
-  } catch (e) {
-    console.error("[Douyin Simple] Error:", e);
-    return emptyResult;
   }
+
+  if (awemeList.length === 0) {
+    console.warn(`[Douyin Simple] All keyword variants returned 0 results`);
+    return { ...emptyResult, apiCalls };
+  }
+
+  const maxVideos = mode === "deep" ? 20 : 10;
+  const maxCommentsPerVideo = mode === "deep" ? 12 : 6;
+  
+  const videos = awemeList.slice(0, maxVideos).map((item: any) => ({
+    aweme_id: item.aweme_id || '',
+    title: '[抖音] ' + (item.desc || '').slice(0, 30),
+    desc: item.desc || '',
+    digg_count: item.statistics?.digg_count || 0,
+    comment_count: item.statistics?.comment_count || 0,
+    create_time: item.create_time || null,
+    _platform: 'douyin'
+  }));
+
+  const sampleComments: any[] = [];
+  for (const video of videos.slice(0, mode === "deep" ? 10 : 6)) {
+    if (!video.aweme_id) continue;
+    try {
+      const commentRes = await fetch(
+        `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(video.aweme_id)}&cursor=0&count=${maxCommentsPerVideo}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      apiCalls += 1;
+      if (!commentRes.ok) {
+        await commentRes.text();
+        continue;
+      }
+      const commentData = await commentRes.json();
+      const comments = commentData?.data?.data?.comments || commentData?.data?.comments || [];
+      sampleComments.push(...comments.slice(0, maxCommentsPerVideo).map((c: any) => ({
+        comment_id: c.cid || '',
+        content: c.text || '',
+        like_count: c.digg_count || 0,
+        user_nickname: c.user?.nickname || '',
+        ip_location: c.ip_label || '',
+        create_time: c.create_time || null,
+        _platform: 'douyin',
+      })));
+    } catch (_commentError) {
+      // Ignore single-video comment failures.
+    }
+  }
+
+  const totalLikes = videos.reduce((sum: number, v: any) => sum + v.digg_count, 0);
+  const totalComments = videos.reduce((sum: number, v: any) => sum + (v.comment_count || 0), 0);
+
+  return {
+    totalNotes: videos.length,
+    avgLikes: videos.length > 0 ? Math.round(totalLikes / videos.length) : 0,
+    avgComments: videos.length > 0 ? Math.round(totalComments / videos.length) : 0,
+    sampleNotes: videos,
+    sampleComments,
+    apiCalls,
+  };
 }
 
 async function searchCompetitorsSimple(query: string, keys: any): Promise<SearchResult[]> {
