@@ -462,8 +462,12 @@ function normalizeAnalysisResult(obj: any) {
       name: String(safe?.persona?.name || "目标用户"),
       role: String(safe?.persona?.role || "潜在用户"),
       age: String(safe?.persona?.age || "待确认"),
+      income: String(safe?.persona?.income || ""),
       painPoints: Array.isArray(safe?.persona?.painPoints) ? safe.persona.painPoints : [],
       goals: Array.isArray(safe?.persona?.goals) ? safe.persona.goals : [],
+      behaviors: Array.isArray(safe?.persona?.behaviors) ? safe.persona.behaviors : [],
+      channels: Array.isArray(safe?.persona?.channels) ? safe.persona.channels : [],
+      description: String(safe?.persona?.description || ""),
     },
     dimensions: Array.isArray(safe?.dimensions) && safe.dimensions.length > 0
       ? safe.dimensions
@@ -2143,8 +2147,8 @@ function shortenKeywordForTikhub(raw: string): string[] {
 async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 30000 : 20000;
-  const commentTimeoutMs = mode === "deep" ? 20000 : 12000;
+  const searchTimeoutMs = 120000; // 120s — no premature timeout; let the API respond
+  const commentTimeoutMs = 60000; // 60s per comment fetch
   const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   // Build comprehensive keyword variants from primary + extra keywords
@@ -2285,8 +2289,8 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
 async function crawlDouyinSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 30000 : 20000;
-  const commentTimeoutMs = mode === "deep" ? 20000 : 12000;
+  const searchTimeoutMs = 120000; // 120s — no premature timeout
+  const commentTimeoutMs = 60000; // 60s per comment fetch
   const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
@@ -2540,7 +2544,7 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
 请输出JSON格式的评估报告:
 {
   "overallScore": 0-100,
-  "overallVerdict": "一句话总结",
+  "overallVerdict": "一句话总结这个创业想法的可行性和前景（50-80字，直接给出结论性判断）",
   "marketAnalysis": {
     "targetAudience": "目标用户群",
     "marketSize": "市场规模评估",
@@ -2549,23 +2553,27 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
   "sentimentAnalysis": {"positive": 33, "neutral": 34, "negative": 33},
   "aiAnalysis": {
     "feasibilityScore": 0-100,
-    "strengths": ["优势1", "优势2"],
-    "weaknesses": ["劣势1", "劣势2"],
-    "risks": ["风险1", "风险2"],
-    "suggestions": ["建议1", "建议2"]
+    "strengths": ["优势1（15-30字）", "优势2"],
+    "weaknesses": ["劣势1（15-30字）", "劣势2"],
+    "risks": ["风险1（15-30字）", "风险2"],
+    "suggestions": ["建议1（15-30字）", "建议2"]
   },
   "persona": {
-    "name": "典型用户名",
-    "role": "职业/角色",
-    "age": "年龄段",
-    "painPoints": ["痛点1", "痛点2"],
-    "goals": ["目标1", "目标2"]
+    "name": "用户画像名称（如：忙碌的项目经理张华）",
+    "role": "职业/身份（如：互联网产品经理）",
+    "age": "年龄范围（如：25-35岁）",
+    "income": "收入水平（如：月薪15-25k）",
+    "painPoints": ["痛点1", "痛点2", "痛点3"],
+    "goals": ["目标1", "目标2", "目标3"],
+    "behaviors": ["行为特征1", "行为特征2", "行为特征3"],
+    "channels": ["触达渠道1", "触达渠道2"],
+    "description": "一段描述这个用户的故事，包括他们的日常场景和为什么需要这个产品（100-150字）"
   },
   "dimensions": [
-    {"dimension": "需求痛感", "score": 50, "reason": "理由"},
-    {"dimension": "市场规模", "score": 50, "reason": "理由"},
-    {"dimension": "竞争壁垒", "score": 50, "reason": "理由"},
-    {"dimension": "PMF潜力", "score": 50, "reason": "理由"}
+    {"dimension": "需求痛感", "score": 50, "reason": "50-100字详细分析理由"},
+    {"dimension": "市场规模", "score": 50, "reason": "50-100字详细分析理由"},
+    {"dimension": "竞争壁垒", "score": 50, "reason": "50-100字详细分析理由"},
+    {"dimension": "PMF潜力", "score": 50, "reason": "50-100字详细分析理由"}
   ]
 }`;
 
@@ -2627,7 +2635,7 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
     }, heartbeatIntervalMs);
 
     try {
-      const baseMaxTokens = mode === "deep" ? 1200 : 800;
+      const baseMaxTokens = mode === "deep" ? 2000 : 1500;
       const callResult = await doAnalyzeCall(firstAttemptTimeoutMs, baseMaxTokens);
       const content = extractAssistantContent(callResult.json);
       const finishReason = String(callResult.json?.choices?.[0]?.finish_reason || "");
@@ -2635,7 +2643,7 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
         return normalizeAnalysisResult(tryParseModelJsonLoose(content));
       } catch (parseErr) {
         if (finishReason === "length") {
-          const expandedTokens = mode === "deep" ? 1800 : 1200;
+          const expandedTokens = mode === "deep" ? 2800 : 2000;
           const retry = await doAnalyzeCall(retryAttemptTimeoutMs, expandedTokens);
           const retryContent = extractAssistantContent(retry.json);
           return normalizeAnalysisResult(tryParseModelJsonLoose(retryContent));
@@ -2741,8 +2749,12 @@ function buildGroundedFallbackAnalysis(
       name: "待补样本用户",
       role: "潜在目标用户",
       age: "待确认",
+      income: "",
       painPoints: [aggregatedInsights.marketInsight || "需要更高效、更低成本地解决核心问题"],
       goals: ["降低时间成本", "获得更稳定的结果"],
+      behaviors: [],
+      channels: [],
+      description: "当前数据不足以构建完整用户画像，建议补充社媒数据后重新分析。",
     },
     dimensions: [
       { dimension: "需求痛感", score: Math.max(35, Math.min(75, 35 + commentCount * 2)), reason: `基于 ${commentCount} 条评论估算` },
