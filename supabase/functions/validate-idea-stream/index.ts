@@ -598,9 +598,11 @@ function validateConfig(config: unknown): RequestConfig {
       : undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
-    enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
-    enableSelfCrawler: typeof c.enableSelfCrawler === 'boolean' ? c.enableSelfCrawler : true,
-    enableTikhubFallback: typeof c.enableTikhubFallback === 'boolean' ? c.enableTikhubFallback : true,
+    // Global policy: disable Douyin crawling for now.
+    enableDouyin: false,
+    // Global policy: disable self-crawler and enforce TikHub-only social crawling.
+    enableSelfCrawler: false,
+    enableTikhubFallback: true,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -920,21 +922,12 @@ Deno.serve(async (req) => {
 
       // ============ TikHub Quota Check ============
       const enableXhs = config?.enableXiaohongshu ?? true;
-      const requestedEnableDy = config?.enableDouyin ?? false;
-      const enableDy = lowCostMode ? false : requestedEnableDy;
-      const enableSelfCrawler = config?.enableSelfCrawler ?? true;
-      const enableTikhubFallback = config?.enableTikhubFallback ?? (mode === 'deep');
-      if (lowCostMode && requestedEnableDy) {
-        console.log("[CostMode] Quick mode enabled: Douyin crawl is disabled to reduce API spend");
-      }
+      const enableDy = false;
 
-      // Auto-degradation: if self-crawler env is not configured, treat it as unavailable
-      const crawlerServiceUrl = (Deno.env.get("CRAWLER_SERVICE_BASE_URL") || "").trim();
-      const selfCrawlerAvailable = enableSelfCrawler && !!crawlerServiceUrl;
-      const effectiveEnableTikhubFallback = enableTikhubFallback || !selfCrawlerAvailable;
+      const selfCrawlerAvailable = false;
+      const effectiveEnableTikhubFallback = true;
       
-      const userProvidedTikhub = effectiveEnableTikhubFallback && !!config?.tikhubToken;
-      let tikhubToken = effectiveEnableTikhubFallback ? config?.tikhubToken : undefined;
+      let tikhubToken = config?.tikhubToken;
 
       let socialData = {
         totalNotes: 0,
@@ -1166,24 +1159,19 @@ Deno.serve(async (req) => {
         crawlSelfRetryCount = selfRetryCount;
 
         if (!usedSelfCrawler && effectiveEnableTikhubFallback) {
-          if (!tikhubToken && !selfCrawlerAvailable) {
-            throw new ValidationError("DATA_SOURCE_UNAVAILABLE:自爬服务未连接且未配置 TikHub Token。请联系管理员或在设置中配置 Token。");
-          }
-
-          // No free quota - require user's own TikHub token
           if (!tikhubToken) {
             throw new ValidationError("TIKHUB_TOKEN_REQUIRED:请在设置中配置您的 TikHub API Token 后继续使用。");
           }
 
           if (tikhubToken) {
-            crawlFallbackUsed = true;
-            crawlFallbackReason = fallbackReason || compactCrawlerDiagnostic(selfCrawlerRouteDiagnostic) || selfCrawlerRouteError || "self_crawler_insufficient";
+            crawlFallbackUsed = false;
+            crawlFallbackReason = "tikhub_only_mode";
             await sendEvent({
               event: "progress",
               stage: "crawl_start",
               detailStage: "fallback_switch",
               progress: 26,
-              message: "已切换 TikHub 兜底抓取...",
+              message: "开始 TikHub 抓取...",
               meta: {
                 branch: "tikhub_fallback",
                 selfRetryCount,
@@ -2170,7 +2158,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
   for (const kw of keywordVariants) {
     if (allItems.length >= 10) break; // enough notes already
     try {
-      const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&noteType=_0`;
+      const url = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` },
         signal: AbortSignal.timeout(searchTimeoutMs),
@@ -2194,7 +2182,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       // Page 2 only in deep mode to reduce cost/time in quick mode
       if (mode === "deep") {
         try {
-          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&noteType=_0`;
+          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&note_type=0`;
           const res2 = await fetch(url2, {
             headers: { 'Authorization': `Bearer ${token}` },
             signal: AbortSignal.timeout(searchTimeoutMs),

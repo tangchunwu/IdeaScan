@@ -30,7 +30,7 @@ describe('useSettings', () => {
                         tikhubToken: '',
                         enableXiaohongshu: true,
                         enableDouyin: false,
-                        enableSelfCrawler: true,
+                        enableSelfCrawler: false,
                         enableTikhubFallback: true,
                         bochaApiKey: '',
                         youApiKey: '',
@@ -51,7 +51,7 @@ describe('useSettings', () => {
                 expect(state.llmFallbacks).toEqual([]);
                 expect(state.enableXiaohongshu).toBe(true);
                 expect(state.enableDouyin).toBe(false);
-                expect(state.enableSelfCrawler).toBe(true);
+                expect(state.enableSelfCrawler).toBe(false);
                 expect(state.enableTikhubFallback).toBe(true);
         });
 

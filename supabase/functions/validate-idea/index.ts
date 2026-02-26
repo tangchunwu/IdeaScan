@@ -113,9 +113,11 @@ function validateConfig(config: unknown): RequestConfig {
     llmModel: validateString(c.llmModel, "llmModel", LIMITS.MODEL_MAX_LENGTH) || undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
-    enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
-    enableSelfCrawler: typeof c.enableSelfCrawler === 'boolean' ? c.enableSelfCrawler : true,
-    enableTikhubFallback: typeof c.enableTikhubFallback === 'boolean' ? c.enableTikhubFallback : true,
+    // Global policy: disable Douyin crawling for now.
+    enableDouyin: false,
+    // Global policy: disable self-crawler and enforce TikHub-only social crawling.
+    enableSelfCrawler: false,
+    enableTikhubFallback: true,
     searchKeys: c.searchKeys && typeof c.searchKeys === "object" ? {
       bocha: validateString((c.searchKeys as any).bocha, "bocha key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
       you: validateString((c.searchKeys as any).you, "you key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
@@ -951,12 +953,9 @@ serve(async (req) => {
 
     const mode = config?.mode || 'quick';
     const enableXiaohongshu = config?.enableXiaohongshu ?? true;
-    const enableDouyin = config?.enableDouyin ?? false;
-    const enableSelfCrawler = config?.enableSelfCrawler ?? true;
-    // Single-crawler policy: if self crawler is enabled, do not switch to third-party fallback.
-    // This keeps runtime behavior deterministic and avoids mixed-route confusion.
-    const enableTikhubFallbackRaw = config?.enableTikhubFallback ?? (mode === 'deep');
-    const enableTikhubFallback = enableSelfCrawler ? false : enableTikhubFallbackRaw;
+    const enableDouyin = false;
+    const enableSelfCrawler = false;
+    const enableTikhubFallback = true;
 
     // ============ TikHub Quota Check ============
     const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
@@ -1054,8 +1053,8 @@ serve(async (req) => {
 
     const needsThirdPartyFallback = (xiaohongshuData.sampleNotes?.length || 0) < 4 && (xiaohongshuData.sampleComments?.length || 0) < 12;
     if (needsThirdPartyFallback && enableTikhubFallback) {
-      if (!tikhubToken && !enableSelfCrawler) {
-        throw new ValidationError("DATA_SOURCE_UNAVAILABLE:仅启用TikHub兜底但未配置Token，请在设置中填写Token或启用自爬。");
+      if (!tikhubToken) {
+        throw new ValidationError("TIKHUB_TOKEN_REQUIRED:请先在设置中填写 TikHub Token，再进行验证。");
       }
 
       if (!userProvidedTikhub && tikhubToken) {
@@ -1088,7 +1087,7 @@ serve(async (req) => {
     }
 
     if (needsThirdPartyFallback && !enableTikhubFallback) {
-      throw new ValidationError("SELF_CRAWLER_EMPTY:自爬未抓到有效样本。请重新扫码登录，或开启 TikHub 兜底后重试。");
+      throw new ValidationError("TIKHUB_TOKEN_REQUIRED:请先在设置中填写 TikHub Token，再进行验证。");
     }
 
     console.log(`Crawled social media data for: ${xhsSearchTerm} (mode: ${mode}, XHS=${enableXiaohongshu}, DY=${enableDouyin})`);

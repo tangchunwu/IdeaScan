@@ -160,7 +160,7 @@ class XiaohongshuAdapter(BaseAdapter):
                     query = safe_payload.query
                     res = await client.get(
                         "https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes",
-                        params={"keyword": query, "page": 1, "sort": "general", "noteType": "_0"},
+                        params={"keyword": query, "page": 1, "sort": "general", "note_type": 0},
                         headers=headers,
                     )
                     external_calls += 1
@@ -214,8 +214,6 @@ class XiaohongshuAdapter(BaseAdapter):
         if len(notes) > 0 and len(comments) <= 0 and not session_error:
             session_error = "notes_found_but_comments_empty"
         source = "xiaohongshu_tikhub"
-        if success and safe_payload.user_id:
-            source = "xiaohongshu_session"
         if not token and not success and not session_error:
             session_error = "no_tikhub_token_and_no_user_session"
 

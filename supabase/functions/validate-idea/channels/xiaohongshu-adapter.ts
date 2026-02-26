@@ -167,7 +167,7 @@ export class XiaohongshuAdapter extends BaseChannelAdapter {
       keyword,
       page: String(page),
       sort: 'general',
-      noteType: '_0',
+      note_type: '0',
     });
     
     try {
@@ -240,8 +240,10 @@ export class XiaohongshuAdapter extends BaseChannelAdapter {
   private async getNoteComments(
     authToken: string,
     noteId: string,
-    limit: number = 20
+    limit: number = 20,
+    retryCount: number = 0
   ): Promise<TikhubCommentsResult> {
+    const maxRetries = 3;
     const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/web/get_note_comments`;
     
     try {
@@ -256,8 +258,11 @@ export class XiaohongshuAdapter extends BaseChannelAdapter {
       
       if (response.status === 429) {
         console.warn('[XHS Adapter] Rate limit on comments, waiting...');
-        await this.sleep(5000);
-        return this.getNoteComments(authToken, noteId, limit);
+        if (retryCount < maxRetries) {
+          await this.sleep(5000);
+          return this.getNoteComments(authToken, noteId, limit, retryCount + 1);
+        }
+        return { success: false, comments: [], total_count: 0 };
       }
       
       if (!response.ok) {

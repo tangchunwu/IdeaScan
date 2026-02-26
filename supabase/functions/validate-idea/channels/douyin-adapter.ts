@@ -279,8 +279,10 @@ export class DouyinAdapter extends BaseChannelAdapter {
   private async getVideoComments(
     authToken: string,
     awemeId: string,
-    limit: number = 20
+    limit: number = 20,
+    retryCount: number = 0
   ): Promise<TikhubDouyinCommentsResult> {
+    const maxRetries = 3;
     const url = `${TIKHUB_BASE_URL}/api/v1/douyin/web/fetch_video_comments`;
     const params = new URLSearchParams({
       aweme_id: awemeId,
@@ -300,8 +302,11 @@ export class DouyinAdapter extends BaseChannelAdapter {
       
       if (response.status === 429) {
         console.warn('[Douyin Adapter] Rate limit on comments, waiting...');
-        await this.sleep(5000);
-        return this.getVideoComments(authToken, awemeId, limit);
+        if (retryCount < maxRetries) {
+          await this.sleep(5000);
+          return this.getVideoComments(authToken, awemeId, limit, retryCount + 1);
+        }
+        return { success: false, comments: [], total_count: 0, has_more: false };
       }
       
       if (!response.ok) {

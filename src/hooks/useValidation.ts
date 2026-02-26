@@ -54,10 +54,9 @@ export const useCreateValidation = () => {
                             llmFallbacks: settings.llmFallbacks,
                             tikhubToken: settings.tikhubToken,
                             enableXiaohongshu: settings.enableXiaohongshu,
-                            enableDouyin: settings.enableDouyin,
-                            enableSelfCrawler: settings.enableSelfCrawler,
-                            // quick: self-crawler only; deep: allow TikHub fallback by user setting
-                            enableTikhubFallback: resolveMode(request.mode) === 'deep' ? settings.enableTikhubFallback : false,
+                            enableDouyin: false,
+                            enableSelfCrawler: false,
+                            enableTikhubFallback: true,
                             searchKeys: {
                                    bocha: settings.bochaApiKey,
                                    you: settings.youApiKey,

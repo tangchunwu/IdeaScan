@@ -29,7 +29,7 @@ serve(async (req) => {
     const query = validateString(body?.query, "query", 120, true)!;
     const mode = body?.mode === "deep" ? "deep" : "quick";
     const enableXiaohongshu = body?.enableXiaohongshu !== false;
-    const enableDouyin = body?.enableDouyin === true;
+    const enableDouyin = false;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",

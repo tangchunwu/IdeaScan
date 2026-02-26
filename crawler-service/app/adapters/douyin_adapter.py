@@ -167,8 +167,6 @@ class DouyinAdapter(BaseAdapter):
         if len(notes) > 0 and len(comments) <= 0 and not session_error:
             session_error = "notes_found_but_comments_empty"
         source = "douyin_tikhub"
-        if success and payload.user_id:
-            source = "douyin_session"
         if not token and not success and not session_error:
             session_error = "no_tikhub_token_and_no_user_session"
 

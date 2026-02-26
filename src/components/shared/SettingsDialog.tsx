@@ -143,7 +143,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const [localSettings, setLocalSettings] = useState({
               llmFallbacks,
               llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-              enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
+              enableXiaohongshu, enableDouyin: false, enableSelfCrawler, enableTikhubFallback,
               bochaApiKey, youApiKey, tavilyApiKey,
               imageGenBaseUrl, imageGenApiKey, imageGenModel
        });
@@ -154,7 +154,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                     setLocalSettings({
                             llmFallbacks,
                             llmProvider, llmBaseUrl, llmApiKey, llmModel, tikhubToken,
-                            enableXiaohongshu, enableDouyin, enableSelfCrawler, enableTikhubFallback,
+                            enableXiaohongshu, enableDouyin: false, enableSelfCrawler, enableTikhubFallback,
                             bochaApiKey, youApiKey, tavilyApiKey,
                             imageGenBaseUrl, imageGenApiKey, imageGenModel
                      });
@@ -270,7 +270,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             tikhubToken: '',
                             enableXiaohongshu: true,
                             enableDouyin: false,
-                            enableSelfCrawler: true,
+                            enableSelfCrawler: false,
                             enableTikhubFallback: true,
                             bochaApiKey: '',
                             youApiKey: '',
@@ -350,9 +350,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    if ("llmModel" in settings) next.llmModel = asString(settings.llmModel);
                                    if ("tikhubToken" in settings) next.tikhubToken = asString(settings.tikhubToken);
                                    if ("enableXiaohongshu" in settings && typeof settings.enableXiaohongshu === "boolean") next.enableXiaohongshu = settings.enableXiaohongshu;
-                                   if ("enableDouyin" in settings && typeof settings.enableDouyin === "boolean") next.enableDouyin = settings.enableDouyin;
-                                   if ("enableSelfCrawler" in settings && typeof settings.enableSelfCrawler === "boolean") next.enableSelfCrawler = settings.enableSelfCrawler;
-                                   if ("enableTikhubFallback" in settings && typeof settings.enableTikhubFallback === "boolean") next.enableTikhubFallback = settings.enableTikhubFallback;
+                                   next.enableDouyin = false;
+                                   next.enableSelfCrawler = false;
+                                   next.enableTikhubFallback = true;
                                    if ("bochaApiKey" in settings) next.bochaApiKey = asString(settings.bochaApiKey);
                                    if ("youApiKey" in settings) next.youApiKey = asString(settings.youApiKey);
                                    if ("tavilyApiKey" in settings) next.tavilyApiKey = asString(settings.tavilyApiKey);
@@ -1226,25 +1226,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
                                    <div className="space-y-3 pt-2">
                                           <Label className="text-sm text-muted-foreground">采集执行策略</Label>
-                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
-                                                 <div>
-                                                        <p className="font-medium text-sm">启用自爬服务 (Self Crawler)</p>
-                                                        <p className="text-xs text-muted-foreground">优先走本地/独立爬虫，降低 TikHub 成本</p>
-                                                 </div>
-                                                 <Switch checked={localSettings.enableSelfCrawler} onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableSelfCrawler: checked }))} />
-                                          </div>
-                                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
-                                                 <div>
-                                                        <p className="font-medium text-sm">启用 TikHub 兜底</p>
-                                                        <p className="text-xs text-muted-foreground">自爬样本不足时，自动回退 TikHub</p>
-                                                 </div>
-                                                 <Switch checked={localSettings.enableTikhubFallback} onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableTikhubFallback: checked }))} />
-                                          </div>
-                                          {!localSettings.enableSelfCrawler && !localSettings.enableTikhubFallback && (
-                                                 <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                                                        ⚠️ 已关闭所有采集执行链路，仅能使用缓存数据
+                                          <div className="p-3 rounded-lg bg-muted/30 border">
+                                                 <p className="font-medium text-sm">固定策略：仅使用 TikHub</p>
+                                                 <p className="text-xs text-muted-foreground">
+                                                        当前版本已全局关闭自爬链路，验证与补充社交数据将统一通过 TikHub 执行。
                                                  </p>
-                                          )}
+                                          </div>
                                    </div>
                                    </>
                             )}
@@ -1274,12 +1261,12 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                         <span className="text-xl">🎵</span>
                                                         <div>
                                                                <p className="font-medium text-sm">抖音</p>
-                                                               <p className="text-xs text-muted-foreground">短视频、流量爆款、年轻用户</p>
+                                                               <p className="text-xs text-muted-foreground">当前已关闭（暂不采集）</p>
                                                         </div>
                                                  </div>
                                                  <Switch
-                                                        checked={localSettings.enableDouyin}
-                                                        onCheckedChange={(checked) => setLocalSettings(s => ({ ...s, enableDouyin: checked }))}
+                                                        checked={false}
+                                                        disabled
                                                  />
                                           </div>
 

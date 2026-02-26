@@ -60,7 +60,8 @@ const defaultSettings: UserSettings = {
   tikhubToken: '',
   enableXiaohongshu: true,
   enableDouyin: false,
-  enableSelfCrawler: true,
+  // Global policy: social crawling is TikHub-only.
+  enableSelfCrawler: false,
   enableTikhubFallback: true,
   bochaApiKey: '',
   youApiKey: '',
@@ -84,7 +85,14 @@ export const useSettings = create<SettingsState>()(
       isSynced: false,
       lastSyncError: null,
 
-      updateSettings: (newSettings) => set((state) => ({ ...state, ...newSettings, isSynced: false })),
+      updateSettings: (newSettings) => set((state) => ({
+        ...state,
+        ...newSettings,
+        enableDouyin: false,
+        enableSelfCrawler: false,
+        enableTikhubFallback: true,
+        isSynced: false
+      })),
 
       resetSettings: () => set({ ...defaultSettings, isSynced: false }),
 
@@ -111,6 +119,9 @@ export const useSettings = create<SettingsState>()(
             const cloudSettings = { ...defaultSettings, ...data.settings };
             set({
               ...cloudSettings,
+              enableDouyin: false,
+              enableSelfCrawler: false,
+              enableTikhubFallback: true,
               isLoading: false,
               isSynced: true,
               lastSyncError: null
@@ -165,6 +176,13 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'user-settings',
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<SettingsState>),
+        enableDouyin: false,
+        enableSelfCrawler: false,
+        enableTikhubFallback: true,
+      }),
       // Only persist non-sensitive fields locally as backup
       partialize: (state) => ({
         llmFallbacks: state.llmFallbacks,

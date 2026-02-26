@@ -122,7 +122,6 @@ const Report = () => {
     if (!id || isRecrawling) return;
     setIsRecrawling(true);
     const token = settings.tikhubToken;
-    console.log(`[Recrawl] Token from settings: length=${token?.length}, prefix=${token?.slice(0, 8)}..., suffix=...${token?.slice(-6)}`);
     try {
       const { data: result, error } = await supabase.functions.invoke('recrawl-social', {
         body: {
@@ -130,9 +129,9 @@ const Report = () => {
           config: {
             tikhubToken: token,
             enableXiaohongshu: settings.enableXiaohongshu,
-            enableDouyin: settings.enableDouyin,
-            enableSelfCrawler: settings.enableSelfCrawler,
-            enableTikhubFallback: settings.enableTikhubFallback,
+            enableDouyin: false,
+            enableSelfCrawler: false,
+            enableTikhubFallback: true,
           }
         }
       });
@@ -146,7 +145,7 @@ const Report = () => {
       } else {
         toast({
           title: "未获取到数据",
-          description: result?.message || "请在设置中配置 TikHub Token 或确认自爬虫服务运行中",
+          description: result?.message || "请在设置中配置 TikHub Token 后重试",
           variant: "destructive",
         });
       }

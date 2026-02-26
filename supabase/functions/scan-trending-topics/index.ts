@@ -58,7 +58,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
   };
   
   try {
-    const searchUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page_num=1&page_size=5&sort_type=general`;
+    const searchUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
     const response = await fetch(searchUrl, {
       headers: { Authorization: `Bearer ${tikhubToken}` },
     });
@@ -69,7 +69,9 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
     }
     
     const data = await response.json();
-    const notes = data.data?.items || [];
+    const payload = data?.data?.data || data?.data || {};
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const notes = items.map((item: any) => item?.note || item);
     
     if (notes.length === 0) return emptyResult;
     
@@ -81,7 +83,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
     
     for (const note of notes) {
       totalLikes += note.liked_count || 0;
-      totalComments += note.comment_count || 0;
+      totalComments += note.comments_count || note.comment_count || 0;
       totalCollects += note.collected_count || 0;
       
       // Extract hashtags from title/desc
@@ -98,7 +100,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
     // Fetch a few comments
     if (notes.length > 0) {
       try {
-        const noteId = notes[0].note_id;
+        const noteId = notes[0].id || notes[0].note_id;
         if (noteId) {
           const commentsUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${noteId}&cursor=`;
           const commentsRes = await fetch(commentsUrl, {
@@ -106,11 +108,11 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
           });
           if (commentsRes.ok) {
             const commentsData = await commentsRes.json();
-            const commentsList = commentsData.data?.comments || [];
+            const commentsList = commentsData?.data?.data?.comments || commentsData?.data?.comments || [];
             for (const c of commentsList.slice(0, 10)) {
               allComments.push({
                 content: c.content || "",
-                user_nickname: c.user_info?.nickname,
+                user_nickname: c.user?.nickname || c.user_info?.nickname,
               });
             }
           }
@@ -123,7 +125,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
     return {
       success: true,
       platform: 'xiaohongshu',
-      totalPosts: notes.length,
+      totalPosts: Math.max(Number(payload.total || 0), notes.length),
       avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
       avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
       avgCollects: notes.length > 0 ? Math.round(totalCollects / notes.length) : 0,
@@ -163,7 +165,13 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
     }
     
     const data = await response.json();
-    const videos = data.data?.data || [];
+    const payload = data?.data?.data || data?.data || {};
+    const awemeList = Array.isArray(payload)
+      ? payload
+      : (Array.isArray(payload.aweme_list)
+        ? payload.aweme_list
+        : (Array.isArray(payload.data) ? payload.data : []));
+    const videos = awemeList.map((item: any) => item?.aweme_info || item);
     
     if (videos.length === 0) return emptyResult;
     
@@ -173,12 +181,12 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
     const relatedTags: string[] = [];
     
     for (const video of videos) {
-      const stats = video.aweme_info?.statistics || {};
+      const stats = video.statistics || {};
       totalLikes += stats.digg_count || 0;
       totalComments += stats.comment_count || 0;
       
       // Extract hashtags
-      const challenges = video.aweme_info?.text_extra || [];
+      const challenges = video.text_extra || [];
       for (const c of challenges) {
         if (c.hashtag_name && c.hashtag_name !== keyword && !relatedTags.includes(c.hashtag_name)) {
           relatedTags.push(c.hashtag_name);
@@ -189,7 +197,7 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
     // Fetch comments from first video
     if (videos.length > 0) {
       try {
-        const awemeId = videos[0].aweme_info?.aweme_id;
+        const awemeId = videos[0].aweme_id;
         if (awemeId) {
           const commentsUrl = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${awemeId}&count=10&cursor=0`;
           const commentsRes = await fetch(commentsUrl, {
@@ -197,7 +205,7 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
           });
           if (commentsRes.ok) {
             const commentsData = await commentsRes.json();
-            const commentsList = commentsData.data?.comments || [];
+            const commentsList = commentsData?.data?.data?.comments || commentsData?.data?.comments || [];
             for (const c of commentsList.slice(0, 10)) {
               allComments.push({
                 content: c.text || "",
@@ -302,17 +310,17 @@ function analyzeSentiment(comments: { content: string }[]): { positive: number; 
 async function scanKeyword(
   keyword: string,
   category: string,
-  tikhubToken: string
+  tikhubToken?: string
 ): Promise<TrendingTopicData | null> {
   console.log(`[Scan] Scanning keyword: ${keyword} (${category})`);
+  if (!tikhubToken) {
+    console.log(`[Scan] Skip keyword ${keyword}: TikHub token unavailable`);
+    return null;
+  }
   
-  // Crawl both platforms in parallel
-  const [xhsResult, dyResult] = await Promise.all([
-    crawlXiaohongshu(keyword, tikhubToken),
-    crawlDouyin(keyword, tikhubToken),
-  ]);
-  
-  const validResults = [xhsResult, dyResult].filter(r => r.success);
+  // Global policy: Douyin crawl is disabled, only crawl Xiaohongshu.
+  const xhsResult = await crawlXiaohongshu(keyword, tikhubToken);
+  const validResults = [xhsResult].filter(r => r.success);
   
   if (validResults.length === 0) {
     console.log(`[Scan] No valid results for ${keyword}`);
@@ -455,6 +463,13 @@ Deno.serve(async (req) => {
     
     const body = await req.json().catch(() => ({}));
     const { categories, maxPerCategory = 2, includeDynamicKeywords = true } = body;
+
+    if (!tikhubToken) {
+      return new Response(
+        JSON.stringify({ success: true, added: 0, message: "TikHub token unavailable for system scan; skipped social crawling" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
     // Determine which categories to scan
     const categoriesToScan = categories && Array.isArray(categories)

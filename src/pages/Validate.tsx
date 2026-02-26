@@ -270,7 +270,7 @@ const Validate = () => {
     }
 
     // Check if user has TikHub token configured
-    if (!hasOwnTikhub && !settings.enableSelfCrawler) {
+    if (!hasOwnTikhub) {
       toast({
         title: "请先配置 TikHub Token",
         description: "需要在设置中配置您的 TikHub API Token 才能使用验证功能",
@@ -315,10 +315,9 @@ const Validate = () => {
           // Only pass TikHub token if user has configured their own
           tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
           enableXiaohongshu: settings.enableXiaohongshu,
-          enableDouyin: settings.enableDouyin,
-          enableSelfCrawler: settings.enableSelfCrawler,
-          // Allow "self-crawler first, then fallback" for both quick/deep.
-          enableTikhubFallback: settings.enableTikhubFallback,
+          enableDouyin: false,
+          enableSelfCrawler: false,
+          enableTikhubFallback: true,
           searchKeys: {
             bocha: settings.bochaApiKey,
             you: settings.youApiKey,
@@ -794,7 +793,7 @@ const Validate = () => {
             ) : (
               <div className="space-y-3">
                 {/* TikHub Token Reminder */}
-                {!hasOwnTikhub && !settings.enableSelfCrawler && (
+                {!hasOwnTikhub && (
                   <div className="flex items-center justify-center gap-2 text-sm">
                     <span className="flex items-center gap-1 text-warning">
                       <AlertTriangle className="w-4 h-4" />

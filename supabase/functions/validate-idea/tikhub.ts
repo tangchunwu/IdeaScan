@@ -53,7 +53,7 @@ export async function searchNotes(
               keyword: keyword,
               page: String(page),
               sort: sort,
-              noteType: "_0" // all types
+              note_type: "0" // all types
        });
 
        try {
@@ -135,8 +135,10 @@ export async function searchNotes(
 export async function getNoteComments(
        authToken: string,
        noteId: string,
-       limit: number = 20
+       limit: number = 20,
+       retryCount: number = 0
 ): Promise<TikhubCommentsResult> {
+       const maxRetries = 3;
        const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/web/get_note_comments`;
 
        const response = await fetch(`${url}?note_id=${noteId}`, {
@@ -150,8 +152,11 @@ export async function getNoteComments(
 
        if (response.status === 429) {
               console.warn("Tikhub rate limit hit for comments, waiting...");
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              return getNoteComments(authToken, noteId, limit);
+              if (retryCount < maxRetries) {
+                     await new Promise(resolve => setTimeout(resolve, 5000));
+                     return getNoteComments(authToken, noteId, limit, retryCount + 1);
+              }
+              return { success: false, comments: [], total_count: 0 };
        }
 
        if (!response.ok) {
