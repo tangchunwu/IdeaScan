@@ -180,6 +180,7 @@ interface ImportResult {
     validations: Record<string, string>;
     mvp_landing_pages: Record<string, string>;
     trending_topics: Record<string, string>;
+    demand_experiments: Record<string, string>;
   };
 }
 
