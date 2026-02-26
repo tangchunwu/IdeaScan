@@ -177,12 +177,12 @@ export function validateSearchProvider(value: unknown): "bocha" | "you" | "tavil
 /**
  * Validate config type for verify-config
  */
-export function validateConfigType(value: unknown): "llm" | "image_gen" | "search" {
-  const types = ["llm", "image_gen", "search"] as const;
+export function validateConfigType(value: unknown): "llm" | "image_gen" | "search" | "tikhub" {
+  const types = ["llm", "image_gen", "search", "tikhub"] as const;
   if (typeof value !== "string" || !types.includes(value as any)) {
-    throw new ValidationError("Invalid config type. Must be 'llm', 'image_gen', or 'search'");
+    throw new ValidationError("Invalid config type. Must be 'llm', 'image_gen', 'search', or 'tikhub'");
   }
-  return value as "llm" | "image_gen" | "search";
+  return value as "llm" | "image_gen" | "search" | "tikhub";
 }
 
 /**

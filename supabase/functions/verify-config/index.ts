@@ -191,6 +191,43 @@ serve(async (req) => {
         isValid = false;
         message = "Connection failed. Please check your network and try again.";
       }
+    } else if (type === 'tikhub') {
+      try {
+        // Test TikHub API with a simple search query
+        const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
+        console.log(`[TikHub Test] Calling: ${testUrl}`);
+        console.log(`[TikHub Test] Token (first 10 chars): ${apiKey.slice(0, 10)}...`);
+        
+        const res = await fetch(testUrl, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(15000),
+        });
+        
+        const resText = await res.text();
+        console.log(`[TikHub Test] Status: ${res.status}, Body (first 300): ${resText.slice(0, 300)}`);
+        
+        if (res.ok) {
+          let noteCount = 0;
+          try {
+            const data = JSON.parse(resText);
+            noteCount = data?.data?.data?.items?.length || 0;
+          } catch {}
+          isValid = true;
+          message = `TikHub API 连接成功！搜索返回 ${noteCount} 条笔记`;
+        } else if (res.status === 401) {
+          isValid = false;
+          message = `TikHub API Token 无效 (401)。响应: ${resText.slice(0, 200)}`;
+        } else {
+          isValid = false;
+          message = `TikHub API 返回错误 (${res.status}): ${resText.slice(0, 200)}`;
+        }
+      } catch (e: any) {
+        isValid = false;
+        const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+        message = isTimeout 
+          ? 'TikHub API 连接超时 (15s)，Edge Function 可能无法访问 api.tikhub.io'
+          : `TikHub API 连接失败: ${String(e).slice(0, 150)}`;
+      }
     } else if (type === 'search') {
       if (provider === 'bocha') {
         try {
