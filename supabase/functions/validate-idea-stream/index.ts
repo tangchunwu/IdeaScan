@@ -1198,6 +1198,9 @@ Deno.serve(async (req) => {
               }, 6000);
               const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
                 .finally(() => clearInterval(fallbackXhsHeartbeat));
+              if ((xhsData as any).error && xhsData.totalNotes === 0) {
+                await sendEvent({ event: "progress", stage: "crawl_xhs", progress: 25, message: `⚠️ ${(xhsData as any).error}`, meta: { warning: true } });
+              }
               socialData.totalNotes += xhsData.totalNotes;
               socialData.avgLikes += xhsData.avgLikes;
               socialData.avgComments += xhsData.avgComments;
@@ -1225,6 +1228,9 @@ Deno.serve(async (req) => {
               }, 6000);
               const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
                 .finally(() => clearInterval(fallbackDyHeartbeat));
+              if ((dyData as any).error && dyData.totalNotes === 0) {
+                await sendEvent({ event: "progress", stage: "crawl_dy", progress: 40, message: `⚠️ ${(dyData as any).error}`, meta: { warning: true } });
+              }
               socialData.totalNotes += dyData.totalNotes;
               socialData.avgLikes += dyData.avgLikes;
               socialData.avgComments += dyData.avgComments;
@@ -2137,8 +2143,8 @@ function shortenKeywordForTikhub(raw: string): string[] {
 async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 20000 : 12000;
-  const commentTimeoutMs = mode === "deep" ? 15000 : 8000;
+  const searchTimeoutMs = mode === "deep" ? 30000 : 20000;
+  const commentTimeoutMs = mode === "deep" ? 20000 : 12000;
   const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   // Build comprehensive keyword variants from primary + extra keywords
@@ -2201,14 +2207,19 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       }
 
       break; // Found results, no need to try more variants
-    } catch (e) {
+    } catch (e: any) {
+      const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError' || String(e).includes('timed out') || String(e).includes('aborted');
+      if (isTimeout) {
+        console.error(`[XHS Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms`);
+        return { ...emptyResult, apiCalls, error: `小红书数据抓取超时（${Math.round(searchTimeoutMs / 1000)}s），请检查网络或稍后重试` };
+      }
       console.warn(`[XHS Simple] Error for "${kw}":`, e);
     }
   }
 
   if (allItems.length === 0) {
     console.warn(`[XHS Simple] All keyword variants returned 0 results`);
-    return { ...emptyResult, apiCalls };
+    return { ...emptyResult, apiCalls, error: '小红书搜索未返回任何数据，请尝试更换关键词' };
   }
 
   const maxNotes = mode === "deep" ? 20 : 8;
@@ -2274,8 +2285,8 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
 async function crawlDouyinSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 12000 : 6000;
-  const commentTimeoutMs = mode === "deep" ? 10000 : 5000;
+  const searchTimeoutMs = mode === "deep" ? 30000 : 20000;
+  const commentTimeoutMs = mode === "deep" ? 20000 : 12000;
   const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
@@ -2308,14 +2319,19 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
       awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
       console.log(`[Douyin Simple] Keyword "${kw}" returned ${awemeList.length} videos`);
       if (awemeList.length > 0) break;
-    } catch (e) {
+    } catch (e: any) {
+      const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError' || String(e).includes('timed out') || String(e).includes('aborted');
+      if (isTimeout) {
+        console.error(`[Douyin Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms`);
+        return { ...emptyResult, apiCalls, error: `抖音数据抓取超时（${Math.round(searchTimeoutMs / 1000)}s），请检查网络或稍后重试` };
+      }
       console.warn(`[Douyin Simple] Error for "${kw}":`, e);
     }
   }
 
   if (awemeList.length === 0) {
     console.warn(`[Douyin Simple] All keyword variants returned 0 results`);
-    return { ...emptyResult, apiCalls };
+    return { ...emptyResult, apiCalls, error: '抖音搜索未返回任何数据，请尝试更换关键词' };
   }
 
   const maxVideos = mode === "deep" ? 20 : 6;
