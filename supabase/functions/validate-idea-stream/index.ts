@@ -2137,8 +2137,8 @@ function shortenKeywordForTikhub(raw: string): string[] {
 async function crawlXhsSimple(keyword: string, token: string, mode: string, extraKeywords?: string[]) {
   const emptyResult = { totalNotes: 0, avgLikes: 0, avgComments: 0, sampleNotes: [], sampleComments: [], apiCalls: 0 };
   let apiCalls = 0;
-  const searchTimeoutMs = mode === "deep" ? 15000 : 6000;
-  const commentTimeoutMs = mode === "deep" ? 12000 : 5000;
+  const searchTimeoutMs = mode === "deep" ? 20000 : 12000;
+  const commentTimeoutMs = mode === "deep" ? 15000 : 8000;
   const maxKeywordVariants = mode === "deep" ? 8 : 2;
 
   // Build comprehensive keyword variants from primary + extra keywords
