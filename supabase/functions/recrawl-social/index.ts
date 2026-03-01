@@ -24,12 +24,17 @@ interface RecrawlRequest {
   };
 }
 
-async function fetchWithRetry(url: string, headers: Record<string, string>, maxRetries = 0): Promise<any> {
+async function fetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  maxRetries = 0,
+  timeoutMs = 45000,
+): Promise<{ status: number; data: any } | null> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const resp = await fetch(url, { headers });
-      console.log(`[TikHub] Attempt ${attempt + 1}: status=${resp.status} for ${url.slice(0, 80)}`);
-      
+      const resp = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+      console.log(`[TikHub] Attempt ${attempt + 1}: status=${resp.status} for ${url.slice(0, 120)}`);
+
       const contentType = resp.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const text = await resp.text();
@@ -37,35 +42,88 @@ async function fetchWithRetry(url: string, headers: Record<string, string>, maxR
         if (attempt < maxRetries) {
           const delay = 2000 * (attempt + 1);
           console.log(`[TikHub] Retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         return null;
       }
-      
+
       if (resp.status === 504 || resp.status === 502 || resp.status === 503) {
-        await resp.text(); // consume body
+        await resp.text();
         if (attempt < maxRetries) {
           const delay = 2000 * (attempt + 1);
           console.log(`[TikHub] Server error ${resp.status}, retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         return null;
       }
-      
+
       const data = await resp.json();
       return { status: resp.status, data };
     } catch (e) {
-      console.error(`[TikHub] Attempt ${attempt + 1} error:`, e);
+      const timeoutLike = String((e as Error)?.name || "").includes("Timeout") || String(e).toLowerCase().includes("timeout") || String(e).toLowerCase().includes("aborted");
+      console.error(`[TikHub] Attempt ${attempt + 1} ${timeoutLike ? "timeout" : "error"}:`, e);
       if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
         continue;
       }
       return null;
     }
   }
   return null;
+}
+
+const KEYWORD_NOISE_TERMS = ["做一个", "做一款", "做个", "我想做", "我要做", "面向", "针对", "用于", "帮助", "给", "平台", "系统", "工具", "项目", "应用", "软件"] as const;
+
+function normalizeKeyword(input: string): string {
+  return String(input || "")
+    .replace(/[：:，,。！？!?；;"'`]+/g, " ")
+    .replace(/[【】\[\]（）()<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 24);
+}
+
+function buildKeywordVariants(input: string): string[] {
+  const normalized = normalizeKeyword(input);
+  if (!normalized) return [];
+
+  let deNoised = normalized;
+  for (const term of KEYWORD_NOISE_TERMS) {
+    deNoised = deNoised.split(term).join(" ");
+  }
+  deNoised = deNoised.replace(/\s+/g, " ").trim() || normalized;
+
+  const variants: string[] = [];
+  const push = (v: string) => {
+    const s = normalizeKeyword(v);
+    if (!s || s.length < 2) return;
+    variants.push(s);
+  };
+
+  push(deNoised);
+  const zhChunks = deNoised.match(/[\u4e00-\u9fff]{2,}/g) || [];
+  for (const chunk of zhChunks.slice(0, 8)) {
+    if (chunk.length <= 10) {
+      push(chunk);
+    } else {
+      push(chunk.slice(0, 10));
+      push(chunk.slice(-10));
+      push(chunk.slice(2, 12));
+    }
+  }
+
+  const enTokens = deNoised.match(/[A-Za-z][A-Za-z0-9+.-]{1,20}/g) || [];
+  for (const token of enTokens.slice(0, 6)) push(token);
+
+  const seen = new Set<string>();
+  return variants.filter((item) => {
+    const key = item.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean, enableDy: boolean) {
@@ -78,18 +136,26 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
 
   // Xiaohongshu
   if (enableXhs) {
-    try {
-      const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
-      console.log(`[TikHub-XHS] Requesting: ${url}`);
-      const result = await fetchWithRetry(url, headers, 1);
-      if (!result?.data) {
-        console.error("[TikHub-XHS] All retries failed");
-      } else {
+    const keywordVariants = buildKeywordVariants(keyword).slice(0, 6);
+    console.log(`[TikHub-XHS] Keyword variants: ${JSON.stringify(keywordVariants)}`);
+
+    for (const kw of keywordVariants) {
+      try {
+        const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
+        console.log(`[TikHub-XHS] Requesting: ${url}`);
+        const result = await fetchWithRetry(url, headers, 1, 45000);
+        if (!result?.data) {
+          console.error(`[TikHub-XHS] All retries failed for keyword: ${kw}`);
+          continue;
+        }
+
         const data = result.data;
         const payload = data?.data?.data || data?.data || {};
         const items = Array.isArray(payload.items) ? payload.items : [];
         const notes = items.map((item: any) => item?.note || item);
-        console.log(`[TikHub-XHS] Found ${notes.length} notes`);
+        console.log(`[TikHub-XHS] Keyword "${kw}" found ${notes.length} notes`);
+
+        if (notes.length === 0) continue;
 
         for (const note of notes.slice(0, 14)) {
           const noteId = String(note.id || note.note_id || "");
@@ -110,6 +176,7 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
             `${TIKHUB_BASE}/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(noteId)}`,
             headers,
             1,
+            45000,
           );
           const commentPayload = commentsResult?.data?.data?.data || commentsResult?.data?.data || {};
           const comments = Array.isArray(commentPayload.comments) ? commentPayload.comments : [];
@@ -124,9 +191,11 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
             });
           }
         }
+
+        if (sampleNotes.length > 0) break;
+      } catch (e) {
+        console.error(`[TikHub-XHS] Error for keyword "${kw}":`, e);
       }
-    } catch (e) {
-      console.error("[TikHub-XHS] Error:", e);
     }
   }
 
@@ -262,32 +331,15 @@ serve(async (req) => {
 
     const idea = validation.idea;
     const tags = validation.tags || [];
-    // Build keyword candidates: prioritize short, generic terms
-    // Strip special chars and split into shorter tokens
-    const cleanTag = (t: string) => t.replace(/[「」【】（）\(\)\+\-\/\s]+/g, ' ').trim();
-    const shortTokens = tags
-      .flatMap((t: string) => {
-        const cleaned = cleanTag(t);
-        // Split long tags into 2-4 char segments
-        const parts = cleaned.split(/\s+/).filter((p: string) => p.length >= 2);
-        return [cleaned.slice(0, 8), ...parts.slice(0, 3)];
-      })
-      .filter(Boolean);
-    
-    // Also extract simple terms from the idea
-    const ideaTokens = idea.replace(/[「」【】（）\(\)\+\-\/]+/g, ' ')
-      .split(/\s+/)
-      .filter((t: string) => t.length >= 2 && t.length <= 8)
-      .slice(0, 3);
 
     const keywordCandidates = [
-      ...shortTokens,
-      ...ideaTokens,
-      ...tags.map((t: string) => cleanTag(t).slice(0, 10)),
-      idea.slice(0, 10),
+      ...tags.flatMap((t: string) => buildKeywordVariants(t)),
+      ...buildKeywordVariants(idea),
+      normalizeKeyword(idea.split(/[。！？!?；;\n]/)[0] || idea),
     ].filter(Boolean);
-    // Deduplicate and limit to 2 keywords in recrawl to minimize API spend
-    const uniqueKeywords = [...new Set(keywordCandidates)].slice(0, 2);
+
+    // Deduplicate + keep more candidates to avoid single bad keyword causing 400/0 data
+    const uniqueKeywords = Array.from(new Set(keywordCandidates)).slice(0, 6);
 
     const enableXhs = config?.enableXiaohongshu !== false;
     const enableDy = false;

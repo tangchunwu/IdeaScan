@@ -661,21 +661,93 @@ function getSocialSampleCounts(socialData: any): { notes: number; comments: numb
   };
 }
 
+const CRAWL_NOISE_TERMS = [
+  "做一个",
+  "做一款",
+  "做个",
+  "我想做",
+  "我要做",
+  "面向",
+  "针对",
+  "用于",
+  "帮助",
+  "给",
+  "平台",
+  "系统",
+  "工具",
+  "项目",
+  "应用",
+  "软件",
+] as const;
+
 function normalizeKeywordForSearch(raw: string): string {
   return String(raw || "")
     .replace(/[：:，,。！？!?；;"'`]+/g, " ")
+    .replace(/[【】\[\]（）()<>]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 18);
+    .slice(0, 24);
+}
+
+function stripCrawlNoise(raw: string): string {
+  let output = normalizeKeywordForSearch(raw);
+  for (const term of CRAWL_NOISE_TERMS) {
+    output = output.split(term).join(" ");
+  }
+  return output.replace(/\s+/g, " ").trim();
+}
+
+function extractCrawlKeywordVariants(raw: string): string[] {
+  const source = stripCrawlNoise(raw) || normalizeKeywordForSearch(raw);
+  if (!source) return [];
+
+  const variants: string[] = [];
+  const push = (value: string) => {
+    const normalized = normalizeKeywordForSearch(value);
+    if (!normalized || normalized.length < 2) return;
+    variants.push(normalized);
+  };
+
+  push(source);
+
+  const zhChunks = source.match(/[\u4e00-\u9fff]{2,}/g) || [];
+  for (const chunk of zhChunks.slice(0, 8)) {
+    if (chunk.length <= 10) {
+      push(chunk);
+      continue;
+    }
+    push(chunk.slice(0, 10));
+    push(chunk.slice(-10));
+    if (chunk.length >= 6) {
+      push(chunk.slice(2, Math.min(chunk.length, 12)));
+    }
+  }
+
+  const enTokens = source.match(/[A-Za-z][A-Za-z0-9+.-]{1,20}/g) || [];
+  for (const token of enTokens.slice(0, 6)) {
+    push(token);
+  }
+
+  const seen = new Set<string>();
+  return variants.filter((item) => {
+    const key = item.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function compactKeywordForCrawl(raw: string): string {
-  const normalized = normalizeKeywordForSearch(raw);
-  if (!normalized) return "";
-  const zh = normalized.replace(/[^\u4e00-\u9fff]/g, "");
-  if (zh.length >= 3) return zh.slice(0, Math.min(10, zh.length));
-  const en = (normalized.match(/[A-Za-z0-9+.-]+/g) || []).join(" ");
-  return (en || normalized).slice(0, 16).trim();
+  const variants = extractCrawlKeywordVariants(raw);
+  if (variants.length === 0) return "";
+
+  const zhPreferred = variants.find((item) => /[\u4e00-\u9fff]{2,}/.test(item));
+  if (zhPreferred) {
+    const onlyZh = zhPreferred.replace(/[^\u4e00-\u9fff]/g, "").trim();
+    return (onlyZh || zhPreferred).slice(0, 10);
+  }
+
+  return variants[0].slice(0, 16).trim();
 }
 
 function isKeywordNearDuplicate(candidate: string, existing: string): boolean {
@@ -1200,7 +1272,7 @@ Deno.serve(async (req) => {
                   meta: { branch: "tikhub_fallback", selfRetryCount },
                 });
               }, 6000);
-              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
+              const xhsData = await crawlXhsSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 5 : 8))
                 .finally(() => clearInterval(fallbackXhsHeartbeat));
               if ((xhsData as any).error && xhsData.totalNotes === 0) {
                 await sendEvent({ event: "progress", stage: "crawl_xhs", progress: 25, message: `⚠️ ${(xhsData as any).error}`, meta: { warning: true } });
@@ -1230,7 +1302,7 @@ Deno.serve(async (req) => {
                   meta: { branch: "tikhub_fallback", selfRetryCount },
                 });
               }, 6000);
-              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 2 : 5))
+              const dyData = await crawlDouyinSimple(xhsSearchTerm, tikhubToken, mode, crawlKeywords.slice(1, lowCostMode ? 4 : 8))
                 .finally(() => clearInterval(fallbackDyHeartbeat));
               if ((dyData as any).error && dyData.totalNotes === 0) {
                 await sendEvent({ event: "progress", stage: "crawl_dy", progress: 40, message: `⚠️ ${(dyData as any).error}`, meta: { warning: true } });
@@ -1898,49 +1970,44 @@ Deno.serve(async (req) => {
 
 // ============ Helper Functions ============
 
-async function expandKeywordsSimple(idea: string, tags: string[], config: RequestConfig): Promise<string[]> {
+async function expandKeywordsSimple(idea: string, tags: string[], _config: RequestConfig): Promise<string[]> {
   const source = String(idea || "").trim();
   const candidates: string[] = [];
   const push = (value: string) => {
-    const s = normalizeKeywordForSearch(String(value || "").trim().replace(/\s+/g, " "));
-    if (!s) return;
-    candidates.push(s.slice(0, 20));
+    const normalized = normalizeKeywordForSearch(String(value || "").trim().replace(/\s+/g, " "));
+    if (!normalized) return;
+    candidates.push(normalized.slice(0, 24));
   };
 
   if (Array.isArray(tags)) {
-    for (const tag of tags) push(tag);
+    for (const tag of tags) {
+      push(tag);
+      for (const variant of extractCrawlKeywordVariants(tag)) push(variant);
+    }
   }
 
-  // 原文首句
+  // 原文首句 + 分段
   push(source.split(/[。！？!?；;\n]/)[0] || source);
-
-  // 按标点切句取前几段
   const segments = source
     .split(/[：:，,。！？!?；;\n]/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 2);
-  for (const seg of segments.slice(0, 6)) push(seg);
+  for (const seg of segments.slice(0, 8)) push(seg);
 
-  // 中文连续串拆分 2~8 字短词，提高搜索召回
-  const zh = source.replace(/[^\u4e00-\u9fff]/g, "");
-  if (zh.length >= 4) {
-    const lens = [8, 6, 4, 3];
-    for (const len of lens) {
-      for (let i = 0; i + len <= zh.length && i < 10; i += Math.max(1, Math.floor(len / 2))) {
-        push(zh.slice(i, i + len));
-      }
-    }
+  // 提取更可检索的关键词变体（去掉“做一个/平台”等噪音）
+  for (const variant of extractCrawlKeywordVariants(source)) {
+    push(variant);
   }
 
   // 常见英文 token
   const enTokens = source.match(/[A-Za-z][A-Za-z0-9+-]{1,20}/g) || [];
-  for (const t of enTokens.slice(0, 8)) push(t);
+  for (const token of enTokens.slice(0, 8)) push(token);
 
   const unique: string[] = [];
   for (const item of candidates) {
     if (unique.some((x) => isKeywordNearDuplicate(item, x))) continue;
     unique.push(item);
-    if (unique.length >= 10) break;
+    if (unique.length >= 12) break;
   }
   return unique.length > 0 ? unique : [normalizeKeywordForSearch(source) || "创业想法"];
 }
@@ -2149,7 +2216,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
   let apiCalls = 0;
   const searchTimeoutMs = 120000; // 120s — no premature timeout; let the API respond
   const commentTimeoutMs = 60000; // 60s per comment fetch
-  const maxKeywordVariants = mode === "deep" ? 8 : 2;
+  const maxKeywordVariants = mode === "deep" ? 10 : 5;
 
   // Build comprehensive keyword variants from primary + extra keywords
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
@@ -2214,8 +2281,8 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     } catch (e: any) {
       const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError' || String(e).includes('timed out') || String(e).includes('aborted');
       if (isTimeout) {
-        console.error(`[XHS Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms`);
-        return { ...emptyResult, apiCalls, error: `小红书数据抓取超时（${Math.round(searchTimeoutMs / 1000)}s），请检查网络或稍后重试` };
+        console.error(`[XHS Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms, continue next keyword...`);
+        continue;
       }
       console.warn(`[XHS Simple] Error for "${kw}":`, e);
     }
@@ -2291,7 +2358,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
   let apiCalls = 0;
   const searchTimeoutMs = 120000; // 120s — no premature timeout
   const commentTimeoutMs = 60000; // 60s per comment fetch
-  const maxKeywordVariants = mode === "deep" ? 8 : 2;
+  const maxKeywordVariants = mode === "deep" ? 10 : 5;
 
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
   const variantSet = new Set<string>();
@@ -2326,8 +2393,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     } catch (e: any) {
       const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError' || String(e).includes('timed out') || String(e).includes('aborted');
       if (isTimeout) {
-        console.error(`[Douyin Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms`);
-        return { ...emptyResult, apiCalls, error: `抖音数据抓取超时（${Math.round(searchTimeoutMs / 1000)}s），请检查网络或稍后重试` };
+        console.error(`[Douyin Simple] ⏱ TIMEOUT for "${kw}" after ${searchTimeoutMs}ms, continue next keyword...`);
+        continue;
       }
       console.warn(`[Douyin Simple] Error for "${kw}":`, e);
     }
