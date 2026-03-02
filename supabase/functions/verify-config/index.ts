@@ -217,9 +217,9 @@ serve(async (req) => {
           const balance = userInfo?.data?.user_balance || userInfo?.user_balance || 'N/A';
           console.log(`[TikHub Test] Token valid. Balance: ${JSON.stringify(balance)}`);
           
-          // Step 2: Test App V2 search endpoint (recommended by TikHub)
-          console.log(`[TikHub Test] Step 2: Testing App V2 search...`);
-          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app/v2/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
+          // Step 2: Test App search endpoint (recommended by TikHub)
+          console.log(`[TikHub Test] Step 2: Testing App search...`);
+          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
           const searchRes = await fetch(testUrl, {
             headers: { 'Authorization': `Bearer ${apiKey}` },
             signal: AbortSignal.timeout(15000),

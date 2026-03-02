@@ -2415,7 +2415,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     if (allItems.length >= 10) break; // enough notes already
     keywordAttempts += 1;
     try {
-      const url = `https://api.tikhub.io/api/v1/xiaohongshu/app/v2/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
+      const url = `https://api.tikhub.io/api/v1/xiaohongshu/app/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
       const res = await fetchTikhubWithRetry(url, token, {
         timeoutMs: searchTimeoutMs,
         maxRetries: maxSearchRetries,
@@ -2441,7 +2441,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       // Page 2 only in deep mode to reduce cost/time in quick mode
       if (mode === "deep") {
         try {
-          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/app/v2/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&note_type=0`;
+          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/app/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&note_type=0`;
           const res2 = await fetchTikhubWithRetry(url2, token, {
             timeoutMs: searchTimeoutMs,
             maxRetries: 3,
@@ -2491,7 +2491,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     if (!note.note_id) continue;
     try {
       const commentRes = await fetchTikhubWithRetry(
-        `https://api.tikhub.io/api/v1/xiaohongshu/app/v2/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
+        `https://api.tikhub.io/api/v1/xiaohongshu/app/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
         token,
         {
           timeoutMs: commentTimeoutMs,
