@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface RecrawlRequest {
@@ -34,6 +34,13 @@ async function fetchWithRetry(
     try {
       const resp = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
       console.log(`[TikHub] Attempt ${attempt + 1}: status=${resp.status} for ${url.slice(0, 120)}`);
+      
+      // Log response body for non-200 status to debug 400 errors
+      if (resp.status >= 400 && resp.status < 500) {
+        const errText = await resp.text();
+        console.error(`[TikHub] ${resp.status} response body: ${errText.slice(0, 500)}`);
+        return { status: resp.status, data: null };
+      }
 
       const contentType = resp.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
