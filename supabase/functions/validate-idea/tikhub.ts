@@ -48,7 +48,7 @@ export async function searchNotes(
        retryCount: number = 0
 ): Promise<TikhubSearchResult> {
        const maxRetries = 3;
-       const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/app/v2/search_notes`;
+       const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/app/search_notes`;
        const params = new URLSearchParams({
               keyword: keyword,
               page: String(page),
@@ -139,7 +139,7 @@ export async function getNoteComments(
        retryCount: number = 0
 ): Promise<TikhubCommentsResult> {
        const maxRetries = 3;
-       const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/app/v2/get_note_comments`;
+       const url = `${TIKHUB_BASE_URL}/api/v1/xiaohongshu/app/get_note_comments`;
 
        const response = await fetch(`${url}?note_id=${noteId}`, {
               method: "GET",
