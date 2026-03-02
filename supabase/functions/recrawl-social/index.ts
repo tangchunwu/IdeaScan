@@ -136,6 +136,8 @@ function buildKeywordVariants(input: string): string[] {
 async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean, enableDy: boolean) {
   const TIKHUB_BASE = "https://api.tikhub.io";
   const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+  const maskedToken = token.length > 12 ? `${token.slice(0, 8)}...${token.slice(-4)}` : '***';
+  console.log(`[TikHub] Using token: ${maskedToken}`);
   
   const sampleNotes: any[] = [];
   const sampleComments: any[] = [];
@@ -148,7 +150,7 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
 
     for (const kw of keywordVariants) {
       try {
-        const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
+        const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/app/v2/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
         console.log(`[TikHub-XHS] Requesting: ${url}`);
         const result = await fetchWithRetry(url, headers, 1, 45000);
         if (!result?.data) {
@@ -180,7 +182,7 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
 
           if (!noteId || sampleComments.length >= 60) continue;
           const commentsResult = await fetchWithRetry(
-            `${TIKHUB_BASE}/api/v1/xiaohongshu/web/get_note_comments?note_id=${encodeURIComponent(noteId)}`,
+            `${TIKHUB_BASE}/api/v1/xiaohongshu/app/v2/get_note_comments?note_id=${encodeURIComponent(noteId)}`,
             headers,
             1,
             45000,

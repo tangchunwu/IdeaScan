@@ -193,39 +193,63 @@ serve(async (req) => {
       }
     } else if (type === 'tikhub') {
       try {
-        // Test TikHub API with a simple search query
-        const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
-        console.log(`[TikHub Test] Calling: ${testUrl}`);
-        console.log(`[TikHub Test] Token (first 10 chars): ${apiKey.slice(0, 10)}...`);
+        const maskedToken = apiKey.length > 12 ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : '***';
+        console.log(`[TikHub Test] Token: ${maskedToken}`);
         
-        const res = await fetch(testUrl, {
+        // Step 1: Validate token via user info endpoint
+        console.log(`[TikHub Test] Step 1: Validating token via user info...`);
+        const userInfoRes = await fetch('https://api.tikhub.io/api/v1/tikhub/user/get_user_info', {
           headers: { 'Authorization': `Bearer ${apiKey}` },
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(10000),
         });
         
-        const resText = await res.text();
-        console.log(`[TikHub Test] Status: ${res.status}, Body (first 300): ${resText.slice(0, 300)}`);
-        
-        if (res.ok) {
-          let noteCount = 0;
-          try {
-            const data = JSON.parse(resText);
-            noteCount = data?.data?.data?.items?.length || 0;
-          } catch {}
-          isValid = true;
-          message = `TikHub API 连接成功！搜索返回 ${noteCount} 条笔记`;
-        } else if (res.status === 401) {
+        if (userInfoRes.status === 401) {
+          const errText = await userInfoRes.text();
+          console.log(`[TikHub Test] Token invalid (401): ${errText.slice(0, 200)}`);
           isValid = false;
-          message = `TikHub API Token 无效 (401)。响应: ${resText.slice(0, 200)}`;
+          message = `TikHub API Token 无效，请检查 Token 是否正确`;
+        } else if (!userInfoRes.ok) {
+          await userInfoRes.text();
+          isValid = false;
+          message = `TikHub 用户验证失败 (${userInfoRes.status})`;
         } else {
-          isValid = false;
-          message = `TikHub API 返回错误 (${res.status}): ${resText.slice(0, 200)}`;
+          const userInfo = await userInfoRes.json();
+          const balance = userInfo?.data?.user_balance || userInfo?.user_balance || 'N/A';
+          console.log(`[TikHub Test] Token valid. Balance: ${JSON.stringify(balance)}`);
+          
+          // Step 2: Test App V2 search endpoint (recommended by TikHub)
+          console.log(`[TikHub Test] Step 2: Testing App V2 search...`);
+          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app/v2/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
+          const searchRes = await fetch(testUrl, {
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(15000),
+          });
+          
+          const searchText = await searchRes.text();
+          console.log(`[TikHub Test] Search status: ${searchRes.status}, Body (first 300): ${searchText.slice(0, 300)}`);
+          
+          if (searchRes.ok) {
+            let noteCount = 0;
+            try {
+              const data = JSON.parse(searchText);
+              noteCount = data?.data?.data?.items?.length || 0;
+            } catch {}
+            isValid = true;
+            message = `TikHub API 连接成功！Token 有效，搜索返回 ${noteCount} 条笔记`;
+          } else if (searchRes.status === 400) {
+            // Token is valid but search service may be temporarily down
+            isValid = true;
+            message = `TikHub Token 有效，但小红书搜索服务暂时不可用 (400)，请稍后重试`;
+          } else {
+            isValid = false;
+            message = `TikHub 搜索测试失败 (${searchRes.status}): ${searchText.slice(0, 150)}`;
+          }
         }
       } catch (e: any) {
         isValid = false;
         const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
         message = isTimeout 
-          ? 'TikHub API 连接超时 (15s)，Edge Function 可能无法访问 api.tikhub.io'
+          ? 'TikHub API 连接超时，Edge Function 可能无法访问 api.tikhub.io'
           : `TikHub API 连接失败: ${String(e).slice(0, 150)}`;
       }
     } else if (type === 'search') {
