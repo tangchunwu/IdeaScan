@@ -1,72 +1,73 @@
 
 
-# README.md 规范化与产品路线图更新
+## Problem Analysis
 
-## 改动范围
+After thorough investigation of the TikHub API docs and codebase, I identified **two root causes**:
 
-仅修改一个文件：`README.md`
+### Root Cause 1: Using the wrong XHS API endpoint
 
-## 改动内容
+The code uses `/api/v1/xiaohongshu/web/search_notes` (Xiaohongshu **Web** API), but TikHub documentation marks **`Xiaohongshu App V2 API` as ⭐推荐 (Recommended)**. The Web API's scraping is unstable and consistently returns HTTP 400 ("Request failed, please retry") — this is TikHub's internal scraping failure, not a parameter issue.
 
-### 1. 结构规范化
+The 400 errors explain why the dashboard shows zero usage: TikHub likely doesn't count failed scrape attempts as billable API calls.
 
-当前 README 内容完整但结构略显冗长，将进行以下调整：
+### Root Cause 2: No token pre-validation
 
-- 顶部增加目录（Table of Contents），方便快速导航
-- 更新线上地址为正式域名 `https://ideascan.lovable.app`
-- 精简"从零开始运行"部分的冗余说明文字，保持关键步骤不变
-- 移除故障排查中提到的 "Supabase Dashboard" 字样，统一为"后端日志"
+There is no pre-flight check to verify the token is valid before attempting expensive search calls. We should call `/api/v1/tikhub/user/get_user_info` first to confirm the token works and the account has balance.
 
-### 2. 新增"产品路线图"章节
+### Root Cause 3: Missing token debug logging
 
-在"核心功能详解"和"常用开发命令"之间，新增 `## 🗺 产品路线图 (Roadmap)` 章节，内容分三个阶段：
-
-**当前已完成 (v1.0)**
-- 端到端需求验证（关键词扩展 -> 多平台抓取 -> AI 评分报告）
-- 热点雷达与个性化推荐
-- MVP 落地页一键生成 + Waitlist 线索收集
-- AI 专家团圆桌讨论
-- 竞品透视分析
-- 多 LLM 三级回退（用户自配 -> 服务端默认 -> Lovable AI）
-
-**近期规划 (v2.0) — 社媒数据库 + MVP 原型升级**
-- 引入社媒数据库：将每次验证抓取的社媒数据（小红书、抖音帖子/评论）持久化为结构化数据资产，而非用完即弃；支持跨验证复用、趋势回溯
-- MVP 原型增强：从静态落地页升级为可交互原型（支持多页面、表单流、模拟支付流程），更真实地测试用户意愿
-- 社媒发布闭环：验证完成后一键生成适配小红书、抖音等平台格式的推广内容（图文笔记、短视频脚本），直接发布或导出素材包
-- 邮件通知服务：Waitlist 提交后自动发送确认邮件给用户，同时通知创业者
-
-**远期愿景 (v3.0) — 全链路创业操作系统**
-- 狩猎雷达（The Hunter）：24 小时定时扫描特定圈层讨论，自动发现未被满足的需求，构建"潜在需求库"
-- 智能匹配：将发现的市场机会一键导入 MVP 生成器，直接生成落地页验证
-- 增长飞轮（Growth Pilot）：利用社媒发布能力自动为 MVP 导流，形成"发现 -> 验证 -> 落地 -> 增长"完整闭环
-- 高级主题与 SEO：动态 OG Image、多主题模板、搜索引擎优化
-
-### 3. 其他微调
-
-- "致谢"章节保持不变
-- License 保持不变
-- 移除"欢迎共建"中与内部 PR 流程相关的细节，精简为简洁的贡献指引
+The edge functions don't log which token is actually being used, making it impossible to verify the frontend-configured token matches what the backend receives.
 
 ---
 
-## 技术细节
+## Plan
 
-无代码逻辑变更，纯文档改动。改动后 README 预计约 500 行，结构为：
+### Task 1: Add token pre-validation and debug logging
+
+In both `validate-idea-stream` and `recrawl-social`:
+- Log the first 8 and last 4 characters of the token being used (e.g., `Token: ABCDabcd...wxyz`)
+- Before any XHS search, call `GET /api/v1/tikhub/user/get_user_info` with the token to verify it's valid and the account is active. If this returns 401, immediately surface "Token invalid" error instead of trying searches that will fail silently.
+
+### Task 2: Switch XHS search to App V2 API (Recommended by TikHub)
+
+Replace all uses of the Web API endpoint:
+- **Old**: `/api/v1/xiaohongshu/web/search_notes` → **New**: `/api/v1/xiaohongshu/app/v2/search_notes` (App V2, recommended)
+- **Old**: `/api/v1/xiaohongshu/web/get_note_comments` → **New**: `/api/v1/xiaohongshu/app/v2/get_note_comments` (App V2)
+
+Files to update:
+- `supabase/functions/validate-idea-stream/index.ts` — `crawlXhsSimple` function (lines ~2416, ~2442, ~2492)
+- `supabase/functions/recrawl-social/index.ts` — `crawlViaTikhub` function (lines ~151, ~183)
+- `supabase/functions/verify-config/index.ts` — TikHub test URL (line ~197)
+- `supabase/functions/validate-idea/tikhub.ts` — `searchNotes` and `getNoteComments` functions
+- `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` — search and comments URLs
+
+### Task 3: Update verify-config to also call user info endpoint
+
+In `verify-config`, when type is `tikhub`:
+- First call `/api/v1/tikhub/user/get_user_info` to verify token validity
+- Then call the App V2 search endpoint to test search functionality
+- Return distinct error messages: "Token invalid" vs "Search service temporarily unavailable"
+
+### Task 4: Improve error messaging for 400 errors
+
+When XHS search returns 400, show "TikHub 小红书搜索服务暂时不可用，请稍后重试" instead of the current generic "请检查 Token" message, since the token is valid but TikHub's scraping backend is failing.
+
+---
+
+### Technical Detail: API Path Changes
 
 ```text
-1. 标题 + 一句话介绍
-2. 目录
-3. 产品亮点
-4. 技术架构 + 技术栈
-5. 目录结构
-6. 快速开始（5 步）
-7. 核心功能详解
-8. 产品路线图（新增）
-9. 常用开发命令
-10. 常见问题
-11. 生产部署
-12. 贡献指引
-13. 致谢
-14. License
+SEARCH NOTES:
+  Old: /api/v1/xiaohongshu/web/search_notes?keyword=X&page=1&sort=general&note_type=0
+  New: /api/v1/xiaohongshu/app/v2/search_notes?keyword=X&page=1&sort=general&note_type=0
+
+GET COMMENTS:
+  Old: /api/v1/xiaohongshu/web/get_note_comments?note_id=X
+  New: /api/v1/xiaohongshu/app/v2/get_note_comments?note_id=X
+
+TOKEN VALIDATION (new):
+  GET /api/v1/tikhub/user/get_user_info
 ```
+
+Parameters and response structure should remain the same between Web and App V2 — only the path prefix changes.
 
