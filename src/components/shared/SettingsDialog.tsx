@@ -468,6 +468,38 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               });
        };
 
+       const [isVerifyingTikhub, setIsVerifyingTikhub] = useState(false);
+
+       const handleVerifyTikhub = async () => {
+              if (!localSettings.tikhubToken) {
+                     toast({ variant: "destructive", title: "请先输入 TikHub Token" });
+                     return;
+              }
+              setIsVerifyingTikhub(true);
+              try {
+                     const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
+                            body: { type: 'tikhub', apiKey: localSettings.tikhubToken }
+                     });
+                     if (error || !data?.valid) {
+                            toast({
+                                   variant: "destructive",
+                                   title: "TikHub 验证失败",
+                                   description: data?.message || error?.message || "连接失败，请检查 Token"
+                            });
+                     } else {
+                            updateSettings({ tikhubToken: localSettings.tikhubToken });
+                            toast({
+                                   title: "TikHub 验证成功",
+                                   description: data.message || "Token 有效，配置已自动保存",
+                                   className: "bg-green-50 border-green-200 text-green-800"
+                            });
+                     }
+              } catch (e) {
+                     toast({ variant: "destructive", title: "验证请求失败" });
+              }
+              setIsVerifyingTikhub(false);
+       };
+
        const handleVerifyImageGen = async () => {
        if (!localSettings.imageGenApiKey) {
               toast({ variant: "destructive", title: "请输入 API Key" });
@@ -1112,13 +1144,18 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                  获取 Token <ExternalLink className="w-3 h-3" />
                                           </a>
                                    </h4>
-                                   <div className="grid gap-2">
-                                          <Label>Tikhub API Token</Label>
-                                          <div className="relative">
-                                                 <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
-                                                 <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
-                                          </div>
-                                   </div>
+                                    <div className="grid gap-2">
+                                           <Label>Tikhub API Token</Label>
+                                           <div className="relative">
+                                                  <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
+                                                  <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
+                                           </div>
+                                           <Button variant="outline" size="sm" onClick={handleVerifyTikhub} disabled={isVerifyingTikhub || !localSettings.tikhubToken}>
+                                                  {isVerifyingTikhub ? (
+                                                         <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />验证中...</span>
+                                                  ) : '测试连通性'}
+                                           </Button>
+                                    </div>
                             </div>
 
                             <div className="space-y-4">
