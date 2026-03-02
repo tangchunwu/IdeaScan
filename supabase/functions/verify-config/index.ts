@@ -219,7 +219,7 @@ serve(async (req) => {
           
           // Step 2: Test App search endpoint (recommended by TikHub)
           console.log(`[TikHub Test] Step 2: Testing App search...`);
-          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
+          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app_v2/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
           const searchRes = await fetch(testUrl, {
             headers: { 'Authorization': `Bearer ${apiKey}` },
             signal: AbortSignal.timeout(15000),
