@@ -287,10 +287,10 @@ serve(async (req) => {
 
       // If still no keywords (or explicit discover mode), do trend discovery
       if (isDiscoverMode || keywords.length === 0) {
-        console.log(`[hunter-scan] 🔍 Trend discovery mode — using sonar-reasoning`);
+        console.log(`[hunter-scan] 🔍 Trend discovery mode — using sonar`);
         try {
           const { signals } = await searchWithPerplexity("", baseUrl, apiKey, {
-            model: "sonar-reasoning",
+            model: "sonar",
             isDiscovery: true,
           });
           console.log(`[hunter-scan] Trend discovery got ${signals.length} signals`);
