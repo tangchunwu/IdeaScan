@@ -13,6 +13,7 @@ interface DemandDecisionCardProps {
   proofResult: { verdict: string; paidIntentRate: number; waitlistRate: number; sampleUv: number };
   costBreakdown: { estCost: number; llmCalls: number; externalApiCalls: number; crawlerCalls: number; promptTokens: number; completionTokens: number; latencyMs: number; crawlerLatencyMs: number };
   topEvidence: string[];
+  evidenceSummary: string;
   evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
 }
 
