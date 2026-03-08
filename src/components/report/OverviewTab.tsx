@@ -2,7 +2,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Users } from "lucide-react";
+import { PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
