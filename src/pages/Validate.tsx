@@ -73,6 +73,37 @@ const Validate = () => {
   // Cleanup SSE on unmount
   useEffect(() => () => stream.cleanup(), []);
 
+  // Save form to localStorage on change
+  useEffect(() => {
+    if (idea.trim() || selectedTags.length > 0) {
+      localStorage.setItem("ideascan_draft", JSON.stringify({ idea, tags: selectedTags }));
+    }
+  }, [idea, selectedTags]);
+
+  // Restore form from localStorage on mount
+  useEffect(() => {
+    if (idea || searchParams.get('idea')) return;
+    const draft = localStorage.getItem("ideascan_draft");
+    if (draft) {
+      try {
+        const { idea: savedIdea, tags } = JSON.parse(draft);
+        if (savedIdea?.trim()) setShowRestore(true);
+      } catch {}
+    }
+  }, []);
+
+  const handleRestore = () => {
+    const draft = localStorage.getItem("ideascan_draft");
+    if (draft) {
+      try {
+        const { idea: savedIdea, tags } = JSON.parse(draft);
+        if (savedIdea) setIdea(savedIdea);
+        if (Array.isArray(tags)) setSelectedTags(tags.slice(0, 5));
+      } catch {}
+    }
+    setShowRestore(false);
+  };
+
   // Tag handlers
   const handleAddTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) {
