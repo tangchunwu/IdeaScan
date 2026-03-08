@@ -22,11 +22,11 @@ export const HotTrends = ({
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Authenticated users get full data; anonymous get limited public preview
   const { data: trends, isLoading } = useQuery({
-    queryKey: ["hot-trends", limit],
-    queryFn: () => getHotTrends(limit),
+    queryKey: ["hot-trends", limit, !!user],
+    queryFn: () => user ? getHotTrends(limit) : getPublicTrendingTopics(limit),
     staleTime: 5 * 60 * 1000,
-    enabled: !!user, // Only fetch when authenticated
   });
 
   const handleClick = async (trend: TrendingTopic) => {
