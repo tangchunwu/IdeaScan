@@ -151,9 +151,21 @@ serve(async (req) => {
 
           const contentHash = await hashContent(signal.summary);
 
+          // Check if content_hash already exists
+          const { data: existing } = await supabase
+            .from("raw_market_signals")
+            .select("id")
+            .eq("content_hash", contentHash)
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            console.log(`[hunter-scan] Duplicate skipped: ${contentHash.slice(0, 8)}...`);
+            continue;
+          }
+
           const { error: insertError } = await supabase
             .from("raw_market_signals")
-            .upsert({
+            .insert({
               content: signal.summary,
               source: "perplexity",
               source_url: signal.source_url || null,
@@ -167,9 +179,13 @@ serve(async (req) => {
               opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
               sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
               scanned_at: new Date().toISOString(),
-            }, { onConflict: "content_hash", ignoreDuplicates: true });
+            });
 
-          if (!insertError) totalInserted++;
+          if (insertError) {
+            console.error(`[hunter-scan] Insert error:`, insertError.message);
+          } else {
+            totalInserted++;
+          }
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
