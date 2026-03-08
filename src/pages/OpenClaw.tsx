@@ -24,7 +24,7 @@ export default function OpenClawPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container max-w-4xl mx-auto pt-20 pb-8 px-4">
+      <div className="container max-w-4xl mx-auto pt-28 pb-8 px-4">
         {/* Page header */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold tracking-tight">AI Agent</h1>
