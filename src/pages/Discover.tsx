@@ -12,6 +12,7 @@ import { OpportunityBubbleChart } from "@/components/discover/OpportunityBubbleC
 import { Button } from "@/components/ui/button";
 import {
   getTrendingTopics,
+  getPublicTrendingTopics,
   getCategories,
   getDiscoverStats,
   getUserTopicInterests,
@@ -19,7 +20,8 @@ import {
 } from "@/services/discoverService";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp, LogIn } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
