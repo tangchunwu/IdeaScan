@@ -63,8 +63,15 @@ export function OnboardingTour() {
           }
         }
       ],
+      onDeselected: () => {
+        localStorage.setItem("has-seen-tour", "true");
+      },
       onDestroyed: () => {
         localStorage.setItem("has-seen-tour", "true");
+      },
+      onCloseClick: () => {
+        localStorage.setItem("has-seen-tour", "true");
+        driverObj.destroy();
       }
     });
 
