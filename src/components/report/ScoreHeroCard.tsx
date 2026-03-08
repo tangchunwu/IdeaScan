@@ -174,7 +174,7 @@ export const ScoreHeroCard = ({
                   variant={action.primary ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleAction(action.action)}
-                  className="rounded-full text-xs"
+                  className="rounded-full text-sm"
                 >
                   {action.label}
                 </Button>
