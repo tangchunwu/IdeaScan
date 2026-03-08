@@ -156,7 +156,7 @@ const Validate = () => {
         title: "请先配置 TikHub Token",
         description: "需要在设置中配置您的 TikHub API Token 才能使用验证功能",
         variant: "destructive",
-        action: <ToastAction altText="去配置" onClick={() => setShowSettingsFromQuota(true)}>去配置</ToastAction>,
+        action: { label: "去配置", onClick: () => setShowSettingsFromQuota(true) },
       });
       return;
     }
