@@ -40,6 +40,7 @@ import { RadarDimensionSection } from "@/components/report/RadarDimensionSection
 import { DemandDecisionCard } from "@/components/report/DemandDecisionCard";
 import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { RiskMitigationCards } from "@/components/report/RiskMitigationCards";
+import { MonetizationStrategies } from "@/components/report/MonetizationStrategies";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -462,6 +463,11 @@ const Report = () => {
           <RiskMitigationCards
             weaknesses={aiAnalysis.weaknesses}
             risks={aiAnalysis.risks}
+          />
+
+          {/* Monetization Strategies */}
+          <MonetizationStrategies
+            strategies={aiAnalysis.monetizationStrategies}
           />
 
           <DemandDecisionCard
