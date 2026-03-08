@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
+import { DemandDecisionCard } from "./DemandDecisionCard";
 import type { ReportDataResult } from "./useReportData";
 
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -28,6 +29,7 @@ interface DataOverviewTabProps {
     competitorQueries?: string[];
     trendKeywords?: string[];
   };
+  demandDecisionProps?: any;
 }
 
 export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsUsed }: DataOverviewTabProps) {
