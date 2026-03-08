@@ -38,13 +38,15 @@ interface MarketSignal {
 
 // ── Helpers ──────────────────────────────────────────────
 /** 将 Perplexity 返回的 pain_level 映射到数据库约束允许的值 */
-function normalizePainLevel(level: string | null | undefined): string | null {
-  if (!level) return null;
+function normalizePainLevel(level: string | null | undefined): string {
+  if (!level || typeof level !== "string") return "moderate";
+  const l = level.toLowerCase().trim();
   const map: Record<string, string> = {
     high: "severe", medium: "moderate", low: "mild",
     severe: "severe", moderate: "moderate", mild: "mild", critical: "critical",
+    "非常高": "critical", "高": "severe", "中": "moderate", "中等": "moderate", "低": "mild",
   };
-  return map[level.toLowerCase()] || "moderate";
+  return map[l] || "moderate";
 }
 
 async function hashContent(content: string): Promise<string> {
