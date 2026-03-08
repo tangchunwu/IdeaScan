@@ -169,17 +169,19 @@ serve(async (req) => {
         }
 
         if (records.length > 0) {
-          // Batch insert, skip duplicates via content_hash check
+          console.log(`[hunter-scan] Attempting batch insert of ${records.length} records...`);
+          console.log(`[hunter-scan] First record content_hash: ${records[0].content_hash}`);
+          
           const { data: inserted, error: insertError } = await supabase
             .from("raw_market_signals")
             .insert(records)
             .select("id");
 
           if (insertError) {
-            console.error(`[hunter-scan] Batch insert error:`, insertError.message);
+            console.error(`[hunter-scan] Batch insert error: ${insertError.message} (code: ${insertError.code}, details: ${insertError.details})`);
           } else {
             totalInserted += inserted?.length || 0;
-            console.log(`[hunter-scan] Inserted ${inserted?.length || 0} signals for "${keyword}"`);
+            console.log(`[hunter-scan] ✅ Inserted ${inserted?.length || 0} signals for "${keyword}"`);
           }
         }
       } catch (e) {
