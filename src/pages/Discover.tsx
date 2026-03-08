@@ -265,7 +265,6 @@ export default function Discover() {
                 )}
               </>
             ) : (
-            ) : (
               <EmptyState
                 icon={Compass}
                 title="暂无热点话题"
