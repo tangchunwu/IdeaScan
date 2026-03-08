@@ -21,7 +21,6 @@ import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
 
-import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { DevPanel } from "@/components/report/DevPanel";
 import { captureEvent } from "@/lib/posthog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -461,17 +460,6 @@ const Report = () => {
             )}
           </div>
 
-          {/* Data Confidence */}
-          <div className="mb-4 sm:mb-6 animate-slide-up" style={{ animationDelay: "150ms" }}>
-            <DataConfidenceCard
-              sampleSize={xiaohongshuData.totalNotes || 0}
-              platforms={[
-                { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
-                ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
-              ]}
-              dataFreshness="fresh"
-            />
-          </div>
 
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
 
@@ -524,7 +512,7 @@ const Report = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} demandDecisionProps={{ validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis, aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems }} />}</TabsContent>
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} demandDecisionProps={{ validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis, aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms: [{ name: "小红书", count: xiaohongshuData.totalNotes || 0 }, ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : [])] }} />}</TabsContent>
                 <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketInsightsTab data={reportData} />}</TabsContent>
                 <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
                 <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} aiAnalysis={aiAnalysis} />}</TabsContent>

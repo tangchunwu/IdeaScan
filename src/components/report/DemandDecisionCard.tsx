@@ -15,6 +15,7 @@ interface DemandDecisionCardProps {
   topEvidence: string[];
   evidenceSummary: string;
   evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
+  platforms?: { name: string; count: number }[];
 }
 
 const useCountUp = (target: number, duration = 800) => {
@@ -38,7 +39,7 @@ const useCountUp = (target: number, duration = 800) => {
 
 export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
-  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems,
+  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms,
 }: DemandDecisionCardProps) => {
   const { toast } = useToast();
   const score = displayScore;
@@ -69,13 +70,19 @@ export const DemandDecisionCard = ({
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">用户讨论量</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">样本量</div>
             <div className="text-2xl font-semibold">{animatedNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
+            {xiaohongshuData.totalNotes < 100 && <div className="text-xs text-orange-500">建议 &gt;100</div>}
           </div>
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">用户互动热度</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">数据源</div>
+            <div className="text-2xl font-semibold">{platforms?.length || 1} <span className="text-sm text-muted-foreground font-normal">个平台</span></div>
+            {(platforms?.length || 1) < 2 && <div className="text-xs text-orange-500">建议多平台</div>}
+          </div>
+          <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">互动热度</div>
             <div className="text-2xl font-semibold">{animatedEngagement.toLocaleString()}</div>
           </div>
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
