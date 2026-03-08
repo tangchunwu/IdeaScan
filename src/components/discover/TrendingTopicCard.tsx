@@ -111,6 +111,7 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
   };
 
   return (
+    <div ref={ref}>
     <GlassCard className="p-5 hover:shadow-lg transition-all duration-300 group">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
