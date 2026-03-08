@@ -234,7 +234,7 @@ serve(async (req) => {
             comments_count: 0,
             content_hash: contentHash,
             topic_tags: signal.topic_tags || [],
-            pain_level: signal.pain_level || null,
+            pain_level: normalizePainLevel(signal.pain_level),
             opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
             sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
             scanned_at: new Date().toISOString(),
