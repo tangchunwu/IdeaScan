@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 
 interface RiskMitigationCardsProps {
-  weaknesses: string[];
   risks: string[];
 }
 
@@ -30,11 +29,8 @@ const mitigationTemplates: Record<string, string[]> = {
 function inferMitigation(text: string): string {
   const lower = text.toLowerCase();
   for (const [key, strategies] of Object.entries(mitigationTemplates)) {
-    if (lower.includes(key)) {
-      return strategies.join('；');
-    }
+    if (lower.includes(key)) return strategies.join('；');
   }
-  // Fallback: generic mitigation
   if (lower.includes('研发') || lower.includes('开发') || lower.includes('ai') || lower.includes('识别'))
     return mitigationTemplates['技术'].join('；');
   if (lower.includes('习惯') || lower.includes('推广') || lower.includes('留存'))
@@ -46,11 +42,11 @@ function inferMitigation(text: string): string {
   return '制定应急预案，持续监控该风险指标，必要时及时调整策略方向。';
 }
 
-function parseRisks(weaknesses: string[], risks: string[]): ParsedRisk[] {
+function parseRisks(risks: string[]): ParsedRisk[] {
   const parsed: ParsedRisk[] = [];
 
-  for (const w of weaknesses) {
-    const text = String(w || "").trim();
+  for (const r of risks) {
+    const text = String(r || "").trim();
     if (!text) continue;
     const colonIdx = text.indexOf('：');
     const dashIdx = text.indexOf(' - ');
@@ -71,18 +67,7 @@ function parseRisks(weaknesses: string[], risks: string[]): ParsedRisk[] {
     parsed.push({
       title,
       description,
-      severity: parsed.length === 0 ? 'critical' : 'high',
-      mitigation: inferMitigation(text),
-    });
-  }
-
-  for (const r of risks) {
-    const text = String(r || "").trim();
-    if (!text) continue;
-    parsed.push({
-      title: text.length > 40 ? text.slice(0, 30) + '...' : text,
-      description: text,
-      severity: 'medium',
+      severity: parsed.length === 0 ? 'critical' : parsed.length < 3 ? 'high' : 'medium',
       mitigation: inferMitigation(text),
     });
   }
@@ -114,7 +99,7 @@ const severityConfig = {
   },
 };
 
-const RiskCard = ({ risk, index }: { risk: ParsedRisk; index: number }) => {
+const RiskCard = ({ risk }: { risk: ParsedRisk }) => {
   const [expanded, setExpanded] = useState(false);
   const config = severityConfig[risk.severity];
 
@@ -147,7 +132,6 @@ const RiskCard = ({ risk, index }: { risk: ParsedRisk; index: number }) => {
         )}
       </div>
 
-      {/* Expanded: Description + Mitigation */}
       <div className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-4 pb-4 space-y-3">
           {risk.description && risk.description !== risk.title && (
@@ -168,8 +152,8 @@ const RiskCard = ({ risk, index }: { risk: ParsedRisk; index: number }) => {
   );
 };
 
-export function RiskMitigationCards({ weaknesses, risks }: RiskMitigationCardsProps) {
-  const parsedRisks = parseRisks(weaknesses, risks);
+export function RiskMitigationCards({ risks }: RiskMitigationCardsProps) {
+  const parsedRisks = parseRisks(risks || []);
 
   if (parsedRisks.length === 0) return null;
 
@@ -194,7 +178,7 @@ export function RiskMitigationCards({ weaknesses, risks }: RiskMitigationCardsPr
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {parsedRisks.map((risk, i) => (
-            <RiskCard key={i} risk={risk} index={i} />
+            <RiskCard key={i} risk={risk} />
           ))}
         </div>
       </GlassCard>

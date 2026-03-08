@@ -1,9 +1,8 @@
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, RadarChart, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis, Radar, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip,
+  PieChart, Pie, Cell, ResponsiveContainer,
+  Tooltip,
 } from "recharts";
-import { Activity, PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Users, Target } from "lucide-react";
+import { PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Users } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
@@ -16,7 +15,7 @@ interface OverviewTabProps {
 }
 
 export function OverviewTab({ data }: OverviewTabProps) {
-  const { xiaohongshuData, dimensions, marketAnalysis } = data;
+  const { xiaohongshuData, marketAnalysis } = data;
 
   // Build trend timeline data from weeklyTrend
   const trendTimelineData = xiaohongshuData.weeklyTrend.map((item: any, i: number) => {
@@ -31,59 +30,6 @@ export function OverviewTab({ data }: OverviewTabProps) {
       {trendTimelineData.length > 0 && (
         <TrendTimelineChart data={trendTimelineData} title="关键词热度趋势" />
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Trend Chart */}
-        <GlassCard className="animate-slide-up">
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            一周热度趋势
-          </h3>
-          <div className="h-64">
-            {xiaohongshuData.weeklyTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={xiaohongshuData.weeklyTrend}>
-                  <defs>
-                    <linearGradient id="overviewGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fill="url(#overviewGradient)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">暂无趋势数据</div>
-            )}
-          </div>
-        </GlassCard>
-
-        {/* Radar Chart */}
-        <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5 text-secondary" />
-            多维度评分
-          </h3>
-          <div className="h-64">
-            {dimensions.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={dimensions}>
-                  <PolarGrid stroke="hsl(var(--border))" />
-                  <PolarAngleAxis dataKey="dimension" stroke="hsl(var(--muted-foreground))" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
-                  <Radar name="评分" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                </RadarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">暂无维度数据</div>
-            )}
-          </div>
-        </GlassCard>
-      </div>
 
       {/* Content Type Distribution + Key Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -123,7 +69,7 @@ export function OverviewTab({ data }: OverviewTabProps) {
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
           <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-ghibli-forest" />
+            <TrendingUp className="w-5 h-5 text-primary" />
             关键指标
           </h3>
           <div className="space-y-4">
