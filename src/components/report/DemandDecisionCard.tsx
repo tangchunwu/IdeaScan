@@ -106,7 +106,7 @@ export const DemandDecisionCard = ({
         <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20">
           <div className="text-xs text-muted-foreground mb-1">结论证据摘要</div>
           <div className="text-sm font-medium">
-            {topEvidence.length > 0 ? topEvidence.join(" · ") : "当前样本不足，建议增加关键词并重跑验证"}
+            {evidenceSummary}
           </div>
         </div>
 
