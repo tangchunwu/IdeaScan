@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GlassCard } from "@/components/shared";
@@ -21,6 +21,8 @@ interface CollaboratorPanelProps {
   validationId: string;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -28,6 +30,8 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+
+  const emailValid = useMemo(() => EMAIL_RE.test(email.trim()), [email]);
 
   useEffect(() => {
     if (!user) return;
@@ -53,6 +57,11 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
   const handleAdd = async () => {
     if (!user || !email.trim()) return;
     const trimmed = email.trim().toLowerCase();
+
+    if (!EMAIL_RE.test(trimmed)) {
+      toast({ title: "邮箱格式不正确", variant: "destructive" });
+      return;
+    }
     
     if (trimmed === user.email) {
       toast({ title: "不能邀请自己", variant: "destructive" });
@@ -116,27 +125,32 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
       </div>
 
       {/* Add collaborator */}
-      <div className="flex gap-2 mb-4">
-        <Input
-          type="email"
-          placeholder="输入协作者邮箱..."
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="text-sm rounded-xl"
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-        />
-        <Button
-          size="sm"
-          className="rounded-xl shrink-0"
-          onClick={handleAdd}
-          disabled={adding || !email.trim()}
-        >
-          {adding ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <UserPlus className="w-4 h-4" />
-          )}
-        </Button>
+      <div className="space-y-1 mb-4">
+        <div className="flex gap-2">
+          <Input
+            type="email"
+            placeholder="输入协作者邮箱..."
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="text-sm rounded-xl"
+            onKeyDown={(e) => e.key === "Enter" && emailValid && handleAdd()}
+          />
+          <Button
+            size="sm"
+            className="rounded-xl shrink-0"
+            onClick={handleAdd}
+            disabled={adding || !emailValid}
+          >
+            {adding ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <UserPlus className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+        {email.trim() && !emailValid && (
+          <p className="text-[10px] text-destructive pl-1">请输入有效的邮箱地址</p>
+        )}
       </div>
 
       {/* Collaborator list */}

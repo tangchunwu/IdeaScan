@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { StickyNote, Save, Loader2, Check } from "lucide-react";
+import { StickyNote, Save, Loader2, Check, CloudOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReportNotesProps {
@@ -19,6 +19,7 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isDirty = content !== savedContent;
 
@@ -44,18 +45,18 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
     })();
   }, [user, validationId]);
 
-  const handleSave = useCallback(async () => {
+  const doSave = useCallback(async (text: string) => {
     if (!user || saving) return;
     setSaving(true);
     try {
       const { error } = await supabase
         .from("report_notes" as any)
         .upsert(
-          { user_id: user.id, validation_id: validationId, content, updated_at: new Date().toISOString() } as any,
+          { user_id: user.id, validation_id: validationId, content: text, updated_at: new Date().toISOString() } as any,
           { onConflict: "user_id,validation_id" }
         );
       if (error) throw error;
-      setSavedContent(content);
+      setSavedContent(text);
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
     } catch (e) {
@@ -64,7 +65,31 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
     } finally {
       setSaving(false);
     }
-  }, [user, validationId, content, saving, toast]);
+  }, [user, validationId, saving, toast]);
+
+  // Debounced auto-save: 2s after last edit
+  useEffect(() => {
+    if (loading || content === savedContent) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      doSave(content);
+    }, 2000);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [content, savedContent, loading, doSave]);
+
+  // Ctrl/Cmd+S shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (content !== savedContent) doSave(content);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [content, savedContent, doSave]);
 
   if (!user) return null;
 
@@ -79,7 +104,7 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
           variant="ghost"
           size="sm"
           className="h-7 text-xs rounded-lg"
-          onClick={handleSave}
+          onClick={() => doSave(content)}
           disabled={!isDirty || saving}
         >
           {saving ? (
@@ -93,15 +118,22 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
         </Button>
       </div>
       <Textarea
-        placeholder={loading ? "加载中..." : "记录你对这个想法的思考、行动计划..."}
+        placeholder={loading ? "加载中..." : "记录你对这个想法的思考、行动计划...（⌘+S 保存）"}
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="min-h-[100px] text-sm bg-muted/20 border-border/30 rounded-xl resize-y"
+        className="min-h-[160px] text-sm bg-muted/20 border-border/30 rounded-xl resize-y"
         disabled={loading}
       />
-      {isDirty && (
-        <p className="text-[10px] text-muted-foreground mt-1">未保存的更改</p>
-      )}
+      <div className="flex items-center justify-between mt-1.5">
+        {isDirty ? (
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <CloudOff className="w-3 h-3" /> 未保存的更改 · 2秒后自动保存
+          </p>
+        ) : (
+          <span />
+        )}
+        <p className="text-[10px] text-muted-foreground">{content.length} 字</p>
+      </div>
     </GlassCard>
   );
 }
