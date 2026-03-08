@@ -29,7 +29,15 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const AnimatedRoutes = () => {
   const location = useLocation();

@@ -1,33 +1,30 @@
 
 
-## Security Scan — Warn-Level Findings
+## Problem Root Cause
 
-After reviewing the full scan results, there is only **one** non-ignored finding at "warn" level:
+The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
 
-### SUPA_auth_leaked_password_protection — Leaked Password Protection Disabled
+TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
 
-**What it means:** Users can currently sign up with passwords that have appeared in known data breaches (e.g. "password123", "qwerty2024"). Enabling this feature checks new passwords against a database of compromised credentials and blocks them.
+- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
+- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
+- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
 
-**Why it matters:** Credential stuffing and account takeover attacks are significantly easier when users reuse leaked passwords.
+The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
 
-### Required Action
+## Fix
 
-This is a **backend authentication configuration** change, not a code change. It cannot be done through code or database migrations.
+Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
 
-**How to enable it:**
+| File | Endpoints to fix |
+|------|-----------------|
+| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/verify-config/index.ts` | `search_notes` |
+| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
 
-<lov-actions>
-  <lov-open-backend>Open Backend Settings</lov-open-backend>
-</lov-actions>
+The change is purely a path prefix swap. Parameters and response structure remain identical.
 
-1. Open the backend (click above)
-2. Navigate to **Authentication → URL Configuration** or **Auth Settings**
-3. Find **"Leaked Password Protection"** and enable it
-4. Save
-
-Once enabled, the security scan warning will be resolved automatically on the next scan.
-
----
-
-All other findings in the scan are at "info" level (no action needed) or already ignored with documented reasons. No code changes are required.
+After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
 

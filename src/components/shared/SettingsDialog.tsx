@@ -631,7 +631,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        }
         if (!crawlerHealth?.healthy) {
               // Skip health check gate - let the backend handle availability
-              console.log('[CrawlerAuth] Starting without health check gate');
+              // Skip health check gate - let the backend handle availability
         }
        setAuthPlatform(platform);
        setIsAuthStarting(true);
