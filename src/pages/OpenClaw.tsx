@@ -1,5 +1,4 @@
 import { OpenClawChannel, OpenClawSettings } from "@/components/openclaw";
-import { PageBackground } from "@/components/shared/PageBackground";
 import { Navbar } from "@/components/shared/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, Settings } from "lucide-react";
