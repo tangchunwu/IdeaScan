@@ -17,8 +17,6 @@ import {
   Eye,
   RefreshCw,
   FileText,
-  Filter,
-  SortDesc,
   LogIn,
   AlertCircle,
   CheckCircle2,
