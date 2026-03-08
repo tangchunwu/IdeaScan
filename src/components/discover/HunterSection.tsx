@@ -8,10 +8,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import {
-       Radar, Plus, Search, Filter, RefreshCw, Radio,
-       MessageSquare, ExternalLink, TrendingUp, AlertTriangle, Rocket
+       Radar, Plus, Search, Filter, RefreshCw,
+       MessageSquare, TrendingUp, Rocket
 } from "lucide-react";
-import { hunterService, RawMarketSignal, ScanJob, NicheOpportunity } from "@/services/hunterService";
+import { hunterService, ScanJob, NicheOpportunity } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,6 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
 
        const handleVerify = (e: React.MouseEvent) => {
               e.stopPropagation();
-              // Combine title and description for a rich context
               const ideaContext = `【${opp.title}】\n${opp.description || ""}`;
               navigate(`/validate?idea=${encodeURIComponent(ideaContext)}&auto=true`);
        };
@@ -59,62 +58,8 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                             </Button>
                      </div>
 
-                     {/* Decorative gradient */}
                      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
               </GlassCard>
-       );
-};
-
-const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
-       const platform = hunterService.getPlatformInfo(signal.source);
-       const [expanded, setExpanded] = useState(false);
-
-       return (
-              <div
-                     className="p-4 rounded-lg bg-card/50 border border-white/5 hover:bg-card/80 transition-colors cursor-pointer"
-                     onClick={() => setExpanded(!expanded)}
-              >
-                     <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                                   <Badge variant="secondary" className={`text-xs ${platform.color} ${platform.bg} border-0`}>
-                                          {platform.label}
-                                   </Badge>
-                                   <span className="text-xs text-muted-foreground">{new Date(signal.scanned_at).toLocaleDateString()}</span>
-                            </div>
-                            {signal.opportunity_score && (
-                                   <span className={`text-xs font-bold ${signal.opportunity_score >= 80 ? 'text-green-500' :
-                                          signal.opportunity_score >= 50 ? 'text-yellow-500' : 'text-muted-foreground'
-                                          }`}>
-                                          {signal.opportunity_score}分
-                                   </span>
-                            )}
-                     </div>
-                     <p className={`text-sm text-foreground/90 mb-3 whitespace-pre-wrap ${expanded ? '' : 'line-clamp-3'}`}>
-                            {signal.content}
-                     </p>
-                     {!expanded && signal.content.length > 150 && (
-                            <span className="text-xs text-primary mb-2 inline-block">点击展开全文 ↓</span>
-                     )}
-                     {expanded && (
-                            <span className="text-xs text-muted-foreground mb-2 inline-block">点击收起 ↑</span>
-                     )}
-                     <div className="flex items-center gap-3">
-                            {signal.source_url && (
-                                   <a href={signal.source_url} target="_blank" rel="noopener noreferrer"
-                                          className="text-xs text-primary hover:underline flex items-center gap-1"
-                                          onClick={(e) => e.stopPropagation()}>
-                                          <ExternalLink className="w-3 h-3" /> 原文
-                                   </a>
-                            )}
-                            <div className="flex gap-1 flex-wrap">
-                                   {(signal.topic_tags as string[])?.slice(0, 3).map((tag, i) => (
-                                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/20 text-secondary-foreground">
-                                                 #{tag}
-                                          </span>
-                                   ))}
-                            </div>
-                     </div>
-              </div>
        );
 };
 
@@ -197,7 +142,6 @@ CreateJobDialog.displayName = "CreateJobDialog";
 export const HunterSection = () => {
        const [activeTab, setActiveTab] = useState("dashboard");
        const [isLoading, setIsLoading] = useState(true);
-       const [signals, setSignals] = useState<RawMarketSignal[]>([]);
        const [opportunities, setOpportunities] = useState<NicheOpportunity[]>([]);
        const [jobs, setJobs] = useState<ScanJob[]>([]);
        const { toast } = useToast();
@@ -205,12 +149,10 @@ export const HunterSection = () => {
        const refreshData = async () => {
               setIsLoading(true);
               try {
-                     const [signalsData, oppsData, jobsData] = await Promise.all([
-                            hunterService.getRecentSignals(20),
+                     const [oppsData, jobsData] = await Promise.all([
                             hunterService.getOpportunities(),
                             hunterService.getScanJobs()
                      ]);
-                     setSignals(signalsData || []);
                      setOpportunities(oppsData || []);
                      setJobs(jobsData || []);
               } catch (e) {
@@ -273,21 +215,20 @@ export const HunterSection = () => {
 
                      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
                             <TabsList className="bg-white/5 border border-white/10 p-1">
-                                   <TabsTrigger value="dashboard" className="gap-2"><Radar className="w-4 h-4" /> 透视仪表盘</TabsTrigger>
-                                   <TabsTrigger value="signals" className="gap-2"><Radio className="w-4 h-4" /> 实时信号流</TabsTrigger>
+                                   <TabsTrigger value="dashboard" className="gap-2"><Radar className="w-4 h-4" /> 商机发现</TabsTrigger>
                                    <TabsTrigger value="jobs" className="gap-2"><Filter className="w-4 h-4" /> 监控任务</TabsTrigger>
                             </TabsList>
 
-                            {/* Dashboard Tab */}
+                            {/* Dashboard Tab - Only opportunities */}
                             <TabsContent value="dashboard" className="animate-slide-up space-y-8">
-                                   {/* Top Opportunities Grid */}
                                    <section>
                                           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                                                  <TrendingUp className="w-5 h-5 text-green-500" />
                                                  潜力机会 (Top Picks)
                                           </h3>
-                                          {/* Empty State or Grid */}
-                                          {opportunities.length === 0 ? (
+                                          {isLoading ? (
+                                                 <div className="py-20 flex justify-center"><LoadingSpinner /></div>
+                                          ) : opportunities.length === 0 ? (
                                                  <GlassCard className="py-12 text-center text-muted-foreground border-dashed">
                                                         <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
                                                                <Search className="w-8 h-8 opacity-20" />
@@ -303,39 +244,6 @@ export const HunterSection = () => {
                                                  </div>
                                           )}
                                    </section>
-
-                                   {/* High Score Signals */}
-                                   <section>
-                                          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                                 <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                                                 强烈痛点 (High Pain Signals)
-                                          </h3>
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                 {signals.filter(s => (s.opportunity_score || 0) > 70).slice(0, 6).map(signal => (
-                                                        <SignalCard key={signal.id} signal={signal} />
-                                                 ))}
-                                                 {signals.filter(s => (s.opportunity_score || 0) > 70).length === 0 && (
-                                                        <div className="col-span-2 text-center py-8 text-muted-foreground">
-                                                               暂无高分痛点信号
-                                                        </div>
-                                                 )}
-                                          </div>
-                                   </section>
-                            </TabsContent>
-
-                            {/* Signals Tab */}
-                            <TabsContent value="signals" className="animate-slide-up">
-                                   <div className="grid grid-cols-1 gap-4">
-                                          {isLoading ? (
-                                                 <div className="py-20 flex justify-center"><LoadingSpinner /></div>
-                                          ) : signals.length === 0 ? (
-                                                 <div className="text-center py-20 text-muted-foreground">数据库是空的，快去创建任务吧！</div>
-                                          ) : (
-                                                 signals.map(signal => (
-                                                        <SignalCard key={signal.id} signal={signal} />
-                                                 ))
-                                          )}
-                                   </div>
                             </TabsContent>
 
                             {/* Jobs Tab */}

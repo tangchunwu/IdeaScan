@@ -1,34 +1,30 @@
 
 
-# 两个问题的修复计划
+## Problem Root Cause
 
-## 问题 1：Citations 始终为 0
+The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
 
-**根因**：Perplexity API 的 `citations` 字段在响应的顶层结构中（`data.citations`），但 `sonar` 模型有时不返回或返回空数组。根据 Perplexity 官方文档，`sonar-pro` 提供 2x 更多的 citations。
+TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
 
-**方案**：
-- 将 `deepAnalyze()` 中的模型从 `sonar` 改为 `sonar-pro`（discovery 阶段保持 `sonar` 即可）
-- 增加日志：打印完整的 `data.citations` 以便调试
-- 如果 `baseUrl` 不是官方 `https://api.perplexity.ai`（用户可能用了代理），检查代理是否转发了 `citations` 字段
+- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
+- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
+- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
 
-## 问题 2：这些数据不应该在前端展示，而是作为后端数据层
+The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
 
-用户明确说了：这些 raw signals / insights 是后端数据库层面的东西，用于后期需求分析和调研，不需要在 Hunter UI 里直接展示原始文本。未来需要做向量嵌入。
+## Fix
 
-**当前方案（本次实施）**：
-- Hunter 页面中移除"强烈痛点 (High Pain Signals)"和"全部信号"这两个直接展示 `raw_market_signals` 的 tab/区域
-- 保留 **商机发现**（`niche_opportunities`）和 **扫描任务**（`scan_jobs`）的 UI，这些是用户需要看到的
-- `raw_market_signals` 数据继续在后台采集，但不在前端暴露
+Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
 
-**向量化（后续规划，本次不实施）**：
-- `raw_market_signals` 表增加 `embedding vector(1536)` 列
-- 使用 Lovable AI 或外部嵌入模型对 insight 内容生成向量
-- 支持语义搜索、相似度匹配等高级分析功能
+| File | Endpoints to fix |
+|------|-----------------|
+| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/verify-config/index.ts` | `search_notes` |
+| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
 
-### 文件变更
+The change is purely a path prefix swap. Parameters and response structure remain identical.
 
-| 文件 | 变更 |
-|------|------|
-| `supabase/functions/perplexity-scheduler/index.ts` | `deepAnalyze()` 模型改为 `sonar-pro`，增加 citations 日志 |
-| `src/components/discover/HunterSection.tsx` | 移除 SignalCard 和"强烈痛点"/"全部信号"展示区域，只保留商机卡片和扫描任务管理 |
+After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
 

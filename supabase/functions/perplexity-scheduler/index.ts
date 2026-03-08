@@ -212,7 +212,7 @@ async function deepAnalyze(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "sonar",
+      model: "sonar-pro",
       temperature: 0.3,
       messages: [
         { role: "system", content: "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON。" },
@@ -229,6 +229,10 @@ async function deepAnalyze(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content ?? "";
   const citations: string[] = data.citations ?? [];
+  console.log(`[deep-analyze] "${keyword}" citations (${citations.length}):`, JSON.stringify(citations.slice(0, 5)));
+  if (citations.length === 0) {
+    console.warn(`[deep-analyze] No citations returned for "${keyword}". Response keys: ${Object.keys(data).join(", ")}`);
+  }
 
   let insight: InsightResult | null = null;
   try {
