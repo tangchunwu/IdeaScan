@@ -2,6 +2,7 @@ import { PageBackground, Navbar, GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Zap, Shield, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 const Pricing = () => {
        const plans = [
