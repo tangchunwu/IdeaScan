@@ -237,6 +237,7 @@ serve(async (req) => {
             pain_level: normalizePainLevel(signal.pain_level),
             opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
             sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
+            processed_at: new Date().toISOString(), // Already analyzed by Perplexity
             scanned_at: new Date().toISOString(),
           });
         }
