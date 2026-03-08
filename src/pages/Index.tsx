@@ -192,6 +192,9 @@ const Index = () => {
             </div>
           </section>
 
+          {/* Testimonials - 信任建设 */}
+          <TestimonialSection />
+
           {/* How it works - 用户认知引导 */}
           <section className="mb-24 section-breathe">
             <div className="text-center mb-14">

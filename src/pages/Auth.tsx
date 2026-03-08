@@ -142,7 +142,7 @@ const Auth = () => {
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center mx-auto mb-5 shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-300">
               <Sparkles className="w-10 h-10 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">需求验证器</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">IdeaScan</h1>
             <p className="text-muted-foreground">
               分辨<span className="text-primary font-medium">真刚需</span>与<span className="text-destructive font-medium">伪需求</span>，少走弯路
             </p>
