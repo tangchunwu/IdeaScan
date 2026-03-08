@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link, useNavigate } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, SampleReports } from "@/components/shared";
 import { Button } from "@/components/ui/button";
