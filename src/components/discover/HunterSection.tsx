@@ -359,15 +359,19 @@ export const HunterSection = () => {
 	const handleManualTrigger = async () => {
 		setIsScanning(true);
 		try {
-			toast({ title: "🔍 正在扫描全网情报...", description: "AI 正在搜索公开网络中的痛点和机会，预计 15-30 秒。" });
-			const result = await hunterService.triggerHunterScan();
-			toast({
-				title: "✅ 扫描完成",
-				description: `发现 ${result?.signals_inserted || 0} 条新信号`,
-			});
+			toast({ title: "🔍 正在深度探索全网趋势...", description: "AI 正在用深度推理模型分析全网热点和商机，预计 30-60 秒。" });
+			const result = await hunterService.triggerHunterScan(undefined, "discover");
+			const count = result?.signals_inserted || 0;
+			if (count === 0 && result?.quota_exhausted) {
+				toast({ title: "⚠️ 今日配额已用完", description: "每日最多采集 100 条信号，请明天再试。" });
+			} else if (count === 0) {
+				toast({ title: "暂无新发现", description: "AI 未发现新的趋势信号，可稍后重试。" });
+			} else {
+				toast({ title: "✅ 探索完成", description: `发现 ${count} 条新趋势信号` });
+			}
 			refreshData();
 		} catch (e: any) {
-			toast({ title: "扫描失败", description: e.message, variant: "destructive" });
+			toast({ title: "探索失败", description: e.message, variant: "destructive" });
 		} finally {
 			setIsScanning(false);
 		}
@@ -392,9 +396,9 @@ export const HunterSection = () => {
                             </div>
 
                             <div className="flex gap-3">
-                                   <Button variant="outline" onClick={handleManualTrigger} disabled={isScanning} className="gap-2">
-                                          <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} /> {isScanning ? '扫描中...' : '立即扫描'}
-                                   </Button>
+                                    <Button variant="outline" onClick={handleManualTrigger} disabled={isScanning} className="gap-2">
+                                           <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} /> {isScanning ? '探索中...' : '🌐 发现趋势'}
+                                    </Button>
                                    <CreateJobDialog onCreated={refreshData} />
                             </div>
                      </div>

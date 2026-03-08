@@ -110,9 +110,9 @@ export const hunterService = {
 		return data;
 	},
 
-	async triggerHunterScan(keywords?: string[]) {
+	async triggerHunterScan(keywords?: string[], mode?: "discover") {
 		const { data, error } = await supabase.functions.invoke("hunter-scan", {
-			body: keywords ? { keywords } : {}
+			body: { ...(keywords ? { keywords } : {}), ...(mode ? { mode } : {}) }
 		});
 		if (error) throw error;
 		return data;
