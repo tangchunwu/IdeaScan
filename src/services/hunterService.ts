@@ -185,7 +185,7 @@ export const hunterService = {
 
 		const { count: citations } = await fromTable("raw_market_signals")
 			.select("*", { count: "exact", head: true })
-			.eq("content_type", "source_citation");
+			.not("source_url", "is", null);
 
 		return {
 			total: total || 0,
