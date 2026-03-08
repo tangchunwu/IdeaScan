@@ -465,7 +465,7 @@ const Report = () => {
           </div>
 
           {/* Data Confidence */}
-          <div className="mb-4 sm:mb-6 lg:max-w-sm animate-slide-up" style={{ animationDelay: "150ms" }}>
+          <div className="mb-4 sm:mb-6 animate-slide-up" style={{ animationDelay: "150ms" }}>
             <DataConfidenceCard
               sampleSize={xiaohongshuData.totalNotes || 0}
               platforms={[
