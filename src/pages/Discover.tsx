@@ -99,6 +99,10 @@ export default function Discover() {
     });
   };
 
+  const handleDeleteTopic = () => {
+    refetchTopics();
+  };
+
   const handleResetFilters = () => {
     setSelectedCategory(null);
     setMinHeatScore(0);
