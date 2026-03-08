@@ -1,9 +1,11 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
 import { SocialProofCounter } from "@/components/social";
 import { HotTrends } from "@/components/discover/HotTrends";
+import { TestimonialSection } from "@/components/landing/TestimonialSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
@@ -20,6 +22,7 @@ import {
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { captureEvent } from "@/lib/posthog";
 
 const features = [
