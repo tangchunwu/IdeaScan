@@ -148,7 +148,7 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
                                                  onChange={e => setKeywords(e.target.value)}
                                           />
                                           <p className="text-xs text-muted-foreground">
-                                                 我们将自动扫描 Reddit 和 小红书 上关于这些关键词的抱怨和求助。
+                                                 AI 将自动搜索公开网络中关于这些关键词的用户痛点和商业机会。
                                           </p>
                                    </div>
                             </div>
