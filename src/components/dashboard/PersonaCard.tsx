@@ -106,13 +106,13 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Name + Meta */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-bold text-foreground tracking-tight">{persona.name}</h3>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 border border-border/20 text-xs font-medium text-muted-foreground">
+              <h3 className="text-xl font-bold text-foreground tracking-tight">{persona.name}</h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 border border-border/20 text-sm font-medium text-muted-foreground">
                 <Briefcase className="w-3 h-3" />
                 {persona.role}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {persona.age} · {persona.income}
             </p>
             {!imageUrl && !isGenerating && (
@@ -124,7 +124,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         </div>
 
         {/* User Story */}
-        <blockquote className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4 line-clamp-3">
+        <blockquote className="text-base text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4">
           "{persona.description}"
         </blockquote>
 
@@ -132,13 +132,13 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Pain Points */}
           <div className="space-y-2">
-            <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <div className="p-1 rounded bg-primary/10 text-primary"><Target className="w-3 h-3" /></div>
               核心痛点
             </h5>
             <div className="space-y-1">
               {persona.painPoints?.map((pain, i) => (
-                <p key={i} className="text-xs text-foreground/70 flex items-start gap-1.5">
+                <p key={i} className="text-sm text-foreground/70 flex items-start gap-1.5">
                   <span className="text-red-400 mt-0.5 shrink-0">•</span>
                   <span className="line-clamp-2">{pain}</span>
                 </p>
@@ -148,13 +148,13 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
 
           {/* Goals */}
           <div className="space-y-2">
-            <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <div className="p-1 rounded bg-secondary/10 text-secondary"><Zap className="w-3 h-3" /></div>
               核心诉求
             </h5>
             <div className="space-y-1">
               {persona.goals?.map((goal, i) => (
-                <p key={i} className="text-xs text-foreground/70 flex items-start gap-1.5">
+                <p key={i} className="text-sm text-foreground/70 flex items-start gap-1.5">
                   <span className="text-green-400 mt-0.5 shrink-0">✓</span>
                   <span className="line-clamp-2">{goal}</span>
                 </p>
@@ -165,8 +165,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Tech Savviness */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">技术敏感度</span>
-              <span className="text-xs font-bold text-primary">{persona.techSavviness}%</span>
+              <span className="text-sm font-semibold text-muted-foreground">技术敏感度</span>
+              <span className="text-sm font-bold text-primary">{persona.techSavviness}%</span>
             </div>
             <Progress value={persona.techSavviness} className="h-1.5 bg-muted" />
           </div>
@@ -174,8 +174,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Spending */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">消费能力</span>
-              <span className="text-xs font-bold text-accent">{persona.spendingCapacity}%</span>
+              <span className="text-sm font-semibold text-muted-foreground">消费能力</span>
+              <span className="text-sm font-bold text-accent">{persona.spendingCapacity}%</span>
             </div>
             <Progress value={persona.spendingCapacity} className="h-1.5 bg-muted" />
           </div>

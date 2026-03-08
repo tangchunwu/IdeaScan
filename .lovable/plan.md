@@ -1,45 +1,67 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# 修复空白 + 字体过小
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 问题
+## 竞品对标优化
 
-从截图看到两个箭头指向的问题：
-1. **ScoreHeroCard 右侧**：idea 标题下方 `overallVerdict` 只显示了"已完成综合评估"一小行，下面大片空白直到按钮区 — 内容没有撑满
-2. **字体全面偏小**：`text-[10px]` 用了多处（"基于20条数据"、"/100"），痛点/诉求/进度条标签都是 `text-xs`（12px），在大屏上阅读体验差
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-## 方案
+## Phase 6: 留存基础
 
-### 1. ScoreHeroCard 字体放大 + 填满空间
-| 元素 | 当前 | 改为 |
-|------|------|------|
-| "需求真实度" 标签 | `text-[10px]` | `text-xs` |
-| 分数数字 | `text-3xl` | `text-4xl` |
-| "/100" | `text-[10px]` | `text-xs` |
-| "基于N条数据" | `text-[10px]` | `text-xs` |
-| idea 标题 | `text-lg sm:text-xl` | `text-xl sm:text-2xl` |
-| overallVerdict | `text-sm` | `text-base` |
-| overallVerdict 行限制 | `line-clamp-4` | 去掉 line-clamp，完整显示 |
-| 建议标题 | `text-sm` | `text-base` |
-| 按钮文字 | `text-xs` | `text-sm` |
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-### 2. PersonaCard 字体放大
-| 元素 | 当前 | 改为 |
-|------|------|------|
-| 人名 | `text-lg` | `text-xl` |
-| 角色 badge | `text-xs` | `text-sm` |
-| 年龄/收入 | `text-xs` | `text-sm` |
-| User Story blockquote | `text-sm` + `line-clamp-3` | `text-base` + 去掉 line-clamp |
-| 痛点/诉求标题 | `text-xs` | `text-sm` |
-| 痛点/诉求内容 | `text-xs` | `text-sm` |
-| 进度条标签 | `text-xs` | `text-sm` |
+## Phase 7: 可视化升级
 
-### 3. 文件清单
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-| 文件 | 改动 |
-|------|------|
-| `ScoreHeroCard.tsx` | 全面放大字号，去掉 overallVerdict 行限制 |
-| `PersonaCard.tsx` | 全面放大字号，去掉 description 行限制 |
+## Phase 8: 增长引擎
 
-2 个文件，纯字号/样式调整。
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |

@@ -134,39 +134,39 @@ export const ScoreHeroCard = ({
       <div className="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
         {/* Left: Score Ring */}
         <div className="flex flex-col items-center shrink-0">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
             <ScoreCircle score={animatedScore} customSize={100} strokeWidth={9} showText={false} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
-              <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
+              <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
+              <span className="text-xs text-muted-foreground font-medium">/ 100</span>
             </div>
           </div>
           <div className={`mt-3 text-xs font-bold px-3 py-1 rounded-full border ${label.cls}`}>
             {label.text}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5">基于 {totalNotes} 条数据</p>
+          <p className="text-xs text-muted-foreground mt-1.5">基于 {totalNotes} 条数据</p>
           {isIncomplete && (
-            <p className="text-[10px] text-amber-500 mt-1">⚠ 数据未完整</p>
+            <p className="text-xs text-amber-500 mt-1">⚠ 数据未完整</p>
           )}
         </div>
 
         {/* Right: Elevator Pitch */}
         <div className="flex-1 text-center md:text-left space-y-3 min-w-0">
           {idea && (
-            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
               {idea}
             </h2>
           )}
           {overallVerdict && (
-            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+            <p className="text-base text-muted-foreground leading-relaxed">
               {overallVerdict}
             </p>
           )}
 
           {/* Verdict + Actions */}
           <div className="pt-2 border-t border-border/30">
-            <p className={`text-sm font-bold ${config.color} mb-2`}>{config.title}</p>
+            <p className={`text-base font-bold ${config.color} mb-2`}>{config.title}</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
               {config.actions.map((action, i) => (
                 <Button
@@ -174,7 +174,7 @@ export const ScoreHeroCard = ({
                   variant={action.primary ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleAction(action.action)}
-                  className="rounded-full text-xs"
+                  className="rounded-full text-sm"
                 >
                   {action.label}
                 </Button>
