@@ -124,7 +124,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         </div>
 
         {/* User Story */}
-        <blockquote className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4 line-clamp-3">
+        <blockquote className="text-base text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4">
           "{persona.description}"
         </blockquote>
 
