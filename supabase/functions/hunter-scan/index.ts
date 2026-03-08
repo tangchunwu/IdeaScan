@@ -69,15 +69,17 @@ async function searchWithPerplexity(keyword: string, baseUrl: string, apiKey: st
   // Parse JSON from response
   let signals: MarketSignal[] = [];
   try {
-    // Strip all citation markers like [1], [2][3] etc before extracting JSON
-    const cleaned = content.replace(/\[(\d+)\]/g, "");
+    // Strip citation markers like [1], [2][3], and also ,\n[1] patterns
+    const cleaned = content
+      .replace(/,?\s*\[(\d+)\]\s*/g, " ")  // remove [N] with optional comma before
+      .replace(/\s+/g, " ");                // normalize whitespace
     const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       signals = JSON.parse(jsonMatch[0]);
     }
   } catch (e) {
     console.error("Failed to parse Perplexity response as JSON:", e);
-    console.log("Raw content:", content);
+    console.log("Raw content (first 500):", content.slice(0, 500));
   }
 
   // Assign citation URLs to signals that lack source_url
