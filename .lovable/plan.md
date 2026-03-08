@@ -1,98 +1,40 @@
+# IdeaScan 改进计划
 
+## 已完成 ✅
 
-# IdeaScan 项目改进分析
+### P1: Discover 匿名用户开放
+- 创建 `get_public_trending_topics` RPC 函数（security definer），绕过 RLS 返回 top 5 热点
+- Discover 页面和 HotTrends 组件均支持匿名用户查看有限数据
+- 匿名用户看到登录引导，点击验证时要求登录
 
-经过系统性审查代码库，我从**用户体验、产品功能、技术架构、商业化**四个维度识别出以下改进点：
+### P1: 动态 SEO 标题
+- 创建 `useDocumentTitle` hook，所有页面动态设置 `<title>`
+- 覆盖页面：首页、验证、报告、历史、对比、发现、定价、FAQ
 
----
+### P1: Validate.tsx 拆分重构
+- 提取 `useValidationStream` hook（~190 行）处理 SSE 流、取消、进度
+- 提取 `ValidationProgress` 组件（~130 行）展示验证进度 UI
+- Validate.tsx 从 850 行精简至 ~310 行
 
-## 一、用户体验 (UX) 改进
+### P2: UX 细节优化
+- 移动端 Navbar 菜单增加"系统配置"入口
+- SocialProofCounter 移除硬编码 +1280 偏移量，使用真实数据
+- HotTrends 已有"发现更多趋势"CTA 引导到 Discover 页
 
-### 1. 移动端体验优化
-- **Report 页面**：大量 Grid 布局在小屏幕上堆叠效果不佳，Tab 切换区域过多，移动端信息密度过高
-- **Validate 页面**：输入区域 `min-h-[200px]` 在手机上占据过多空间；验证进度条动画在小屏不够直观
-- **Navbar 移动菜单**：缺少设置入口（桌面端有 SettingsDialog，但移动端菜单里没有）
+## 待实施
 
-### 2. 加载与反馈体验
-- **验证过程无法查看部分结果**：SSE 流传输了 7 个阶段的进度，但用户只能看到进度条和文字，无法预览已获取的数据（如已爬取的笔记数）
-- **PDF 导出无进度提示**：`exportToMultiPagePdf` 是异步操作，用户点击后无 loading 状态反馈
-- **Report 加载骨架屏**：已有但和实际布局差异较大，给人"闪烁"感
+### P0: 付费转化路径
+- 提供平台共享 TikHub Token 配额
+- 免费用户每月 3 次验证无需配置 Token
 
-### 3. 首页冷启动
-- `SocialProofCounter` 硬编码了 `+1280` 的偏移量，如果真实数据少会显得虚假
-- `HotTrends` 组件在首页只展示 5 条，但没有"查看更多"的入口引导到 Discover 页
+### P0: 报告公开分享链接
+- 生成不需要登录的只读分享链接
+- 包含 OG meta tags 用于社交平台预览卡片
 
----
+### P2: 更多 UX 优化
+- PDF 导出增加 loading 进度提示
+- Report 页面移动端适配优化
 
-## 二、产品功能改进
-
-### 4. 报告分享机制不完善
-- `handleShare` 直接分享当前 URL，但报告页需要登录才能查看（`get-validation` 需认证）
-- **缺少公开分享链接**：应该生成一个不需要登录的只读分享链接
-
-### 5. 对比分析页面 (Compare) 问题
-- 用 `useEffect` + `Promise.all` 串行获取所有验证详情，最多 10 个 × 每个一次 API 调用 = 10 次网络请求，加载慢
-- 对比总结是硬编码的模板文本，没有利用 AI 生成有针对性的对比分析
-
-### 6. 定价页面是静态展示
-- Pricing 页面完全是静态的，专业版按钮点击只弹 toast "即将推出"
-- 没有与 `useUserQuota` 集成，无法显示用户当前配额使用情况
-
-### 7. Discover 页面认证墙过早
-- 热点雷达要求登录才能查看，但这应该是吸引新用户的入口
-- 建议：允许匿名用户查看前几条热点，点击"验证"时再要求登录
-
----
-
-## 三、技术架构改进
-
-### 8. 状态管理分散
-- 已安装 `zustand` 但只用于 `useSettings`，其他地方（如验证流程状态）全部用组件内 `useState`
-- `Validate.tsx` 有 850 行、15+ 个 useState，应该拆分为自定义 hook
-
-### 9. 错误处理不一致
-- 有些地方用 `useToast`，有些用 `sonner`（项目同时安装了两套 toast）
-- Edge Function 错误信息直接透传给用户（如 "SSE 连接失败(500)"），缺少友好的错误映射
-
-### 10. 安全性
-- `useAdminAuth` 的实现需要检查是否使用了正确的 server-side 验证（而非 client-side 检查）
-- `isAuthBypassEnabled` 通过环境变量跳过认证，生产环境需确保此变量不存在
-
-### 11. 性能优化空间
-- Compare 页面一次性获取 10 个报告的完整数据，应该用后端聚合接口
-- `AnimatePresence mode="wait"` 会阻塞路由切换动画，每次页面跳转都有延迟感
-
----
-
-## 四、商业化与增长改进
-
-### 12. 付费转化路径断裂
-- 用户必须自己配置 TikHub Token 才能使用核心功能，这是极高的门槛
-- Pricing 页写了"每月 3 次免费验证"，但 `useUserQuota` 的逻辑是：没有 TikHub Token 就根本不能用
-- **建议**：提供平台共享的 TikHub Token 配额，免费用户有限次数，付费解锁更多
-
-### 13. 缺少引导式 Onboarding
-- `OnboardingTour` 组件存在但只在首页触发，新用户进入 Validate 页面后没有引导
-- 首次验证完成后没有引导用户去 Discover 或 Compare
-
-### 14. SEO 与分享
-- 所有页面 `<title>` 未动态设置（缺少 react-helmet 或类似方案）
-- 报告页没有 OG meta tags，分享到社交平台时没有预览卡片
-
----
-
-## 优先级建议
-
-| 优先级 | 改进项 | 预期收益 |
-|--------|--------|---------|
-| P0 | #12 付费转化路径（TikHub Token 门槛） | 直接影响用户留存和转化 |
-| P0 | #4 报告公开分享链接 | 病毒传播的基础设施 |
-| P1 | #7 Discover 匿名可见 | 降低获客漏斗顶部流失 |
-| P1 | #8 Validate 页面拆分重构 | 代码可维护性 |
-| P1 | #14 SEO + OG tags | 自然流量增长 |
-| P2 | #2 PDF 导出进度提示 | 用户体验细节 |
-| P2 | #1 移动端适配 | 覆盖移动用户 |
-| P2 | #5 Compare 页面优化 | 功能完善度 |
-| P3 | #9 错误处理统一 | 技术债务 |
-| P3 | #11 性能优化 | 体验流畅度 |
-
+### P3: 技术债务
+- 统一 toast 通知（useToast vs sonner）
+- Edge Function 错误信息友好化映射

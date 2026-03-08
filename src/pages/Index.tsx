@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
 import { SocialProofCounter } from "@/components/social";
@@ -55,6 +56,7 @@ const steps = [
 ];
 
 const Index = () => {
+  useDocumentTitle("在写代码前，先验证你的创业想法");
   const { data: validationCount } = useQuery({
     queryKey: ['validation-count'],
     queryFn: async () => {
@@ -128,7 +130,7 @@ const Index = () => {
 
             {/* Social Proof */}
             <div className="mt-12 flex justify-center animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-              <SocialProofCounter count={(validationCount ?? 0) + 1280} label="个创意已通过验证" />
+              <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
             </div>
 
           </section>

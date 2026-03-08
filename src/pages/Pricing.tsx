@@ -1,4 +1,5 @@
 import { PageBackground, Navbar, GlassCard } from "@/components/shared";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Zap, Shield, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -6,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 const Pricing = () => {
        const { toast } = useToast();
+       useDocumentTitle("定价方案");
        const plans = [
               {
                      name: "免费版",

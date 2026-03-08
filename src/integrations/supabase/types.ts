@@ -1142,6 +1142,18 @@ export type Database = {
           topic_id: string
         }[]
       }
+      get_public_trending_topics: {
+        Args: { p_limit?: number }
+        Returns: {
+          category: string
+          growth_rate: number
+          heat_score: number
+          id: string
+          keyword: string
+          quality_score: number
+          sample_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -1,5 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, EmptyState, ChartSkeleton } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const Report = () => {
   const [isRecrawling, setIsRecrawling] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const settings = useSettings();
+  useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", [data?.validation?.idea]);
 
   const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
   const reportData = useReportData(data);

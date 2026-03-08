@@ -1,4 +1,5 @@
 import { PageBackground, Navbar, GlassCard } from "@/components/shared";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
        Accordion,
        AccordionContent,
@@ -8,6 +9,7 @@ import {
 import { Mail } from "lucide-react";
 
 const FAQ = () => {
+       useDocumentTitle("常见问题");
        const faqs = [
               {
                      question: "IdeaScan 是如何验证我的创业点子的？",

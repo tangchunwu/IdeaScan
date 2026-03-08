@@ -247,6 +247,35 @@ export async function trackTopicClick(
   }
 }
 
+// 公开热点（匿名可用，通过 security definer 函数绕过 RLS）
+export async function getPublicTrendingTopics(limit = 5): Promise<TrendingTopic[]> {
+  const { data, error } = await supabase.rpc('get_public_trending_topics', { p_limit: limit });
+  if (error) {
+    console.error('Error fetching public trending topics:', error);
+    return [];
+  }
+  return (data || []).map((t: any) => ({
+    id: t.id,
+    keyword: t.keyword,
+    category: t.category,
+    heat_score: t.heat_score || 0,
+    growth_rate: t.growth_rate,
+    sample_count: t.sample_count || 0,
+    quality_score: t.quality_score,
+    avg_engagement: 0,
+    sentiment_positive: 0,
+    sentiment_negative: 0,
+    sentiment_neutral: 0,
+    top_pain_points: [],
+    related_keywords: [],
+    sources: [],
+    discovered_at: '',
+    updated_at: '',
+    is_active: true,
+    created_by: null,
+  }));
+}
+
 // 新增：获取热门趋势（用于首页展示，替代 PopularValidations）
 export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
   let { data, error } = await supabase

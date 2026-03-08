@@ -12,6 +12,7 @@ import { OpportunityBubbleChart } from "@/components/discover/OpportunityBubbleC
 import { Button } from "@/components/ui/button";
 import {
   getTrendingTopics,
+  getPublicTrendingTopics,
   getCategories,
   getDiscoverStats,
   getUserTopicInterests,
@@ -19,7 +20,8 @@ import {
 } from "@/services/discoverService";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp, LogIn } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +34,7 @@ export default function Discover() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "market";
+  useDocumentTitle("热点雷达 - 发现商业机会");
 
   const handleTabChange = (value: string) => {
     captureEvent('discover_tab_changed', { tab: value });
@@ -52,15 +55,13 @@ export default function Discover() {
   // User interests map
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
 
-  // Fetch trending topics
+  // Fetch trending topics - authenticated gets full data, anonymous gets public preview
   const { data: topics, isLoading: topicsLoading, error: topicsError, refetch: refetchTopics } = useQuery({
-    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy],
-    queryFn: () => getTrendingTopics({
-      category: selectedCategory || undefined,
-      minHeatScore,
-      sortBy,
-    }),
-    enabled: !authLoading && isAuthenticated,
+    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy, isAuthenticated],
+    queryFn: () => isAuthenticated
+      ? getTrendingTopics({ category: selectedCategory || undefined, minHeatScore, sortBy })
+      : getPublicTrendingTopics(5),
+    enabled: !authLoading,
   });
 
   // Fetch categories
@@ -217,14 +218,6 @@ export default function Discover() {
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
               </div>
-            ) : !isAuthenticated ? (
-              <EmptyState
-                icon={Compass}
-                title="请先登录查看热点雷达"
-                description="当前热点数据已启用登录访问保护，登录后即可查看完整市场趋势"
-                actionLabel="去登录"
-                actionLink="/auth"
-              />
             ) : topicsLoading ? (
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
@@ -238,25 +231,39 @@ export default function Discover() {
                 onAction={() => refetchTopics()}
               />
             ) : topics && topics.length > 0 ? (
-              viewMode === "cards" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {topics.map(topic => (
-                    <TrendingTopicCard
-                      key={topic.id}
-                      topic={topic}
-                      userInterest={userInterests.get(topic.id)}
-                      onInterestChange={handleInterestChange}
-                      isAdmin={isAdmin}
-                      onDelete={handleDeleteTopic}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <OpportunityBubbleChart
-                  data={bubbleData}
-                  onBubbleClick={handleBubbleClick}
-                />
-              )
+              <>
+                {viewMode === "cards" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {topics.map(topic => (
+                      <TrendingTopicCard
+                        key={topic.id}
+                        topic={topic}
+                        userInterest={userInterests.get(topic.id)}
+                        onInterestChange={handleInterestChange}
+                        isAdmin={isAdmin}
+                        onDelete={handleDeleteTopic}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <OpportunityBubbleChart
+                    data={bubbleData}
+                    onBubbleClick={handleBubbleClick}
+                  />
+                )}
+                {/* Login prompt for anonymous users to see more */}
+                {!isAuthenticated && (
+                  <div className="mt-8 text-center">
+                    <div className="inline-flex flex-col items-center gap-3 p-6 rounded-2xl bg-muted/30 border border-border/30">
+                      <LogIn className="w-6 h-6 text-primary" />
+                      <p className="text-sm text-muted-foreground">登录后查看全部热点话题、筛选排序和个性化推荐</p>
+                      <Button size="sm" onClick={() => navigate("/auth")}>
+                        登录解锁完整数据
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <EmptyState
                 icon={Compass}
