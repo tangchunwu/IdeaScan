@@ -368,19 +368,6 @@ const Report = () => {
     navigate(`/validate?idea=${idea}&auto=true&resumeValidationId=${validation.id}`);
   };
 
-  // Scroll progress
-  const [scrollProgress, setScrollProgress] = useState(0);
-  useEffect(() => {
-    const handleScroll = () => {
-      const el = document.documentElement;
-      const scrollTop = el.scrollTop;
-      const scrollHeight = el.scrollHeight - el.clientHeight;
-      setScrollProgress(scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
   return (
     <PageBackground showClouds={false}>
       {/* Scroll Progress Bar */}
