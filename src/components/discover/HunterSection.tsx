@@ -88,10 +88,12 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                                    <MessageSquare className="w-3 h-3" />
                                    {opp.signal_count} 信号
                             </div>
-                            <div className="flex items-center gap-1">
-                                   <TrendingUp className="w-3 h-3" />
-                                   {opp.market_size_est || "未知规模"}
-                            </div>
+                            {opp.avg_opportunity_score != null && (
+                                   <div className="flex items-center gap-1">
+                                          <TrendingUp className="w-3 h-3" />
+                                          机会分 {opp.avg_opportunity_score?.toFixed(0)}
+                                   </div>
+                            )}
                      </div>
 
                      <div className="mt-auto pt-4 border-t border-white/5 flex justify-end relative z-10">
