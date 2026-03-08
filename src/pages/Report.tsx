@@ -471,6 +471,11 @@ const Report = () => {
             strategies={aiAnalysis.monetizationStrategies}
           />
 
+          {/* Brand Name Suggestions */}
+          <BrandNameSuggestions
+            brandNames={aiAnalysis.brandNames}
+          />
+
           <DemandDecisionCard
             validation={validation}
             score={displayScore}
