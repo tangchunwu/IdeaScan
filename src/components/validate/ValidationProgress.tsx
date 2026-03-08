@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle2, X } from "lucide-react";
+import { Loader2, CheckCircle2, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/shared";
 import type { ValidationStep } from "@/hooks/useValidationStream";
@@ -11,7 +11,25 @@ interface ValidationProgressProps {
   currentValidationId: string | null;
   isCancelling: boolean;
   onCancelAndKeep: () => void;
+  stepTimestamps?: number[];
 }
+
+const formatDuration = (ms: number) => {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+};
+
+const estimateRemaining = (stepTimestamps: number[], currentStep: number, totalSteps: number) => {
+  if (currentStep < 1 || stepTimestamps.length < 2) return null;
+  // Average time per completed step
+  const completedDurations: number[] = [];
+  for (let i = 1; i < stepTimestamps.length; i++) {
+    completedDurations.push(stepTimestamps[i] - stepTimestamps[i - 1]);
+  }
+  const avgMs = completedDurations.reduce((a, b) => a + b, 0) / completedDurations.length;
+  const remaining = (totalSteps - currentStep) * avgMs;
+  return remaining > 0 ? remaining : null;
+};
 
 export const ValidationProgress = ({
   progress,
@@ -21,7 +39,10 @@ export const ValidationProgress = ({
   currentValidationId,
   isCancelling,
   onCancelAndKeep,
+  stepTimestamps = [],
 }: ValidationProgressProps) => {
+  const estRemaining = estimateRemaining(stepTimestamps, currentStep, validationSteps.length);
+
   return (
     <GlassCard className="space-y-6 animate-scale-in">
       {/* Main Progress Header */}
@@ -31,7 +52,11 @@ export const ValidationProgress = ({
         </div>
         <div>
           <h3 className="text-lg font-semibold text-foreground">正在验证你的想法...</h3>
-          <p className="text-sm text-muted-foreground mt-1">请稍候，这可能需要 15-30 秒</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {estRemaining
+              ? `预计还需 ${formatDuration(estRemaining)}`
+              : "请稍候，这可能需要 15-30 秒"}
+          </p>
         </div>
       </div>
 
@@ -60,6 +85,11 @@ export const ValidationProgress = ({
             const isCompleted = currentStep > i;
             const isActive = currentStep === i;
             const isPending = currentStep < i;
+
+            // Calculate step duration
+            const stepDuration = isCompleted && stepTimestamps[i] !== undefined && stepTimestamps[i + 1] !== undefined
+              ? stepTimestamps[i + 1] - stepTimestamps[i]
+              : null;
 
             return (
               <div
@@ -94,7 +124,13 @@ export const ValidationProgress = ({
                   )}
                 </div>
                 {isCompleted && (
-                  <span className="text-xs text-primary font-medium">完成</span>
+                  <span className="text-xs text-primary font-medium flex items-center gap-1">
+                    {stepDuration !== null ? (
+                      <><Clock className="w-3 h-3" />{formatDuration(stepDuration)}</>
+                    ) : (
+                      "完成"
+                    )}
+                  </span>
                 )}
               </div>
             );

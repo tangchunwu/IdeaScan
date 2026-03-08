@@ -18,6 +18,11 @@ export interface ValidationStep {
   targetProgress: number;
 }
 
+export interface CompletionPreview {
+  score: number;
+  validationId: string;
+}
+
 export function useValidationStream(validationSteps: ValidationStep[]) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -32,12 +37,21 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const [progressMessage, setProgressMessage] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [currentValidationId, setCurrentValidationId] = useState<string | null>(null);
+  const [stepTimestamps, setStepTimestamps] = useState<number[]>([]);
+  const [completionPreview, setCompletionPreview] = useState<CompletionPreview | null>(null);
   const sseControllerRef = useRef<{ abort: () => void } | null>(null);
+  const lastStepRef = useRef(-1);
 
-  // Cleanup SSE
   const cleanup = () => {
     sseControllerRef.current?.abort();
     sseControllerRef.current = null;
+  };
+
+  const dismissPreview = () => setCompletionPreview(null);
+
+  const navigateToReport = (validationId: string) => {
+    setCompletionPreview(null);
+    navigate(`/report/${validationId}`);
   };
 
   const handleCancelAndKeep = async () => {
@@ -84,6 +98,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
       setProgress(0);
       setCurrentStep(0);
       setCurrentValidationId(null);
+      setStepTimestamps([]);
     }
   };
 
@@ -106,6 +121,9 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     setProgress(0);
     setCurrentStep(0);
     setProgressMessage("");
+    setStepTimestamps([Date.now()]);
+    setCompletionPreview(null);
+    lastStepRef.current = 0;
 
     sseControllerRef.current = createValidationStream(
       {
@@ -120,7 +138,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           llmApiKey: settings.llmApiKey,
           llmModel: settings.llmModel,
           llmFallbacks: settings.llmFallbacks,
-          tikhubToken: hasOwnTikhub ? settings.tikhubToken : "", // empty = use shared quota
+          tikhubToken: hasOwnTikhub ? settings.tikhubToken : "",
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: false,
           enableSelfCrawler: false,
@@ -148,12 +166,23 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           analyze: 5, save: 6, complete: 7,
         };
         if (event.stage && stageMap[event.stage] !== undefined) {
-          setCurrentStep(stageMap[event.stage]);
+          const newStep = stageMap[event.stage];
+          if (newStep > lastStepRef.current) {
+            lastStepRef.current = newStep;
+            setCurrentStep(newStep);
+            setStepTimestamps(prev => {
+              const next = [...prev];
+              // Fill gaps
+              while (next.length <= newStep) next.push(Date.now());
+              return next;
+            });
+          }
         }
       },
       async (result) => {
         setProgress(100);
         setCurrentStep(validationSteps.length);
+        setStepTimestamps(prev => [...prev, Date.now()]);
 
         captureEvent('validation_completed', {
           validation_id: result.validationId,
@@ -166,7 +195,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           body: `你的创意验证评分：${result.overallScore}分，点击查看完整报告`,
           tag: `validation-${result.validationId}`,
         });
-        refetchQuota(); // refresh free quota counter
+        refetchQuota();
 
         await queryClient.prefetchQuery({
           queryKey: validationKeys.detail(result.validationId),
@@ -174,7 +203,22 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           staleTime: 1000 * 60 * 5,
         });
 
-        setTimeout(() => navigate(`/report/${result.validationId}`), 500);
+        // Show completion preview instead of immediate redirect
+        setCompletionPreview({ score: result.overallScore, validationId: result.validationId });
+
+        // Auto-navigate after 4 seconds
+        setTimeout(() => {
+          setCompletionPreview(prev => {
+            if (prev?.validationId === result.validationId) {
+              navigate(`/report/${result.validationId}`);
+            }
+            return null;
+          });
+          setIsValidating(false);
+          setProgress(0);
+          setCurrentStep(0);
+          setStepTimestamps([]);
+        }, 4000);
       },
       (error) => {
         captureEvent('validation_failed', {
@@ -187,6 +231,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         setProgress(0);
         setCurrentStep(0);
         setCurrentValidationId(null);
+        setStepTimestamps([]);
       }
     );
   };
@@ -199,8 +244,12 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     isCancelling,
     currentValidationId,
     hasOwnTikhub,
+    stepTimestamps,
+    completionPreview,
     startValidation,
     handleCancelAndKeep,
     cleanup,
+    navigateToReport,
+    dismissPreview,
   };
 }

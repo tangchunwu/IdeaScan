@@ -1,5 +1,6 @@
+import { useState, useEffect, useRef } from "react";
 import { GlassCard } from "@/components/shared";
-import { Target, Brain, Swords } from "lucide-react";
+import { Target, Brain, Swords, ChevronDown, Quote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DemandDecisionCardProps {
@@ -15,12 +16,37 @@ interface DemandDecisionCardProps {
   evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
 }
 
+const useCountUp = (target: number, duration = 800) => {
+  const [value, setValue] = useState(0);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || target <= 0) return;
+    started.current = true;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+  return value;
+};
+
 export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
   aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceItems,
 }: DemandDecisionCardProps) => {
   const { toast } = useToast();
   const score = displayScore;
+  const [evidenceExpanded, setEvidenceExpanded] = useState(false);
+  const animatedNotes = useCountUp(xiaohongshuData.totalNotes);
+  const animatedEngagement = useCountUp(xiaohongshuData.totalEngagement);
+  const animatedPositive = useCountUp(sentimentAnalysis.positive);
+
+  const visibleEvidence = evidenceExpanded ? evidenceItems : evidenceItems.slice(0, 3);
 
   return (
     <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
@@ -44,20 +70,20 @@ export const DemandDecisionCard = ({
 
         {/* Right: Details */}
         <div className="col-span-1 lg:col-span-8 flex flex-col gap-5 content-center">
-          {/* Stats Row */}
+          {/* Stats Row - animated counters */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
               <div className="text-xs text-muted-foreground uppercase tracking-wider">用户讨论量</div>
-              <div className="text-2xl font-semibold">{xiaohongshuData.totalNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
+              <div className="text-2xl font-semibold">{animatedNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
             </div>
             <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
               <div className="text-xs text-muted-foreground uppercase tracking-wider">用户互动热度</div>
-              <div className="text-2xl font-semibold">{xiaohongshuData.totalEngagement.toLocaleString()}</div>
+              <div className="text-2xl font-semibold">{animatedEngagement.toLocaleString()}</div>
             </div>
             <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
               <div className="text-xs text-muted-foreground uppercase tracking-wider">用户态度</div>
               <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
-                {sentimentAnalysis.positive}% <span className="text-sm text-muted-foreground font-normal">正向</span>
+                {animatedPositive}% <span className="text-sm text-muted-foreground font-normal">正向</span>
               </div>
             </div>
           </div>
@@ -91,13 +117,15 @@ export const DemandDecisionCard = ({
             </div>
           </div>
 
-          {/* Verdicts */}
+          {/* Verdicts with quote decoration */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 relative">
+              <Quote className="w-4 h-4 text-primary/20 absolute top-2 right-2" />
               <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
-              <div className="text-sm font-medium">{aiAnalysis.overallVerdict}</div>
+              <div className="text-sm font-medium italic">{aiAnalysis.overallVerdict}</div>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 relative">
+              <Quote className="w-4 h-4 text-emerald-500/20 absolute top-2 right-2" />
               <div className="text-xs text-muted-foreground mb-1">商业可行性（付费意图）</div>
               <div className="text-sm font-medium">
                 {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}%
@@ -113,12 +141,23 @@ export const DemandDecisionCard = ({
             </div>
           </div>
 
-          {/* Evidence Sources */}
+          {/* Evidence Sources - collapsible */}
           <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
-            <div className="text-xs text-muted-foreground mb-2">证据溯源（可点击）</div>
-            {evidenceItems.length > 0 ? (
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-muted-foreground">证据溯源（可点击）</div>
+              {evidenceItems.length > 3 && (
+                <button
+                  onClick={() => setEvidenceExpanded(!evidenceExpanded)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  {evidenceExpanded ? "收起" : `展开全部 ${evidenceItems.length} 条`}
+                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${evidenceExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+            </div>
+            {visibleEvidence.length > 0 ? (
               <div className="space-y-2">
-                {evidenceItems.slice(0, 6).map((item, idx) => (
+                {visibleEvidence.map((item, idx) => (
                   <div key={`${item.type}-${idx}`} className="text-sm flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-medium truncate">
