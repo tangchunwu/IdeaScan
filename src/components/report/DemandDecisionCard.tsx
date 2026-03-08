@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard } from "@/components/shared";
-import { Target, Brain, Swords, ChevronDown, Quote } from "lucide-react";
+import { ChevronDown, Quote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DemandDecisionCardProps {
