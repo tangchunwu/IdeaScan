@@ -34,6 +34,7 @@ export default function Discover() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "market";
+  useDocumentTitle("热点雷达 - 发现商业机会");
 
   const handleTabChange = (value: string) => {
     captureEvent('discover_tab_changed', { tab: value });
