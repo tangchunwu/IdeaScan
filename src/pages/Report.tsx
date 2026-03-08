@@ -234,15 +234,24 @@ const Report = () => {
         .eq("id", id)
         .single();
       
-      let shareToken = (existing as any)?.share_token;
+      let shareToken = (existing as any)?.share_token as string | null;
       
       if (!shareToken) {
-        const { error: updateErr } = await supabase
-          .from("validations")
-          .update({ share_token: token } as any)
-          .eq("id", id);
-        if (updateErr) throw updateErr;
-        shareToken = token;
+        const resp = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/get-shared-report?action=create&validationId=${id}`,
+          {
+            method: "POST",
+            headers: {
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ action: "create", validationId: id }),
+          }
+        );
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || "Failed to create share link");
+        shareToken = result.shareToken;
       }
       
       const shareUrl = `${window.location.origin}/share/${shareToken}`;
