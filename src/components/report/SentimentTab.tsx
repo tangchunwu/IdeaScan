@@ -5,6 +5,7 @@ import {
 import { PieChartIcon, BarChart3, CheckCircle, AlertTriangle } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { CustomTooltip } from "./CustomTooltip";
+import { SentimentWordCloud } from "./SentimentWordCloud";
 import type { ReportDataResult } from "./useReportData";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
