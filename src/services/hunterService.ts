@@ -161,6 +161,42 @@ export const hunterService = {
 		return (data || []) as unknown as NicheOpportunity[];
 	},
 
+	// === Admin Stats ===
+
+	async getSignalStats(): Promise<{ total: number; insights: number; highScore: number; citations: number }> {
+		const { count: total } = await fromTable("raw_market_signals")
+			.select("*", { count: "exact", head: true });
+
+		const { count: insights } = await fromTable("raw_market_signals")
+			.select("*", { count: "exact", head: true })
+			.in("content_type", ["insight", "intelligence"]);
+
+		const { count: highScore } = await fromTable("raw_market_signals")
+			.select("*", { count: "exact", head: true })
+			.gte("opportunity_score", 70);
+
+		const { count: citations } = await fromTable("raw_market_signals")
+			.select("*", { count: "exact", head: true })
+			.eq("content_type", "source_citation");
+
+		return {
+			total: total || 0,
+			insights: insights || 0,
+			highScore: highScore || 0,
+			citations: citations || 0,
+		};
+	},
+
+	async getRecentSignalsForAdmin(limit = 20): Promise<RawMarketSignal[]> {
+		const { data, error } = await fromTable("raw_market_signals")
+			.select("*")
+			.order("scanned_at", { ascending: false })
+			.limit(limit);
+
+		if (error) throw error;
+		return (data || []) as unknown as RawMarketSignal[];
+	},
+
 	// Helper to get platform icon/color
 	getPlatformInfo(source: string) {
 		switch (source.toLowerCase()) {
