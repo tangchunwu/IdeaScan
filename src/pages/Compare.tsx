@@ -49,6 +49,7 @@ interface IdeaWithReport {
 const RADAR_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))"];
 
 const Compare = () => {
+  useDocumentTitle("对比分析");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [availableIdeas, setAvailableIdeas] = useState<IdeaWithReport[]>([]);
   const [loading, setLoading] = useState(true);

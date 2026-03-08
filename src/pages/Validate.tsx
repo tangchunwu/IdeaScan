@@ -54,6 +54,7 @@ const exampleIdeas = [
 const Validate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  useDocumentTitle("验证我的想法");
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
