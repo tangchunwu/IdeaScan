@@ -205,6 +205,8 @@ const Report = () => {
   const handleExportPdf = async () => {
     const rd = prepareExportData();
     if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
+    const toastId = `pdf-export-${Date.now()}`;
+    toast({ title: "正在生成 PDF...", description: "渲染报告中，请稍候" });
     try {
       const pdfHtml = generatePDFHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
