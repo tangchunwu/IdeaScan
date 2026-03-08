@@ -144,7 +144,7 @@ const Index = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-container">
+            <div data-tour="features" className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-container">
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
