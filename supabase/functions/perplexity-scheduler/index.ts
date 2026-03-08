@@ -37,6 +37,16 @@ interface MarketSignal {
 }
 
 // ── Helpers ──────────────────────────────────────────────
+/** 将 Perplexity 返回的 pain_level 映射到数据库约束允许的值 */
+function normalizePainLevel(level: string | null | undefined): string | null {
+  if (!level) return null;
+  const map: Record<string, string> = {
+    high: "severe", medium: "moderate", low: "mild",
+    severe: "severe", moderate: "moderate", mild: "mild", critical: "critical",
+  };
+  return map[level.toLowerCase()] || "moderate";
+}
+
 async function hashContent(content: string): Promise<string> {
   const data = new TextEncoder().encode(content);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -257,7 +267,7 @@ async function processKeyword(
       comments_count: 0,
       content_hash: contentHash,
       topic_tags: signal.topic_tags || [],
-      pain_level: signal.pain_level || null,
+      pain_level: normalizePainLevel(signal.pain_level),
       opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
       sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
       scanned_at: new Date().toISOString(),
