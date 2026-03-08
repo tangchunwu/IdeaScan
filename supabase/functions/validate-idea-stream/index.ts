@@ -523,6 +523,7 @@ function normalizeAnalysisResult(obj: any) {
       weaknesses: Array.isArray(safe?.aiAnalysis?.weaknesses) ? safe.aiAnalysis.weaknesses : [],
       risks: Array.isArray(safe?.aiAnalysis?.risks) ? safe.aiAnalysis.risks : [],
       suggestions: Array.isArray(safe?.aiAnalysis?.suggestions) ? safe.aiAnalysis.suggestions : [],
+      monetizationStrategies: Array.isArray(safe?.aiAnalysis?.monetizationStrategies) ? safe.aiAnalysis.monetizationStrategies : [],
     },
     persona: {
       name: String(safe?.persona?.name || "目标用户"),

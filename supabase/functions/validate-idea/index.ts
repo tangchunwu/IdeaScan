@@ -703,7 +703,11 @@ async function analyzeWithAI(
           "expectedResult": "预期结果"
         }
       ],
-      "risks": ["事前验尸风险1", "政策监管风险2"]
+      "risks": ["事前验尸风险1", "政策监管风险2"],
+      "monetizationStrategies": [
+        {"model": "订阅制SaaS", "timeline": "短期", "revenueEstimate": "月收入潜力评估", "description": "具体变现路径描述"},
+        {"model": "Freemium增值", "timeline": "中期", "revenueEstimate": "月收入潜力评估", "description": "具体变现路径描述"}
+      ]
     },
     "persona": {
       "name": "用户画像名称（如：'焦虑的职场小白'）",
