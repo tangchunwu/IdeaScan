@@ -67,9 +67,13 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
 
 const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
        const platform = hunterService.getPlatformInfo(signal.source);
+       const [expanded, setExpanded] = useState(false);
 
        return (
-              <div className="p-4 rounded-lg bg-card/50 border border-white/5 hover:bg-card/80 transition-colors">
+              <div
+                     className="p-4 rounded-lg bg-card/50 border border-white/5 hover:bg-card/80 transition-colors cursor-pointer"
+                     onClick={() => setExpanded(!expanded)}
+              >
                      <div className="flex justify-between items-start mb-2">
                             <div className="flex items-center gap-2">
                                    <Badge variant="secondary" className={`text-xs ${platform.color} ${platform.bg} border-0`}>
@@ -85,15 +89,24 @@ const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
                                    </span>
                             )}
                      </div>
-                     <p className="text-sm text-foreground/90 line-clamp-3 mb-3">{signal.content}</p>
+                     <p className={`text-sm text-foreground/90 mb-3 whitespace-pre-wrap ${expanded ? '' : 'line-clamp-3'}`}>
+                            {signal.content}
+                     </p>
+                     {!expanded && signal.content.length > 150 && (
+                            <span className="text-xs text-primary mb-2 inline-block">点击展开全文 ↓</span>
+                     )}
+                     {expanded && (
+                            <span className="text-xs text-muted-foreground mb-2 inline-block">点击收起 ↑</span>
+                     )}
                      <div className="flex items-center gap-3">
                             {signal.source_url && (
                                    <a href={signal.source_url} target="_blank" rel="noopener noreferrer"
-                                          className="text-xs text-primary hover:underline flex items-center gap-1">
+                                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                                          onClick={(e) => e.stopPropagation()}>
                                           <ExternalLink className="w-3 h-3" /> 原文
                                    </a>
                             )}
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                                    {(signal.topic_tags as string[])?.slice(0, 3).map((tag, i) => (
                                           <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/20 text-secondary-foreground">
                                                  #{tag}
