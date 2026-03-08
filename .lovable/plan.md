@@ -15,6 +15,14 @@
 | PDF 导出进度提示 | ✅ |
 | Report 移动端适配优化 | ✅ |
 | 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
 ## ⏳ 待实施
 
