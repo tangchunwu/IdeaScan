@@ -1,30 +1,63 @@
 
 
-## Problem Root Cause
+# 从"关键词搜索"升级为"领域探索 + 动态关键词发现"
 
-The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
+## 问题
 
-TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
+当前架构：50 个种子关键词 → 每小时扫 2 个 → 24h 去重 → **一天内全部扫完，之后空转**。
 
-- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
-- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
-- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
+Perplexity 是语义搜索引擎，不应该被"关键词"束缚。应该以**领域**为单位，每次让 Perplexity 自己去发现当前热点和新关键词。
 
-The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
+## 方案：两阶段扫描
 
-## Fix
+### 阶段 1：领域探索（Discovery）— 新增
 
-Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
+每次运行时，先用一次 Perplexity 调用做**领域级热点发现**：
 
-| File | Endpoints to fix |
-|------|-----------------|
-| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/verify-config/index.ts` | `search_notes` |
-| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
+```
+"你是市场情报分析师。请分析【{领域}】这个赛道最近 7 天的最新动态：
+1. 有哪些正在爆发的新趋势或热点话题？
+2. 哪些细分方向出现了明显的用户需求增长？
+3. 返回 5-8 个值得深挖的具体关键词或话题。"
+```
 
-The change is purely a path prefix swap. Parameters and response structure remain identical.
+返回的关键词直接作为阶段 2 的输入——**关键词是动态生成的，不是预设的**。
 
-After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
+### 阶段 2：深度挖掘（Deep Scan）— 现有逻辑
+
+用阶段 1 发现的关键词，执行现有的 `processKeyword` 流程（语义化 prompt → 写入信号 → 更新 trending）。
+
+### 执行流程
+
+```text
+每小时触发
+  │
+  ├─ 1. 配额检查
+  │
+  ├─ 2. 选取本轮领域（按小时轮转 10 个领域）
+  │
+  ├─ 3. Discovery: 调用 Perplexity 发现该领域当前热点
+  │     → 返回 5-8 个动态关键词
+  │
+  ├─ 4. 去重：过滤 24h 内已扫描的关键词
+  │
+  ├─ 5. Deep Scan: 取前 2 个新关键词执行深度挖掘
+  │
+  └─ 6. 写入信号 + 更新 trending + 触发 signal-processor
+```
+
+### 关键设计
+
+- **去重改为基于 content_hash**，不再基于关键词文本（因为关键词每次都不同）
+- **种子关键词保留为兜底**：当 Discovery 失败时回退到种子词
+- **每次 Perplexity 调用从 1 次变为 2-3 次**（1 次 Discovery + 1-2 次 Deep Scan），配额从 `DAILY_QUOTA = 100`（信号条数限制）不变
+- 领域列表保持现有 10 个分类，按小时轮转
+
+## 文件变更
+
+| 文件 | 变更 |
+|------|------|
+| `supabase/functions/perplexity-scheduler/index.ts` | 新增 `discoverKeywords()` 函数；重构主流程为两阶段；去重逻辑从关键词级改为 content_hash 级 |
+
+仅改一个文件，前端和数据库无需变动。
 
