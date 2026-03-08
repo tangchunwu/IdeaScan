@@ -39,7 +39,7 @@ const useCountUp = (target: number, duration = 800) => {
 
 export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
-  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems,
+  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms,
 }: DemandDecisionCardProps) => {
   const { toast } = useToast();
   const score = displayScore;
