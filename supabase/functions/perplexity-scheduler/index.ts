@@ -35,7 +35,7 @@ function getSeedKeywordsForRun(): string[] {
 }
 
 const DAILY_QUOTA = 100;
-const MAX_KEYWORDS_PER_RUN = 3;
+const MAX_KEYWORDS_PER_RUN = 2;
 const DEDUP_HOURS = 24;
 
 interface MarketSignal {
