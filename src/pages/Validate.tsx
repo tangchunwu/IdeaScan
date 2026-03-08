@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "@/hooks/use-toast";
+import { useUserQuota } from "@/hooks/useUserQuota";
 import { captureEvent } from "@/lib/posthog";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useValidationStream, type ValidationStep } from "@/hooks/useValidationStream";
