@@ -74,7 +74,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
   };
 
   return (
-    <GlassCard className="relative overflow-hidden" padding="lg" elevated>
+    <GlassCard className="relative overflow-hidden" padding="md" elevated>
       {/* Decorative */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
