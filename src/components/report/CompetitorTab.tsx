@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState } from "react";
 import type { ReportDataResult } from "./useReportData";
 import { MarketResearchSection } from "./MarketResearchSection";
+import { CompetitorMatrix } from "./CompetitorMatrix";
 
 interface CompetitorTabProps {
   data: ReportDataResult;
