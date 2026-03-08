@@ -396,9 +396,9 @@ export const HunterSection = () => {
                             </div>
 
                             <div className="flex gap-3">
-                                   <Button variant="outline" onClick={handleManualTrigger} disabled={isScanning} className="gap-2">
-                                          <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} /> {isScanning ? '扫描中...' : '立即扫描'}
-                                   </Button>
+                                    <Button variant="outline" onClick={handleManualTrigger} disabled={isScanning} className="gap-2">
+                                           <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} /> {isScanning ? '探索中...' : '🌐 发现趋势'}
+                                    </Button>
                                    <CreateJobDialog onCreated={refreshData} />
                             </div>
                      </div>
