@@ -59,11 +59,15 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                                           <div className="space-y-1">
                                                  <span className="text-xs font-medium text-muted-foreground">信号来源:</span>
                                                  <div className="flex flex-col gap-1">
-                                                        {opp.top_sources.map((src, i) => (
-                                                               <a key={i} href={src} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-primary hover:underline truncate">
-                                                                      🔗 {src}
-                                                               </a>
-                                                        ))}
+                                                        {opp.top_sources.map((src, i) => {
+                                                               let label = src;
+                                                               try { label = new URL(src).hostname.replace(/^www\./, ''); } catch {}
+                                                               return (
+                                                                      <a key={i} href={src} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-primary hover:underline truncate">
+                                                                             🔗 {label}
+                                                                      </a>
+                                                               );
+                                                        })}
                                                  </div>
                                           </div>
                                    )}
