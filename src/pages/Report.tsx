@@ -427,7 +427,7 @@ const Report = () => {
           {/* Tabs - Lazy rendered */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="relative">
-              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide">
+              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
                 <TabsTrigger value="overview" className="rounded-lg"><BarChart3 className="w-4 h-4 mr-2" />概览</TabsTrigger>
                 <TabsTrigger value="insights" className="rounded-lg"><Sparkles className="w-4 h-4 mr-2" />数据洞察</TabsTrigger>
                 <TabsTrigger value="market" className="rounded-lg"><Target className="w-4 h-4 mr-2" />市场分析</TabsTrigger>

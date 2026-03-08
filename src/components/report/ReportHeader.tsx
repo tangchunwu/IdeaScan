@@ -29,20 +29,20 @@ export const ReportHeader = ({
   validation, aiAnalysis, evidenceGrade, proofResult,
   needsReanalysis, isReanalyzing, isIncomplete, onReanalyze, onResume, onExportHTML, onExportPdf, onShare,
 }: ReportHeaderProps) => (
-  <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-8">
-    <div>
-      <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors text-sm font-medium">
+  <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in mb-6 sm:mb-8">
+    <div className="min-w-0 flex-1">
+      <Link to="/history" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-3 sm:mb-4 transition-colors text-sm font-medium">
         <ArrowLeft className="w-4 h-4 mr-2" />
         返回历史记录
       </Link>
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-3">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-2 sm:mb-3">
         <Sparkles className="w-3 h-3" />
         需求验证报告 #{validation.id.slice(0, 8)}
       </div>
-      <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-3">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-2 sm:mb-3 break-words">
         {validation.idea.length > 20 ? `${validation.idea.slice(0, 20)}...` : validation.idea}
       </h1>
-      <p className="text-muted-foreground max-w-2xl text-lg leading-relaxed">
+      <p className="text-muted-foreground max-w-2xl text-base sm:text-lg leading-relaxed line-clamp-3 sm:line-clamp-none">
         {aiAnalysis.overallVerdict || "AI 正在生成深度分析结论..."}
       </p>
       <div className="flex flex-wrap gap-2 mt-4">

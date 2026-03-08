@@ -74,10 +74,6 @@ const App = () => (
       <AuthProvider>
         <SilentErrorBoundary name="TooltipProvider">
           <TooltipProvider>
-            <SilentErrorBoundary name="Toaster">
-              <Toaster />
-            </SilentErrorBoundary>
-
             <SilentErrorBoundary name="Sonner">
               <Sonner />
             </SilentErrorBoundary>
