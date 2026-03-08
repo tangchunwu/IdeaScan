@@ -27,6 +27,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
+const SharedReport = lazy(() => import("./pages/SharedReport"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
