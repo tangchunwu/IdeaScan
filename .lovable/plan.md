@@ -1,17 +1,30 @@
 
 
-# 修复 PDF 模糊问题
+## Problem Root Cause
 
-## 原因
+The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
 
-`scale: 1.5` + `JPEG quality: 0.75` 双重降质导致太糊。
+TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
 
-## 方案
+- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
+- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
+- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
 
-把 `scale` 提回 **2**，JPEG quality 提到 **0.85**。这样清晰度接近原版，但因为用 JPEG 而非 PNG，体积仍然比之前小 **40-50%**。
+The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
 
-### 改动：`src/lib/export.ts`，仅改 2 个数字
+## Fix
 
-- 第 54 行：`scale: 1.5` → `scale: 2`
-- 第 93 行：`toDataURL("image/jpeg", 0.75)` → `toDataURL("image/jpeg", 0.85)`
+Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
+
+| File | Endpoints to fix |
+|------|-----------------|
+| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/verify-config/index.ts` | `search_notes` |
+| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
+
+The change is purely a path prefix swap. Parameters and response structure remain identical.
+
+After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
 
