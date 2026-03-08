@@ -34,11 +34,30 @@ interface TrendingTopicCardProps {
   onDelete?: (topicId: string) => void;
 }
 
-export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized }: TrendingTopicCardProps) {
+export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }: TrendingTopicCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentInterest, setCurrentInterest] = useState(userInterest);
+
+  const handleDelete = async () => {
+    if (!confirm(`确认删除热点「${topic.keyword}」？此操作不可撤销。`)) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('trending_topics')
+        .delete()
+        .eq('id', topic.id);
+      if (error) throw error;
+      toast({ title: "已删除", description: `「${topic.keyword}」已从热点中移除` });
+      onDelete?.(topic.id);
+    } catch (error) {
+      toast({ title: "删除失败", description: error instanceof Error ? error.message : "请稍后重试", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Calculate heat level for visual styling
   const getHeatLevel = (score: number) => {
