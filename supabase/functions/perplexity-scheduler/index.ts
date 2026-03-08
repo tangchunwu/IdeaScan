@@ -49,7 +49,38 @@ function normalizePainLevel(level: string | null | undefined): string {
   return map[l] || "moderate";
 }
 
-async function hashContent(content: string): Promise<string> {
+/** 尝试修复 Perplexity 返回的不规范 JSON（analysis 字段中含未转义引号） */
+function robustJsonParse(raw: string): any | null {
+  // 1. 直接尝试
+  try { return JSON.parse(raw); } catch {}
+
+  // 2. 尝试用正则提取各字段分别解析（避免 analysis 长文本中的引号问题）
+  try {
+    // 提取 analysis 字段的值（最长匹配）
+    const analysisMatch = raw.match(/"analysis"\s*:\s*"([\s\S]*?)"\s*,\s*"pain_points"/);
+    if (analysisMatch) {
+      // 转义 analysis 内部的引号
+      const escapedAnalysis = analysisMatch[1].replace(/(?<!\\)"/g, '\\"');
+      const fixed = raw.replace(analysisMatch[1], escapedAnalysis);
+      try { return JSON.parse(fixed); } catch {}
+    }
+  } catch {}
+
+  // 3. 最后手段：去掉 analysis 字段，只保留结构化字段
+  try {
+    const withoutAnalysis = raw
+      .replace(/"analysis"\s*:\s*"[\s\S]*?"\s*,\s*"pain_points"/, '"analysis": "(parsed separately)", "pain_points"');
+    const parsed = JSON.parse(withoutAnalysis);
+    // 尝试从原始文本提取 analysis
+    const aMatch = raw.match(/"analysis"\s*:\s*"([\s\S]*?)"\s*,\s*"pain_points"/);
+    if (aMatch) parsed.analysis = aMatch[1].replace(/\\"/g, '"');
+    return parsed;
+  } catch {}
+
+  return null;
+}
+
+
   const data = new TextEncoder().encode(content);
   const buf = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
@@ -204,7 +235,10 @@ async function deepAnalyze(
     const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      insight = JSON.parse(jsonMatch[0]);
+      insight = robustJsonParse(jsonMatch[0]);
+      if (!insight) {
+        console.error(`[deep-analyze] robustJsonParse returned null for "${keyword}", raw length=${jsonMatch[0].length}`);
+      }
     }
   } catch (e) {
     console.error(`[deep-analyze] Failed to parse response for "${keyword}":`, e);
