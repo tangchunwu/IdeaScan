@@ -460,6 +460,31 @@ const Report = () => {
 
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
 
+          {/* Prominent Re-analyze CTA when data is incomplete */}
+          {needsReanalysis && !isIncomplete && (
+            <GlassCard className="mb-6 sm:mb-8 animate-fade-in border-amber-500/30 bg-amber-500/5">
+              <div className="flex flex-col sm:flex-row items-center gap-4 p-2">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="p-2 rounded-xl bg-amber-500/10">
+                    <RefreshCw className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">报告数据不完整</p>
+                    <p className="text-sm text-muted-foreground">部分分析结果缺失，建议补充分析以获取更完整的验证报告</p>
+                  </div>
+                </div>
+                <Button
+                  className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0"
+                  onClick={handleReanalyze}
+                  disabled={isReanalyzing}
+                >
+                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  {isReanalyzing ? "分析中..." : "一键补充分析"}
+                </Button>
+              </div>
+            </GlassCard>
+          )}
+
           {/* Risk & Mitigation Cards */}
           <RiskMitigationCards
             weaknesses={aiAnalysis.weaknesses}

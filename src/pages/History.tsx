@@ -25,6 +25,7 @@ import {
   Scale,
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
+import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
 import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
@@ -327,6 +328,9 @@ const History = () => {
             </GlassCard>
           ) : (
             <>
+              {/* Stats Dashboard */}
+              <HistoryStatsBar validations={validations} />
+
               {/* Sample Reports Section */}
               <SampleReports />
 
