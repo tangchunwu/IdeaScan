@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
-import { ReferralCard } from "@/components/shared/ReferralCard";
+
 import { WeeklySummaryCard } from "@/components/report/WeeklySummaryCard";
 import { captureEvent } from "@/lib/posthog";
 
@@ -326,10 +326,7 @@ const History = () => {
               {/* Stats Dashboard */}
               <HistoryStatsBar validations={validations} />
               {/* Weekly Summary + Referral */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <WeeklySummaryCard />
-                <ReferralCard />
-              </div>
+              <WeeklySummaryCard />
 
               {/* Sample Reports Section */}
               <SampleReports />
