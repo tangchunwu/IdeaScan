@@ -434,7 +434,16 @@ const Report = () => {
           {/* Score + Persona Row */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 animate-slide-up">
-              <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={isIncomplete} />
+              <ScoreHeroCard
+                score={displayScore}
+                totalNotes={xiaohongshuData.totalNotes}
+                isIncomplete={isIncomplete}
+                strengths={aiAnalysis.strengths || []}
+                weaknesses={aiAnalysis.weaknesses || []}
+                sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
+                onValidateMore={() => window.location.href = '/validate'}
+                onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
+              />
             </div>
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
               {personaData ? (
