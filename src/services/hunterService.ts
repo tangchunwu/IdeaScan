@@ -64,8 +64,7 @@ export const hunterService = {
 		return (data || []) as unknown as ScanJob[];
 	},
 
-	async createScanJob(keywords: string[], platforms: string[] = ["xiaohongshu", "reddit"]): Promise<ScanJob> {
-		// Check if user is logged in
+	async createScanJob(keywords: string[], platforms: string[] = ["xiaohongshu", "reddit"], description?: string): Promise<ScanJob> {
 		const { data: { user } } = await supabase.auth.getUser();
 		if (!user) throw new Error("User must be logged in to create scan jobs");
 
@@ -80,6 +79,18 @@ export const hunterService = {
 			.single();
 
 		if (error) throw error;
+
+		// If description provided, trigger an immediate scan with it
+		if (description) {
+			try {
+				await supabase.functions.invoke("hunter-scan", {
+					body: { keywords, description }
+				});
+			} catch (e) {
+				console.warn("Auto-scan after job creation failed:", e);
+			}
+		}
+
 		return data as unknown as ScanJob;
 	},
 
