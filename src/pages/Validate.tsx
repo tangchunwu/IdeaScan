@@ -61,6 +61,7 @@ const Validate = () => {
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [resumeValidationId, setResumeValidationId] = useState("");
+  const [showRestore, setShowRestore] = useState(false);
   const [aiTagSuggestions, setAiTagSuggestions] = useState<Array<{
     tag: string; confidence: number; reason: string;
     source: 'core' | 'user_phrase' | 'trend' | 'competitor';
