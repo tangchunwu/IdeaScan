@@ -15,6 +15,8 @@ interface ToastOptions {
   description?: React.ReactNode;
   variant?: "default" | "destructive";
   action?: ToastAction | React.ReactElement;
+  className?: string;
+  [key: string]: unknown;
 }
 
 function extractAction(action: ToastOptions["action"]): { label: string; onClick: () => void } | undefined {
