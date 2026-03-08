@@ -136,7 +136,7 @@ export const ScoreHeroCard = ({
         <div className="flex flex-col items-center shrink-0">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
-            <ScoreCircle score={animatedScore} customSize={120} strokeWidth={10} showText={false} />
+            <ScoreCircle score={animatedScore} customSize={100} strokeWidth={9} showText={false} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
               <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
