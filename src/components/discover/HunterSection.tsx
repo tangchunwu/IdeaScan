@@ -6,16 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import {
        Radar, Plus, Search, Filter, RefreshCw,
-       MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp
+       MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp,
+       Trash2, Clock, Crosshair
 } from "lucide-react";
 import { hunterService, ScanJob, NicheOpportunity, RawMarketSignal } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { formatDistanceToNow } from "date-fns";
+import { zhCN } from "date-fns/locale";
 
 // === Components ===
 

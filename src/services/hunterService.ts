@@ -103,6 +103,14 @@ export const hunterService = {
 		if (error) throw error;
 	},
 
+	async deleteScanJob(id: string): Promise<void> {
+		const { error } = await fromTable("scan_jobs")
+			.delete()
+			.eq("id", id);
+
+		if (error) throw error;
+	},
+
 	async triggerCrawler() {
 		// Trigger the Perplexity-powered hunter scan
 		const { data, error } = await supabase.functions.invoke("hunter-scan");
