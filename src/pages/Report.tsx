@@ -541,6 +541,14 @@ const Report = () => {
             <TabsContent value="competitors">{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
             <TabsContent value="ai">{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
             <TabsContent value="circle">{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
+            <TabsContent value="notes">
+              {activeTab === "notes" && (
+                <div className="space-y-6">
+                  <ReportNotes validationId={validation.id} />
+                  <CollaboratorPanel validationId={validation.id} />
+                </div>
+              )}
+            </TabsContent>
             <TabsContent value="share">{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
           </Tabs>
 
