@@ -7,9 +7,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, Download, Share2, Sparkles, RefreshCw, Loader2,
-  ChevronDown, FileText, FileCode, Bot,
+  ChevronDown, FileText, FileCode, Bot, Pencil, Image, Search, Lightbulb,
 } from "lucide-react";
-import { buildOpenClawContext, buildOpenClawPrompt } from "@/lib/buildOpenClawContext";
+import { buildOpenClawContext, buildOpenClawPrompt, type OpenClawTaskType } from "@/lib/buildOpenClawContext";
 import type { ReportDataResult } from "@/components/report/useReportData";
 
 interface ReportHeaderProps {
@@ -28,16 +28,23 @@ interface ReportHeaderProps {
   onShare: () => void;
 }
 
+const AGENT_TASKS: { type: OpenClawTaskType; icon: typeof Pencil; label: string; desc: string }[] = [
+  { type: "xiaohongshu_publish", icon: Pencil, label: "一键发小红书", desc: "写文案 → 生图 → 发布" },
+  { type: "marketing_image", icon: Image, label: "生成营销素材", desc: "AI 生成配图和文案" },
+  { type: "competitor_research", icon: Search, label: "深度竞品调研", desc: "搜索竞品并输出报告" },
+  { type: "brainstorm", icon: Lightbulb, label: "头脑风暴变体", desc: "探索 5 个产品方向" },
+];
+
 export const ReportHeader = ({
   validation, aiAnalysis, evidenceGrade, proofResult,
   needsReanalysis, isReanalyzing, isIncomplete, reportData, onReanalyze, onResume, onExportHTML, onExportPdf, onShare,
 }: ReportHeaderProps) => {
   const navigate = useNavigate();
 
-  const handleSendToAgent = () => {
+  const handleSendToAgent = (taskType: OpenClawTaskType) => {
     if (!reportData) return;
     const context = buildOpenClawContext(reportData);
-    const prompt = buildOpenClawPrompt(context, "xiaohongshu");
+    const prompt = buildOpenClawPrompt(context, taskType);
     sessionStorage.setItem("openclaw_initial_message", prompt);
     sessionStorage.setItem("openclaw_from_validation", validation.id);
     navigate("/openclaw?from_validation=" + validation.id);
@@ -81,9 +88,24 @@ export const ReportHeader = ({
           </Button>
         )}
         {reportData && (
-          <Button variant="outline" size="sm" className="rounded-full h-9 border-primary/50 text-primary hover:bg-primary/10" onClick={handleSendToAgent}>
-            <Bot className="w-4 h-4 mr-2" />AI 写文案
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="rounded-full h-9 border-primary/50 text-primary hover:bg-primary/10">
+                <Bot className="w-4 h-4 mr-2" />AI Agent<ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 bg-popover border border-border z-50">
+              {AGENT_TASKS.map((task) => (
+                <DropdownMenuItem key={task.type} onClick={() => handleSendToAgent(task.type)} className="cursor-pointer">
+                  <task.icon className="w-4 h-4 mr-2 text-primary" />
+                  <div className="flex flex-col">
+                    <span>{task.label}</span>
+                    <span className="text-xs text-muted-foreground">{task.desc}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
