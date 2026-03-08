@@ -74,7 +74,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
   };
 
   return (
-    <GlassCard className="relative overflow-hidden" padding="lg" elevated>
+    <GlassCard className="relative overflow-hidden" padding="md" elevated>
       {/* Decorative */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
@@ -124,12 +124,12 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         </div>
 
         {/* User Story */}
-        <blockquote className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4">
+        <blockquote className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4 line-clamp-3">
           "{persona.description}"
         </blockquote>
 
         {/* Bottom Grid: Pain Points + Goals + Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Pain Points */}
           <div className="space-y-2">
             <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">

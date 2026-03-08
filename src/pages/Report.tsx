@@ -432,7 +432,7 @@ const Report = () => {
           />
 
           {/* Elevator Pitch Hero (full-width) */}
-          <div className="mb-4 sm:mb-6 animate-slide-up">
+          <div className="mb-3 sm:mb-4 animate-slide-up">
             <ScoreHeroCard
               score={displayScore}
               totalNotes={xiaohongshuData.totalNotes}
@@ -448,7 +448,7 @@ const Report = () => {
           </div>
 
           {/* Persona Card (full-width) */}
-          <div className="mb-4 sm:mb-6 animate-slide-up" style={{ animationDelay: "100ms" }}>
+          <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
             {personaData ? (
               <PersonaCard persona={personaData} validationId={validation.id} />
             ) : (

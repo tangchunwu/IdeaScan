@@ -126,7 +126,7 @@ export const ScoreHeroCard = ({
   };
 
   return (
-    <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
+    <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="md" elevated>
       {/* Decorative blurs */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
@@ -136,9 +136,9 @@ export const ScoreHeroCard = ({
         <div className="flex flex-col items-center shrink-0">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
-            <ScoreCircle score={animatedScore} customSize={120} strokeWidth={10} showText={false} />
+            <ScoreCircle score={animatedScore} customSize={100} strokeWidth={9} showText={false} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
+              <span className="text-3xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
               <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
             </div>
           </div>
@@ -154,12 +154,12 @@ export const ScoreHeroCard = ({
         {/* Right: Elevator Pitch */}
         <div className="flex-1 text-center md:text-left space-y-3 min-w-0">
           {idea && (
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight tracking-tight line-clamp-1">
               {idea}
             </h2>
           )}
           {overallVerdict && (
-            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
               {overallVerdict}
             </p>
           )}
