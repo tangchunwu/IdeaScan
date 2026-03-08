@@ -6,7 +6,6 @@ import { Bot, Settings } from "lucide-react";
 export default function OpenClawPage() {
   return (
     <div className="min-h-screen bg-background">
-      <PageBackground />
       <Navbar />
       <div className="container max-w-4xl mx-auto pt-20 pb-8 px-4">
         <Tabs defaultValue="chat" className="w-full">
