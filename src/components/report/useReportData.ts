@@ -252,6 +252,7 @@ export function useReportData(data: FullValidation | null | undefined) {
     competitorRows,
     evidenceItems,
     topEvidence,
+    evidenceSummary,
   };
 }
 

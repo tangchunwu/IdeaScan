@@ -524,7 +524,7 @@ const Report = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} demandDecisionProps={{ validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis, aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceItems }} />}</TabsContent>
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} demandDecisionProps={{ validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis, aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems }} />}</TabsContent>
                 <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketInsightsTab data={reportData} />}</TabsContent>
                 <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
                 <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} aiAnalysis={aiAnalysis} />}</TabsContent>
