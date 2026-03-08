@@ -1,4 +1,5 @@
 import { PageBackground, Navbar, GlassCard } from "@/components/shared";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
        Accordion,
        AccordionContent,
