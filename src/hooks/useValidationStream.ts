@@ -22,7 +22,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const settings = useSettings();
-  const hasOwnTikhub = !!settings.tikhubToken;
+  const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
 
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
