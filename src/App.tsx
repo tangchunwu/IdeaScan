@@ -65,6 +65,8 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
         <Route path="/admin/feedback" element={<PageTransition><FeedbackDashboard /></PageTransition>} />
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
+        <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
