@@ -20,11 +20,13 @@ export const HotTrends = ({
   className = "",
 }: HotTrendsProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: trends, isLoading } = useQuery({
     queryKey: ["hot-trends", limit],
     queryFn: () => getHotTrends(limit),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
+    enabled: !!user, // Only fetch when authenticated
   });
 
   const handleClick = async (trend: TrendingTopic) => {
