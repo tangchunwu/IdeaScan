@@ -21,7 +21,6 @@ import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
 
-import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { DevPanel } from "@/components/report/DevPanel";
 import { captureEvent } from "@/lib/posthog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
