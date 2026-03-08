@@ -7,6 +7,8 @@ interface ScoreHeroCardProps {
   score: number;
   totalNotes: number;
   isIncomplete?: boolean;
+  idea?: string;
+  overallVerdict?: string;
   strengths?: string[];
   weaknesses?: string[];
   sentiment?: { positive: number; negative: number };
@@ -35,13 +37,10 @@ const useCountUp = (target: number, duration = 1200) => {
   return value;
 };
 
-const getScoreInterpretation = (score: number) => {
-  if (score >= 90) return "🏆 超过 95% 的同类创意";
-  if (score >= 80) return "🎯 超过 78% 的同类创意";
-  if (score >= 70) return "📈 表现优于多数创意";
-  if (score >= 60) return "⚖️ 需求信号尚可，建议深挖";
-  if (score >= 40) return "🔍 信号较弱，建议调整方向";
-  return "⚠️ 建议重新审视需求假设";
+const getScoreLabel = (score: number) => {
+  if (score >= 80) return { text: "✅ 真实刚需", cls: "bg-green-500/10 text-green-500 border-green-500/20" };
+  if (score >= 60) return { text: "⚠️ 需求待验证", cls: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" };
+  return { text: "❌ 疑似伪需求", cls: "bg-red-500/10 text-red-500 border-red-500/20" };
 };
 
 type VerdictType = "strong_go" | "conditional_go" | "pivot" | "stop";
@@ -107,6 +106,8 @@ export const ScoreHeroCard = ({
   score,
   totalNotes,
   isIncomplete,
+  idea,
+  overallVerdict,
   strengths = [],
   weaknesses = [],
   sentiment = { positive: 0, negative: 0 },
@@ -114,9 +115,9 @@ export const ScoreHeroCard = ({
   onStartBuilding,
 }: ScoreHeroCardProps) => {
   const animatedScore = useCountUp(score);
-
   const verdict = getVerdict(score, strengths, weaknesses, sentiment);
   const config = verdictConfig[verdict];
+  const label = getScoreLabel(score);
 
   const handleAction = (action: string) => {
     if (action === "validate" && onValidateMore) onValidateMore();
@@ -125,44 +126,61 @@ export const ScoreHeroCard = ({
   };
 
   return (
-    <GlassCard className="h-full flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40 min-h-[240px] sm:min-h-[280px]" padding="lg" elevated>
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
-      <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">需求真实度评分</span>
-      <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
-        <ScoreCircle score={animatedScore} customSize={160} strokeWidth={12} showText={false} />
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-5xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
-          <span className="text-sm text-muted-foreground mt-1 font-medium">/ 100</span>
-        </div>
-      </div>
-      <div className="mt-5 text-center space-y-2">
-        <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${score >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
-          score >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
-          {score >= 80 ? "✅ 真实刚需" : score >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
-        </div>
-        <p className="text-sm text-muted-foreground mt-2">基于 {totalNotes} 条真实用户数据分析</p>
-        <p className="text-sm text-muted-foreground/70">{getScoreInterpretation(score)}</p>
-        {isIncomplete && (
-          <p className="text-xs text-amber-500 mt-1">⚠ 数据采集未完成，评分可能不准确</p>
-        )}
-      </div>
+    <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
+      {/* Decorative blurs */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-40 h-40 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Merged Action Recommendation */}
-      <div className="w-full mt-5 pt-4 border-t border-border/40">
-        <p className={`text-sm font-bold ${config.color} text-center mb-1`}>{config.title}</p>
-        <div className="flex justify-center gap-2 mt-3">
-          {config.actions.map((action, i) => (
-            <Button
-              key={i}
-              variant={action.primary ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleAction(action.action)}
-              className="rounded-full text-xs"
-            >
-              {action.label}
-            </Button>
-          ))}
+      <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+        {/* Left: Score Ring */}
+        <div className="flex flex-col items-center shrink-0">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
+          <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
+            <ScoreCircle score={animatedScore} customSize={120} strokeWidth={10} showText={false} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
+              <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
+            </div>
+          </div>
+          <div className={`mt-3 text-xs font-bold px-3 py-1 rounded-full border ${label.cls}`}>
+            {label.text}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5">基于 {totalNotes} 条数据</p>
+          {isIncomplete && (
+            <p className="text-[10px] text-amber-500 mt-1">⚠ 数据未完整</p>
+          )}
+        </div>
+
+        {/* Right: Elevator Pitch */}
+        <div className="flex-1 text-center md:text-left space-y-3 min-w-0">
+          {idea && (
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
+              {idea}
+            </h2>
+          )}
+          {overallVerdict && (
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+              {overallVerdict}
+            </p>
+          )}
+
+          {/* Verdict + Actions */}
+          <div className="pt-2 border-t border-border/30">
+            <p className={`text-sm font-bold ${config.color} mb-2`}>{config.title}</p>
+            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+              {config.actions.map((action, i) => (
+                <Button
+                  key={i}
+                  variant={action.primary ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleAction(action.action)}
+                  className="rounded-full text-xs"
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </GlassCard>

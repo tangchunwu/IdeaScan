@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GlassCard } from "@/components/shared";
 import { Persona } from "@/services/validationService";
-import { User, Briefcase, Target, Heart, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
+import { User, Briefcase, Target, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,11 +9,10 @@ import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
 
 interface PersonaCardProps {
-       persona: Persona;
-       validationId?: string;
+  persona: Persona;
+  validationId?: string;
 }
 
-// Helper to ensure persona has all required fields with defaults
 const normalizePersona = (persona: Persona): Persona => ({
   name: persona.name || "目标用户",
   role: persona.role || "潜在用户",
@@ -32,216 +31,156 @@ const normalizePersona = (persona: Persona): Persona => ({
 });
 
 export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardProps) => {
-       const persona = normalizePersona(rawPersona);
-       const [imageUrl, setImageUrl] = useState<string | null>(persona.avatarUrl || null);
-       const [isGenerating, setIsGenerating] = useState(false);
-       const [hasError, setHasError] = useState(false);
-       const settings = useSettings();
+  const persona = normalizePersona(rawPersona);
+  const [imageUrl, setImageUrl] = useState<string | null>(persona.avatarUrl || null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const settings = useSettings();
 
-       if (!rawPersona) return null;
+  if (!rawPersona) return null;
 
-       const generateImage = async () => {
-              setIsGenerating(true);
-              setHasError(false);
+  const generateImage = async () => {
+    setIsGenerating(true);
+    setHasError(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-persona-image', {
+        body: {
+          personaDescription: persona.description,
+          personaName: persona.name,
+          personaRole: persona.role,
+          age: persona.age,
+          validationId,
+          imageGenBaseUrl: settings.imageGenApiKey ? settings.imageGenBaseUrl : undefined,
+          imageGenApiKey: settings.imageGenApiKey || undefined,
+          imageGenModel: settings.imageGenApiKey ? settings.imageGenModel : undefined
+        }
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        setImageUrl(data.imageUrl);
+        toast.success(`${persona.name} 头像生成成功`);
+      } else if (data?.needsConfig) {
+        toast.error("图片生成服务暂不可用");
+      } else {
+        throw new Error(data?.error || "生成失败");
+      }
+    } catch (error) {
+      console.error("Failed to generate persona image:", error);
+      setHasError(true);
+      toast.error("头像生成失败，请稍后重试");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-              try {
-                     const { data, error } = await supabase.functions.invoke('generate-persona-image', {
-                            body: {
-                                   personaDescription: persona.description,
-                                   personaName: persona.name,
-                                   personaRole: persona.role,
-                                   age: persona.age,
-                                   validationId,
-                                   // 如果用户配置了自定义 API，使用用户配置
-                                   imageGenBaseUrl: settings.imageGenApiKey ? settings.imageGenBaseUrl : undefined,
-                                   imageGenApiKey: settings.imageGenApiKey || undefined,
-                                   imageGenModel: settings.imageGenApiKey ? settings.imageGenModel : undefined
-                            }
-                     });
+  return (
+    <GlassCard className="relative overflow-hidden" padding="lg" elevated>
+      {/* Decorative */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
 
-                     if (error) {
-                            throw error;
-                     }
+      <div className="relative z-10 space-y-5">
+        {/* Header: Avatar + Identity */}
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
+          <div
+            className="w-16 h-16 shrink-0 rounded-full bg-muted/40 backdrop-blur-md border border-border/40 shadow-lg flex items-center justify-center relative overflow-hidden cursor-pointer transition-all hover:shadow-xl hover:scale-105"
+            onClick={!isGenerating && !imageUrl ? generateImage : undefined}
+          >
+            {imageUrl ? (
+              <img src={imageUrl} alt={persona.name} className="w-full h-full object-cover rounded-full" />
+            ) : isGenerating ? (
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            ) : hasError ? (
+              <ImageOff className="w-5 h-5 text-muted-foreground/50" />
+            ) : (
+              <>
+                <User className="w-7 h-7 text-primary/60" />
+                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity backdrop-blur-sm">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </div>
+              </>
+            )}
+          </div>
 
-                      if (data?.imageUrl) {
-                             setImageUrl(data.imageUrl);
-                             toast.success(`${persona.name} 头像生成成功`);
-                      } else if (data?.needsConfig) {
-                             toast.error("图片生成服务暂不可用");
-                      } else {
-                             throw new Error(data?.error || "生成失败");
-                      }
-              } catch (error) {
-                     console.error("Failed to generate persona image:", error);
-                     setHasError(true);
-                     toast.error("头像生成失败，请稍后重试");
-              } finally {
-                     setIsGenerating(false);
-              }
-       };
+          {/* Name + Meta */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-bold text-foreground tracking-tight">{persona.name}</h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 border border-border/20 text-xs font-medium text-muted-foreground">
+                <Briefcase className="w-3 h-3" />
+                {persona.role}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {persona.age} · {persona.income}
+            </p>
+            {!imageUrl && !isGenerating && (
+              <button onClick={generateImage} className="text-[10px] text-primary/70 hover:text-primary mt-1 inline-flex items-center gap-1 transition-colors">
+                <Sparkles className="w-3 h-3" />生成 AI 头像
+              </button>
+            )}
+          </div>
+        </div>
 
-       return (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-                     {/* Left: Visual & Core Profile (4 cols) */}
-                     <GlassCard
-                            className="lg:col-span-5 relative overflow-hidden flex flex-col justify-between group"
-                            padding="none"
-                            elevated
-                     >
-                            {/* Placeholder for AI Image - Premium Gradient Placeholder */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-secondary/20 z-0 transition-transform duration-700 group-hover:scale-105" />
+        {/* User Story */}
+        <blockquote className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-primary/30 pl-4">
+          "{persona.description}"
+        </blockquote>
 
-                            {/* Decorative Circles */}
-                            <div className="absolute top-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl z-0" />
-                            <div className="absolute bottom-10 left-10 w-40 h-40 bg-accent/10 rounded-full blur-3xl z-0" />
+        {/* Bottom Grid: Pain Points + Goals + Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Pain Points */}
+          <div className="space-y-2">
+            <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <div className="p-1 rounded bg-primary/10 text-primary"><Target className="w-3 h-3" /></div>
+              核心痛点
+            </h5>
+            <div className="space-y-1">
+              {persona.painPoints?.map((pain, i) => (
+                <p key={i} className="text-xs text-foreground/70 flex items-start gap-1.5">
+                  <span className="text-red-400 mt-0.5 shrink-0">•</span>
+                  <span className="line-clamp-2">{pain}</span>
+                </p>
+              ))}
+            </div>
+          </div>
 
-                            <div className="relative z-10 p-8 flex flex-col h-full">
-                                   <div className="flex-1 text-center mt-8">
-                                          <div 
-                                                 className="w-32 h-32 mx-auto rounded-full bg-white/30 backdrop-blur-md border border-white/40 shadow-xl flex items-center justify-center mb-6 relative overflow-hidden cursor-pointer transition-all hover:shadow-2xl hover:scale-105"
-                                                 onClick={!isGenerating && !imageUrl ? generateImage : undefined}
-                                          >
-                                                 {imageUrl ? (
-                                                        <img 
-                                                               src={imageUrl} 
-                                                               alt={persona.name}
-                                                               className="w-full h-full object-cover rounded-full"
-                                                        />
-                                                 ) : isGenerating ? (
-                                                        <div className="flex flex-col items-center justify-center">
-                                                               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                                               <span className="text-[10px] text-muted-foreground mt-2">生成中...</span>
-                                                        </div>
-                                                 ) : hasError ? (
-                                                        <div className="flex flex-col items-center justify-center">
-                                                               <ImageOff className="w-8 h-8 text-muted-foreground/50" />
-                                                               <span className="text-[10px] text-muted-foreground mt-2">生成失败</span>
-                                                        </div>
-                                                 ) : (
-                                                        <>
-                                                               <User className="w-12 h-12 text-primary/60" />
-                                                               {/* Hover overlay for generation */}
-                                                               <div className="absolute inset-0 bg-primary/20 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity backdrop-blur-sm">
-                                                                      <Sparkles className="w-6 h-6 text-primary mb-1" />
-                                                                      <span className="text-[10px] text-foreground font-medium">点击生成 AI 头像</span>
-                                                               </div>
-                                                        </>
-                                                 )}
-                                          </div>
+          {/* Goals */}
+          <div className="space-y-2">
+            <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <div className="p-1 rounded bg-secondary/10 text-secondary"><Zap className="w-3 h-3" /></div>
+              核心诉求
+            </h5>
+            <div className="space-y-1">
+              {persona.goals?.map((goal, i) => (
+                <p key={i} className="text-xs text-foreground/70 flex items-start gap-1.5">
+                  <span className="text-green-400 mt-0.5 shrink-0">✓</span>
+                  <span className="line-clamp-2">{goal}</span>
+                </p>
+              ))}
+            </div>
+          </div>
 
-                                          <h3 className="text-2xl font-bold text-foreground mb-1 tracking-tight">{persona.name}</h3>
-                                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/40 border border-white/20 text-sm font-medium text-muted-foreground/80">
-                                                 <Briefcase className="w-3.5 h-3.5" />
-                                                 {persona.role}
-                                          </div>
+          {/* Tech Savviness */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">技术敏感度</span>
+              <span className="text-xs font-bold text-primary">{persona.techSavviness}%</span>
+            </div>
+            <Progress value={persona.techSavviness} className="h-1.5 bg-muted" />
+          </div>
 
-                                          {/* Generate button - always show when no image */}
-                                          {!imageUrl && !isGenerating && (
-                                                 <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="mt-4 text-xs"
-                                                        onClick={generateImage}
-                                                 >
-                                                        <Sparkles className="w-3 h-3 mr-1" />
-                                                        生成 AI 头像
-                                                 </Button>
-                                           )}
-
-                                           {/* Brief persona description to fill gap */}
-                                           <p className="mt-4 text-sm text-muted-foreground/70 leading-relaxed line-clamp-3 px-2">
-                                             {persona.description}
-                                           </p>
-                                    </div>
-
-                                    <div className="mt-4 grid grid-cols-2 gap-4">
-                                          <div className="bg-white/40 backdrop-blur-sm rounded-xl p-3 text-center border border-white/20">
-                                                 <span className="block text-xs text-muted-foreground uppercase tracking-wider mb-1">Age Range</span>
-                                                 <span className="font-semibold text-foreground">{persona.age}</span>
-                                          </div>
-                                          <div className="bg-white/40 backdrop-blur-sm rounded-xl p-3 text-center border border-white/20">
-                                                 <span className="block text-xs text-muted-foreground uppercase tracking-wider mb-1">Income</span>
-                                                 <span className="font-semibold text-foreground">{persona.income}</span>
-                                          </div>
-                                   </div>
-                            </div>
-                     </GlassCard>
-
-                     {/* Right: Story & Attributes (8 cols) */}
-                     <div className="lg:col-span-7 flex flex-col gap-6">
-                            {/* Story Card */}
-                            <GlassCard className="flex-1" padding="lg">
-                                   <h4 className="flex items-center gap-2 font-semibold text-foreground mb-4">
-                                          <div className="p-1.5 rounded-lg bg-accent/10 text-accent">
-                                                 <Heart className="w-4 h-4" />
-                                          </div>
-                                          用户故事
-                                   </h4>
-                                   <p className="text-lg text-muted-foreground leading-relaxed italic">
-                                          "{persona.description}"
-                                   </p>
-                            </GlassCard>
-
-                            {/* Attributes Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                   <GlassCard padding="md">
-                                          <div className="flex items-baseline justify-between mb-4">
-                                                 <h5 className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                                                               <Target className="w-4 h-4" />
-                                                        </div>
-                                                        核心痛点
-                                                 </h5>
-                                          </div>
-                                          <div className="space-y-2">
-                                                 {persona.painPoints?.map((pain, i) => (
-                                                        <div key={i} className="flex items-start gap-2 text-sm text-foreground/80">
-                                                               <span className="text-red-400 mt-1">•</span>
-                                                               {pain}
-                                                        </div>
-                                                 ))}
-                                          </div>
-                                   </GlassCard>
-
-                                   <GlassCard padding="md">
-                                          <div className="flex items-baseline justify-between mb-4">
-                                                 <h5 className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                                        <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
-                                                               <Zap className="w-4 h-4" />
-                                                        </div>
-                                                        核心诉求
-                                                 </h5>
-                                          </div>
-                                          <div className="space-y-2">
-                                                 {persona.goals?.map((goal, i) => (
-                                                        <div key={i} className="flex items-start gap-2 text-sm text-foreground/80">
-                                                               <span className="text-green-400 mt-1">✓</span>
-                                                               {goal}
-                                                        </div>
-                                                 ))}
-                                          </div>
-                                   </GlassCard>
-                            </div>
-
-                            {/* Charts Row */}
-                            <div className="grid grid-cols-2 gap-6">
-                                   <GlassCard padding="md" className="flex flex-col justify-center">
-                                          <div className="flex items-center justify-between mb-2">
-                                                 <span className="text-sm font-medium text-muted-foreground">技术敏感度</span>
-                                                 <span className="text-sm font-bold text-primary">{persona.techSavviness}%</span>
-                                          </div>
-                                          <Progress value={persona.techSavviness} className="h-2 bg-muted" />
-                                   </GlassCard>
-
-                                   <GlassCard padding="md" className="flex flex-col justify-center">
-                                          <div className="flex items-center justify-between mb-2">
-                                                 <span className="text-sm font-medium text-muted-foreground">消费能力</span>
-                                                 <span className="text-sm font-bold text-accent">{persona.spendingCapacity}%</span>
-                                          </div>
-                                          <Progress value={persona.spendingCapacity} className="h-2 bg-muted" />
-                                   </GlassCard>
-                            </div>
-                     </div>
-              </div>
-       );
+          {/* Spending */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">消费能力</span>
+              <span className="text-xs font-bold text-accent">{persona.spendingCapacity}%</span>
+            </div>
+            <Progress value={persona.spendingCapacity} className="h-1.5 bg-muted" />
+          </div>
+        </div>
+      </div>
+    </GlassCard>
+  );
 };

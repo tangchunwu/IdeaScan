@@ -431,35 +431,37 @@ const Report = () => {
             sentimentPositive={sentimentAnalysis.positive}
           />
 
-          {/* Score + Persona Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-4 sm:mb-6">
-            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 animate-slide-up">
-              <ScoreHeroCard
-                score={displayScore}
-                totalNotes={xiaohongshuData.totalNotes}
-                isIncomplete={isIncomplete}
-                strengths={aiAnalysis.strengths || []}
-                weaknesses={aiAnalysis.weaknesses || []}
-                sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
-                onValidateMore={() => window.location.href = '/validate'}
-                onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
-              />
-            </div>
-            <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
-              {personaData ? (
-                <PersonaCard persona={personaData} validationId={validation.id} />
-              ) : (
-                <GlassCard className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed min-h-[400px]">
-                  <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
-                  <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
-                  <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
-                    {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                    {isReanalyzing ? "分析中..." : "补充分析用户画像"}
-                  </Button>
-                </GlassCard>
-              )}
-            </div>
+          {/* Elevator Pitch Hero (full-width) */}
+          <div className="mb-4 sm:mb-6 animate-slide-up">
+            <ScoreHeroCard
+              score={displayScore}
+              totalNotes={xiaohongshuData.totalNotes}
+              isIncomplete={isIncomplete}
+              idea={validation.idea}
+              overallVerdict={aiAnalysis.overallVerdict}
+              strengths={aiAnalysis.strengths || []}
+              weaknesses={aiAnalysis.weaknesses || []}
+              sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
+              onValidateMore={() => window.location.href = '/validate'}
+              onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
+            />
+          </div>
+
+          {/* Persona Card (full-width) */}
+          <div className="mb-4 sm:mb-6 animate-slide-up" style={{ animationDelay: "100ms" }}>
+            {personaData ? (
+              <PersonaCard persona={personaData} validationId={validation.id} />
+            ) : (
+              <GlassCard className="flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed py-12">
+                <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
+                <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
+                <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
+                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  {isReanalyzing ? "分析中..." : "补充分析用户画像"}
+                </Button>
+              </GlassCard>
+            )}
           </div>
 
           {/* Data Confidence */}
