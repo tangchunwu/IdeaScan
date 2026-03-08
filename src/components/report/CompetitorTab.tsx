@@ -157,6 +157,9 @@ export function CompetitorTab({ data }: CompetitorTabProps) {
         </div>
       )}
 
+      {/* Market Research Section */}
+      <MarketResearchSection items={general} />
+
       {/* Raw Search Results (collapsible) */}
       {general.length > 0 && (
         <Collapsible open={showRaw} onOpenChange={setShowRaw}>
