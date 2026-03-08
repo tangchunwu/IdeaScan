@@ -126,7 +126,7 @@ export const useSettings = create<SettingsState>()(
               isSynced: true,
               lastSyncError: null
             });
-            console.log('Settings synced from cloud');
+            // Settings synced from cloud
           } else {
             set({ isLoading: false });
           }
