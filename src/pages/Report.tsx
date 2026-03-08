@@ -461,17 +461,6 @@ const Report = () => {
             )}
           </div>
 
-          {/* Data Confidence */}
-          <div className="mb-4 sm:mb-6 animate-slide-up" style={{ animationDelay: "150ms" }}>
-            <DataConfidenceCard
-              sampleSize={xiaohongshuData.totalNotes || 0}
-              platforms={[
-                { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
-                ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
-              ]}
-              dataFreshness="fresh"
-            />
-          </div>
 
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
 
