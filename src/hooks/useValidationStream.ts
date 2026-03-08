@@ -162,6 +162,10 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         });
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+        notify("✅ IdeaScan 验证完成", {
+          body: `你的创意验证评分：${result.overallScore}分，点击查看完整报告`,
+          tag: `validation-${result.validationId}`,
+        });
         refetchQuota(); // refresh free quota counter
 
         await queryClient.prefetchQuery({
