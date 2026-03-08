@@ -328,6 +328,9 @@ const History = () => {
             </GlassCard>
           ) : (
             <>
+              {/* Stats Dashboard */}
+              <HistoryStatsBar validations={validations} />
+
               {/* Sample Reports Section */}
               <SampleReports />
 
