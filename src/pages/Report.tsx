@@ -28,12 +28,10 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 // Extracted sub-components
 import { useReportData, cleanDisplayText } from "@/components/report/useReportData";
-import { OverviewTab } from "@/components/report/OverviewTab";
-import { MarketTab } from "@/components/report/MarketTab";
-import { SentimentTab } from "@/components/report/SentimentTab";
+import { DataOverviewTab } from "@/components/report/DataOverviewTab";
+import { MarketInsightsTab } from "@/components/report/MarketInsightsTab";
 import { CompetitorTab } from "@/components/report/CompetitorTab";
 import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
-import { ShareTab } from "@/components/report/ShareTab";
 import { ReportHeader } from "@/components/report/ReportHeader";
 import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
