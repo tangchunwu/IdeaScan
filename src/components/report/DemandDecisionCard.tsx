@@ -92,24 +92,15 @@ export const DemandDecisionCard = ({
           </div>
 
           {/* Verdicts */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
               <div className="text-xs text-muted-foreground mb-1">市场信号结论</div>
               <div className="text-sm font-medium">{aiAnalysis.overallVerdict}</div>
             </div>
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-              <div className="text-xs text-muted-foreground mb-1">商业可用性结论（付费意图）</div>
+              <div className="text-xs text-muted-foreground mb-1">商业可行性（付费意图）</div>
               <div className="text-sm font-medium">
-                {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}% · UV {proofResult.sampleUv}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <div className="text-xs text-muted-foreground mb-1">本次分析成本</div>
-              <div className="text-sm font-medium">
-                ${costBreakdown.estCost.toFixed(4)} · LLM {costBreakdown.llmCalls} 次 · API {costBreakdown.externalApiCalls} 次 · Crawler {costBreakdown.crawlerCalls} 次
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Prompt {costBreakdown.promptTokens} · Completion {costBreakdown.completionTokens} · 总耗时 {Math.round(costBreakdown.latencyMs / 1000)}s · Crawler耗时 {Math.round(costBreakdown.crawlerLatencyMs / 1000)}s
+                {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}%
               </div>
             </div>
           </div>

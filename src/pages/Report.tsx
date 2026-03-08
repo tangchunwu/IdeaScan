@@ -38,6 +38,7 @@ import { ReportHeader } from "@/components/report/ReportHeader";
 import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
 import { DemandDecisionCard } from "@/components/report/DemandDecisionCard";
+import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -397,6 +398,15 @@ const Report = () => {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Quick Insights Cards */}
+          <QuickInsightsCards
+            score={displayScore}
+            competitionLevel={marketAnalysis.competitionLevel}
+            strengths={aiAnalysis.strengths}
+            weaknesses={aiAnalysis.weaknesses}
+            sentimentPositive={sentimentAnalysis.positive}
+          />
 
           {/* Score + Persona Row */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-6 sm:mb-8">

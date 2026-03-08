@@ -40,10 +40,10 @@ export const Navbar = () => {
             <BrandLogo size="md" variant="icon" />
             <div className="hidden sm:block">
               <span className="font-bold text-lg text-foreground block leading-tight">
-                创意验证器
+                IdeaScan
               </span>
               <span className="text-xs text-muted-foreground">
-                Idea Validator
+                需求验证
               </span>
             </div>
           </Link>
