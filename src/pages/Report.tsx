@@ -20,7 +20,6 @@ import { VCFeed } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { DataInsightsTab } from "@/components/report/DataInsightsTab";
 import { ActionRecommendation } from "@/components/report/ActionRecommendation";
 import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { DevPanel } from "@/components/report/DevPanel";
