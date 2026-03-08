@@ -363,8 +363,8 @@ const Report = () => {
           )}
 
           {/* Score + Persona Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-            <div className="lg:col-span-4 flex flex-col gap-6 animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 animate-slide-up">
               <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={isIncomplete} />
             </div>
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
