@@ -36,11 +36,18 @@ export function CompetitorMatrix({ competitorRows, structured }: CompetitorMatri
   const scatterData = useMemo(() => {
     if (structured.length === 0) return [];
 
+    // Deterministic hash from string to 0-1 range
+    const hash = (str: string, seed: number) => {
+      let h = seed;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+      }
+      return ((h & 0x7fffffff) % 100) / 100;
+    };
+
     return structured.map((comp, i) => {
-      // Relevance: based on number of sources and position in results
-      const relevance = Math.min(100, Math.round(30 + comp.sources.length * 15 + Math.random() * 20));
+      const relevance = Math.min(100, Math.round(30 + comp.sources.length * 15 + hash(comp.name, 1) * 20));
       
-      // Intensity: based on pricing info, review presence, source diversity
       const hasPricing = comp.sources.some(s => 
         s.snippet?.includes('定价') || s.snippet?.includes('价格') || s.snippet?.includes('$') || s.snippet?.includes('¥')
       );
@@ -48,7 +55,7 @@ export function CompetitorMatrix({ competitorRows, structured }: CompetitorMatri
         s.snippet?.includes('评测') || s.snippet?.includes('对比') || s.snippet?.includes('review')
       );
       const intensity = Math.min(100, Math.round(
-        20 + (hasPricing ? 25 : 0) + (hasReview ? 20 : 0) + comp.sources.length * 10 + Math.random() * 15
+        20 + (hasPricing ? 25 : 0) + (hasReview ? 20 : 0) + comp.sources.length * 10 + hash(comp.name, 2) * 15
       ));
 
       return {

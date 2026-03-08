@@ -5,7 +5,7 @@ import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptySt
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Eye, TrendingUp, Award, Search } from "lucide-react";
+import { Sparkles, Eye, Award, Search } from "lucide-react";
 
 interface GalleryReport {
   id: string;
