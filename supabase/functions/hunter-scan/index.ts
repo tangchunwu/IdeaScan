@@ -15,6 +15,15 @@ interface MarketSignal {
   sentiment: string;
 }
 
+const VALID_PAIN_LEVELS = new Set(["mild", "moderate", "severe", "critical"]);
+function normalizePainLevel(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  if (VALID_PAIN_LEVELS.has(lower)) return lower;
+  const map: Record<string, string> = { high: "severe", low: "mild", medium: "moderate", extreme: "critical", very_high: "critical", none: "mild" };
+  return map[lower] || "moderate";
+}
+
 async function hashContent(content: string): Promise<string> {
   const data = new TextEncoder().encode(content);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -41,7 +50,7 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 - source_url: 来源URL（如果有）
 - topic_tags: 2-3个话题标签
 - opportunity_score: 商机评分（0-100，越高越有商业价值）
-- pain_level: 痛点等级（"high"/"medium"/"low"）
+- pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
 
 只返回 JSON 数组，不要其他文字。`;
@@ -63,7 +72,7 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 - source_url: 来源URL（如果有）
 - topic_tags: 2-3个话题标签
 - opportunity_score: 商机评分（0-100，越高越有商业价值）
-- pain_level: 痛点等级（"high"/"medium"/"low"）
+- pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
 
 只返回 JSON 数组，不要其他文字。`;
@@ -100,7 +109,8 @@ async function searchWithPerplexity(input: string, baseUrl: string, apiKey: stri
 
   let signals: MarketSignal[] = [];
   try {
-    const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
+    // Remove citation markers like [1], [1][7], [1,7] that Perplexity injects everywhere
+    const cleaned = content.replace(/\[(\d+(?:,\s*\d+)*)\]/g, "").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       signals = JSON.parse(jsonMatch[0]);
@@ -224,9 +234,10 @@ serve(async (req) => {
             comments_count: 0,
             content_hash: contentHash,
             topic_tags: signal.topic_tags || [],
-            pain_level: signal.pain_level || null,
+            pain_level: normalizePainLevel(signal.pain_level),
             opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
             sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
+            processed_at: new Date().toISOString(), // Already analyzed by Perplexity
             scanned_at: new Date().toISOString(),
           });
         }
@@ -266,9 +277,10 @@ serve(async (req) => {
             comments_count: 0,
             content_hash: contentHash,
             topic_tags: signal.topic_tags || [],
-            pain_level: signal.pain_level || null,
+            pain_level: normalizePainLevel(signal.pain_level),
             opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
             sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
+            processed_at: new Date().toISOString(), // Already analyzed by Perplexity
             scanned_at: new Date().toISOString(),
           });
         }
