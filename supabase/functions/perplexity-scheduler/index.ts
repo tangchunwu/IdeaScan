@@ -229,6 +229,10 @@ async function deepAnalyze(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content ?? "";
   const citations: string[] = data.citations ?? [];
+  console.log(`[deep-analyze] "${keyword}" citations (${citations.length}):`, JSON.stringify(citations.slice(0, 5)));
+  if (citations.length === 0) {
+    console.warn(`[deep-analyze] No citations returned for "${keyword}". Response keys: ${Object.keys(data).join(", ")}`);
+  }
 
   let insight: InsightResult | null = null;
   try {
