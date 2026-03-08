@@ -15,6 +15,15 @@ interface MarketSignal {
   sentiment: string;
 }
 
+const VALID_PAIN_LEVELS = new Set(["mild", "moderate", "severe", "critical"]);
+function normalizePainLevel(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  if (VALID_PAIN_LEVELS.has(lower)) return lower;
+  const map: Record<string, string> = { high: "severe", low: "mild", medium: "moderate", extreme: "critical", very_high: "critical", none: "mild" };
+  return map[lower] || "moderate";
+}
+
 async function hashContent(content: string): Promise<string> {
   const data = new TextEncoder().encode(content);
   const buf = await crypto.subtle.digest("SHA-256", data);
