@@ -18,7 +18,6 @@ const useCountUp = (target: number, duration = 1200) => {
     const tick = (now: number) => {
       const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(Math.round(eased * target));
       if (progress < 1) requestAnimationFrame(tick);
@@ -42,7 +41,7 @@ export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCard
   const animatedScore = useCountUp(score);
 
   return (
-    <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40 min-h-[240px] sm:min-h-[280px]" padding="lg" elevated>
+    <GlassCard className="h-full flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40 min-h-[240px] sm:min-h-[280px]" padding="lg" elevated>
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
       <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">需求真实度评分</span>
@@ -58,8 +57,8 @@ export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCard
           score >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
           {score >= 80 ? "✅ 真实刚需" : score >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">基于 {totalNotes} 条真实用户数据分析</p>
-        <p className="text-xs text-muted-foreground/70">{getScoreInterpretation(score)}</p>
+        <p className="text-sm text-muted-foreground mt-2">基于 {totalNotes} 条真实用户数据分析</p>
+        <p className="text-sm text-muted-foreground/70">{getScoreInterpretation(score)}</p>
         {isIncomplete && (
           <p className="text-xs text-amber-500 mt-1">⚠ 数据采集未完成，评分可能不准确</p>
         )}

@@ -432,7 +432,7 @@ const Report = () => {
           />
 
           {/* Score + Persona Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 animate-slide-up">
               <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={isIncomplete} />
             </div>
@@ -454,7 +454,7 @@ const Report = () => {
           </div>
 
           {/* Action Recommendation & Data Confidence */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <ActionRecommendation
                 score={validation.overall_score || 0}
@@ -506,15 +506,15 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
-                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm"><BarChart3 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">数据概览</span></TabsTrigger>
-                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm"><Sparkles className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">市场洞察</span></TabsTrigger>
-                <TabsTrigger value="competitors" className="rounded-lg text-xs sm:text-sm"><Globe className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">竞品搜索</span></TabsTrigger>
-                <TabsTrigger value="ai" className="rounded-lg text-xs sm:text-sm"><Brain className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">AI 点评</span></TabsTrigger>
-                <TabsTrigger value="circle" className="rounded-lg text-xs sm:text-sm"><MessageCircle className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">创投圈</span></TabsTrigger>
-                <TabsTrigger value="notes" className="rounded-lg text-xs sm:text-sm"><StickyNote className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">笔记</span></TabsTrigger>
+                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><BarChart3 className="w-4 h-4" /><span className="sm:inline">概览</span><span className="hidden sm:inline"> </span></TabsTrigger>
+                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Sparkles className="w-4 h-4" /><span className="sm:inline">市场</span></TabsTrigger>
+                <TabsTrigger value="competitors" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Globe className="w-4 h-4" /><span className="sm:inline">竞品</span></TabsTrigger>
+                <TabsTrigger value="ai" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Brain className="w-4 h-4" /><span className="sm:inline">AI</span></TabsTrigger>
+                <TabsTrigger value="circle" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><MessageCircle className="w-4 h-4" /><span className="sm:inline">创投</span></TabsTrigger>
+                <TabsTrigger value="notes" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><StickyNote className="w-4 h-4" /><span className="sm:inline">笔记</span></TabsTrigger>
               </TabsList>
               {/* Fade hints for scroll on mobile */}
               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none lg:hidden" />
