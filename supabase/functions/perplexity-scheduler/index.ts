@@ -19,25 +19,25 @@ const DOMAIN_CATEGORIES: { name: string; description: string; seedKeywords: stri
   { name: "银发经济", description: "老年产品、适老化、养老服务", seedKeywords: ["老年人产品", "适老化设计", "养老服务创业"] },
 ];
 
-const DAILY_QUOTA = 100;
+/** 每日洞察配额（1 条 insight = 1 配额） */
+const DAILY_QUOTA = 50;
 const MAX_DEEP_SCAN_PER_RUN = 2;
 const DEDUP_HOURS = 24;
 
 // ── Types ────────────────────────────────────────────────
-interface MarketSignal {
-  summary: string;
-  source_url: string;
-  topic_tags: string[];
+interface InsightResult {
+  analysis: string;
+  pain_points: string[];
   opportunity_score: number;
+  heat_indicator: number;
   pain_level: string;
   sentiment: string;
-  heat_indicator?: number;
-  pain_points?: string[];
-  related_tags?: string[];
+  topic_tags: string[];
+  business_opportunities?: string[];
+  competitor_weaknesses?: string[];
 }
 
 // ── Helpers ──────────────────────────────────────────────
-/** 将 Perplexity 返回的 pain_level 映射到数据库约束允许的值 */
 function normalizePainLevel(level: string | null | undefined): string {
   if (!level || typeof level !== "string") return "moderate";
   const l = level.toLowerCase().trim();
@@ -62,17 +62,19 @@ async function checkDailyQuota(supabase: any): Promise<{ used: number; remaining
     .from("raw_market_signals")
     .select("id", { count: "exact", head: true })
     .eq("source", "perplexity")
+    .eq("content_type", "insight")
     .gte("scanned_at", todayStart.toISOString());
   const used = error ? 0 : (count || 0);
   return { used, remaining: Math.max(0, DAILY_QUOTA - used) };
 }
 
-async function getRecentContentHashes(supabase: any): Promise<Set<string>> {
+async function getRecentInsightHashes(supabase: any): Promise<Set<string>> {
   const since = new Date(Date.now() - DEDUP_HOURS * 60 * 60 * 1000).toISOString();
   const { data } = await supabase
     .from("raw_market_signals")
     .select("content_hash")
     .eq("source", "perplexity")
+    .eq("content_type", "insight")
     .gte("scanned_at", since)
     .not("content_hash", "is", null);
   const hashes = new Set<string>();
@@ -82,7 +84,6 @@ async function getRecentContentHashes(supabase: any): Promise<Set<string>> {
   return hashes;
 }
 
-/** 按小时轮转选取本轮领域 */
 function getDomainForThisRun(): typeof DOMAIN_CATEGORIES[number] {
   const hour = new Date().getHours();
   return DOMAIN_CATEGORIES[hour % DOMAIN_CATEGORIES.length];
@@ -133,62 +134,45 @@ async function discoverKeywords(
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
-
-    // 清理 citation 标记后解析 JSON
     const cleaned = content.replace(/\[(\d+)\]/g, "").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       const keywords = parsed.keywords || [];
       console.log(`[discovery] Domain "${domain.name}" discovered ${keywords.length} keywords:`, keywords);
-      if (parsed.reasoning) {
-        console.log(`[discovery] Reasoning: ${parsed.reasoning.slice(0, 200)}`);
-      }
       return keywords.filter((k: any) => typeof k === "string" && k.length >= 2);
     }
   } catch (e) {
     console.error(`[discovery] Failed for domain "${domain.name}":`, e);
   }
-
   return [];
 }
 
-// ── 阶段 2: 深度挖掘 ──────────────────────────────────────
-function buildSemanticPrompts(keyword: string): string[] {
-  return [
-    `关于"${keyword}"这个领域：
-1. 用户最近在社交媒体（小红书、知乎、微博、Reddit、抖音评论区）上最常抱怨什么？有哪些产品或服务让他们非常不满意？
-2. 他们愿意为什么解决方案付费？有没有"付费意愿强但供给不足"的需求？
-3. 请提取具体的用户原话或痛点场景，而不是泛泛而谈。`,
-    `从创业和商业机会的角度分析"${keyword}"：
-1. 这个领域有哪些新兴的、未被充分服务的细分市场？
-2. 现有的头部玩家有什么明显的短板或用户流失原因？
-3. 有没有可以用低成本验证的小众切入点？`,
-  ];
-}
-
-async function searchPerplexity(
+// ── 阶段 2: 深度分析（Insight 模式）──────────────────────
+async function deepAnalyze(
   keyword: string,
   baseUrl: string,
   apiKey: string
-): Promise<{ signals: MarketSignal[]; citations: string[] }> {
-  const prompts = buildSemanticPrompts(keyword);
-  const selectedPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+): Promise<{ insight: InsightResult | null; citations: string[] }> {
+  const prompt = `关于"${keyword}"，请提供一份综合市场情报分析（400-600字）：
 
-  const fullPrompt = `${selectedPrompt}
+1. **趋势概要**：这个领域当前的核心趋势是什么？近期有什么重要变化？
+2. **用户痛点**：最突出的 3-5 个用户痛点（请引用具体场景或用户反馈，不要泛泛而谈）
+3. **商业机会**：最有潜力的 1-2 个创业切入点，为什么这些切入点可行？
+4. **竞争格局**：现有方案的主要短板是什么？用户对现有产品/服务最不满意的地方？
 
-请返回 JSON 格式，包含 5-8 条市场信号。每条信号包含：
-- summary: 痛点或需求的简洁描述（1-2句话，尽量引用具体用户场景）
-- source_url: 来源URL（如果有）
-- topic_tags: 2-3个话题标签
-- opportunity_score: 商机评分（0-100）
-- pain_level: 痛点等级（"high"/"medium"/"low"）
-- sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
-- heat_indicator: 话题热度估计（0-100）
-- pain_points: 提取的具体痛点短句（1-3条）
-- related_tags: 相关话题标签（2-5个）
-
-只返回 JSON 数组，不要其他文字。`;
+请返回 JSON（只返回 JSON，不要其他文字）：
+{
+  "analysis": "完整的综合分析文本（400-600字，含具体场景和数据）",
+  "pain_points": ["具体痛点1", "具体痛点2", "具体痛点3"],
+  "opportunity_score": 75,
+  "heat_indicator": 80,
+  "pain_level": "high",
+  "sentiment": "negative",
+  "topic_tags": ["标签1", "标签2", "标签3"],
+  "business_opportunities": ["机会1", "机会2"],
+  "competitor_weaknesses": ["短板1", "短板2"]
+}`;
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -200,8 +184,8 @@ async function searchPerplexity(
       model: "sonar",
       temperature: 0.3,
       messages: [
-        { role: "system", content: "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON 数组。" },
-        { role: "user", content: fullPrompt },
+        { role: "system", content: "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON。" },
+        { role: "user", content: prompt },
       ],
     }),
   });
@@ -215,29 +199,21 @@ async function searchPerplexity(
   const content = data.choices?.[0]?.message?.content ?? "";
   const citations: string[] = data.citations ?? [];
 
-  let signals: MarketSignal[] = [];
+  let insight: InsightResult | null = null;
   try {
     const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
-    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      signals = JSON.parse(jsonMatch[0]);
+      insight = JSON.parse(jsonMatch[0]);
     }
   } catch (e) {
-    console.error(`[deep-scan] Failed to parse response for "${keyword}":`, e);
+    console.error(`[deep-analyze] Failed to parse response for "${keyword}":`, e);
   }
 
-  if (citations.length > 0) {
-    signals.forEach((s, i) => {
-      if (!s.source_url && citations[i]) {
-        s.source_url = typeof citations[i] === "string" ? citations[i] : "";
-      }
-    });
-  }
-
-  return { signals, citations };
+  return { insight, citations };
 }
 
-// ── 处理单个关键词（写入信号 + 更新 trending）──────────────
+// ── 处理单个关键词：写入 insight + citations ──────────────
 async function processKeyword(
   keyword: string,
   domain: typeof DOMAIN_CATEGORIES[number],
@@ -245,83 +221,98 @@ async function processKeyword(
   baseUrl: string,
   apiKey: string,
   existingHashes: Set<string>
-): Promise<{ inserted: number; trendingUpdated: boolean }> {
-  const { signals, citations } = await searchPerplexity(keyword, baseUrl, apiKey);
-  console.log(`[deep-scan] "${keyword}": ${signals.length} signals, ${citations.length} citations`);
+): Promise<{ insightInserted: boolean; citationsInserted: number; trendingUpdated: boolean }> {
+  const { insight, citations } = await deepAnalyze(keyword, baseUrl, apiKey);
 
-  if (signals.length === 0) return { inserted: 0, trendingUpdated: false };
+  if (!insight || !insight.analysis || insight.analysis.length < 50) {
+    console.warn(`[process] "${keyword}": no valid insight returned`);
+    return { insightInserted: false, citationsInserted: 0, trendingUpdated: false };
+  }
 
-  const records = [];
-  for (const signal of signals) {
-    if (!signal.summary || signal.summary.length < 10) continue;
-    const contentHash = await hashContent(signal.summary);
-    // 基于 content_hash 去重
-    if (existingHashes.has(contentHash)) continue;
-    existingHashes.add(contentHash); // 防止同一批次内重复
+  // ── 去重检查 ──
+  const contentHash = await hashContent(insight.analysis);
+  if (existingHashes.has(contentHash)) {
+    console.log(`[process] "${keyword}": duplicate insight, skipping`);
+    return { insightInserted: false, citationsInserted: 0, trendingUpdated: false };
+  }
+  existingHashes.add(contentHash);
 
-    records.push({
-      content: signal.summary,
+  // ── 插入 insight（父记录）──
+  const insightRecord = {
+    content: insight.analysis,
+    source: "perplexity",
+    source_url: citations[0] || null,
+    content_type: "insight",
+    author_name: null,
+    likes_count: 0,
+    comments_count: 0,
+    content_hash: contentHash,
+    topic_tags: insight.topic_tags || [],
+    pain_level: normalizePainLevel(insight.pain_level),
+    opportunity_score: Math.min(100, Math.max(0, insight.opportunity_score || 0)),
+    sentiment_score: insight.sentiment === "negative" ? -0.5 : insight.sentiment === "mixed" ? 0 : 0.3,
+    scanned_at: new Date().toISOString(),
+  };
+
+  const { data: insertedInsight, error: insightError } = await supabase
+    .from("raw_market_signals")
+    .insert(insightRecord)
+    .select("id")
+    .single();
+
+  if (insightError || !insertedInsight) {
+    console.error(`[process] Insert insight error for "${keyword}":`, insightError?.message);
+    return { insightInserted: false, citationsInserted: 0, trendingUpdated: false };
+  }
+
+  const parentId = insertedInsight.id;
+  console.log(`[process] "${keyword}": insight inserted (id=${parentId})`);
+
+  // ── 插入 citations（子记录）──
+  let citationsInserted = 0;
+  for (const url of citations) {
+    if (!url || typeof url !== "string") continue;
+    const citationRecord = {
+      content: `Citation source for: ${keyword}`,
       source: "perplexity",
-      source_url: signal.source_url || null,
-      content_type: "intelligence",
+      source_url: url,
+      content_type: "source_citation",
       author_name: null,
       likes_count: 0,
       comments_count: 0,
-      content_hash: contentHash,
-      topic_tags: signal.topic_tags || [],
-      pain_level: normalizePainLevel(signal.pain_level),
-      opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
-      sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
+      parent_signal_id: parentId,
       scanned_at: new Date().toISOString(),
-    });
-  }
-
-  let insertedCount = 0;
-  for (const record of records) {
-    const { error } = await supabase
-      .from("raw_market_signals")
-      .insert(record);
+      // citations don't need analysis fields — they'll be skipped by signal-processor
+    };
+    const { error } = await supabase.from("raw_market_signals").insert(citationRecord);
     if (error) {
-      console.error(`[deep-scan] Insert error for "${keyword}" (${record.pain_level}):`, error.message);
+      console.error(`[process] Citation insert error:`, error.message);
     } else {
-      insertedCount++;
+      citationsInserted++;
     }
   }
+  console.log(`[process] "${keyword}": ${citationsInserted}/${citations.length} citations inserted`);
 
-  // 更新 trending_topics
-  const allPainPoints: string[] = [];
-  const allRelatedTags: string[] = [];
-  let totalOpportunity = 0;
-  let negativeCount = 0, positiveCount = 0, neutralCount = 0;
-
-  for (const signal of signals) {
-    totalOpportunity += signal.opportunity_score || 0;
-    for (const pp of signal.pain_points || []) {
-      if (!allPainPoints.includes(pp)) allPainPoints.push(pp);
-    }
-    for (const tag of [...(signal.topic_tags || []), ...(signal.related_tags || [])]) {
-      if (tag !== keyword && !allRelatedTags.includes(tag)) allRelatedTags.push(tag);
-    }
-    if (signal.sentiment === "negative") negativeCount++;
-    else if (signal.sentiment === "mixed") neutralCount++;
-    else positiveCount++;
-  }
-
-  const total = negativeCount + positiveCount + neutralCount || 1;
-  const avgHeat = signals.reduce((sum, s) => sum + (s.heat_indicator || 50), 0) / signals.length;
+  // ── 更新 trending_topics ──
+  const sentimentMap: Record<string, { pos: number; neg: number; neu: number }> = {
+    negative: { pos: 10, neg: 70, neu: 20 },
+    mixed: { pos: 30, neg: 30, neu: 40 },
+    positive: { pos: 60, neg: 10, neu: 30 },
+  };
+  const sent = sentimentMap[insight.sentiment || "mixed"] || sentimentMap.mixed;
 
   const trendingData = {
     keyword,
     category: domain.name,
-    heat_score: Math.min(100, Math.round(avgHeat)),
-    sample_count: signals.length,
-    avg_engagement: Math.round(totalOpportunity / signals.length),
-    sentiment_positive: Math.round((positiveCount / total) * 100),
-    sentiment_negative: Math.round((negativeCount / total) * 100),
-    sentiment_neutral: Math.round((neutralCount / total) * 100),
-    top_pain_points: allPainPoints.slice(0, 5),
-    related_keywords: allRelatedTags.slice(0, 10),
-    sources: [{ platform: "perplexity", count: signals.length }],
+    heat_score: Math.min(100, Math.round(insight.heat_indicator || 50)),
+    sample_count: citations.length,
+    avg_engagement: Math.round(insight.opportunity_score || 0),
+    sentiment_positive: sent.pos,
+    sentiment_negative: sent.neg,
+    sentiment_neutral: sent.neu,
+    top_pain_points: (insight.pain_points || []).slice(0, 5),
+    related_keywords: (insight.topic_tags || []).filter((t: string) => t !== keyword).slice(0, 10),
+    sources: [{ platform: "perplexity", count: citations.length }],
     source_type: "perplexity_scan",
     is_active: true,
     updated_at: new Date().toISOString(),
@@ -329,8 +320,11 @@ async function processKeyword(
     last_crawled_at: new Date().toISOString(),
     cached_social_data: {
       source: "perplexity",
+      insight_id: parentId,
       citations: citations.slice(0, 10),
-      signal_count: signals.length,
+      pain_points: insight.pain_points,
+      business_opportunities: insight.business_opportunities,
+      competitor_weaknesses: insight.competitor_weaknesses,
       scanned_at: new Date().toISOString(),
     },
     cache_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -341,13 +335,13 @@ async function processKeyword(
     .upsert(trendingData, { onConflict: "keyword" });
 
   if (upsertError) {
-    console.error(`[deep-scan] Trending upsert error for "${keyword}":`, upsertError.message);
+    console.error(`[process] Trending upsert error for "${keyword}":`, upsertError.message);
   }
 
-  return { inserted: insertedCount, trendingUpdated: !upsertError };
+  return { insightInserted: true, citationsInserted, trendingUpdated: !upsertError };
 }
 
-// ── 从 scan_jobs + user_topic_clicks 收集用户关注词（补充来源）──
+// ── 从 scan_jobs + user_topic_clicks 收集用户关注词 ───────
 async function collectUserKeywords(supabase: any): Promise<string[]> {
   const keywords: string[] = [];
 
@@ -403,9 +397,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. 配额检查
+    // 1. 配额检查（只计 insight 条数）
     const quota = await checkDailyQuota(supabase);
-    console.log(`[scheduler] Daily quota: ${quota.used}/${DAILY_QUOTA} used`);
+    console.log(`[scheduler] Daily insight quota: ${quota.used}/${DAILY_QUOTA} used`);
     if (quota.remaining <= 0) {
       return new Response(
         JSON.stringify({ success: true, message: "Daily quota exhausted", used: quota.used }),
@@ -417,10 +411,9 @@ Deno.serve(async (req) => {
     const domain = getDomainForThisRun();
     console.log(`[scheduler] This run's domain: ${domain.name}`);
 
-    // 3. 阶段 1: Discovery — 动态发现关键词
+    // 3. Discovery — 动态发现关键词
     let discoveredKeywords = await discoverKeywords(domain, baseUrl, apiKey);
 
-    // 补充用户关注的关键词
     const userKeywords = await collectUserKeywords(supabase);
     if (userKeywords.length > 0) {
       console.log(`[scheduler] Adding ${userKeywords.length} user keywords`);
@@ -429,16 +422,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 如果 Discovery 失败，回退到种子词
     if (discoveredKeywords.length === 0) {
       console.log(`[scheduler] Discovery returned 0 keywords, falling back to seed keywords`);
       discoveredKeywords = [...domain.seedKeywords];
     }
 
-    // 4. 基于 content_hash 去重
-    const existingHashes = await getRecentContentHashes(supabase);
-
-    // 取前 N 个进行深度扫描
+    // 4. 去重 + 取前 N 个
+    const existingHashes = await getRecentInsightHashes(supabase);
     const keywordsToScan = discoveredKeywords.slice(0, MAX_DEEP_SCAN_PER_RUN);
 
     if (keywordsToScan.length === 0) {
@@ -448,17 +438,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[scheduler] Deep scanning keywords:`, keywordsToScan);
+    console.log(`[scheduler] Deep analyzing keywords:`, keywordsToScan);
 
-    // 5. 阶段 2: Deep Scan — 逐个深度挖掘
-    let totalInserted = 0;
+    // 5. Deep Analyze — 逐个生成综合洞察
+    let insightsInserted = 0;
+    let totalCitations = 0;
     let trendingUpdated = 0;
     const errors: string[] = [];
 
     for (const keyword of keywordsToScan) {
       try {
         const result = await processKeyword(keyword, domain, supabase, baseUrl, apiKey, existingHashes);
-        totalInserted += result.inserted;
+        if (result.insightInserted) insightsInserted++;
+        totalCitations += result.citationsInserted;
         if (result.trendingUpdated) trendingUpdated++;
         await new Promise(r => setTimeout(r, 1500));
       } catch (e) {
@@ -483,13 +475,13 @@ Deno.serve(async (req) => {
         await supabase.from("scan_jobs").update({
           last_run_at: new Date().toISOString(),
           next_run_at: nextRun.toISOString(),
-          signals_found: (job.signals_found || 0) + totalInserted,
+          signals_found: (job.signals_found || 0) + insightsInserted,
         }).eq("id", job.id);
       }
     }
 
     // 7. 自动触发 signal-processor
-    if (totalInserted > 0) {
+    if (insightsInserted > 0) {
       try {
         console.log(`[scheduler] Auto-triggering signal-processor...`);
         const spResponse = await fetch(
@@ -509,7 +501,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[scheduler] Done: domain=${domain.name}, discovered=${discoveredKeywords.length}, scanned=${keywordsToScan.length}, inserted=${totalInserted}, trending=${trendingUpdated}`);
+    console.log(`[scheduler] Done: domain=${domain.name}, discovered=${discoveredKeywords.length}, scanned=${keywordsToScan.length}, insights=${insightsInserted}, citations=${totalCitations}, trending=${trendingUpdated}`);
 
     return new Response(
       JSON.stringify({
@@ -517,9 +509,10 @@ Deno.serve(async (req) => {
         domain: domain.name,
         discovered_keywords: discoveredKeywords,
         keywords_scanned: keywordsToScan,
-        signals_inserted: totalInserted,
+        insights_inserted: insightsInserted,
+        citations_inserted: totalCitations,
         trending_updated: trendingUpdated,
-        quota: { used: quota.used + totalInserted, daily_limit: DAILY_QUOTA },
+        quota: { used: quota.used + insightsInserted, daily_limit: DAILY_QUOTA },
         errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
