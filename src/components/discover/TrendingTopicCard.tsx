@@ -189,11 +189,11 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange, onVal
             <Sparkles className="w-3 h-3" />
             核心痛点
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="space-y-1.5">
             {topic.top_pain_points.slice(0, 3).map((point, idx) => (
-              <Badge key={idx} variant="secondary" className="text-xs">
-                {point}
-              </Badge>
+              <p key={idx} className="text-xs text-muted-foreground leading-relaxed line-clamp-2 pl-3 border-l-2 border-primary/30">
+                {point.length > 80 ? point.slice(0, 80) + '…' : point}
+              </p>
             ))}
           </div>
         </div>
