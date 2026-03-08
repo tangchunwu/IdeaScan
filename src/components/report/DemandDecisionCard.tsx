@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard } from "@/components/shared";
-import { Target, Brain, Swords, ChevronDown, Quote } from "lucide-react";
+import { ChevronDown, Quote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DemandDecisionCardProps {
@@ -81,35 +81,6 @@ export const DemandDecisionCard = ({
             <div className="text-xs text-muted-foreground uppercase tracking-wider">用户态度</div>
             <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
               {animatedPositive}% <span className="text-sm text-muted-foreground font-normal">正向</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Competition */}
-        <div className="p-4 rounded-xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 border border-orange-500/20">
-          <div className="flex items-start gap-4">
-            <div className="p-2 rounded-lg bg-orange-500/10 shrink-0"><Swords className="w-5 h-5 text-orange-500" /></div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">竞品拥挤度分析</div>
-              <div className="text-sm text-foreground leading-relaxed">{marketAnalysis.competitionLevel || "暂无竞争分析数据"}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Target & Pain */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
-            <Target className="w-5 h-5 text-secondary shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs text-muted-foreground">目标用户</div>
-              <div className="text-sm font-medium line-clamp-2">{marketAnalysis.targetAudience || "数据未完成采集"}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
-            <Brain className="w-5 h-5 text-primary shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs text-muted-foreground">核心痛点</div>
-              <div className="text-sm font-medium line-clamp-2">{aiAnalysis.strengths?.[0] || "数据未完成采集"}</div>
             </div>
           </div>
         </div>

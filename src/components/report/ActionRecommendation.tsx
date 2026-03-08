@@ -119,22 +119,6 @@ export const ActionRecommendation = ({
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6 p-4 rounded-xl bg-card/50">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-500">{strengths.length}</div>
-          <div className="text-xs text-muted-foreground">核心优势</div>
-        </div>
-        <div className="text-center border-x border-border/50">
-          <div className="text-2xl font-bold text-red-500">{weaknesses.length}</div>
-          <div className="text-xs text-muted-foreground">关键风险</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-primary">{sentiment.positive}%</div>
-          <div className="text-xs text-muted-foreground">用户好评率</div>
-        </div>
-      </div>
-
       {/* Decision Confidence Bar */}
       <div className="mb-6">
         <div className="flex justify-between text-xs mb-2">
