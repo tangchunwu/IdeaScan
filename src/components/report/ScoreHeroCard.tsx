@@ -7,7 +7,7 @@ interface ScoreHeroCardProps {
 }
 
 export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCardProps) => (
-  <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
+  <GlassCard className="flex-1 flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40 min-h-[280px] sm:min-h-[320px]" padding="lg" elevated>
     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
     <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
     <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">需求真实度评分</span>

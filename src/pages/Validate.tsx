@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ToastAction } from "@/components/ui/toast";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "@/hooks/use-toast";
+import { useUserQuota } from "@/hooks/useUserQuota";
 import { captureEvent } from "@/lib/posthog";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useValidationStream, type ValidationStep } from "@/hooks/useValidationStream";
@@ -48,6 +49,7 @@ const Validate = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
+  const quota = useUserQuota();
 
   // Form state
   const [idea, setIdea] = useState("");
@@ -151,12 +153,13 @@ const Validate = () => {
       navigate("/auth?redirect=/validate");
       return;
     }
-    if (!stream.hasOwnTikhub) {
+    // Allow validation if: user has own TikHub token OR has free quota remaining
+    if (!stream.hasOwnTikhub && !quota.canValidate) {
       toast({
-        title: "请先配置 TikHub Token",
-        description: "需要在设置中配置您的 TikHub API Token 才能使用验证功能",
+        title: "免费次数已用完",
+        description: `本月 ${quota.freeTotal} 次免费验证已用完。请在设置中配置个人 TikHub Token 获取无限次验证。`,
         variant: "destructive",
-        action: <ToastAction altText="去配置" onClick={() => setShowSettingsFromQuota(true)}>去配置</ToastAction>,
+        action: { label: "去配置", onClick: () => setShowSettingsFromQuota(true) },
       });
       return;
     }
@@ -396,11 +399,18 @@ const Validate = () => {
               />
             ) : (
               <div className="space-y-3">
-                {!stream.hasOwnTikhub && (
+                {!stream.hasOwnTikhub && quota.canValidate && (
+                  <div className="flex items-center justify-center gap-2 text-sm">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      免费验证剩余 <strong className="text-primary">{quota.freeRemaining}</strong> / {quota.freeTotal} 次
+                    </span>
+                  </div>
+                )}
+                {!stream.hasOwnTikhub && !quota.canValidate && (
                   <div className="flex items-center justify-center gap-2 text-sm">
                     <span className="flex items-center gap-1 text-warning">
                       <AlertTriangle className="w-4 h-4" />
-                      请先在设置中配置 TikHub Token
+                      免费次数已用完，请配置 TikHub Token
                     </span>
                   </div>
                 )}

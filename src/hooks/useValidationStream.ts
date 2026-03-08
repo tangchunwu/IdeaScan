@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/useSettings";
+import { useUserQuota } from "@/hooks/useUserQuota";
 import { validationKeys } from "@/hooks/useValidation";
 import { createValidationStream, getValidation } from "@/services/validationService";
 import { invokeFunction } from "@/lib/invokeFunction";
@@ -21,7 +22,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const settings = useSettings();
-  const hasOwnTikhub = !!settings.tikhubToken;
+  const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
 
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -117,7 +118,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           llmApiKey: settings.llmApiKey,
           llmModel: settings.llmModel,
           llmFallbacks: settings.llmFallbacks,
-          tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
+          tikhubToken: hasOwnTikhub ? settings.tikhubToken : "", // empty = use shared quota
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: false,
           enableSelfCrawler: false,
@@ -159,6 +160,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         });
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+        refetchQuota(); // refresh free quota counter
 
         await queryClient.prefetchQuery({
           queryKey: validationKeys.detail(result.validationId),

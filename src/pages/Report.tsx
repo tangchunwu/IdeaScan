@@ -205,6 +205,8 @@ const Report = () => {
   const handleExportPdf = async () => {
     const rd = prepareExportData();
     if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
+    const toastId = `pdf-export-${Date.now()}`;
+    toast({ title: "正在生成 PDF...", description: "渲染报告中，请稍候" });
     try {
       const pdfHtml = generatePDFHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
@@ -361,8 +363,8 @@ const Report = () => {
           )}
 
           {/* Score + Persona Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-            <div className="lg:col-span-4 flex flex-col gap-6 animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 animate-slide-up">
               <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={isIncomplete} />
             </div>
             <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
@@ -383,7 +385,7 @@ const Report = () => {
           </div>
 
           {/* Action Recommendation & Data Confidence */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <ActionRecommendation
                 score={validation.overall_score || 0}
@@ -425,7 +427,7 @@ const Report = () => {
           {/* Tabs - Lazy rendered */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="relative">
-              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide">
+              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
                 <TabsTrigger value="overview" className="rounded-lg"><BarChart3 className="w-4 h-4 mr-2" />概览</TabsTrigger>
                 <TabsTrigger value="insights" className="rounded-lg"><Sparkles className="w-4 h-4 mr-2" />数据洞察</TabsTrigger>
                 <TabsTrigger value="market" className="rounded-lg"><Target className="w-4 h-4 mr-2" />市场分析</TabsTrigger>
