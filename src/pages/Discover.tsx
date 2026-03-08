@@ -79,6 +79,8 @@ export default function Discover() {
   useEffect(() => {
     if (user) {
       getUserTopicInterests().then(setUserInterests);
+    } else {
+      setUserInterests(new Map());
     }
   }, [user]);
 
