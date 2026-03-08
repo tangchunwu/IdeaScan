@@ -166,7 +166,7 @@ export const ScoreHeroCard = ({
 
           {/* Verdict + Actions */}
           <div className="pt-2 border-t border-border/30">
-            <p className={`text-sm font-bold ${config.color} mb-2`}>{config.title}</p>
+            <p className={`text-base font-bold ${config.color} mb-2`}>{config.title}</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
               {config.actions.map((action, i) => (
                 <Button
