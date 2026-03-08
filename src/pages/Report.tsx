@@ -510,7 +510,6 @@ const Report = () => {
 
           {/* Risk & Mitigation Cards */}
           <RiskMitigationCards
-            weaknesses={aiAnalysis.weaknesses}
             risks={aiAnalysis.risks}
           />
 
