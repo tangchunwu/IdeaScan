@@ -51,7 +51,7 @@ export const exportToMultiPagePdf = async (htmlContent: string, fileName: string
 
               // Capture the entire container as one big canvas
               const fullCanvas = await html2canvas(container, {
-                     scale: 1.5,
+                     scale: 2,
                      useCORS: true,
                      logging: false,
                      backgroundColor: "#ffffff",
