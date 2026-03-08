@@ -25,17 +25,14 @@ const ALL_CATEGORIES = Object.keys(SEED_KEYWORD_GROUPS);
 /** 根据当前小时轮转选取种子类别 */
 function getSeedKeywordsForRun(): string[] {
   const hour = new Date().getHours();
-  const categoryIndex = Math.floor(hour / 4) % ALL_CATEGORIES.length;
-  // 选取 2 个相邻类别，确保多样性
-  const cat1 = ALL_CATEGORIES[categoryIndex];
-  const cat2 = ALL_CATEGORIES[(categoryIndex + 1) % ALL_CATEGORIES.length];
-  const combined = [...SEED_KEYWORD_GROUPS[cat1], ...SEED_KEYWORD_GROUPS[cat2]];
-  // 随机打乱后取前 5 个
-  return combined.sort(() => Math.random() - 0.5).slice(0, 5);
+  const categoryIndex = hour % ALL_CATEGORIES.length;
+  const cat = ALL_CATEGORIES[categoryIndex];
+  // 从该类别随机取 2 个
+  return [...SEED_KEYWORD_GROUPS[cat]].sort(() => Math.random() - 0.5).slice(0, 2);
 }
 
 const DAILY_QUOTA = 100;
-const MAX_KEYWORDS_PER_RUN = 3;
+const MAX_KEYWORDS_PER_RUN = 2;
 const DEDUP_HOURS = 24;
 
 interface MarketSignal {
