@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard, ScoreCircle } from "@/components/shared";
+import { Button } from "@/components/ui/button";
+import { Rocket, CheckCircle, TrendingUp, XCircle } from "lucide-react";
 
 interface ScoreHeroCardProps {
   score: number;
   totalNotes: number;
   isIncomplete?: boolean;
+  strengths?: string[];
+  weaknesses?: string[];
+  sentiment?: { positive: number; negative: number };
+  onValidateMore?: () => void;
+  onStartBuilding?: () => void;
 }
 
 const useCountUp = (target: number, duration = 1200) => {
@@ -37,8 +44,85 @@ const getScoreInterpretation = (score: number) => {
   return "⚠️ 建议重新审视需求假设";
 };
 
-export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCardProps) => {
+type VerdictType = "strong_go" | "conditional_go" | "pivot" | "stop";
+
+const getVerdict = (
+  score: number,
+  strengths: string[],
+  weaknesses: string[],
+  sentiment: { positive: number; negative: number }
+): VerdictType => {
+  const sentimentRatio = sentiment.positive / (sentiment.positive + sentiment.negative + 1);
+  if (score >= 75 && strengths.length >= 2 && sentimentRatio > 0.5) return "strong_go";
+  if (score >= 60 && strengths.length >= 1) return "conditional_go";
+  if (score >= 40 && weaknesses.length <= 3) return "pivot";
+  return "stop";
+};
+
+const verdictConfig: Record<VerdictType, {
+  title: string;
+  icon: React.ReactNode;
+  color: string;
+  actions: { label: string; primary: boolean; action: "validate" | "build" | "pivot" | "stop" }[];
+}> = {
+  strong_go: {
+    title: "🚀 建议：立即启动！",
+    icon: <Rocket className="w-4 h-4" />,
+    color: "text-green-500",
+    actions: [
+      { label: "开始构建 MVP", primary: true, action: "build" },
+      { label: "深度验证", primary: false, action: "validate" },
+    ],
+  },
+  conditional_go: {
+    title: "✅ 建议：谨慎推进",
+    icon: <CheckCircle className="w-4 h-4" />,
+    color: "text-yellow-500",
+    actions: [
+      { label: "小规模测试", primary: true, action: "validate" },
+      { label: "查看风险", primary: false, action: "pivot" },
+    ],
+  },
+  pivot: {
+    title: "🔄 建议：调整方向",
+    icon: <TrendingUp className="w-4 h-4" />,
+    color: "text-orange-500",
+    actions: [
+      { label: "探索热点", primary: true, action: "pivot" },
+      { label: "对比想法", primary: false, action: "validate" },
+    ],
+  },
+  stop: {
+    title: "⚠️ 建议：暂缓执行",
+    icon: <XCircle className="w-4 h-4" />,
+    color: "text-red-500",
+    actions: [
+      { label: "发现机会", primary: true, action: "pivot" },
+      { label: "重新验证", primary: false, action: "validate" },
+    ],
+  },
+};
+
+export const ScoreHeroCard = ({
+  score,
+  totalNotes,
+  isIncomplete,
+  strengths = [],
+  weaknesses = [],
+  sentiment = { positive: 0, negative: 0 },
+  onValidateMore,
+  onStartBuilding,
+}: ScoreHeroCardProps) => {
   const animatedScore = useCountUp(score);
+
+  const verdict = getVerdict(score, strengths, weaknesses, sentiment);
+  const config = verdictConfig[verdict];
+
+  const handleAction = (action: string) => {
+    if (action === "validate" && onValidateMore) onValidateMore();
+    else if (action === "build" && onStartBuilding) onStartBuilding();
+    else if (action === "pivot") window.location.href = "/discover";
+  };
 
   return (
     <GlassCard className="h-full flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40 min-h-[240px] sm:min-h-[280px]" padding="lg" elevated>
@@ -62,6 +146,24 @@ export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCard
         {isIncomplete && (
           <p className="text-xs text-amber-500 mt-1">⚠ 数据采集未完成，评分可能不准确</p>
         )}
+      </div>
+
+      {/* Merged Action Recommendation */}
+      <div className="w-full mt-5 pt-4 border-t border-border/40">
+        <p className={`text-sm font-bold ${config.color} text-center mb-1`}>{config.title}</p>
+        <div className="flex justify-center gap-2 mt-3">
+          {config.actions.map((action, i) => (
+            <Button
+              key={i}
+              variant={action.primary ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleAction(action.action)}
+              className="rounded-full text-xs"
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
       </div>
     </GlassCard>
   );
