@@ -174,8 +174,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Spending */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">消费能力</span>
-              <span className="text-xs font-bold text-accent">{persona.spendingCapacity}%</span>
+              <span className="text-sm font-semibold text-muted-foreground">消费能力</span>
+              <span className="text-sm font-bold text-accent">{persona.spendingCapacity}%</span>
             </div>
             <Progress value={persona.spendingCapacity} className="h-1.5 bg-muted" />
           </div>

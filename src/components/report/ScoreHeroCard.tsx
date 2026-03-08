@@ -138,16 +138,16 @@ export const ScoreHeroCard = ({
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
             <ScoreCircle score={animatedScore} customSize={100} strokeWidth={9} showText={false} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
-              <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
+              <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
+              <span className="text-xs text-muted-foreground font-medium">/ 100</span>
             </div>
           </div>
           <div className={`mt-3 text-xs font-bold px-3 py-1 rounded-full border ${label.cls}`}>
             {label.text}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5">基于 {totalNotes} 条数据</p>
+          <p className="text-xs text-muted-foreground mt-1.5">基于 {totalNotes} 条数据</p>
           {isIncomplete && (
-            <p className="text-[10px] text-amber-500 mt-1">⚠ 数据未完整</p>
+            <p className="text-xs text-amber-500 mt-1">⚠ 数据未完整</p>
           )}
         </div>
 
