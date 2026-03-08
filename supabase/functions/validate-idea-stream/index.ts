@@ -2823,6 +2823,9 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
     "strengths": ["优势1（15-30字）", "优势2"],
     "weaknesses": ["劣势1（15-30字）", "劣势2"],
     "risks": ["风险1（15-30字）", "风险2"],
+    "monetizationStrategies": [
+      {"model": "变现模式名称", "timeline": "短期/中期/长期", "revenueEstimate": "月收入潜力", "description": "变现路径描述（20-40字）"}
+    ],
     "suggestions": ["建议1（15-30字）", "建议2"]
   },
   "persona": {
