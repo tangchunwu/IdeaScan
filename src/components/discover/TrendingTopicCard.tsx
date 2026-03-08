@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { TrendingTopic, saveTopicInterest, removeTopicInterest, trackTopicClick } from "@/services/discoverService";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,7 @@ interface TrendingTopicCardProps {
   onDelete?: (topicId: string) => void;
 }
 
-export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }: TrendingTopicCardProps) {
+export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardProps>(function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }, ref) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
@@ -111,6 +111,7 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange, onVal
   };
 
   return (
+    <div ref={ref}>
     <GlassCard className="p-5 hover:shadow-lg transition-all duration-300 group">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
@@ -269,5 +270,6 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange, onVal
         </Button>
       </div>
     </GlassCard>
+    </div>
   );
-}
+});
