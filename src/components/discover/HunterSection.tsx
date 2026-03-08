@@ -377,7 +377,6 @@ export const HunterSection = () => {
                                           <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5">
                                                  Beta
                                           </Badge>
-                                          <span className="text-xs text-muted-foreground uppercase tracking-widest">Phase 8</span>
                                    </div>
                                    <h2 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-3">
                                           <Radar className="w-6 h-6 text-primary" />
