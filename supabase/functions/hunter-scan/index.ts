@@ -100,7 +100,8 @@ async function searchWithPerplexity(input: string, baseUrl: string, apiKey: stri
 
   let signals: MarketSignal[] = [];
   try {
-    const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
+    // Remove citation markers like [1], [1][7], [1,7] that Perplexity injects everywhere
+    const cleaned = content.replace(/\[(\d+(?:,\s*\d+)*)\]/g, "").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       signals = JSON.parse(jsonMatch[0]);
