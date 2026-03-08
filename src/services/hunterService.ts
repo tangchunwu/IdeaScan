@@ -123,6 +123,7 @@ export const hunterService = {
 	async getRecentSignals(limit = 50): Promise<RawMarketSignal[]> {
 		const { data, error } = await fromTable("raw_market_signals")
 			.select("*")
+			.in("content_type", ["insight", "intelligence"])
 			.order("scanned_at", { ascending: false })
 			.limit(limit);
 
