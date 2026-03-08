@@ -126,7 +126,7 @@ export const ScoreHeroCard = ({
   };
 
   return (
-    <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="lg" elevated>
+    <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="md" elevated>
       {/* Decorative blurs */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
