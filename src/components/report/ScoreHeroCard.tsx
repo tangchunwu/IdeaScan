@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard, ScoreCircle } from "@/components/shared";
-import { Button } from "@/components/ui/button";
-import { Rocket, CheckCircle, TrendingUp, XCircle } from "lucide-react";
 
 interface ScoreHeroCardProps {
   score: number;
@@ -12,8 +10,6 @@ interface ScoreHeroCardProps {
   strengths?: string[];
   weaknesses?: string[];
   sentiment?: { positive: number; negative: number };
-  onValidateMore?: () => void;
-  onStartBuilding?: () => void;
 }
 
 const useCountUp = (target: number, duration = 1200) => {
@@ -43,64 +39,7 @@ const getScoreLabel = (score: number) => {
   return { text: "❌ 疑似伪需求", cls: "bg-red-500/10 text-red-500 border-red-500/20" };
 };
 
-type VerdictType = "strong_go" | "conditional_go" | "pivot" | "stop";
-
-const getVerdict = (
-  score: number,
-  strengths: string[],
-  weaknesses: string[],
-  sentiment: { positive: number; negative: number }
-): VerdictType => {
-  const sentimentRatio = sentiment.positive / (sentiment.positive + sentiment.negative + 1);
-  if (score >= 75 && strengths.length >= 2 && sentimentRatio > 0.5) return "strong_go";
-  if (score >= 60 && strengths.length >= 1) return "conditional_go";
-  if (score >= 40 && weaknesses.length <= 3) return "pivot";
-  return "stop";
-};
-
-const verdictConfig: Record<VerdictType, {
-  title: string;
-  icon: React.ReactNode;
-  color: string;
-  actions: { label: string; primary: boolean; action: "validate" | "build" | "pivot" | "stop" }[];
-}> = {
-  strong_go: {
-    title: "🚀 建议：立即启动！",
-    icon: <Rocket className="w-4 h-4" />,
-    color: "text-green-500",
-    actions: [
-      { label: "开始构建 MVP", primary: true, action: "build" },
-      { label: "深度验证", primary: false, action: "validate" },
-    ],
-  },
-  conditional_go: {
-    title: "✅ 建议：谨慎推进",
-    icon: <CheckCircle className="w-4 h-4" />,
-    color: "text-yellow-500",
-    actions: [
-      { label: "小规模测试", primary: true, action: "validate" },
-      { label: "查看风险", primary: false, action: "pivot" },
-    ],
-  },
-  pivot: {
-    title: "🔄 建议：调整方向",
-    icon: <TrendingUp className="w-4 h-4" />,
-    color: "text-orange-500",
-    actions: [
-      { label: "探索热点", primary: true, action: "pivot" },
-      { label: "对比想法", primary: false, action: "validate" },
-    ],
-  },
-  stop: {
-    title: "⚠️ 建议：暂缓执行",
-    icon: <XCircle className="w-4 h-4" />,
-    color: "text-red-500",
-    actions: [
-      { label: "发现机会", primary: true, action: "pivot" },
-      { label: "重新验证", primary: false, action: "validate" },
-    ],
-  },
-};
+const GENERIC_VERDICTS = ["已完成综合评估", "综合评估中", "待分析"];
 
 export const ScoreHeroCard = ({
   score,
@@ -110,20 +49,41 @@ export const ScoreHeroCard = ({
   overallVerdict,
   strengths = [],
   weaknesses = [],
-  sentiment = { positive: 0, negative: 0 },
-  onValidateMore,
-  onStartBuilding,
 }: ScoreHeroCardProps) => {
   const animatedScore = useCountUp(score);
-  const verdict = getVerdict(score, strengths, weaknesses, sentiment);
-  const config = verdictConfig[verdict];
   const label = getScoreLabel(score);
 
-  const handleAction = (action: string) => {
-    if (action === "validate" && onValidateMore) onValidateMore();
-    else if (action === "build" && onStartBuilding) onStartBuilding();
-    else if (action === "pivot") window.location.href = "/discover";
-  };
+  // Truncate idea title to 30 chars
+  const displayIdea = idea && idea.length > 30 ? idea.slice(0, 30) + "…" : idea;
+
+  // Build meaningful summary: prefer overallVerdict, fallback to strengths/weaknesses
+  const isGenericVerdict = !overallVerdict || GENERIC_VERDICTS.includes(overallVerdict.trim());
+  
+  let summaryContent: React.ReactNode = null;
+  if (!isGenericVerdict) {
+    summaryContent = (
+      <p className="text-base text-muted-foreground leading-relaxed">
+        {overallVerdict}
+      </p>
+    );
+  } else if (strengths.length > 0 || weaknesses.length > 0) {
+    summaryContent = (
+      <div className="space-y-2">
+        {strengths.length > 0 && (
+          <div>
+            <span className="text-sm font-semibold text-green-500">✅ 优势：</span>
+            <span className="text-base text-muted-foreground">{strengths.slice(0, 3).join("；")}</span>
+          </div>
+        )}
+        {weaknesses.length > 0 && (
+          <div>
+            <span className="text-sm font-semibold text-red-500">⚠️ 风险：</span>
+            <span className="text-base text-muted-foreground">{weaknesses.slice(0, 3).join("；")}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <GlassCard className="relative overflow-hidden bg-gradient-to-br from-card/80 to-card/40" padding="md" elevated>
@@ -151,36 +111,14 @@ export const ScoreHeroCard = ({
           )}
         </div>
 
-        {/* Right: Elevator Pitch */}
+        {/* Right: Title + AI Summary */}
         <div className="flex-1 text-center md:text-left space-y-3 min-w-0">
-          {idea && (
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
-              {idea}
+          {displayIdea && (
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight">
+              {displayIdea}
             </h2>
           )}
-          {overallVerdict && (
-            <p className="text-base text-muted-foreground leading-relaxed">
-              {overallVerdict}
-            </p>
-          )}
-
-          {/* Verdict + Actions */}
-          <div className="pt-2 border-t border-border/30">
-            <p className={`text-base font-bold ${config.color} mb-2`}>{config.title}</p>
-            <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              {config.actions.map((action, i) => (
-                <Button
-                  key={i}
-                  variant={action.primary ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleAction(action.action)}
-                  className="rounded-full text-sm"
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+          {summaryContent}
         </div>
       </div>
     </GlassCard>

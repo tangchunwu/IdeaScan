@@ -1,34 +1,67 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# ScoreHeroCard 内容去重 + 行动按钮优化
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 问题分析
+## 竞品对标优化
 
-从截图看到 3 个问题：
-1. **idea 标题与 overallVerdict 内容重复** — 右侧先显示了完整的 idea 文本（很长），然后 overallVerdict 只显示"已完成综合评估"这种无意义占位文本，应该直接展示 AI 的分析结论摘要
-2. **"建议：立即启动！" 与 ReportHeader 中的 AI Agent 按钮功能重复** — 两处都有行动建议
-3. **"开始构建 MVP" 按钮** 当前跳转到 lovable.dev，实际应该走 MVP Generator 流程（已有 `/mvp/generator` 页面）
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-## 方案
+## Phase 6: 留存基础
 
-### ScoreHeroCard.tsx 改动
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-1. **idea 标题截短** — 超过 30 字符截断加省略号，避免占满整个右侧
-2. **overallVerdict 区域** — 作为核心分析结论展示，如果是空或无意义文本（如"已完成综合评估"），则显示 strengths/weaknesses 的精华摘要
-3. **去掉底部 Verdict + Actions 区域** — 整个 `border-t` 分隔线以下的建议标题和按钮全部移除，因为：
-   - ReportHeader 已有 AI Agent 下拉菜单（含"一键发小红书"等）
-   - DemandDecisionCard 已有完整的决策建议
-   - 重复的 CTA 只会让用户困惑
-4. ScoreHeroCard 定位回归为**纯信息展示**：评分 + 标题 + AI 结论摘要
+## Phase 7: 可视化升级
 
-### Report.tsx 改动
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-- `onStartBuilding` 和 `onValidateMore` props 不再传递（已移除按钮）
+## Phase 8: 增长引擎
 
-| 文件 | 改动 |
-|------|------|
-| `ScoreHeroCard.tsx` | 截短标题，用 strengths/weaknesses 充实右侧内容，移除底部重复的行动按钮 |
-| `Report.tsx` | 移除传给 ScoreHeroCard 的 onStartBuilding/onValidateMore |
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
-2 个文件，逻辑 + 样式调整。
+## Phase 9: 高级功能（长期）
 
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
