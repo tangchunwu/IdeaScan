@@ -15,6 +15,7 @@ interface DemandDecisionCardProps {
   topEvidence: string[];
   evidenceSummary: string;
   evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
+  platforms?: { name: string; count: number }[];
 }
 
 const useCountUp = (target: number, duration = 800) => {
