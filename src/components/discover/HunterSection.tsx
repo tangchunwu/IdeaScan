@@ -6,16 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import {
        Radar, Plus, Search, Filter, RefreshCw,
-       MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp
+       MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp,
+       Trash2, Clock, Crosshair
 } from "lucide-react";
 import { hunterService, ScanJob, NicheOpportunity, RawMarketSignal } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { formatDistanceToNow } from "date-fns";
+import { zhCN } from "date-fns/locale";
 
 // === Components ===
 
@@ -84,10 +88,12 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                                    <MessageSquare className="w-3 h-3" />
                                    {opp.signal_count} 信号
                             </div>
-                            <div className="flex items-center gap-1">
-                                   <TrendingUp className="w-3 h-3" />
-                                   {opp.market_size_est || "未知规模"}
-                            </div>
+                            {opp.avg_opportunity_score != null && (
+                                   <div className="flex items-center gap-1">
+                                          <TrendingUp className="w-3 h-3" />
+                                          机会分 {opp.avg_opportunity_score?.toFixed(0)}
+                                   </div>
+                            )}
                      </div>
 
                      <div className="mt-auto pt-4 border-t border-white/5 flex justify-end relative z-10">
@@ -441,33 +447,77 @@ export const HunterSection = () => {
 
                             {/* Jobs Tab */}
                             <TabsContent value="jobs" className="animate-slide-up">
-                                   <GlassCard>
+                                   {jobs.length === 0 ? (
+                                          <GlassCard className="py-16 text-center border-dashed">
+                                                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                                                        <Crosshair className="w-10 h-10 text-primary" />
+                                                 </div>
+                                                 <h3 className="text-xl font-bold text-foreground mb-2">还没有监控任务</h3>
+                                                 <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                                                        创建一个狩猎任务，AI 将持续从全网为你发现痛点和商机
+                                                 </p>
+                                                 <CreateJobDialog onCreated={refreshData} />
+                                          </GlassCard>
+                                   ) : (
                                           <div className="space-y-4">
-                                                 {jobs.length === 0 ? (
-                                                        <div className="text-center py-10 text-muted-foreground">未配置监控任务</div>
-                                                 ) : (
-                                                        jobs.map(job => (
-                                                               <div key={job.id} className="flex items-center justify-between p-4 border-b border-white/5 last:border-0">
-                                                                      <div>
-                                                                             <div className="font-medium text-foreground">{job.keywords.join(", ")}</div>
-                                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                                    平台: {job.platforms?.join(", ")} • 频率: {job.frequency}
+                                                 {jobs.map(job => (
+                                                        <GlassCard key={job.id} className="p-4">
+                                                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                                      <div className="flex-1 min-w-0">
+                                                                             <div className="font-medium text-foreground truncate">{job.keywords.join(", ")}</div>
+                                                                             <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                                                    <span>平台: {job.platforms?.join(", ")}</span>
+                                                                                    <span>频率: {job.frequency}</span>
+                                                                                    {job.last_run_at && (
+                                                                                           <span className="inline-flex items-center gap-1">
+                                                                                                  <Clock className="w-3 h-3" />
+                                                                                                  {formatDistanceToNow(new Date(job.last_run_at), { addSuffix: true, locale: zhCN })}
+                                                                                           </span>
+                                                                                    )}
                                                                              </div>
                                                                       </div>
-                                                                      <div className="flex items-center gap-4">
+                                                                      <div className="flex items-center gap-4 shrink-0">
                                                                              <div className="text-right">
                                                                                     <div className="text-sm font-bold">{job.signals_found}</div>
                                                                                     <div className="text-xs text-muted-foreground">捕获信号</div>
                                                                              </div>
-                                                                             <Badge variant={job.status === "active" ? "default" : "secondary"}>
-                                                                                    {job.status === "active" ? "运行中" : "已暂停"}
-                                                                             </Badge>
+                                                                             <div className="flex items-center gap-2">
+                                                                                    <Switch
+                                                                                           checked={job.status === "active"}
+                                                                                           onCheckedChange={async (checked) => {
+                                                                                                  const newStatus = checked ? "active" : "paused";
+                                                                                                  try {
+                                                                                                         await hunterService.toggleScanJob(job.id, newStatus);
+                                                                                                         toast({ title: checked ? "已恢复运行" : "已暂停" });
+                                                                                                         refreshData();
+                                                                                                  } catch (e: any) {
+                                                                                                         toast({ title: "操作失败", description: e.message, variant: "destructive" });
+                                                                                                  }
+                                                                                           }}
+                                                                                    />
+                                                                                    <Button
+                                                                                           variant="ghost"
+                                                                                           size="icon"
+                                                                                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                                           onClick={async () => {
+                                                                                                  try {
+                                                                                                         await hunterService.deleteScanJob(job.id);
+                                                                                                         toast({ title: "已删除" });
+                                                                                                         refreshData();
+                                                                                                  } catch (e: any) {
+                                                                                                         toast({ title: "删除失败", description: e.message, variant: "destructive" });
+                                                                                                  }
+                                                                                           }}
+                                                                                    >
+                                                                                           <Trash2 className="w-4 h-4" />
+                                                                                    </Button>
+                                                                             </div>
                                                                       </div>
                                                                </div>
-                                                        ))
-                                                 )}
+                                                        </GlassCard>
+                                                 ))}
                                           </div>
-                                   </GlassCard>
+                                   )}
                             </TabsContent>
 
                             {/* Admin Monitor Tab */}
