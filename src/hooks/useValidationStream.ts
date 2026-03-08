@@ -160,6 +160,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         });
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+        refetchQuota(); // refresh free quota counter
 
         await queryClient.prefetchQuery({
           queryKey: validationKeys.detail(result.validationId),
