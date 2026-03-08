@@ -355,7 +355,7 @@ const Report = () => {
 
   const { validation, report, marketAnalysis, xiaohongshuData, sentimentAnalysis, aiAnalysis,
     evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
-    competitorRows, evidenceItems, topEvidence } = reportData;
+    competitorRows, evidenceItems, topEvidence, evidenceSummary } = reportData;
 
   const isIncomplete = validation.status === 'failed' || validation.status === 'processing' || (validation as any).resumable === true;
   const displayScore = aiAnalysis.feasibilityScore || validation.overall_score || 0;
