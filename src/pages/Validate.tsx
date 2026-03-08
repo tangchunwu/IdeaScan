@@ -61,6 +61,7 @@ const Validate = () => {
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [resumeValidationId, setResumeValidationId] = useState("");
+  const [showRestore, setShowRestore] = useState(false);
   const [aiTagSuggestions, setAiTagSuggestions] = useState<Array<{
     tag: string; confidence: number; reason: string;
     source: 'core' | 'user_phrase' | 'trend' | 'competitor';
@@ -71,6 +72,37 @@ const Validate = () => {
 
   // Cleanup SSE on unmount
   useEffect(() => () => stream.cleanup(), []);
+
+  // Save form to localStorage on change
+  useEffect(() => {
+    if (idea.trim() || selectedTags.length > 0) {
+      localStorage.setItem("ideascan_draft", JSON.stringify({ idea, tags: selectedTags }));
+    }
+  }, [idea, selectedTags]);
+
+  // Restore form from localStorage on mount
+  useEffect(() => {
+    if (idea || searchParams.get('idea')) return;
+    const draft = localStorage.getItem("ideascan_draft");
+    if (draft) {
+      try {
+        const { idea: savedIdea, tags } = JSON.parse(draft);
+        if (savedIdea?.trim()) setShowRestore(true);
+      } catch {}
+    }
+  }, []);
+
+  const handleRestore = () => {
+    const draft = localStorage.getItem("ideascan_draft");
+    if (draft) {
+      try {
+        const { idea: savedIdea, tags } = JSON.parse(draft);
+        if (savedIdea) setIdea(savedIdea);
+        if (Array.isArray(tags)) setSelectedTags(tags.slice(0, 5));
+      } catch {}
+    }
+    setShowRestore(false);
+  };
 
   // Tag handlers
   const handleAddTag = (tag: string) => {
@@ -218,6 +250,17 @@ const Validate = () => {
             </div>
           </div>
 
+          {/* Restore Draft Banner */}
+          {showRestore && (
+            <div className="mb-4 flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20 animate-fade-in">
+              <span className="text-sm text-muted-foreground">📝 检测到上次未完成的输入，是否恢复？</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowRestore(false)}>忽略</Button>
+                <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={handleRestore}>恢复输入</Button>
+              </div>
+            </div>
+          )}
+
           {/* Main Input Card */}
           <GlassCard className="mb-12 animate-slide-up relative overflow-visible" elevated padding="lg">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -232,17 +275,30 @@ const Validate = () => {
                   </div>
                   你想做什么？
                 </label>
-                <Textarea
-                  placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
-                  disabled={stream.isValidating}
-                />
-                <div className="flex justify-between items-start pt-2">
-                  <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> 描述越具体，验证结果越精准
-                  </p>
+                <div className="relative">
+                  <Textarea
+                    placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 pb-10 shadow-inner"
+                    disabled={stream.isValidating}
+                    maxLength={500}
+                  />
+                  <div className="absolute bottom-3 right-4 text-xs text-muted-foreground/60 font-mono">
+                    {idea.length}/500 字
+                  </div>
+                </div>
+                <div className="flex justify-between items-start pt-1">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> 描述越具体，验证结果越精准
+                    </p>
+                    {idea.trim().length > 0 && idea.trim().length < 20 && (
+                      <p className="text-xs text-amber-500 flex items-center gap-1 animate-fade-in">
+                        <AlertTriangle className="w-3 h-3" /> 描述越详细，验证越精准（建议至少 20 字）
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -363,15 +419,40 @@ const Validate = () => {
           {/* Submit / Progress */}
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {stream.isValidating ? (
-              <ValidationProgress
-                progress={stream.progress}
-                currentStep={stream.currentStep}
-                progressMessage={stream.progressMessage}
-                validationSteps={validationSteps}
-                currentValidationId={stream.currentValidationId}
-                isCancelling={stream.isCancelling}
-                onCancelAndKeep={stream.handleCancelAndKeep}
-              />
+              stream.completionPreview ? (
+                /* Completion Preview Card */
+                <GlassCard className="animate-scale-in text-center space-y-6" elevated padding="lg">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/10 mx-auto">
+                    <CheckCircle2 className="w-10 h-10 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">验证完成！</h3>
+                    <div className="text-5xl font-bold text-primary mb-2">{stream.completionPreview.score}</div>
+                    <p className="text-sm text-muted-foreground">
+                      {stream.completionPreview.score >= 80 ? "✅ 真实刚需 — 值得深入探索" :
+                        stream.completionPreview.score >= 60 ? "⚠️ 需求待验证 — 建议进一步调研" :
+                          "❌ 需求信号较弱 — 建议调整方向"}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button size="lg" className="rounded-2xl px-8" onClick={() => stream.navigateToReport(stream.completionPreview!.validationId)}>
+                      <Target className="w-4 h-4 mr-2" />查看完整报告
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground/50">4 秒后自动跳转...</p>
+                </GlassCard>
+              ) : (
+                <ValidationProgress
+                  progress={stream.progress}
+                  currentStep={stream.currentStep}
+                  progressMessage={stream.progressMessage}
+                  validationSteps={validationSteps}
+                  currentValidationId={stream.currentValidationId}
+                  isCancelling={stream.isCancelling}
+                  onCancelAndKeep={stream.handleCancelAndKeep}
+                  stepTimestamps={stream.stepTimestamps}
+                />
+              )
             ) : (
               <div className="space-y-3">
                 {!stream.hasOwnTikhub && quota.canValidate && (
