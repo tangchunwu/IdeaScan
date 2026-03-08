@@ -138,7 +138,7 @@ export const ScoreHeroCard = ({
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
             <ScoreCircle score={animatedScore} customSize={100} strokeWidth={9} showText={false} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
+              <span className="text-3xl font-bold text-foreground tracking-tighter">{animatedScore}</span>
               <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
             </div>
           </div>
