@@ -27,6 +27,7 @@ import {
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
 import { ReferralCard } from "@/components/shared/ReferralCard";
+import { WeeklySummaryCard } from "@/components/report/WeeklySummaryCard";
 import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
