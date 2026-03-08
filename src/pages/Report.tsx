@@ -41,6 +41,7 @@ import { DemandDecisionCard } from "@/components/report/DemandDecisionCard";
 import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { RiskMitigationCards } from "@/components/report/RiskMitigationCards";
 import { MonetizationStrategies } from "@/components/report/MonetizationStrategies";
+import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -468,6 +469,11 @@ const Report = () => {
           {/* Monetization Strategies */}
           <MonetizationStrategies
             strategies={aiAnalysis.monetizationStrategies}
+          />
+
+          {/* Brand Name Suggestions */}
+          <BrandNameSuggestions
+            brandNames={aiAnalysis.brandNames}
           />
 
           <DemandDecisionCard

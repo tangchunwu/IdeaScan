@@ -707,6 +707,11 @@ async function analyzeWithAI(
       "monetizationStrategies": [
         {"model": "订阅制SaaS", "timeline": "短期", "revenueEstimate": "月收入潜力评估", "description": "具体变现路径描述"},
         {"model": "Freemium增值", "timeline": "中期", "revenueEstimate": "月收入潜力评估", "description": "具体变现路径描述"}
+      ],
+      "brandNames": [
+        {"name": "品牌名1（英文或中英混合，朗朗上口）", "meaning": "名称含义和灵感来源", "domain": "brandname1.com"},
+        {"name": "品牌名2", "meaning": "名称含义", "domain": "brandname2.com"},
+        {"name": "品牌名3", "meaning": "名称含义", "domain": "brandname3.com"}
       ]
     },
     "persona": {

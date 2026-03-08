@@ -524,6 +524,7 @@ function normalizeAnalysisResult(obj: any) {
       risks: Array.isArray(safe?.aiAnalysis?.risks) ? safe.aiAnalysis.risks : [],
       suggestions: Array.isArray(safe?.aiAnalysis?.suggestions) ? safe.aiAnalysis.suggestions : [],
       monetizationStrategies: Array.isArray(safe?.aiAnalysis?.monetizationStrategies) ? safe.aiAnalysis.monetizationStrategies : [],
+      brandNames: Array.isArray(safe?.aiAnalysis?.brandNames) ? safe.aiAnalysis.brandNames : [],
     },
     persona: {
       name: String(safe?.persona?.name || "目标用户"),
@@ -2826,6 +2827,9 @@ ${aggregatedInsights.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n') || '
     "risks": ["风险1（15-30字）", "风险2"],
     "monetizationStrategies": [
       {"model": "变现模式名称", "timeline": "短期/中期/长期", "revenueEstimate": "月收入潜力", "description": "变现路径描述（20-40字）"}
+    ],
+    "brandNames": [
+      {"name": "品牌名（英文或中英混合）", "meaning": "名称含义和灵感", "domain": "brandname.com"}
     ],
     "suggestions": ["建议1（15-30字）", "建议2"]
   },
