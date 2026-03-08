@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp, Users, MessageCircle, Brain, Target,
   BarChart3, PieChartIcon, Activity, AlertCircle, Globe, Sparkles,
-  RefreshCw, Loader2, Share2, Download,
+  RefreshCw, Loader2, Share2, Download, StickyNote,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
