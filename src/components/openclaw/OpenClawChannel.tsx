@@ -62,7 +62,7 @@ export function OpenClawChannel({ className }: OpenClawChannelProps) {
       <div className={`flex flex-col items-center justify-center h-full gap-3 text-center px-6 ${className}`}>
         <Bot className="w-10 h-10 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">尚未配置 OpenClaw 连接</p>
-        <p className="text-xs text-muted-foreground/60">请在设置中添加你的 AI Agent 服务器地址</p>
+        <p className="text-xs text-muted-foreground/60">请在「设置」Tab 中添加你的 AI Agent 服务器地址</p>
       </div>
     );
   }
