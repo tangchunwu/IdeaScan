@@ -25,7 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
 
 export default function Discover() {
-  const { user } = useAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
+  const isAuthenticated = !!session?.user;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "market";
@@ -50,31 +51,36 @@ export default function Discover() {
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
 
   // Fetch trending topics
-  const { data: topics, isLoading: topicsLoading, refetch: refetchTopics } = useQuery({
-    queryKey: ['trending-topics', selectedCategory, minHeatScore, sortBy],
+  const { data: topics, isLoading: topicsLoading, error: topicsError, refetch: refetchTopics } = useQuery({
+    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy],
     queryFn: () => getTrendingTopics({
       category: selectedCategory || undefined,
       minHeatScore,
       sortBy,
     }),
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
-    queryKey: ['discover-categories'],
+    queryKey: ['discover-categories', session?.user?.id],
     queryFn: getCategories,
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['discover-stats'],
+    queryKey: ['discover-stats', session?.user?.id],
     queryFn: getDiscoverStats,
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch user interests when logged in
   useEffect(() => {
     if (user) {
       getUserTopicInterests().then(setUserInterests);
+    } else {
+      setUserInterests(new Map());
     }
   }, [user]);
 
@@ -201,10 +207,30 @@ export default function Discover() {
             </div>
 
             {/* Topics Display */}
-            {topicsLoading ? (
+            {authLoading ? (
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
               </div>
+            ) : !isAuthenticated ? (
+              <EmptyState
+                icon={Compass}
+                title="请先登录查看热点雷达"
+                description="当前热点数据已启用登录访问保护，登录后即可查看完整市场趋势"
+                actionLabel="去登录"
+                actionLink="/auth"
+              />
+            ) : topicsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : topicsError ? (
+              <EmptyState
+                icon={Compass}
+                title="热点加载失败"
+                description="登录态可能已过期，请刷新页面或重新登录后重试"
+                actionLabel="重新加载"
+                onAction={() => refetchTopics()}
+              />
             ) : topics && topics.length > 0 ? (
               viewMode === "cards" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
