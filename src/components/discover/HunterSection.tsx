@@ -14,6 +14,7 @@ import {
 import { hunterService, RawMarketSignal, ScanJob, NicheOpportunity } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // === Components ===
 
@@ -108,18 +109,20 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
        ({ onCreated }, ref) => {
        const [open, setOpen] = useState(false);
        const [keywords, setKeywords] = useState("");
+       const [description, setDescription] = useState("");
        const [isSubmitting, setIsSubmitting] = useState(false);
        const { toast } = useToast();
 
        const handleSubmit = async () => {
-              if (!keywords.trim()) return;
+              if (!keywords.trim() && !description.trim()) return;
               setIsSubmitting(true);
               try {
                      const keywordList = keywords.split(/[,，\n]/).map(k => k.trim()).filter(k => k);
-                     await hunterService.createScanJob(keywordList);
-                     toast({ title: "任务已创建", description: "爬虫将在后台开始运行" });
+                     await hunterService.createScanJob(keywordList.length > 0 ? keywordList : ["自定义监控"], undefined, description.trim());
+                     toast({ title: "任务已创建", description: "AI 将在后台开始深度调研" });
                      setOpen(false);
                      setKeywords("");
+                     setDescription("");
                      onCreated();
               } catch (e: any) {
                      toast({ title: "创建失败", description: e.message, variant: "destructive" });
@@ -141,20 +144,32 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                    <div className="space-y-2">
-                                          <Label>监控关键词 (用逗号分隔)</Label>
+                                          <Label>🎯 语义描述（推荐）</Label>
+                                          <Textarea
+                                                 placeholder="用自然语言描述你想监控的方向，例如：&#10;• 帮我关注 Z 世代消费者对美妆工具的不满&#10;• 跟踪远程办公工具的用户流失原因&#10;• 寻找宠物护理行业中付费意愿强但供给不足的需求"
+                                                 value={description}
+                                                 onChange={e => setDescription(e.target.value)}
+                                                 className="min-h-[100px]"
+                                          />
+                                          <p className="text-xs text-muted-foreground">
+                                                 AI 会理解你的意图，从全网深度挖掘相关痛点和商业机会。
+                                          </p>
+                                   </div>
+                                   <div className="space-y-2">
+                                          <Label>🔑 关键词（可选，用逗号分隔）</Label>
                                           <Input
                                                  placeholder="例如: 宠物洗澡, 独立开发, Notion模版"
                                                  value={keywords}
                                                  onChange={e => setKeywords(e.target.value)}
                                           />
                                           <p className="text-xs text-muted-foreground">
-                                                 AI 将自动搜索公开网络中关于这些关键词的用户痛点和商业机会。
+                                                 补充关键词可以让 AI 搜索更精准，但不是必填的。
                                           </p>
                                    </div>
                             </div>
                             <DialogFooter>
                                    <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
-                                   <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                   <Button onClick={handleSubmit} disabled={isSubmitting || (!keywords.trim() && !description.trim())}>
                                           {isSubmitting ? "创建中..." : "开始狩猎"}
                                    </Button>
                             </DialogFooter>
