@@ -146,10 +146,15 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
                                                         <Sparkles className="w-3 h-3 mr-1" />
                                                         生成 AI 头像
                                                  </Button>
-                                          )}
-                                   </div>
+                                           )}
 
-                                   <div className="mt-8 grid grid-cols-2 gap-4">
+                                           {/* Brief persona description to fill gap */}
+                                           <p className="mt-4 text-sm text-muted-foreground/70 leading-relaxed line-clamp-3 px-2">
+                                             {persona.description}
+                                           </p>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-2 gap-4">
                                           <div className="bg-white/40 backdrop-blur-sm rounded-xl p-3 text-center border border-white/20">
                                                  <span className="block text-xs text-muted-foreground uppercase tracking-wider mb-1">Age Range</span>
                                                  <span className="font-semibold text-foreground">{persona.age}</span>
