@@ -1,0 +1,141 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface OpenClawMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  image_url?: string;
+  created_at: string;
+}
+
+export function useOpenClawChat(userId: string | undefined, sessionId: string, connectionId?: string) {
+  const [messages, setMessages] = useState<OpenClawMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Reset on session change
+  useEffect(() => {
+    abortRef.current?.abort();
+    setSending(false);
+    setStreamingContent('');
+  }, [sessionId]);
+
+  // Load history
+  useEffect(() => {
+    let active = true;
+    if (!userId || !sessionId) { setMessages([]); return () => { active = false; }; }
+    setMessages([]);
+    setLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from('openclaw_messages' as any)
+        .select('id, role, content, created_at')
+        .eq('user_id', userId)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+      if (!active) return;
+      setMessages(
+        ((data as any[]) ?? [])
+          .filter((r: any) => r.role === 'user' || r.role === 'assistant')
+          .map((r: any) => ({ ...r, role: r.role as 'user' | 'assistant' }))
+      );
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [userId, sessionId]);
+
+  const sendMessage = useCallback(async (content: string, imageBase64?: string) => {
+    if (!userId || (!content.trim() && !imageBase64) || sending) return;
+    const displayContent = imageBase64 ? (content.trim() || '📷 [图片]') : content.trim();
+
+    // Optimistic UI
+    setMessages(prev => [...prev, {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: displayContent,
+      image_url: imageBase64,
+      created_at: new Date().toISOString(),
+    }]);
+    setSending(true);
+    setStreamingContent('');
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
+      const url = `${SUPABASE_URL}/functions/v1/openclaw-chat`;
+      const body: Record<string, any> = {
+        message: content.trim() || '请描述这张图片',
+        session_id: sessionId,
+      };
+      if (connectionId) body.connection_id = connectionId;
+      if (imageBase64) body.image = imageBase64;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      // Parse SSE stream
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+              if (delta) { accumulated += delta; setStreamingContent(accumulated); }
+            } catch { /* skip */ }
+          }
+        }
+      }
+
+      if (accumulated.trim()) {
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: accumulated.trim(),
+          created_at: new Date().toISOString(),
+        }]);
+      }
+      setStreamingContent('');
+    } catch (err: unknown) {
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `⚠️ 连接失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          created_at: new Date().toISOString(),
+        }]);
+      }
+      setStreamingContent('');
+    } finally {
+      setSending(false);
+      abortRef.current = null;
+    }
+  }, [userId, sessionId, connectionId, sending]);
+
+  const abort = useCallback(() => { abortRef.current?.abort(); }, []);
+
+  return { messages, loading, sending, streamingContent, sendMessage, abort };
+}
