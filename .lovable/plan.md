@@ -1,67 +1,59 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 报告页重复内容清理计划
 
-## 竞品对标优化
+## 发现的重复问题
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+### 1. 雷达图出现 3 次
+- `RadarDimensionSection.tsx` — 主页面（Tab 之前）
+- `OverviewTab.tsx` — "概览" Tab 内的 "多维度评分" 雷达
+- `AIAnalysisTab.tsx` — "AI 点评" Tab 内的 "六维度深度评估" 雷达
 
-## Phase 6: 留存基础
+**方案**: 删除 `OverviewTab` 和 `AIAnalysisTab` 中的雷达图，保留主页面的 `RadarDimensionSection`（已有展开交互，体验最好）。
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+### 2. 维度分析列表出现 2 次
+- `RadarDimensionSection.tsx` — 可展开的维度卡片
+- `AIAnalysisTab.tsx` — 维度分数 + 原因列表
 
-## Phase 7: 可视化升级
+**方案**: 删除 `AIAnalysisTab` 中的维度列表，只保留主页面的。
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+### 3. 评分展示出现 3 次
+- `ScoreHeroCard` — 大圆环评分
+- `QuickInsightsCards` — "需求真实度 XX/100"
+- `ActionRecommendation` — 右上角大字评分 + 综合评分
+- `DemandDecisionCard` — 巨大的分数展示
 
-## Phase 8: 增长引擎
+**方案**: 删除 `ActionRecommendation` 中的评分数字（保留 verdict 和行动建议）；删除 `DemandDecisionCard` 左侧的分数展示区（改为只显示 verdict 结论文字）。
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+### 4. 优势/劣势出现 3 次
+- `AIAnalysisTab` — "核心投资亮点" + "关键风险与致命伤"（strengths/weaknesses 完整列表）
+- `ActionRecommendation` — strengths.length / weaknesses.length 计数
+- `RiskMitigationCards` — weaknesses 作为风险卡片再展示一遍
 
-## Phase 9: 高级功能（长期）
+**方案**: `RiskMitigationCards` 只使用 `risks` 数据，不再接收 `weaknesses`；`ActionRecommendation` 保留计数但移除重复的行动步骤列表（与 AI Tab 的战略路线图重复）。
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+### 5. 风险列表出现 2 次
+- `RiskMitigationCards.tsx` — 主页面的风险卡片
+- `AIAnalysisTab.tsx` — "失败前瞻分析" section
+
+**方案**: 删除 `AIAnalysisTab` 中的 "失败前瞻分析"，保留主页面的 `RiskMitigationCards`（已有展开缓解策略的交互）。
+
+### 6. 趋势图在概览 Tab 重复
+- `TrendTimelineChart` — "关键词热度趋势"
+- `AreaChart` — "一周热度趋势"（同一数据源）
+
+**方案**: 删除 `OverviewTab` 中的 `AreaChart`，只保留 `TrendTimelineChart`。
+
+## 改动文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `AIAnalysisTab.tsx` | 删除雷达图、维度列表、失败前瞻分析；只保留投资亮点/风险 + 战略路线图 |
+| `OverviewTab.tsx` | 删除重复的雷达图和趋势 AreaChart |
+| `ActionRecommendation.tsx` | 精简：移除分数展示和 nextSteps（与 AI Tab 路线图重复），聚焦 verdict + 行动按钮 |
+| `DemandDecisionCard.tsx` | 精简左侧分数区域，改为结论文字为主 |
+| `RiskMitigationCards.tsx` | 移除 weaknesses prop 依赖，只用 risks 数据 |
+| `Report.tsx` | 更新 `RiskMitigationCards` 的 props 传递 |
+
+共修改 6 个文件，纯删减重复内容，不增加新功能。
+
