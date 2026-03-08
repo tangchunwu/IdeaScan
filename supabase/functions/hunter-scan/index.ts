@@ -69,11 +69,11 @@ async function searchWithPerplexity(keyword: string, baseUrl: string, apiKey: st
   // Parse JSON from response
   let signals: MarketSignal[] = [];
   try {
-    // Extract JSON array and strip citation markers like [1][2][3]
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    // Strip all citation markers like [1], [2][3] etc before extracting JSON
+    const cleaned = content.replace(/\[(\d+)\]/g, "");
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const cleaned = jsonMatch[0].replace(/\[\d+\]/g, "");
-      signals = JSON.parse(cleaned);
+      signals = JSON.parse(jsonMatch[0]);
     }
   } catch (e) {
     console.error("Failed to parse Perplexity response as JSON:", e);
