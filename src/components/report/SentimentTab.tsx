@@ -5,6 +5,7 @@ import {
 import { PieChartIcon, BarChart3, CheckCircle, AlertTriangle } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { CustomTooltip } from "./CustomTooltip";
+import { SentimentWordCloud } from "./SentimentWordCloud";
 import type { ReportDataResult } from "./useReportData";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
@@ -79,6 +80,12 @@ export function SentimentTab({ data }: SentimentTabProps) {
           </div>
         </GlassCard>
       </div>
+
+      {/* Word Cloud */}
+      <SentimentWordCloud
+        topPositive={sentimentAnalysis.topPositive || []}
+        topNegative={sentimentAnalysis.topNegative || []}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>

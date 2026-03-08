@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState } from "react";
 import type { ReportDataResult } from "./useReportData";
 import { MarketResearchSection } from "./MarketResearchSection";
+import { CompetitorMatrix } from "./CompetitorMatrix";
 
 interface CompetitorTabProps {
   data: ReportDataResult;
@@ -143,6 +144,9 @@ export function CompetitorTab({ data }: CompetitorTabProps) {
           </div>
         </div>
       </GlassCard>
+
+      {/* Competitor Matrix Scatter Plot */}
+      <CompetitorMatrix competitorRows={competitorRows} structured={structured} />
 
       {/* Structured Competitor Cards */}
       {structured.length > 0 && (

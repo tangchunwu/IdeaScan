@@ -310,17 +310,17 @@ const Compare = () => {
 
                   {/* Charts */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    {/* Radar Chart */}
+                    {/* Overlaid Radar Chart */}
                     <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
                       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                         <Target className="w-5 h-5 text-primary" />
-                        多维度对比
+                        多维度叠加对比
                       </h3>
                       <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
                           <RadarChart data={radarData}>
                             <PolarGrid stroke="hsl(var(--border))" />
-                            <PolarAngleAxis dataKey="dimension" stroke="hsl(var(--muted-foreground))" />
+                            <PolarAngleAxis dataKey="dimension" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
                             {selectedIdeas.map((idea, index) => (
                               <Radar
@@ -329,7 +329,8 @@ const Compare = () => {
                                 dataKey={idea.idea}
                                 stroke={RADAR_COLORS[index]}
                                 fill={RADAR_COLORS[index]}
-                                fillOpacity={0.2}
+                                fillOpacity={0.15}
+                                strokeWidth={2}
                               />
                             ))}
                             <Tooltip 
@@ -378,6 +379,42 @@ const Compare = () => {
                       </div>
                     </GlassCard>
                   </div>
+
+                  {/* Dimension Difference Table */}
+                  {selectedIdeas.length >= 2 && (
+                    <GlassCard className="mb-8 animate-slide-up" style={{ animationDelay: "280ms" }}>
+                      <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <GitCompare className="w-5 h-5 text-accent" />
+                        维度差异分析
+                      </h3>
+                      <div className="space-y-2">
+                        {radarData.map((dim: any) => {
+                          const values = selectedIdeas.map(idea => Number(dim[idea.idea]) || 0);
+                          const maxVal = Math.max(...values);
+                          const minVal = Math.min(...values);
+                          const diff = maxVal - minVal;
+                          const diffLabel = diff >= 20 ? "差异显著" : diff >= 10 ? "有差异" : "接近";
+                          const diffColor = diff >= 20 ? "text-destructive" : diff >= 10 ? "text-amber-500" : "text-secondary";
+                          return (
+                            <div key={dim.dimension} className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/20">
+                              <span className="text-sm font-medium text-foreground w-20 shrink-0">{dim.dimension}</span>
+                              <div className="flex-1 flex items-center gap-2">
+                                {selectedIdeas.map((idea, idx) => (
+                                  <div key={idea.id} className="flex items-center gap-1 text-xs">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: RADAR_COLORS[idx] }} />
+                                    <span className={Number(dim[idea.idea]) === maxVal && diff >= 10 ? "font-bold text-foreground" : "text-muted-foreground"}>
+                                      {dim[idea.idea]}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <span className={`text-xs font-medium ${diffColor}`}>{diffLabel}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </GlassCard>
+                  )}
 
                   {/* Summary */}
                   <GlassCard className="animate-slide-up" style={{ animationDelay: "300ms" }}>
