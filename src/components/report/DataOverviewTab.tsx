@@ -32,7 +32,7 @@ interface DataOverviewTabProps {
   demandDecisionProps?: any;
 }
 
-export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsUsed }: DataOverviewTabProps) {
+export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsUsed, demandDecisionProps }: DataOverviewTabProps) {
   const { xiaohongshuData } = data;
 
   const trendTimelineData = xiaohongshuData.weeklyTrend.map((item: any, i: number) => {
