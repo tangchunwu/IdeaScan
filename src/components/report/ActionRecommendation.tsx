@@ -119,15 +119,6 @@ export const ActionRecommendation = ({
         </div>
       </div>
 
-      {/* Decision Confidence Bar */}
-      <div className="mb-6">
-        <div className="flex justify-between text-xs mb-2">
-          <span className="text-muted-foreground">决策置信度</span>
-          <span className={config.color}>{score >= 70 ? "高" : score >= 50 ? "中" : "低"}</span>
-        </div>
-        <Progress value={score} className="h-2" />
-      </div>
-
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
         {config.actions.map((action, i) => (

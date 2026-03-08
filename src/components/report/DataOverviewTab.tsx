@@ -45,6 +45,9 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
 
   return (
     <div className="space-y-6">
+      {/* Demand Decision Card */}
+      {demandDecisionProps && <DemandDecisionCard {...demandDecisionProps} />}
+
       {/* Trend Timeline Chart */}
       {trendTimelineData.length > 0 && (
         <TrendTimelineChart data={trendTimelineData} title="关键词热度趋势" />

@@ -53,7 +53,7 @@ export const ScoreHeroCard = ({ score, totalNotes, isIncomplete }: ScoreHeroCard
           <span className="text-sm text-muted-foreground mt-1 font-medium">/ 100</span>
         </div>
       </div>
-      <div className="mt-8 text-center space-y-2">
+      <div className="mt-5 text-center space-y-2">
         <div className={`text-lg font-bold px-6 py-2 rounded-full inline-block ${score >= 80 ? "bg-green-500/10 text-green-500 border border-green-500/20" :
           score >= 60 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"}`}>
           {score >= 80 ? "✅ 真实刚需" : score >= 60 ? "⚠️ 需求待验证" : "❌ 疑似伪需求"}

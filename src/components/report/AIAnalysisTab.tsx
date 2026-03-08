@@ -2,13 +2,17 @@ import { TrendingUp, AlertCircle, Target } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import ReactMarkdown from "react-markdown";
 import type { ReportDataResult } from "./useReportData";
+import { RiskMitigationCards } from "./RiskMitigationCards";
+import { MonetizationStrategies } from "./MonetizationStrategies";
+import { BrandNameSuggestions } from "./BrandNameSuggestions";
 
 interface AIAnalysisTabProps {
   data: ReportDataResult;
+  aiAnalysis: any;
 }
 
-export function AIAnalysisTab({ data }: AIAnalysisTabProps) {
-  const { aiAnalysis } = data;
+export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
+  const { aiAnalysis: ai } = data;
 
   return (
     <div className="space-y-8 animate-slide-up">
@@ -20,7 +24,7 @@ export function AIAnalysisTab({ data }: AIAnalysisTabProps) {
             核心投资亮点
           </h3>
           <ul className="space-y-3">
-            {aiAnalysis.strengths?.map((item: string, i: number) => (
+            {ai.strengths?.map((item: string, i: number) => (
               <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
                 <div className="text-foreground/90 prose prose-invert max-w-none">
@@ -37,7 +41,7 @@ export function AIAnalysisTab({ data }: AIAnalysisTabProps) {
             关键风险与致命伤
           </h3>
           <ul className="space-y-3">
-            {aiAnalysis.weaknesses?.map((item: string, i: number) => (
+            {ai.weaknesses?.map((item: string, i: number) => (
               <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
                 <div className="text-foreground/90 prose prose-invert max-w-none">
@@ -56,7 +60,7 @@ export function AIAnalysisTab({ data }: AIAnalysisTabProps) {
           战略路线图
         </h3>
         <div className="grid grid-cols-1 gap-4">
-          {aiAnalysis.suggestions?.map((item: any, i: number) => (
+          {ai.suggestions?.map((item: any, i: number) => (
             <div key={i} className="flex gap-4 p-4 rounded-lg bg-card/50 border border-border/30">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                 {i + 1}
@@ -88,6 +92,15 @@ export function AIAnalysisTab({ data }: AIAnalysisTabProps) {
           ))}
         </div>
       </GlassCard>
+
+      {/* 3. Risk Mitigation */}
+      <RiskMitigationCards risks={aiAnalysis.risks} />
+
+      {/* 4. Monetization Strategies */}
+      <MonetizationStrategies strategies={aiAnalysis.monetizationStrategies} />
+
+      {/* 5. Brand Name Suggestions */}
+      <BrandNameSuggestions brandNames={aiAnalysis.brandNames} />
     </div>
   );
 }
