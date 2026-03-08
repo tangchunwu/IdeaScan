@@ -376,15 +376,40 @@ const Validate = () => {
           {/* Submit / Progress */}
           <div className="text-center animate-slide-up" style={{ animationDelay: "150ms" }}>
             {stream.isValidating ? (
-              <ValidationProgress
-                progress={stream.progress}
-                currentStep={stream.currentStep}
-                progressMessage={stream.progressMessage}
-                validationSteps={validationSteps}
-                currentValidationId={stream.currentValidationId}
-                isCancelling={stream.isCancelling}
-                onCancelAndKeep={stream.handleCancelAndKeep}
-              />
+              stream.completionPreview ? (
+                /* Completion Preview Card */
+                <GlassCard className="animate-scale-in text-center space-y-6" elevated padding="lg">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/10 mx-auto">
+                    <CheckCircle2 className="w-10 h-10 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">验证完成！</h3>
+                    <div className="text-5xl font-bold text-primary mb-2">{stream.completionPreview.score}</div>
+                    <p className="text-sm text-muted-foreground">
+                      {stream.completionPreview.score >= 80 ? "✅ 真实刚需 — 值得深入探索" :
+                        stream.completionPreview.score >= 60 ? "⚠️ 需求待验证 — 建议进一步调研" :
+                          "❌ 需求信号较弱 — 建议调整方向"}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button size="lg" className="rounded-2xl px-8" onClick={() => stream.navigateToReport(stream.completionPreview!.validationId)}>
+                      <Target className="w-4 h-4 mr-2" />查看完整报告
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground/50">4 秒后自动跳转...</p>
+                </GlassCard>
+              ) : (
+                <ValidationProgress
+                  progress={stream.progress}
+                  currentStep={stream.currentStep}
+                  progressMessage={stream.progressMessage}
+                  validationSteps={validationSteps}
+                  currentValidationId={stream.currentValidationId}
+                  isCancelling={stream.isCancelling}
+                  onCancelAndKeep={stream.handleCancelAndKeep}
+                  stepTimestamps={stream.stepTimestamps}
+                />
+              )
             ) : (
               <div className="space-y-3">
                 {!stream.hasOwnTikhub && quota.canValidate && (
