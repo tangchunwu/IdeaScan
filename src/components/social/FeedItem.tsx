@@ -1,5 +1,6 @@
 import { useState, forwardRef } from "react";
 import { Heart, MessageCircle, ChevronDown, ChevronUp, Send, Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { PersonaAvatar } from "./PersonaAvatar";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,9 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
             <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
 
-          <p className="text-foreground/90 text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+          <div className="text-foreground/90 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2">
+            <ReactMarkdown>{comment.content}</ReactMarkdown>
+          </div>
 
           <div className="flex items-center gap-4 mt-2">
             <button onClick={handleLike} className={cn("flex items-center gap-1 text-xs transition-colors", liked ? "text-red-500" : "text-muted-foreground hover:text-red-500")}>
