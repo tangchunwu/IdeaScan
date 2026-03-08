@@ -1,29 +1,67 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# 修复两处空白区域
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 问题分析
+## 竞品对标优化
 
-从截图看到两个红圈标注的空白：
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-1. **ScoreHeroCard 右侧空白** — idea 标题被 `line-clamp-1` 截断后，右侧大量留白；`overallVerdict` 虽然存在但 `line-clamp-3` 不够填满空间，整体右侧内容不饱满
-2. **DataConfidenceCard 右侧空白** — 被限制为 `lg:max-w-sm`（约 384px），在大屏上右侧 2/3 完全空白
+## Phase 6: 留存基础
 
-## 方案
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-### 1. ScoreHeroCard — 让内容撑满右侧
-- idea 标题：`line-clamp-1` → `line-clamp-2`，允许长标题自然换行
-- overallVerdict：`line-clamp-3` → `line-clamp-4`，展示更多总结内容
-- 减小左右 gap：`gap-6 md:gap-10` → `gap-5 md:gap-8`
+## Phase 7: 可视化升级
 
-### 2. DataConfidenceCard — 去掉宽度限制，改为全宽
-- Report.tsx 第 468 行：去掉 `lg:max-w-sm`，让 DataConfidenceCard 全宽展示
-- DataConfidenceCard 内部已经是自适应布局，全宽后指标会水平铺开，信息密度更高
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-| 文件 | 改动 |
-|------|------|
-| `ScoreHeroCard.tsx` | line-clamp-1→2, line-clamp-3→4, 缩小 gap |
-| `Report.tsx` | 第468行去掉 `lg:max-w-sm` |
+## Phase 8: 增长引擎
 
-2 个文件，纯样式调整。
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
