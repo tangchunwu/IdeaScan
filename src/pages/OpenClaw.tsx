@@ -1,9 +1,26 @@
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { OpenClawChannel, OpenClawSettings } from "@/components/openclaw";
 import { Navbar } from "@/components/shared/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, Settings } from "lucide-react";
 
 export default function OpenClawPage() {
+  const [searchParams] = useSearchParams();
+  const [initialMessage, setInitialMessage] = useState<string | undefined>();
+
+  useEffect(() => {
+    const fromValidation = searchParams.get("from_validation");
+    if (fromValidation) {
+      const stored = sessionStorage.getItem("openclaw_initial_message");
+      if (stored) {
+        setInitialMessage(stored);
+        sessionStorage.removeItem("openclaw_initial_message");
+        sessionStorage.removeItem("openclaw_from_validation");
+      }
+    }
+  }, [searchParams]);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -25,7 +42,7 @@ export default function OpenClawPage() {
           </TabsList>
           <TabsContent value="chat" className="mt-0">
             <div className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden" style={{ height: "calc(100vh - 260px)" }}>
-              <OpenClawChannel />
+              <OpenClawChannel initialMessage={initialMessage} />
             </div>
           </TabsContent>
           <TabsContent value="settings" className="mt-0">

@@ -368,6 +368,7 @@ const Report = () => {
             needsReanalysis={needsReanalysis}
             isReanalyzing={isReanalyzing}
             isIncomplete={isIncomplete}
+            reportData={reportData}
             onReanalyze={handleReanalyze}
             onResume={handleResume}
             onExportHTML={handleExportHTML}
