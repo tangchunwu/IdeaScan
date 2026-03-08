@@ -18,8 +18,20 @@ interface OverviewTabProps {
 export function OverviewTab({ data }: OverviewTabProps) {
   const { xiaohongshuData, dimensions, marketAnalysis } = data;
 
+  // Build trend timeline data from weeklyTrend
+  const trendTimelineData = xiaohongshuData.weeklyTrend.map((item: any, i: number) => {
+    const now = new Date();
+    const date = new Date(now.getTime() - (xiaohongshuData.weeklyTrend.length - 1 - i) * 24 * 60 * 60 * 1000);
+    return { date: date.toISOString().split("T")[0], value: item.value, label: item.name };
+  });
+
   return (
     <div className="space-y-6">
+      {/* Trend Timeline Chart */}
+      {trendTimelineData.length > 0 && (
+        <TrendTimelineChart data={trendTimelineData} title="关键词热度趋势" />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Trend Chart */}
         <GlassCard className="animate-slide-up">
