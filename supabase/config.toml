@@ -102,5 +102,8 @@ verify_jwt = false
 [functions.perplexity-scheduler]
 verify_jwt = false
 
+[functions.get-shared-report]
+verify_jwt = false
+
 [functions.linuxdo-auth]
 verify_jwt = false

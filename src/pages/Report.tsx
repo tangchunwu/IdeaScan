@@ -221,22 +221,58 @@ const Report = () => {
   };
 
   const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
-    const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
-        captureEvent('report_shared', { validation_id: id, method: 'native_share' });
-        toast({ title: "分享成功", description: "报告已分享" });
-        return;
-      } catch (err) { if ((err as Error).name !== "AbortError") console.warn("Web Share failed:", err); }
-    }
+    if (!id) return;
     try {
+      // Generate share token if not exists
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      // Try to set share_token via service (use supabase update - RLS allows owner)
+      const { data: existing } = await supabase
+        .from("validations")
+        .select("share_token")
+        .eq("id", id)
+        .single();
+      
+      let shareToken = (existing as any)?.share_token as string | null;
+      
+      if (!shareToken) {
+        const resp = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/get-shared-report?action=create&validationId=${id}`,
+          {
+            method: "POST",
+            headers: {
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ action: "create", validationId: id }),
+          }
+        );
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || "Failed to create share link");
+        shareToken = result.shareToken;
+      }
+      
+      const shareUrl = `${window.location.origin}/share/${shareToken}`;
+      const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
+      const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
+      
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+          captureEvent('report_shared', { validation_id: id, method: 'native_share' });
+          toast({ title: "分享成功", description: "报告已分享" });
+          return;
+        } catch (err) { if ((err as Error).name !== "AbortError") console.warn("Web Share failed:", err); }
+      }
+      
       await navigator.clipboard.writeText(shareUrl);
       captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
-      toast({ title: "链接已复制", description: "报告链接已复制到剪贴板" });
-    } catch { toast({ title: "复制失败", description: "请手动复制浏览器地址栏链接", variant: "destructive" }); }
+      toast({ title: "分享链接已复制", description: "任何人都可以通过此链接查看报告（无需登录）" });
+    } catch (e) {
+      console.error("Share error:", e);
+      toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
+    }
   };
 
   // Loading state
