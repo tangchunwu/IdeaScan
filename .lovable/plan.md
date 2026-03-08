@@ -1,51 +1,30 @@
 
 
-# PDF 导出布局优化 + 体积压缩
+## Problem Root Cause
 
-## 当前问题
+The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
 
-1. **内容被裁剪**：每个 `.page` 整体截图后，如果内容超出 A4 高度，`Math.min(imgHeight, pdfHeight - margin*2)` 直接把超出部分丢掉了
-2. **体积大**：scale: 2 + PNG 无压缩
+TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
 
-## 方案：自动分片 + JPEG 压缩
+- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
+- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
+- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
 
-不改 `pdfGenerator.ts` 的 HTML 模板，只改 `src/lib/export.ts` 的 `exportToMultiPagePdf` 函数：
+The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
 
-### 核心逻辑改动
+## Fix
 
-**去掉按 `.page` 分页的方式**，改为：
-1. 把整个 HTML 渲染到隐藏容器
-2. 对整个容器做一次 `html2canvas` 截图
-3. 按 A4 高度**自动切片**：每页从大图中裁剪一个 A4 高度的区域写入 PDF
-4. 用 JPEG 0.75 压缩 + scale 1.5
+Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
 
-```typescript
-// 伪代码
-const fullCanvas = await html2canvas(container, { scale: 1.5 });
-const pageHeightPx = (pdfHeight - margin*2) / contentWidth * fullCanvas.width;
-const totalPages = Math.ceil(fullCanvas.height / pageHeightPx);
+| File | Endpoints to fix |
+|------|-----------------|
+| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/verify-config/index.ts` | `search_notes` |
+| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
 
-for (let i = 0; i < totalPages; i++) {
-  // 从大图中裁剪当前页区域
-  const sliceCanvas = document.createElement('canvas');
-  sliceCanvas.width = fullCanvas.width;
-  sliceCanvas.height = Math.min(pageHeightPx, fullCanvas.height - i * pageHeightPx);
-  const ctx = sliceCanvas.getContext('2d');
-  ctx.drawImage(fullCanvas, 0, -i * pageHeightPx);
-  
-  const imgData = sliceCanvas.toDataURL("image/jpeg", 0.75);
-  if (i > 0) pdf.addPage();
-  pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, sliceHeight_mm);
-}
-```
+The change is purely a path prefix swap. Parameters and response structure remain identical.
 
-### 效果
-
-- **布局完全保持** — 和 HTML 看到的一模一样，不会裁剪任何内容
-- **体积减小 60-70%** — JPEG 压缩 + 降 scale
-- **自动分页** — 内容多长都能完整导出，不依赖 `.page` class
-
-### 改动文件
-
-仅 `src/lib/export.ts` 中的 `exportToMultiPagePdf` 函数，约 30 行代码重写。
+After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
 

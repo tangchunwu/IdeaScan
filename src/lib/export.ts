@@ -47,48 +47,57 @@ export const exportToMultiPagePdf = async (htmlContent: string, fileName: string
               document.body.appendChild(container);
 
               // Wait for content to render
-              await new Promise(resolve => setTimeout(resolve, 100));
+              await new Promise(resolve => setTimeout(resolve, 200));
 
-              // Find all pages
-              const pages = container.querySelectorAll(".page");
-              
-              // A4 dimensions in mm: 210 x 297
+              // Capture the entire container as one big canvas
+              const fullCanvas = await html2canvas(container, {
+                     scale: 1.5,
+                     useCORS: true,
+                     logging: false,
+                     backgroundColor: "#ffffff",
+              });
+
+              // A4 dimensions in mm
+              const pdfWidth = 210;
+              const pdfHeight = 297;
+              const margin = 10;
+              const contentWidth = pdfWidth - margin * 2;
+              const contentHeight = pdfHeight - margin * 2;
+
+              // Calculate how many pixels correspond to one A4 page height
+              const pageHeightPx = (contentHeight / contentWidth) * fullCanvas.width;
+              const totalPages = Math.ceil(fullCanvas.height / pageHeightPx);
+
               const pdf = new jsPDF({
                      orientation: "portrait",
                      unit: "mm",
                      format: "a4",
               });
 
-              const pdfWidth = 210;
-              const pdfHeight = 297;
-              const margin = 10;
-              const contentWidth = pdfWidth - (margin * 2);
+              for (let i = 0; i < totalPages; i++) {
+                     const sliceCanvas = document.createElement("canvas");
+                     sliceCanvas.width = fullCanvas.width;
+                     const remainingHeight = fullCanvas.height - i * pageHeightPx;
+                     const currentSliceHeight = Math.min(pageHeightPx, remainingHeight);
+                     sliceCanvas.height = currentSliceHeight;
 
-              for (let i = 0; i < pages.length; i++) {
-                     const page = pages[i] as HTMLElement;
-                     
-                     // Render page to canvas
-                     const canvas = await html2canvas(page, {
-                            scale: 2,
-                            useCORS: true,
-                            logging: false,
-                            backgroundColor: "#ffffff",
-                     });
+                     const ctx = sliceCanvas.getContext("2d");
+                     if (ctx) {
+                            ctx.drawImage(
+                                   fullCanvas,
+                                   0, i * pageHeightPx, fullCanvas.width, currentSliceHeight,
+                                   0, 0, fullCanvas.width, currentSliceHeight
+                            );
+                     }
 
-                     const imgData = canvas.toDataURL("image/png");
-                     const imgWidth = contentWidth;
-                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                     const imgData = sliceCanvas.toDataURL("image/jpeg", 0.75);
+                     const sliceHeightMm = (currentSliceHeight / fullCanvas.width) * contentWidth;
 
-                     // Add new page if not first
                      if (i > 0) {
                             pdf.addPage();
                      }
 
-                     // Center the image on the page
-                     const xOffset = margin;
-                     const yOffset = margin;
-
-                     pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, Math.min(imgHeight, pdfHeight - (margin * 2)));
+                     pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, sliceHeightMm);
               }
 
               // Cleanup
