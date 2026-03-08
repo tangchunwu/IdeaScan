@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS niche_opportunities_keyword_unique ON public.niche_opportunities (keyword);
