@@ -39,6 +39,7 @@ import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
 import { DemandDecisionCard } from "@/components/report/DemandDecisionCard";
 import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
+import { RiskMitigationCards } from "@/components/report/RiskMitigationCards";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
