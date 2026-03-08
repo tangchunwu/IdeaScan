@@ -15,10 +15,10 @@ import {
 import { SettingsDialog } from "./SettingsDialog";
 
 const navItems = [
-  { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true, tourId: "validate" },
-  { path: "/discover", label: "热点雷达", icon: Radar, requireAuth: false, tourId: "discover" },
-  { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "history" },
-  { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true, tourId: "compare" },
+  { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true, tourId: "nav-validate" },
+  { path: "/discover", label: "热点雷达", icon: Radar, requireAuth: false, tourId: "nav-discover" },
+  { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
+  { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true, tourId: "nav-compare" },
 ];
 
 export const Navbar = () => {
