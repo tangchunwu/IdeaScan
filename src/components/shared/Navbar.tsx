@@ -20,6 +20,7 @@ const navItems = [
   { path: "/gallery", label: "精选报告", icon: Award, requireAuth: false, tourId: "nav-gallery" },
   { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
   { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true, tourId: "nav-compare" },
+  { path: "/openclaw", label: "AI Agent", icon: Bot, requireAuth: true, tourId: "nav-openclaw" },
 ];
 
 export const Navbar = () => {
