@@ -1,67 +1,36 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 报告顶部布局修复
 
-## 竞品对标优化
+## 问题分析
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+从截图看到几个问题：
+1. **ScoreHeroCard 右侧** — idea 标题字号过大（text-2xl），长文本换行后占据大量空间，视觉不平衡
+2. **缺少 overallVerdict** — 右侧只有一个巨大标题，下面直接就是建议按钮，信息层次断裂
+3. **整体间距过松** — 三个全宽卡片纵向堆叠，`mb-4 sm:mb-6` + `padding="lg"` 导致页面拉得很长
+4. **PersonaCard description** 作为 blockquote 又重复了一大段，和上方 ScoreHeroCard 内容感觉冗余
 
-## Phase 6: 留存基础
+## 方案
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+### 1. ScoreHeroCard 布局收紧
+- idea 标题：`text-xl sm:text-2xl` → `text-lg sm:text-xl`，`line-clamp-2` → `line-clamp-1`
+- overallVerdict：确保显示，`line-clamp-4` → `line-clamp-3`
+- 整体 padding：`lg` → `md`
+- 评分圆环：120px → 100px，减少左侧占比
 
-## Phase 7: 可视化升级
+### 2. PersonaCard 收紧
+- padding `lg` → `md`
+- blockquote description `line-clamp-3` 限制最大行数
+- 底部 grid gap 从 `gap-4` → `gap-3`
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+### 3. Report.tsx 间距
+- 卡片间距 `mb-4 sm:mb-6` → `mb-3 sm:mb-4`
 
-## Phase 8: 增长引擎
+| 文件 | 改动 |
+|------|------|
+| `ScoreHeroCard.tsx` | 缩小标题字号、圆环尺寸、padding |
+| `PersonaCard.tsx` | 收紧 padding 和间距，限制 description 行数 |
+| `Report.tsx` | 减小卡片间距 |
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+3 个文件，纯样式微调。
 
-## Phase 9: 高级功能（长期）
-
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
