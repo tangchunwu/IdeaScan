@@ -62,7 +62,7 @@ export function OnboardingTour() {
             align: "center"
           }
         }
-      ],
+      ].filter(step => !step.element || document.querySelector(step.element)),
       onDeselected: () => {
         localStorage.setItem("has-seen-tour", "true");
       },
