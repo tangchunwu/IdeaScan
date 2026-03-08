@@ -19,7 +19,7 @@ import { ValidationProgress } from "@/components/validate/ValidationProgress";
 import {
   Sparkles, X, Plus, Lightbulb, Target, TrendingUp,
   Brain, Globe, FileBarChart, Zap, Microscope,
-  AlertTriangle, Wand2, Loader2, CheckCircle2
+  AlertTriangle, Wand2, Loader2, CheckCircle2, ChevronDown
 } from "lucide-react";
 
 const suggestedTags = [
