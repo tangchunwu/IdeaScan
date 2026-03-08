@@ -106,36 +106,48 @@ const Index = () => {
               你的商业想法
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-              <Button
-                asChild
-                size="lg"
-                data-tour="validate"
-                className="text-lg px-10 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 btn-ripple"
-                onClick={() => captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' })}
-              >
-                <Link to="/validate">
-                  验证我的想法
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                data-tour="history"
-                className="text-lg px-10 py-7 rounded-2xl glass-button border-border/50"
-                onClick={() => captureEvent('cta_clicked', { button: 'hero_history', page: 'index' })}
-              >
-                <Link to="/history">
-                  查看历史记录
-                </Link>
-              </Button>
+            {/* Inline Idea Input */}
+            <div className="max-w-xl mx-auto mb-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="一句话描述你的创业想法..."
+                  value={heroIdea}
+                  onChange={(e) => setHeroIdea(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && heroIdea.trim()) {
+                      captureEvent('cta_clicked', { button: 'hero_inline_input', page: 'index' });
+                      navigate(`/validate?idea=${encodeURIComponent(heroIdea.trim())}`);
+                    }
+                  }}
+                  className="h-14 text-lg rounded-2xl border-border/40 bg-background/60 backdrop-blur-sm shadow-inner px-6 placeholder:text-muted-foreground/50"
+                />
+                <Button
+                  size="lg"
+                  data-tour="validate"
+                  className="h-14 px-8 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 text-lg shrink-0"
+                  onClick={() => {
+                    captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' });
+                    navigate(heroIdea.trim() ? `/validate?idea=${encodeURIComponent(heroIdea.trim())}` : '/validate');
+                  }}
+                >
+                  验证
+                  <ArrowRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
             </div>
 
-            {/* Social Proof */}
-            <div className="mt-12 flex justify-center animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+            {/* Sample Report + Social Proof */}
+            <div className="flex flex-col items-center gap-4 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
               <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
+              <a
+                href="/share/bb05ee712f6340cb"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
+                onClick={() => captureEvent('cta_clicked', { button: 'hero_sample_report', page: 'index' })}
+              >
+                👀 查看一份示例报告
+              </a>
             </div>
 
           </section>
