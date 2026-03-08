@@ -96,6 +96,17 @@ const Report = () => {
     }
   }, [data?.validation?.id, loading]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = document.documentElement;
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight - el.clientHeight;
+      setScrollProgress(scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const handleReanalyze = async () => {
     if (!id || isReanalyzing) return;
     setIsReanalyzing(true);
