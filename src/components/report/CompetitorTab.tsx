@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Search, Trophy, Shield, ChevronDown } from "lucide-react";
+import { ExternalLink, Search, Trophy, Shield, ChevronDown } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";

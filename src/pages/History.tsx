@@ -17,8 +17,6 @@ import {
   Eye,
   RefreshCw,
   FileText,
-  Filter,
-  SortDesc,
   LogIn,
   AlertCircle,
   CheckCircle2,
@@ -323,12 +321,7 @@ const History = () => {
             </div>
           </GlassCard>
 
-          {/* Loading State */}
-          {isLoading ? (
-            <GlassCard className="py-12 animate-slide-up">
-              <LoadingSpinner size="lg" text="加载中..." />
-            </GlassCard>
-          ) : (
+          {/* Main Content */}
             <>
               {/* Stats Dashboard */}
               <HistoryStatsBar validations={validations} />
@@ -526,7 +519,7 @@ const History = () => {
                 </div>
               )}
             </>
-          )}
+          
         </div>
       </main>
     </PageBackground>

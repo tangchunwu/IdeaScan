@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, TrendingUp, BarChart3, Zap } from "lucide-react";
+import { CalendarDays, TrendingUp, Zap } from "lucide-react";
 
 interface WeeklyStats {
   thisWeekCount: number;

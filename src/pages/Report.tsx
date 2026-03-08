@@ -6,8 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  TrendingUp, Users, MessageCircle, Brain, Target,
-  BarChart3, PieChartIcon, Activity, AlertCircle, Globe, Sparkles,
+  Users, MessageCircle, Brain, Target,
+  BarChart3, PieChartIcon, AlertCircle, Globe, Sparkles,
   RefreshCw, Loader2, Share2, Download, StickyNote,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
