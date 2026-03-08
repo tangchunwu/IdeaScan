@@ -18,6 +18,7 @@ import {
   TrendingTopic,
 } from "@/services/discoverService";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
@@ -26,6 +27,7 @@ import { HunterSection } from "@/components/discover/HunterSection";
 
 export default function Discover() {
   const { user, session, isLoading: authLoading } = useAuth();
+  const { isAdmin } = useAdminAuth();
   const isAuthenticated = !!session?.user;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -95,6 +97,10 @@ export default function Discover() {
       }
       return next;
     });
+  };
+
+  const handleDeleteTopic = () => {
+    refetchTopics();
   };
 
   const handleResetFilters = () => {
@@ -240,6 +246,8 @@ export default function Discover() {
                       topic={topic}
                       userInterest={userInterests.get(topic.id)}
                       onInterestChange={handleInterestChange}
+                      isAdmin={isAdmin}
+                      onDelete={handleDeleteTopic}
                     />
                   ))}
                 </div>

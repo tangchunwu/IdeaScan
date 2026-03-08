@@ -19,8 +19,10 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TrendingTopicCardProps {
   topic: TrendingTopic;
@@ -28,13 +30,34 @@ interface TrendingTopicCardProps {
   onInterestChange?: (topicId: string, interest: 'saved' | 'validated' | 'dismissed' | null) => void;
   onValidate?: () => void;
   isPersonalized?: boolean;
+  isAdmin?: boolean;
+  onDelete?: (topicId: string) => void;
 }
 
-export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized }: TrendingTopicCardProps) {
+export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }: TrendingTopicCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentInterest, setCurrentInterest] = useState(userInterest);
+
+  const handleDelete = async () => {
+    if (!confirm(`确认删除热点「${topic.keyword}」？此操作不可撤销。`)) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('trending_topics')
+        .delete()
+        .eq('id', topic.id);
+      if (error) throw error;
+      toast({ title: "已删除", description: `「${topic.keyword}」已从热点中移除` });
+      onDelete?.(topic.id);
+    } catch (error) {
+      toast({ title: "删除失败", description: error instanceof Error ? error.message : "请稍后重试", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Calculate heat level for visual styling
   const getHeatLevel = (score: number) => {
@@ -207,6 +230,18 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange, onVal
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="删除此热点"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
