@@ -69,8 +69,9 @@ async function searchWithPerplexity(keyword: string, baseUrl: string, apiKey: st
   // Parse JSON from response
   let signals: MarketSignal[] = [];
   try {
-    // Try to extract JSON array from the content
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    // Strip all citation markers like [1], [2][3] etc before extracting JSON
+    const cleaned = content.replace(/\[(\d+)\]/g, "");
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       signals = JSON.parse(jsonMatch[0]);
     }
@@ -145,30 +146,43 @@ serve(async (req) => {
         const { signals, citations } = await searchWithPerplexity(keyword, baseUrl, apiKey);
         console.log(`[hunter-scan] "${keyword}": got ${signals.length} signals, ${citations.length} citations`);
 
+        // Batch prepare all records
+        const records = [];
         for (const signal of signals) {
           if (!signal.summary || signal.summary.length < 10) continue;
-
           const contentHash = await hashContent(signal.summary);
+          records.push({
+            content: signal.summary,
+            source: "perplexity",
+            source_url: signal.source_url || null,
+            content_type: "intelligence",
+            author_name: null,
+            likes_count: 0,
+            comments_count: 0,
+            content_hash: contentHash,
+            topic_tags: signal.topic_tags || [],
+            pain_level: signal.pain_level || null,
+            opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
+            sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
+            scanned_at: new Date().toISOString(),
+          });
+        }
 
-          const { error: insertError } = await supabase
+        if (records.length > 0) {
+          console.log(`[hunter-scan] Attempting batch insert of ${records.length} records...`);
+          console.log(`[hunter-scan] First record content_hash: ${records[0].content_hash}`);
+          
+          const { data: inserted, error: insertError } = await supabase
             .from("raw_market_signals")
-            .upsert({
-              content: signal.summary,
-              source: "perplexity",
-              source_url: signal.source_url || null,
-              content_type: "intelligence",
-              author_name: null,
-              likes_count: 0,
-              comments_count: 0,
-              content_hash: contentHash,
-              topic_tags: signal.topic_tags || [],
-              pain_level: signal.pain_level || null,
-              opportunity_score: Math.min(100, Math.max(0, signal.opportunity_score || 0)),
-              sentiment_score: signal.sentiment === "negative" ? -0.5 : signal.sentiment === "mixed" ? 0 : 0.3,
-              scanned_at: new Date().toISOString(),
-            }, { onConflict: "content_hash", ignoreDuplicates: true });
+            .insert(records)
+            .select("id");
 
-          if (!insertError) totalInserted++;
+          if (insertError) {
+            console.error(`[hunter-scan] Batch insert error: ${insertError.message} (code: ${insertError.code}, details: ${insertError.details})`);
+          } else {
+            totalInserted += inserted?.length || 0;
+            console.log(`[hunter-scan] ✅ Inserted ${inserted?.length || 0} signals for "${keyword}"`);
+          }
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
