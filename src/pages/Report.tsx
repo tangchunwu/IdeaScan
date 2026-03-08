@@ -54,6 +54,7 @@ const Report = () => {
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [isRecrawling, setIsRecrawling] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [scrollProgress, setScrollProgress] = useState(0);
   const settings = useSettings();
   useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", [data?.validation?.idea]);
 
