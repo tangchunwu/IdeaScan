@@ -27,6 +27,7 @@ import { HunterSection } from "@/components/discover/HunterSection";
 
 export default function Discover() {
   const { user, session, isLoading: authLoading } = useAuth();
+  const { isAdmin } = useAdminAuth();
   const isAuthenticated = !!session?.user;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
