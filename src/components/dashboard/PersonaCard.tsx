@@ -106,8 +106,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Name + Meta */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-bold text-foreground tracking-tight">{persona.name}</h3>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 border border-border/20 text-xs font-medium text-muted-foreground">
+              <h3 className="text-xl font-bold text-foreground tracking-tight">{persona.name}</h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 border border-border/20 text-sm font-medium text-muted-foreground">
                 <Briefcase className="w-3 h-3" />
                 {persona.role}
               </span>
