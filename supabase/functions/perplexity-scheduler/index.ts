@@ -275,15 +275,14 @@ async function processKeyword(
   }
 
   let insertedCount = 0;
-  if (records.length > 0) {
-    const { data: inserted, error } = await supabase
+  for (const record of records) {
+    const { error } = await supabase
       .from("raw_market_signals")
-      .insert(records)
-      .select("id");
+      .insert(record);
     if (error) {
-      console.error(`[deep-scan] Insert error for "${keyword}":`, error.message);
+      console.error(`[deep-scan] Insert error for "${keyword}" (${record.pain_level}):`, error.message);
     } else {
-      insertedCount = inserted?.length || 0;
+      insertedCount++;
     }
   }
 
