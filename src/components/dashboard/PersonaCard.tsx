@@ -112,7 +112,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
                 {persona.role}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {persona.age} · {persona.income}
             </p>
             {!imageUrl && !isGenerating && (
