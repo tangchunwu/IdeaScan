@@ -432,7 +432,7 @@ const Report = () => {
           />
 
           {/* Elevator Pitch Hero (full-width) */}
-          <div className="mb-4 sm:mb-6 animate-slide-up">
+          <div className="mb-3 sm:mb-4 animate-slide-up">
             <ScoreHeroCard
               score={displayScore}
               totalNotes={xiaohongshuData.totalNotes}
