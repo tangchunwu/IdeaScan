@@ -134,6 +134,7 @@ export const hunterService = {
 	async getHighOpportunitySignals(limit = 20): Promise<RawMarketSignal[]> {
 		const { data, error } = await fromTable("raw_market_signals")
 			.select("*")
+			.in("content_type", ["insight", "intelligence"])
 			.gte("opportunity_score", 70)
 			.order("opportunity_score", { ascending: false })
 			.limit(limit);
