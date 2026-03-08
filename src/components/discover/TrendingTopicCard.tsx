@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { TrendingTopic, saveTopicInterest, removeTopicInterest, trackTopicClick } from "@/services/discoverService";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Badge } from "@/components/ui/badge";
