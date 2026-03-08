@@ -270,4 +270,4 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
       </div>
     </GlassCard>
   );
-}
+});
