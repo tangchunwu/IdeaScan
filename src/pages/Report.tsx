@@ -557,22 +557,32 @@ const Report = () => {
               <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none lg:hidden" />
             </div>
 
-            <TabsContent value="overview">{activeTab === "overview" && <OverviewTab data={reportData} />}</TabsContent>
-            <TabsContent value="insights">{activeTab === "insights" && <DataInsightsTab dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
-            <TabsContent value="market">{activeTab === "market" && <MarketTab data={reportData} />}</TabsContent>
-            <TabsContent value="sentiment">{activeTab === "sentiment" && <SentimentTab data={reportData} />}</TabsContent>
-            <TabsContent value="competitors">{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
-            <TabsContent value="ai">{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
-            <TabsContent value="circle">{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
-            <TabsContent value="notes">
-              {activeTab === "notes" && (
-                <div className="space-y-6">
-                  <ReportNotes validationId={validation.id} />
-                  <CollaboratorPanel validationId={validation.id} />
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="share">{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+              >
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <OverviewTab data={reportData} />}</TabsContent>
+                <TabsContent value="insights" forceMount={activeTab === "insights" ? true : undefined}>{activeTab === "insights" && <DataInsightsTab dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
+                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketTab data={reportData} />}</TabsContent>
+                <TabsContent value="sentiment" forceMount={activeTab === "sentiment" ? true : undefined}>{activeTab === "sentiment" && <SentimentTab data={reportData} />}</TabsContent>
+                <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
+                <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
+                <TabsContent value="circle" forceMount={activeTab === "circle" ? true : undefined}>{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
+                <TabsContent value="notes" forceMount={activeTab === "notes" ? true : undefined}>
+                  {activeTab === "notes" && (
+                    <div className="space-y-6">
+                      <ReportNotes validationId={validation.id} />
+                      <CollaboratorPanel validationId={validation.id} />
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="share" forceMount={activeTab === "share" ? true : undefined}>{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
+              </motion.div>
+            </AnimatePresence>
           </Tabs>
 
           <DevPanel report={report} validationId={validation.id} />
