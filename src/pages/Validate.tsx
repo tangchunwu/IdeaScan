@@ -59,6 +59,7 @@ const Validate = () => {
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [resumeValidationId, setResumeValidationId] = useState("");
   const [aiTagSuggestions, setAiTagSuggestions] = useState<Array<{
     tag: string; confidence: number; reason: string;
