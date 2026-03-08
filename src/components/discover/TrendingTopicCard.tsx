@@ -230,6 +230,18 @@ export function TrendingTopicCard({ topic, userInterest, onInterestChange, onVal
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="删除此热点"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
