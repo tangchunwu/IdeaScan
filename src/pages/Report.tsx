@@ -505,34 +505,6 @@ const Report = () => {
             </GlassCard>
           )}
 
-          {/* Risk & Mitigation Cards */}
-          <RiskMitigationCards
-            risks={aiAnalysis.risks}
-          />
-
-          {/* Monetization Strategies */}
-          <MonetizationStrategies
-            strategies={aiAnalysis.monetizationStrategies}
-          />
-
-          {/* Brand Name Suggestions */}
-          <BrandNameSuggestions
-            brandNames={aiAnalysis.brandNames}
-          />
-
-          <DemandDecisionCard
-            validation={validation}
-            score={displayScore}
-            xiaohongshuData={xiaohongshuData}
-            sentimentAnalysis={sentimentAnalysis}
-            marketAnalysis={marketAnalysis}
-            aiAnalysis={aiAnalysis}
-            proofResult={proofResult}
-            costBreakdown={costBreakdown}
-            topEvidence={topEvidence}
-            evidenceItems={evidenceItems}
-          />
-
           {/* Tabs - Lazy rendered */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="relative">
