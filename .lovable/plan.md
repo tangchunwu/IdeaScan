@@ -1,67 +1,56 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 报告页精简与优化方案
 
-## 竞品对标优化
+## 截图中的问题分析
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+截图展示的是「市场分析」Tab，存在以下问题：
+- **"趋势方向"** 只显示两个字"趋势平稳"，信息密度极低
+- **"热度评级"** 硬编码为"高"，没有实际数据支撑
+- **"目标用户画像"** 和 **"竞争程度"** 在页面其他 3 个位置重复出现
+- **"热门关键词"** 经常为空，占大块空间
 
-## Phase 6: 留存基础
+## 全页面仍存在的重复
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+| 数据 | 出现位置 | 保留 |
+|------|----------|------|
+| 竞争分析 | QuickInsightsCards + DemandDecisionCard + MarketTab | QuickInsightsCards（摘要）+ MarketTab（详情） |
+| 目标用户 | OverviewTab 关键指标 + DemandDecisionCard + MarketTab | MarketTab |
+| 行动建议/Verdict | QuickInsightsCards + ActionRecommendation + DemandDecisionCard | QuickInsightsCards（摘要）+ ActionRecommendation（按钮） |
+| 情感分布 | SentimentTab 饼图 + SentimentTab 柱状图 | 饼图（删柱状图，同数据两种图没必要） |
 
-## Phase 7: 可视化升级
+## 改动方案
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+### 1. MarketTab — 精简卡片，合并关键词
+- 删除"趋势方向"和"热度评级"两张空洞卡片
+- 保留"市场规模"和"竞争程度"，改为横向双列布局
+- 将"热门关键词"合并到"目标用户画像"卡片下方，减少一个独立区块
 
-## Phase 8: 增长引擎
+### 2. OverviewTab — 删除重复指标
+- 从"关键指标"列表中删除"目标用户"（MarketTab 已有完整版）
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+### 3. DemandDecisionCard — 去除重复区块
+- 删除"竞品拥挤度分析"区块（QuickInsightsCards + MarketTab 已覆盖）
+- 删除"目标用户"+"核心痛点"双卡（MarketTab + AIAnalysisTab 已覆盖）
+- 保留：verdict header + stats row + 两个 verdict 引言 + evidence 部分
 
-## Phase 9: 高级功能（长期）
+### 4. ActionRecommendation — 删除重复统计
+- 删除中间的"核心优势/关键风险/用户好评率"统计行（QuickInsightsCards 已展示）
+- 保留：verdict 标题 + 决策置信度条 + 行动按钮
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+### 5. SentimentTab — 删除重复柱状图
+- 删除"情感对比"柱状图（与饼图展示完全相同的 3 个数据点）
+- 饼图扩展为全宽
+
+## 文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `MarketTab.tsx` | 删 2 张空卡片，合并关键词到用户画像区块 |
+| `OverviewTab.tsx` | 删"目标用户"指标 |
+| `DemandDecisionCard.tsx` | 删竞品分析 + 目标用户/痛点区块 |
+| `ActionRecommendation.tsx` | 删统计行 |
+| `SentimentTab.tsx` | 删柱状图，饼图全宽 |
+
+5 个文件，纯删减，无新增功能。
+
