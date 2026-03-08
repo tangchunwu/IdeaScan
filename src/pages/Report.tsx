@@ -462,29 +462,16 @@ const Report = () => {
             </div>
           </div>
 
-          {/* Action Recommendation & Data Confidence */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6 items-start">
-            <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
-              <ActionRecommendation
-                score={validation.overall_score || 0}
-                strengths={aiAnalysis.strengths || []}
-                weaknesses={aiAnalysis.weaknesses || []}
-                sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
-                onValidateMore={() => window.location.href = '/validate'}
-                onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
-              />
-            </div>
-            <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: "200ms" }}>
-              <DataConfidenceCard
-                sampleSize={xiaohongshuData.totalNotes || 0}
-                platforms={[
-                  { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
-                  ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
-                ]}
-                dataFreshness="fresh"
-                className="h-full"
-              />
-            </div>
+          {/* Data Confidence */}
+          <div className="mb-4 sm:mb-6 lg:max-w-sm animate-slide-up" style={{ animationDelay: "150ms" }}>
+            <DataConfidenceCard
+              sampleSize={xiaohongshuData.totalNotes || 0}
+              platforms={[
+                { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
+                ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
+              ]}
+              dataFreshness="fresh"
+            />
           </div>
 
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
