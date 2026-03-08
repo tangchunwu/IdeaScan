@@ -29,6 +29,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
 const Gallery = lazy(() => import("./pages/Gallery"));
+const OpenClaw = lazy(() => import("./pages/OpenClaw"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
