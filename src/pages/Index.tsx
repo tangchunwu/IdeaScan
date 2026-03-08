@@ -56,6 +56,7 @@ const steps = [
 ];
 
 const Index = () => {
+  useDocumentTitle("在写代码前，先验证你的创业想法");
   const { data: validationCount } = useQuery({
     queryKey: ['validation-count'],
     queryFn: async () => {

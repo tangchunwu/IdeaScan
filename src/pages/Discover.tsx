@@ -231,25 +231,40 @@ export default function Discover() {
                 onAction={() => refetchTopics()}
               />
             ) : topics && topics.length > 0 ? (
-              viewMode === "cards" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {topics.map(topic => (
-                    <TrendingTopicCard
-                      key={topic.id}
-                      topic={topic}
-                      userInterest={userInterests.get(topic.id)}
-                      onInterestChange={handleInterestChange}
-                      isAdmin={isAdmin}
-                      onDelete={handleDeleteTopic}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <OpportunityBubbleChart
-                  data={bubbleData}
-                  onBubbleClick={handleBubbleClick}
-                />
-              )
+              <>
+                {viewMode === "cards" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {topics.map(topic => (
+                      <TrendingTopicCard
+                        key={topic.id}
+                        topic={topic}
+                        userInterest={userInterests.get(topic.id)}
+                        onInterestChange={handleInterestChange}
+                        isAdmin={isAdmin}
+                        onDelete={handleDeleteTopic}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <OpportunityBubbleChart
+                    data={bubbleData}
+                    onBubbleClick={handleBubbleClick}
+                  />
+                )}
+                {/* Login prompt for anonymous users to see more */}
+                {!isAuthenticated && (
+                  <div className="mt-8 text-center">
+                    <div className="inline-flex flex-col items-center gap-3 p-6 rounded-2xl bg-muted/30 border border-border/30">
+                      <LogIn className="w-6 h-6 text-primary" />
+                      <p className="text-sm text-muted-foreground">登录后查看全部热点话题、筛选排序和个性化推荐</p>
+                      <Button size="sm" onClick={() => navigate("/auth")}>
+                        登录解锁完整数据
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
             ) : (
               <EmptyState
                 icon={Compass}

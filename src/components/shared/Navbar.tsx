@@ -186,6 +186,17 @@ export const Navbar = () => {
                     </div>
                     <Button
                       variant="outline"
+                      className="w-full rounded-xl justify-start"
+                      onClick={() => {
+                        setSettingsOpen(true);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      系统配置
+                    </Button>
+                    <Button
+                      variant="outline"
                       className="w-full rounded-xl justify-start text-destructive border-destructive/30"
                       onClick={() => {
                         signOut();
