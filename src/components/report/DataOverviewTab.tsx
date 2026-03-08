@@ -44,7 +44,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
   const hasInsightsData = dataSummary && (dataQualityScore || 0) > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Demand Decision Card */}
       {demandDecisionProps && <DemandDecisionCard {...demandDecisionProps} />}
 

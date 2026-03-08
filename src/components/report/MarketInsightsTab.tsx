@@ -24,19 +24,19 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Market Size + Competition */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <GlassCard className="text-center animate-slide-up">
-          <BarChart3 className="w-8 h-8 text-primary mx-auto mb-2" />
-          <div className="text-xl font-bold text-foreground">{marketAnalysis.marketSize}</div>
-          <div className="text-sm text-muted-foreground">市场规模</div>
-        </GlassCard>
-        <GlassCard className="text-center animate-slide-up">
-          <BarChart3 className="w-8 h-8 text-primary mx-auto mb-2" />
-          <div className="text-xl font-bold text-foreground">{marketAnalysis.competitionLevel}</div>
-          <div className="text-sm text-muted-foreground">竞争程度</div>
-        </GlassCard>
+    <div className="space-y-5">
+      {/* Market Size + Competition — inline stat badges */}
+      <div className="flex flex-wrap gap-3 animate-slide-up">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card/60 border border-border/40">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <span className="text-sm text-muted-foreground">市场规模</span>
+          <span className="text-sm font-bold text-foreground">{marketAnalysis.marketSize}</span>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card/60 border border-border/40">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <span className="text-sm text-muted-foreground">竞争程度</span>
+          <span className="text-sm font-bold text-foreground">{marketAnalysis.competitionLevel}</span>
+        </div>
       </div>
 
       {/* Target Audience + Keywords */}
