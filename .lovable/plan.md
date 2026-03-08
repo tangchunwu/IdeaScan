@@ -1,65 +1,67 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# 报告页布局优化方案
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 当前问题
+## 竞品对标优化
 
-截图展示的页面在 Tab 之前堆叠了 **9 个独立区块**，用户需要大量滚动才能看到 Tab 内容：
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-```text
-QuickInsightsCards (3卡片)
-ScoreHeroCard (4col) + PersonaCard (8col)
-ActionRecommendation (2/3) + DataConfidenceCard (1/3)
-RadarDimensionSection
-[needsReanalysis banner]
-RiskMitigationCards
-MonetizationStrategies
-BrandNameSuggestions
-DemandDecisionCard
-──── Tabs ────
-```
+## Phase 6: 留存基础
 
-**核心问题：Tab 之前内容太多，页面过长。**
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-## 优化方案
+## Phase 7: 可视化升级
 
-### 1. 将 3 个独立区块移入 AI 点评 Tab
-- **RiskMitigationCards**、**MonetizationStrategies**、**BrandNameSuggestions** 都是 AI 生成的深度分析内容
-- 移入 `AIAnalysisTab` 中，排在"战略路线图"后面
-- 主页面减少 3 个大区块
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-### 2. 将 DemandDecisionCard 移入数据概览 Tab
-- DemandDecisionCard 包含证据溯源和数据统计，属于"数据层"内容
-- 移入 `DataOverviewTab` 顶部，作为数据概览的开篇总结
+## Phase 8: 增长引擎
 
-### 3. 精简 ScoreHeroCard 高度
-- 减少 `min-h` 从 280/320px 到 240/280px
-- 缩小内部间距（mb-6 → mb-4, mt-8 → mt-5）
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
-### 4. 精简 ActionRecommendation
-- 删除"决策置信度"进度条（QuickInsightsCards 的行动建议卡片已有同样信息）
-- 只保留 verdict 标题 + 行动按钮，更紧凑
+## Phase 9: 高级功能（长期）
 
-### 优化后主页面结构
-```text
-QuickInsightsCards (3卡片)
-ScoreHeroCard (4col) + PersonaCard (8col)
-ActionRecommendation (2/3, 更紧凑) + DataConfidenceCard (1/3)
-RadarDimensionSection
-──── Tabs ────
-```
-
-Tab 之前从 9 个区块减少到 4 个，滚动量减半。
-
-## 文件清单
-
-| 文件 | 改动 |
-|------|------|
-| `Report.tsx` | 删除 RiskMitigationCards/MonetizationStrategies/BrandNameSuggestions/DemandDecisionCard 的独立渲染，改为通过 props 传入 Tab |
-| `AIAnalysisTab.tsx` | 底部新增 RiskMitigationCards + MonetizationStrategies + BrandNameSuggestions |
-| `DataOverviewTab.tsx` | 顶部新增 DemandDecisionCard |
-| `ScoreHeroCard.tsx` | 减小最小高度和内部间距 |
-| `ActionRecommendation.tsx` | 删除决策置信度进度条 |
-
-5 个文件改动，纯布局调整。
-
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |

@@ -1,7 +1,7 @@
 import { CheckCircle, TrendingUp, XCircle, Rocket } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+
 
 interface ActionRecommendationProps {
   score: number;
@@ -117,15 +117,6 @@ export const ActionRecommendation = ({
           <h3 className={`text-xl font-bold ${config.color}`}>{config.title}</h3>
           <p className="text-muted-foreground text-sm mt-1">{config.subtitle}</p>
         </div>
-      </div>
-
-      {/* Decision Confidence Bar */}
-      <div className="mb-6">
-        <div className="flex justify-between text-xs mb-2">
-          <span className="text-muted-foreground">决策置信度</span>
-          <span className={config.color}>{score >= 70 ? "高" : score >= 50 ? "中" : "低"}</span>
-        </div>
-        <Progress value={score} className="h-2" />
       </div>
 
       {/* Action Buttons */}
