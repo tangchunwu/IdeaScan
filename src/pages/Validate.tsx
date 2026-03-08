@@ -153,10 +153,11 @@ const Validate = () => {
       navigate("/auth?redirect=/validate");
       return;
     }
-    if (!stream.hasOwnTikhub) {
+    // Allow validation if: user has own TikHub token OR has free quota remaining
+    if (!stream.hasOwnTikhub && !quota.canValidate) {
       toast({
-        title: "请先配置 TikHub Token",
-        description: "需要在设置中配置您的 TikHub API Token 才能使用验证功能",
+        title: "免费次数已用完",
+        description: `本月 ${quota.freeTotal} 次免费验证已用完。请在设置中配置个人 TikHub Token 获取无限次验证。`,
         variant: "destructive",
         action: { label: "去配置", onClick: () => setShowSettingsFromQuota(true) },
       });
