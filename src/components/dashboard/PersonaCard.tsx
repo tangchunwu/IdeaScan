@@ -2,7 +2,6 @@ import { useState } from "react";
 import { GlassCard } from "@/components/shared";
 import { Persona } from "@/services/validationService";
 import { User, Briefcase, Target, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSettings } from "@/hooks/useSettings";
@@ -128,8 +127,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           "{persona.description}"
         </blockquote>
 
-        {/* Bottom Grid: Pain Points + Goals + Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Bottom Grid: Pain Points + Goals */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Pain Points */}
           <div className="space-y-2">
             <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
@@ -160,24 +159,6 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
                 </p>
               ))}
             </div>
-          </div>
-
-          {/* Tech Savviness */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted-foreground">技术敏感度</span>
-              <span className="text-sm font-bold text-primary">{persona.techSavviness}%</span>
-            </div>
-            <Progress value={persona.techSavviness} className="h-1.5 bg-muted" />
-          </div>
-
-          {/* Spending */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted-foreground">消费能力</span>
-              <span className="text-sm font-bold text-accent">{persona.spendingCapacity}%</span>
-            </div>
-            <Progress value={persona.spendingCapacity} className="h-1.5 bg-muted" />
           </div>
         </div>
       </div>
