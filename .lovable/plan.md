@@ -1,30 +1,36 @@
 
 
-## Problem Root Cause
+# 扩展 Perplexity Scheduler 种子关键词
 
-The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
+## 变更范围
 
-TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
+仅修改 `supabase/functions/perplexity-scheduler/index.ts` 两处：
 
-- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
-- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
-- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
+### 1. 扩展 SEED_KEYWORDS（第 9-11 行）
 
-The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
+当前只有 5 个关键词，全部集中在"AI副业"领域。扩展为按类别轮转的种子词库，覆盖以下热门领域：
 
-## Fix
+| 类别 | 种子关键词示例 |
+|------|-------------|
+| AI工具 | AI写作工具、AI绘画变现、ChatGPT应用、AI编程助手 |
+| 副业赚钱 | 副业推荐、被动收入、自媒体变现、知识付费 |
+| 电商创业 | 跨境电商、独立站、直播带货、一件代发 |
+| 教育培训 | 在线教育、知识付费、技能变现、考证培训 |
+| 健康生活 | 减肥产品、心理咨询、养生保健、睡眠改善 |
+| 数字游民 | 远程办公、自由职业、数字游民工具、海外接单 |
+| 宠物经济 | 宠物用品、宠物服务、宠物食品、萌宠博主 |
+| 个人IP | 个人品牌、短视频创业、小红书运营、知乎变现 |
+| SaaS/开发 | 独立开发、SaaS创业、低代码工具、开源项目变现 |
+| 银发经济 | 老年人产品、适老化、养老服务 |
 
-Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
+实现方式：将种子词按类别分组存储，每次运行时**轮转选取不同类别**的关键词，确保覆盖面广且不重复。
 
-| File | Endpoints to fix |
-|------|-----------------|
-| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/verify-config/index.ts` | `search_notes` |
-| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
-| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
+### 2. 扩展 categoryMap（第 273-279 行）
 
-The change is purely a path prefix swap. Parameters and response structure remain identical.
+同步扩展分类映射，新增电商、教育、宠物、SaaS、银发经济等类别的匹配词，确保写入 `trending_topics` 时分类准确。
 
-After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
+### 不变的部分
+- 配额保护、去重逻辑不变
+- 验证流程不受影响
+- 前端无需改动
 
