@@ -131,7 +131,7 @@ export const ScoreHeroCard = ({
       <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+      <div className="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
         {/* Left: Score Ring */}
         <div className="flex flex-col items-center shrink-0">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">需求真实度</span>
