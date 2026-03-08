@@ -154,7 +154,7 @@ export const ScoreHeroCard = ({
         {/* Right: Elevator Pitch */}
         <div className="flex-1 text-center md:text-left space-y-3 min-w-0">
           {idea && (
-            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight line-clamp-2">
               {idea}
             </h2>
           )}
