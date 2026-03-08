@@ -148,13 +148,13 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
 
           {/* Goals */}
           <div className="space-y-2">
-            <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <div className="p-1 rounded bg-secondary/10 text-secondary"><Zap className="w-3 h-3" /></div>
               核心诉求
             </h5>
             <div className="space-y-1">
               {persona.goals?.map((goal, i) => (
-                <p key={i} className="text-xs text-foreground/70 flex items-start gap-1.5">
+                <p key={i} className="text-sm text-foreground/70 flex items-start gap-1.5">
                   <span className="text-green-400 mt-0.5 shrink-0">✓</span>
                   <span className="line-clamp-2">{goal}</span>
                 </p>
