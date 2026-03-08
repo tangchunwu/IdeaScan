@@ -81,6 +81,12 @@ export function SentimentTab({ data }: SentimentTabProps) {
         </GlassCard>
       </div>
 
+      {/* Word Cloud */}
+      <SentimentWordCloud
+        topPositive={sentimentAnalysis.topPositive || []}
+        topNegative={sentimentAnalysis.topNegative || []}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
           <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
