@@ -18,6 +18,7 @@ export interface RawMarketSignal {
 	pain_level?: string;
 	scanned_at: string;
 	processed_at?: string;
+	parent_signal_id?: string;
 }
 
 export interface NicheOpportunity {
@@ -122,6 +123,7 @@ export const hunterService = {
 	async getRecentSignals(limit = 50): Promise<RawMarketSignal[]> {
 		const { data, error } = await fromTable("raw_market_signals")
 			.select("*")
+			.in("content_type", ["insight", "intelligence"])
 			.order("scanned_at", { ascending: false })
 			.limit(limit);
 
@@ -132,6 +134,7 @@ export const hunterService = {
 	async getHighOpportunitySignals(limit = 20): Promise<RawMarketSignal[]> {
 		const { data, error } = await fromTable("raw_market_signals")
 			.select("*")
+			.in("content_type", ["insight", "intelligence"])
 			.gte("opportunity_score", 70)
 			.order("opportunity_score", { ascending: false })
 			.limit(limit);
