@@ -716,6 +716,82 @@ export type Database = {
         }
         Relationships: []
       }
+      report_collaborators: {
+        Row: {
+          collaborator_email: string
+          collaborator_id: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          permission: string
+          status: string
+          validation_id: string
+        }
+        Insert: {
+          collaborator_email: string
+          collaborator_id?: string | null
+          created_at?: string
+          id?: string
+          owner_id: string
+          permission?: string
+          status?: string
+          validation_id: string
+        }
+        Update: {
+          collaborator_email?: string
+          collaborator_id?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          permission?: string
+          status?: string
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_collaborators_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          validation_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          validation_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_notes_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sample_reports: {
         Row: {
           created_at: string
@@ -1158,6 +1234,30 @@ export type Database = {
           status?: Database["public"]["Enums"]["validation_status"]
           tags?: string[] | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_digest_preferences: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_sent_at?: string | null
           user_id?: string
         }
         Relationships: []

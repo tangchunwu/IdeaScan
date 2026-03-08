@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp, Users, MessageCircle, Brain, Target,
   BarChart3, PieChartIcon, Activity, AlertCircle, Globe, Sparkles,
-  RefreshCw, Loader2, Share2, Download,
+  RefreshCw, Loader2, Share2, Download, StickyNote,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
@@ -42,6 +42,8 @@ import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { RiskMitigationCards } from "@/components/report/RiskMitigationCards";
 import { MonetizationStrategies } from "@/components/report/MonetizationStrategies";
 import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
+import { ReportNotes } from "@/components/report/ReportNotes";
+import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -525,6 +527,7 @@ const Report = () => {
                 <TabsTrigger value="competitors" className="rounded-lg"><Globe className="w-4 h-4 mr-2" />竞品搜索</TabsTrigger>
                 <TabsTrigger value="ai" className="rounded-lg"><Brain className="w-4 h-4 mr-2" />AI 深度点评</TabsTrigger>
                 <TabsTrigger value="circle" className="rounded-lg"><MessageCircle className="w-4 h-4 mr-2" />创投圈</TabsTrigger>
+                <TabsTrigger value="notes" className="rounded-lg"><StickyNote className="w-4 h-4 mr-2" />笔记</TabsTrigger>
                 <TabsTrigger value="share" className="rounded-lg"><Share2 className="w-4 h-4 mr-2" />分享</TabsTrigger>
               </TabsList>
               {/* Fade hint for scroll on mobile */}
@@ -538,6 +541,14 @@ const Report = () => {
             <TabsContent value="competitors">{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
             <TabsContent value="ai">{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
             <TabsContent value="circle">{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
+            <TabsContent value="notes">
+              {activeTab === "notes" && (
+                <div className="space-y-6">
+                  <ReportNotes validationId={validation.id} />
+                  <CollaboratorPanel validationId={validation.id} />
+                </div>
+              )}
+            </TabsContent>
             <TabsContent value="share">{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
           </Tabs>
 
