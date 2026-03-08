@@ -145,6 +145,9 @@ export function CompetitorTab({ data }: CompetitorTabProps) {
         </div>
       </GlassCard>
 
+      {/* Competitor Matrix Scatter Plot */}
+      <CompetitorMatrix competitorRows={competitorRows} structured={structured} />
+
       {/* Structured Competitor Cards */}
       {structured.length > 0 && (
         <div className="space-y-4">
