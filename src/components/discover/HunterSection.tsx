@@ -400,7 +400,7 @@ export const HunterSection = () => {
                      </div>
 
                      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-                            <TabsList className="bg-white/5 border border-white/10 p-1">
+                            <TabsList className="bg-white/5 border border-white/10 p-1 flex-wrap h-auto">
                                    <TabsTrigger value="dashboard" className="gap-2"><Radar className="w-4 h-4" /> 商机发现</TabsTrigger>
                                    <TabsTrigger value="jobs" className="gap-2"><Filter className="w-4 h-4" /> 监控任务</TabsTrigger>
                                    {isAdmin && (
