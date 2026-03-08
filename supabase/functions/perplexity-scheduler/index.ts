@@ -235,7 +235,10 @@ async function deepAnalyze(
     const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      insight = JSON.parse(jsonMatch[0]);
+      insight = robustJsonParse(jsonMatch[0]);
+      if (!insight) {
+        console.error(`[deep-analyze] robustJsonParse returned null for "${keyword}", raw length=${jsonMatch[0].length}`);
+      }
     }
   } catch (e) {
     console.error(`[deep-analyze] Failed to parse response for "${keyword}":`, e);
