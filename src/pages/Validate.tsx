@@ -232,17 +232,30 @@ const Validate = () => {
                   </div>
                   你想做什么？
                 </label>
-                <Textarea
-                  placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 shadow-inner"
-                  disabled={stream.isValidating}
-                />
-                <div className="flex justify-between items-start pt-2">
-                  <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> 描述越具体，验证结果越精准
-                  </p>
+                <div className="relative">
+                  <Textarea
+                    placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 pb-10 shadow-inner"
+                    disabled={stream.isValidating}
+                    maxLength={500}
+                  />
+                  <div className="absolute bottom-3 right-4 text-xs text-muted-foreground/60 font-mono">
+                    {idea.length}/500 字
+                  </div>
+                </div>
+                <div className="flex justify-between items-start pt-1">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> 描述越具体，验证结果越精准
+                    </p>
+                    {idea.trim().length > 0 && idea.trim().length < 20 && (
+                      <p className="text-xs text-amber-500 flex items-center gap-1 animate-fade-in">
+                        <AlertTriangle className="w-3 h-3" /> 描述越详细，验证越精准（建议至少 20 字）
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
