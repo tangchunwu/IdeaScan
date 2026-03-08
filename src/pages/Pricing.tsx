@@ -2,8 +2,10 @@ import { PageBackground, Navbar, GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Zap, Shield, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 const Pricing = () => {
+       const { toast } = useToast();
        const plans = [
               {
                      name: "免费版",
@@ -116,17 +118,30 @@ const Pricing = () => {
                                                                       ))}
                                                                </div>
 
-                                                               <Link to={plan.ctaLink} className="w-full">
-                                                                      <Button
-                                                                             variant={(plan.variant as "default" | "outline") || "outline"}
-                                                                             className={`w-full h-12 rounded-xl text-base font-medium shadow-lg transition-all ${plan.popular
-                                                                                           ? 'bg-gradient-to-r from-primary to-secondary hover:opacity-90 hover:scale-[1.02]'
-                                                                                           : 'hover:scale-[1.02]'
-                                                                                    }`}
-                                                                      >
-                                                                             {plan.cta}
-                                                                      </Button>
-                                                               </Link>
+                                                               {plan.ctaLink === "#" ? (
+                                                                       <Button
+                                                                              variant={(plan.variant as "default" | "outline") || "outline"}
+                                                                              className={`w-full h-12 rounded-xl text-base font-medium shadow-lg transition-all ${plan.popular
+                                                                                            ? 'bg-gradient-to-r from-primary to-secondary hover:opacity-90 hover:scale-[1.02]'
+                                                                                            : 'hover:scale-[1.02]'
+                                                                                     }`}
+                                                                              onClick={() => toast({ title: "即将推出 🚀", description: "该计划正在筹备中，敬请期待！" })}
+                                                                       >
+                                                                              {plan.cta}
+                                                                       </Button>
+                                                                ) : (
+                                                                       <Link to={plan.ctaLink} className="w-full">
+                                                                              <Button
+                                                                                     variant={(plan.variant as "default" | "outline") || "outline"}
+                                                                                     className={`w-full h-12 rounded-xl text-base font-medium shadow-lg transition-all ${plan.popular
+                                                                                                   ? 'bg-gradient-to-r from-primary to-secondary hover:opacity-90 hover:scale-[1.02]'
+                                                                                                   : 'hover:scale-[1.02]'
+                                                                                            }`}
+                                                                              >
+                                                                                     {plan.cta}
+                                                                              </Button>
+                                                                       </Link>
+                                                                )}
                                                         </GlassCard>
                                                  </div>
                                           ))}

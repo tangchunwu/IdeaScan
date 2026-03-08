@@ -59,11 +59,15 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                                           <div className="space-y-1">
                                                  <span className="text-xs font-medium text-muted-foreground">信号来源:</span>
                                                  <div className="flex flex-col gap-1">
-                                                        {opp.top_sources.map((src, i) => (
-                                                               <a key={i} href={src} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-primary hover:underline truncate">
-                                                                      🔗 {src}
-                                                               </a>
-                                                        ))}
+                                                        {opp.top_sources.map((src, i) => {
+                                                               let label = src;
+                                                               try { label = new URL(src).hostname.replace(/^www\./, ''); } catch {}
+                                                               return (
+                                                                      <a key={i} href={src} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-primary hover:underline truncate">
+                                                                             🔗 {label}
+                                                                      </a>
+                                                               );
+                                                        })}
                                                  </div>
                                           </div>
                                    )}
@@ -377,7 +381,6 @@ export const HunterSection = () => {
                                           <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5">
                                                  Beta
                                           </Badge>
-                                          <span className="text-xs text-muted-foreground uppercase tracking-widest">Phase 8</span>
                                    </div>
                                    <h2 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-3">
                                           <Radar className="w-6 h-6 text-primary" />
@@ -397,7 +400,7 @@ export const HunterSection = () => {
                      </div>
 
                      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-                            <TabsList className="bg-white/5 border border-white/10 p-1">
+                            <TabsList className="bg-white/5 border border-white/10 p-1 flex-wrap h-auto">
                                    <TabsTrigger value="dashboard" className="gap-2"><Radar className="w-4 h-4" /> 商机发现</TabsTrigger>
                                    <TabsTrigger value="jobs" className="gap-2"><Filter className="w-4 h-4" /> 监控任务</TabsTrigger>
                                    {isAdmin && (

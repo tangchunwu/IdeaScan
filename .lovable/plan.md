@@ -1,74 +1,30 @@
 
 
-# IdeaScan 项目改进审查
+## Problem Root Cause
 
-经过对整个项目的仔细审视，以下是按优先级排列的改进点：
+The current code uses `/api/v1/xiaohongshu/app/search_notes` which is the **Xiaohongshu App API (V1)**. This endpoint is returning HTTP 400 errors ("请求失败，请重试"), meaning the underlying scraping is failing.
 
----
+TikHub's documentation marks **Xiaohongshu App V2 API** as `⭐推荐 (Recommended)`. I verified the correct URL paths by directly testing them against TikHub's server:
 
-## A. 用户体验问题（高优先级）
+- `/api/v1/xiaohongshu/app_v2/search_notes` -- returns **401** (endpoint exists, needs auth)  
+- `/api/v1/xiaohongshu/app/v2/search_notes` -- returns **404** (does not exist)  
+- `/api/v1/xiaohongshu/app/search_notes` -- currently used, returns **400** (scraping failure)
 
-### 1. 未登录用户的体验断裂
-- **问题**: 导航栏中"创意验证"、"历史记录"、"对比分析"要求登录才显示，但首页 CTA 按钮直接链接到 `/validate`，未登录用户点击后看到的页面体验不一致
-- **改进**: 在 Validate 页面增加未登录状态的友好引导（类似 Discover 页的处理），而非让用户困惑
+The V2 path uses an **underscore** (`app_v2`), not a slash (`app/v2`). This was the mistake in the previous fix.
 
-### 2. 狩猎雷达暴露内部标识
-- **问题**: HunterSection 顶部显示 `Beta` 和 `Phase 8` 标签，这是内部开发标识，不应暴露给用户
-- **改进**: 移除 `Phase 8` 标签，Beta 可保留但考虑更优雅的展示
+## Fix
 
-### 3. 定价页 CTA 无效
-- **问题**: "专业版"和"企业版"的按钮链接分别是 `#` 和 `#`，点击无任何反应
-- **改进**: 改为弹出"即将推出"提示或引导至联系表单
+Replace all occurrences of `/api/v1/xiaohongshu/app/` with `/api/v1/xiaohongshu/app_v2/` across 5 files:
 
-### 4. 商机卡片信号来源显示原始 URL
-- **问题**: `top_sources` 展示的是完整长 URL，视觉杂乱且无法辨别来源
-- **改进**: 提取域名显示（如 `zhihu.com`、`reddit.com`），截断过长链接
+| File | Endpoints to fix |
+|------|-----------------|
+| `supabase/functions/validate-idea-stream/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/recrawl-social/index.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/verify-config/index.ts` | `search_notes` |
+| `supabase/functions/validate-idea/tikhub.ts` | `search_notes`, `get_note_comments` |
+| `supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts` | `search_notes`, `get_note_comments` |
 
----
+The change is purely a path prefix swap. Parameters and response structure remain identical.
 
-## B. 代码质量问题（中优先级）
-
-### 5. Validate.tsx 过于臃肿
-- **问题**: 单文件 850 行，混合了表单、SSE 流式处理、进度动画等逻辑
-- **改进**: 拆分为 `useValidationForm` hook + `ValidationProgress` 组件 + `ValidationForm` 组件
-
-### 6. HunterSection 直接使用 `useEffect` + `setState` 模式
-- **问题**: 与项目其他地方使用 `@tanstack/react-query` 的模式不一致，缺少缓存和自动刷新
-- **改进**: 将 `refreshData` 和 `AdminMonitorTab.loadData` 迁移至 `useQuery`
-
-### 7. OnboardingTour 引导步骤依赖脆弱的选择器
-- **问题**: 使用 `h1` 标签和 `[data-tour="..."]` 属性作为选择器，如果首页结构变化会静默失败
-- **改进**: 增加元素存在性检查，缺失时跳过该步骤
-
----
-
-## C. 产品完善（中优先级）
-
-### 8. 首页缺少 SEO meta 和 OG 标签
-- **问题**: `index.html` 可能缺少中文描述、OG image 等社交分享元数据
-- **改进**: 补充 `<meta>` 标签和动态 OG 标签
-
-### 9. 移动端适配不足
-- **问题**: 狩猎雷达的 TabsList 在移动端三个 tab（商机发现/监控任务/数据监控）可能溢出
-- **改进**: 在移动端使用 ScrollArea 包裹 TabsList，或缩短 tab 文字
-
-### 10. 缺少全局 Loading 和错误状态一致性
-- **问题**: 各页面的 Loading/Error/Empty 状态实现不统一（有的用 `LoadingSpinner`，有的用 `<div>` 嵌套）
-- **改进**: 统一为 `PageLoadingState`、`PageErrorState` 组件
-
----
-
-## 建议实施优先级
-
-| 序号 | 改进项 | 复杂度 | 影响 |
-|:---:|--------|:------:|:----:|
-| 2 | 移除内部 Phase 标识 | 低 | 高 |
-| 3 | 定价页 CTA 修复 | 低 | 高 |
-| 4 | 商机来源 URL 美化 | 低 | 中 |
-| 1 | 未登录验证页引导 | 中 | 高 |
-| 9 | 移动端 Tab 溢出修复 | 低 | 中 |
-| 5 | Validate.tsx 拆分 | 高 | 代码维护 |
-| 6 | Hunter 迁移 useQuery | 中 | 代码一致性 |
-
-建议先从 2/3/4 三个低成本高收益的改动开始。
+After editing, deploy all 4 edge functions (`validate-idea-stream`, `recrawl-social`, `verify-config`, `validate-idea`).
 
