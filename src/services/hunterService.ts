@@ -92,8 +92,16 @@ export const hunterService = {
 	},
 
 	async triggerCrawler() {
-		// Manually trigger the edge function
-		const { data, error } = await supabase.functions.invoke("crawler-scheduler");
+		// Trigger the Perplexity-powered hunter scan
+		const { data, error } = await supabase.functions.invoke("hunter-scan");
+		if (error) throw error;
+		return data;
+	},
+
+	async triggerHunterScan(keywords?: string[]) {
+		const { data, error } = await supabase.functions.invoke("hunter-scan", {
+			body: keywords ? { keywords } : {}
+		});
 		if (error) throw error;
 		return data;
 	},
@@ -148,8 +156,10 @@ export const hunterService = {
 				return { label: "Reddit", color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/20" };
 			case "twitter":
 				return { label: "Twitter", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" };
+			case "perplexity":
+				return { label: "🌐 网络情报", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" };
 			default:
-				return { label: source, color: "text-gray-500", bg: "bg-gray-500/10", border: "border-gray-500/20" };
+				return { label: source, color: "text-muted-foreground", bg: "bg-muted/10", border: "border-muted/20" };
 		}
 	}
 };

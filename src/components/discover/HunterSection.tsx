@@ -148,7 +148,7 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
                                                  onChange={e => setKeywords(e.target.value)}
                                           />
                                           <p className="text-xs text-muted-foreground">
-                                                 我们将自动扫描 Reddit 和 小红书 上关于这些关键词的抱怨和求助。
+                                                 AI 将自动搜索公开网络中关于这些关键词的用户痛点和商业机会。
                                           </p>
                                    </div>
                             </div>
@@ -197,15 +197,24 @@ export const HunterSection = () => {
               refreshData();
        }, []);
 
-       const handleManualTrigger = async () => {
-              try {
-                     toast({ title: "正在唤醒爬虫...", description: "这可能需要几分钟，请稍后刷新。" });
-                     await hunterService.triggerCrawler();
-                     toast({ title: "爬虫已启动", description: "数据将陆续入库" });
-              } catch (e: any) {
-                     toast({ title: "启动失败", description: e.message, variant: "destructive" });
-              }
-       };
+	const [isScanning, setIsScanning] = useState(false);
+
+	const handleManualTrigger = async () => {
+		setIsScanning(true);
+		try {
+			toast({ title: "🔍 正在扫描全网情报...", description: "AI 正在搜索公开网络中的痛点和机会，预计 15-30 秒。" });
+			const result = await hunterService.triggerHunterScan();
+			toast({
+				title: "✅ 扫描完成",
+				description: `发现 ${result?.signals_inserted || 0} 条新信号`,
+			});
+			refreshData();
+		} catch (e: any) {
+			toast({ title: "扫描失败", description: e.message, variant: "destructive" });
+		} finally {
+			setIsScanning(false);
+		}
+	};
 
        return (
               <div className="animate-fade-in">
@@ -227,8 +236,8 @@ export const HunterSection = () => {
                             </div>
 
                             <div className="flex gap-3">
-                                   <Button variant="outline" onClick={handleManualTrigger} className="gap-2">
-                                          <RefreshCw className="w-4 h-4" /> 立即扫描
+                                   <Button variant="outline" onClick={handleManualTrigger} disabled={isScanning} className="gap-2">
+                                          <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} /> {isScanning ? '扫描中...' : '立即扫描'}
                                    </Button>
                                    <CreateJobDialog onCreated={refreshData} />
                             </div>
