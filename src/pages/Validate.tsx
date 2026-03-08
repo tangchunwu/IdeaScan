@@ -250,6 +250,17 @@ const Validate = () => {
             </div>
           </div>
 
+          {/* Restore Draft Banner */}
+          {showRestore && (
+            <div className="mb-4 flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20 animate-fade-in">
+              <span className="text-sm text-muted-foreground">📝 检测到上次未完成的输入，是否恢复？</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowRestore(false)}>忽略</Button>
+                <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={handleRestore}>恢复输入</Button>
+              </div>
+            </div>
+          )}
+
           {/* Main Input Card */}
           <GlassCard className="mb-12 animate-slide-up relative overflow-visible" elevated padding="lg">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
