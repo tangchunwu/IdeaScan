@@ -225,7 +225,6 @@ const Report = () => {
     try {
       // Generate share token if not exists
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
       
       // Try to set share_token via service (use supabase update - RLS allows owner)
       const { data: existing } = await supabase
