@@ -165,8 +165,8 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
           {/* Tech Savviness */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">技术敏感度</span>
-              <span className="text-xs font-bold text-primary">{persona.techSavviness}%</span>
+              <span className="text-sm font-semibold text-muted-foreground">技术敏感度</span>
+              <span className="text-sm font-bold text-primary">{persona.techSavviness}%</span>
             </div>
             <Progress value={persona.techSavviness} className="h-1.5 bg-muted" />
           </div>
