@@ -19,8 +19,10 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TrendingTopicCardProps {
   topic: TrendingTopic;
@@ -28,6 +30,8 @@ interface TrendingTopicCardProps {
   onInterestChange?: (topicId: string, interest: 'saved' | 'validated' | 'dismissed' | null) => void;
   onValidate?: () => void;
   isPersonalized?: boolean;
+  isAdmin?: boolean;
+  onDelete?: (topicId: string) => void;
 }
 
 export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized }: TrendingTopicCardProps) {
