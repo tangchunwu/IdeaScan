@@ -1,29 +1,18 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 当前状态：全部已完成 ✅
 
-## ⏳ 待实施
+所有计划中的 19 项改进已全部实施完毕：
 
-（无）
+| 批次 | 改进项 | 状态 |
+|------|--------|------|
+| 基础 | Discover 匿名开放、SEO 标题、Validate 重构、移动端设置、SocialProof、HotTrends CTA | ✅ |
+| P2/P3 | Toast 统一、错误友好化、PDF 进度、Report 移动端、付费转化路径 | ✅ |
+| P0 | 报告公开分享（OG tags） | ✅ |
+| 批次A | 首页内联输入框 + 示例报告、品牌统一 IdeaScan | ✅ |
+| 批次B | QuickInsightsCards 三卡片、DemandDecisionCard 精简 | ✅ |
+| 批次C | Validate 高级选项折叠、默认深度模式 | ✅ |
+| 批次D | 首页用户评价区 | ✅ |
+
+**没有待实施的任务。** 所有规划的功能均已落地。如果想继续优化，可以考虑新的方向，例如多语言支持、用户引导 Onboarding Tour、报告对比功能等。
+
