@@ -1,7 +1,7 @@
 import { CheckCircle, TrendingUp, XCircle, Rocket } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+
 
 interface ActionRecommendationProps {
   score: number;
