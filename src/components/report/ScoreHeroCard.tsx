@@ -159,7 +159,7 @@ export const ScoreHeroCard = ({
             </h2>
           )}
           {overallVerdict && (
-            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+            <p className="text-base text-muted-foreground leading-relaxed">
               {overallVerdict}
             </p>
           )}
