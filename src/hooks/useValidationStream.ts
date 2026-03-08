@@ -24,6 +24,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const { toast } = useToast();
   const settings = useSettings();
   const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
+  const { notify } = useBrowserNotification();
 
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
