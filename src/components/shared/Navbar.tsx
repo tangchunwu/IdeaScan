@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar } from "lucide-react";
+import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar, Award } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
