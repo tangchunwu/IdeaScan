@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
+import { ReferralCard } from "@/components/shared/ReferralCard";
 import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
@@ -330,6 +331,8 @@ const History = () => {
             <>
               {/* Stats Dashboard */}
               <HistoryStatsBar validations={validations} />
+              {/* Referral Card */}
+              <ReferralCard />
 
               {/* Sample Reports Section */}
               <SampleReports />

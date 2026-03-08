@@ -35,6 +35,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
   const redirectTo = searchParams.get('redirect') || "/";
+  const referralCode = searchParams.get('ref') || "";
 
   const {
     register: registerLogin,
@@ -111,8 +112,20 @@ const Auth = () => {
         },
       });
       if (error) throw error;
-      captureEvent('signup_success', { method: 'email' });
-      toast({ title: "注册成功", description: "欢迎加入！" });
+      captureEvent('signup_success', { method: 'email', has_referral: !!referralCode });
+      
+      // Auto-redeem referral code if present
+      if (referralCode) {
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user?.id) {
+            await supabase.rpc("redeem_referral", { p_code: referralCode, p_user_id: session.session.user.id });
+            toast({ title: "🎉 注册成功", description: "邀请码已兑换，你获得了额外验证次数！" });
+          }
+        } catch { /* silent - referral is bonus */ }
+      } else {
+        toast({ title: "注册成功", description: "欢迎加入！" });
+      }
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";

@@ -28,6 +28,7 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
+const Gallery = lazy(() => import("./pages/Gallery"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,8 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
         <Route path="/admin/feedback" element={<PageTransition><FeedbackDashboard /></PageTransition>} />
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
+        <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>

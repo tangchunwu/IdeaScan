@@ -668,6 +668,54 @@ export type Database = {
           },
         ]
       }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          user_id: string
+          uses_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          user_id: string
+          uses_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
+      referral_redemptions: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          redeemed_by: string
+          referrer_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          redeemed_by: string
+          referrer_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          redeemed_by?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
       sample_reports: {
         Row: {
           created_at: string
@@ -1166,6 +1214,10 @@ export type Database = {
       }
       increment_cache_hit: { Args: { p_topic_id: string }; Returns: undefined }
       is_validation_owner: { Args: { validation_id: string }; Returns: boolean }
+      redeem_referral: {
+        Args: { p_code: string; p_user_id: string }
+        Returns: Json
+      }
       use_tikhub_quota: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {

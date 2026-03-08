@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/useSettings";
 import { useUserQuota } from "@/hooks/useUserQuota";
+import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { validationKeys } from "@/hooks/useValidation";
 import { createValidationStream, getValidation } from "@/services/validationService";
 import { invokeFunction } from "@/lib/invokeFunction";
@@ -23,6 +24,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const { toast } = useToast();
   const settings = useSettings();
   const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
+  const { notify } = useBrowserNotification();
 
   const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -160,6 +162,10 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         });
 
         toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+        notify("✅ IdeaScan 验证完成", {
+          body: `你的创意验证评分：${result.overallScore}分，点击查看完整报告`,
+          tag: `validation-${result.validationId}`,
+        });
         refetchQuota(); // refresh free quota counter
 
         await queryClient.prefetchQuery({
