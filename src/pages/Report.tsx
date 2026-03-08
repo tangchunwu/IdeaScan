@@ -527,6 +527,7 @@ const Report = () => {
                 <TabsTrigger value="competitors" className="rounded-lg"><Globe className="w-4 h-4 mr-2" />竞品搜索</TabsTrigger>
                 <TabsTrigger value="ai" className="rounded-lg"><Brain className="w-4 h-4 mr-2" />AI 深度点评</TabsTrigger>
                 <TabsTrigger value="circle" className="rounded-lg"><MessageCircle className="w-4 h-4 mr-2" />创投圈</TabsTrigger>
+                <TabsTrigger value="notes" className="rounded-lg"><StickyNote className="w-4 h-4 mr-2" />笔记</TabsTrigger>
                 <TabsTrigger value="share" className="rounded-lg"><Share2 className="w-4 h-4 mr-2" />分享</TabsTrigger>
               </TabsList>
               {/* Fade hint for scroll on mobile */}
