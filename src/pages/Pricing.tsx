@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 
 const Pricing = () => {
+       const { toast } = useToast();
        const plans = [
               {
                      name: "免费版",
