@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
 
     const keywordsToScan = freshKeywords.length > 0
       ? freshKeywords.slice(0, MAX_KEYWORDS_PER_RUN)
-      : SEED_KEYWORDS.filter(kw => !recentlyScanned.has(kw.toLowerCase())).slice(0, MAX_KEYWORDS_PER_RUN);
+      : getSeedKeywordsForRun().filter(kw => !recentlyScanned.has(kw.toLowerCase())).slice(0, MAX_KEYWORDS_PER_RUN);
 
     if (keywordsToScan.length === 0) {
       return new Response(
