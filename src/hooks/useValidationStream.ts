@@ -118,7 +118,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           llmApiKey: settings.llmApiKey,
           llmModel: settings.llmModel,
           llmFallbacks: settings.llmFallbacks,
-          tikhubToken: hasOwnTikhub ? settings.tikhubToken : undefined,
+          tikhubToken: hasOwnTikhub ? settings.tikhubToken : "", // empty = use shared quota
           enableXiaohongshu: settings.enableXiaohongshu,
           enableDouyin: false,
           enableSelfCrawler: false,
