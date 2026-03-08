@@ -1,67 +1,31 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 结论证据摘要：从标题拼接改为有意义的总结
 
-## 竞品对标优化
+## 问题
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+"结论证据摘要" 区域当前只是把笔记标题和评论原文用 `·` 拼接起来，没有任何归纳总结，对用户没有决策价值。
 
-## Phase 6: 留存基础
+## 方案
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+### useReportData.ts — 生成 `evidenceSummary` 字段
 
-## Phase 7: 可视化升级
+用已有的 AI 分析数据（`overallVerdict`、`strengths`、`weaknesses`、情感比例、笔记数量）组装一段结论性摘要，替代原始标题拼接。逻辑：
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+1. 如果 `overallVerdict` 有意义（非占位文本），直接作为核心结论
+2. 拼接关键数据点：`{totalNotes}条用户反馈中{positive}%正向`
+3. 附加 1-2 条 strengths 或 weaknesses 要点
+4. 最终输出一段 2-3 句话的摘要字符串
 
-## Phase 8: 增长引擎
+### DemandDecisionCard.tsx — 使用新的 `evidenceSummary`
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+将 `topEvidence.join(" · ")` 替换为 `evidenceSummary` 文本展示。
 
-## Phase 9: 高级功能（长期）
+| 文件 | 改动 |
+|------|------|
+| `useReportData.ts` | 新增 `evidenceSummary` 字段，用现有数据组装结论摘要 |
+| `DemandDecisionCard.tsx` | 用 `evidenceSummary` 替换 `topEvidence.join()` |
+| `DataOverviewTab.tsx` | 透传 `evidenceSummary` |
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+3 个文件，纯前端逻辑调整，无需后端改动。
+
