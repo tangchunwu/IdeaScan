@@ -399,11 +399,18 @@ const Validate = () => {
               />
             ) : (
               <div className="space-y-3">
-                {!stream.hasOwnTikhub && (
+                {!stream.hasOwnTikhub && quota.canValidate && (
+                  <div className="flex items-center justify-center gap-2 text-sm">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      免费验证剩余 <strong className="text-primary">{quota.freeRemaining}</strong> / {quota.freeTotal} 次
+                    </span>
+                  </div>
+                )}
+                {!stream.hasOwnTikhub && !quota.canValidate && (
                   <div className="flex items-center justify-center gap-2 text-sm">
                     <span className="flex items-center gap-1 text-warning">
                       <AlertTriangle className="w-4 h-4" />
-                      请先在设置中配置 TikHub Token
+                      免费次数已用完，请配置 TikHub Token
                     </span>
                   </div>
                 )}
