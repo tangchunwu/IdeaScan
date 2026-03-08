@@ -7,9 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Users, MessageCircle, Brain, Target,
-  BarChart3, PieChartIcon, AlertCircle, Globe, Sparkles,
-  RefreshCw, Loader2, Share2, Download, StickyNote,
+  Users, MessageCircle, Brain,
+  BarChart3, AlertCircle, Globe, Sparkles,
+  RefreshCw, Loader2, Download, StickyNote,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
@@ -20,7 +20,6 @@ import { VCFeed } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { DataInsightsTab } from "@/components/report/DataInsightsTab";
 import { ActionRecommendation } from "@/components/report/ActionRecommendation";
 import { DataConfidenceCard } from "@/components/report/DataConfidenceCard";
 import { DevPanel } from "@/components/report/DevPanel";
@@ -29,12 +28,10 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 // Extracted sub-components
 import { useReportData, cleanDisplayText } from "@/components/report/useReportData";
-import { OverviewTab } from "@/components/report/OverviewTab";
-import { MarketTab } from "@/components/report/MarketTab";
-import { SentimentTab } from "@/components/report/SentimentTab";
+import { DataOverviewTab } from "@/components/report/DataOverviewTab";
+import { MarketInsightsTab } from "@/components/report/MarketInsightsTab";
 import { CompetitorTab } from "@/components/report/CompetitorTab";
 import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
-import { ShareTab } from "@/components/report/ShareTab";
 import { ReportHeader } from "@/components/report/ReportHeader";
 import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
@@ -539,16 +536,13 @@ const Report = () => {
           {/* Tabs - Lazy rendered */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="relative">
-              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
-                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm"><BarChart3 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">概览</span></TabsTrigger>
-                <TabsTrigger value="insights" className="rounded-lg text-xs sm:text-sm"><Sparkles className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">数据洞察</span></TabsTrigger>
-                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm"><Target className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">市场分析</span></TabsTrigger>
-                <TabsTrigger value="sentiment" className="rounded-lg text-xs sm:text-sm"><PieChartIcon className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">情感分析</span></TabsTrigger>
+            <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
+                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm"><BarChart3 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">数据概览</span></TabsTrigger>
+                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm"><Sparkles className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">市场洞察</span></TabsTrigger>
                 <TabsTrigger value="competitors" className="rounded-lg text-xs sm:text-sm"><Globe className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">竞品搜索</span></TabsTrigger>
                 <TabsTrigger value="ai" className="rounded-lg text-xs sm:text-sm"><Brain className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">AI 点评</span></TabsTrigger>
                 <TabsTrigger value="circle" className="rounded-lg text-xs sm:text-sm"><MessageCircle className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">创投圈</span></TabsTrigger>
                 <TabsTrigger value="notes" className="rounded-lg text-xs sm:text-sm"><StickyNote className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">笔记</span></TabsTrigger>
-                <TabsTrigger value="share" className="rounded-lg text-xs sm:text-sm"><Share2 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">分享</span></TabsTrigger>
               </TabsList>
               {/* Fade hints for scroll on mobile */}
               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none lg:hidden" />
@@ -563,10 +557,8 @@ const Report = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <OverviewTab data={reportData} />}</TabsContent>
-                <TabsContent value="insights" forceMount={activeTab === "insights" ? true : undefined}>{activeTab === "insights" && <DataInsightsTab dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
-                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketTab data={reportData} />}</TabsContent>
-                <TabsContent value="sentiment" forceMount={activeTab === "sentiment" ? true : undefined}>{activeTab === "sentiment" && <SentimentTab data={reportData} />}</TabsContent>
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
+                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketInsightsTab data={reportData} />}</TabsContent>
                 <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
                 <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
                 <TabsContent value="circle" forceMount={activeTab === "circle" ? true : undefined}>{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
@@ -578,7 +570,6 @@ const Report = () => {
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="share" forceMount={activeTab === "share" ? true : undefined}>{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
               </motion.div>
             </AnimatePresence>
           </Tabs>
