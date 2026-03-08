@@ -321,9 +321,8 @@ const History = () => {
           </GlassCard>
 
           {/* Main Content */}
-            <>
-              {/* Stats Dashboard */}
-              <HistoryStatsBar validations={validations} />
+          {/* Stats Dashboard */}
+          <HistoryStatsBar validations={validations} />
               {/* Weekly Summary + Referral */}
               <WeeklySummaryCard />
 
@@ -514,8 +513,6 @@ const History = () => {
                   <IdeaComparison />
                 </div>
               )}
-            </>
-          
         </div>
       </main>
     </PageBackground>

@@ -139,8 +139,7 @@ const Validate = () => {
           description: resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求",
         });
         setTimeout(() => {
-          const startButton = document.getElementById('validate-start-btn');
-          if (startButton) startButton.click();
+          handleValidate();
         }, 500);
       } else {
         toast({ title: "已填充热点关键词", description: `"${ideaParam}" - 来自热点雷达` });
