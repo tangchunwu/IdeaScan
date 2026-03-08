@@ -218,14 +218,6 @@ export default function Discover() {
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
               </div>
-            ) : !isAuthenticated ? (
-              <EmptyState
-                icon={Compass}
-                title="请先登录查看热点雷达"
-                description="当前热点数据已启用登录访问保护，登录后即可查看完整市场趋势"
-                actionLabel="去登录"
-                actionLink="/auth"
-              />
             ) : topicsLoading ? (
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
