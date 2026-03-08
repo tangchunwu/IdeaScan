@@ -49,6 +49,7 @@ const Validate = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
+  const quota = useUserQuota();
 
   // Form state
   const [idea, setIdea] = useState("");
