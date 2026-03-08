@@ -128,11 +128,12 @@ serve(async (req) => {
                         // Use default batch size
                 }
 
-                // 1. Fetch unprocessed signals
+                // 1. Fetch unprocessed signals (skip source_citation records — they don't need AI analysis)
                 const { data: signals, error: fetchError } = await supabase
                         .from("raw_market_signals")
                         .select("id, content, source, likes_count, comments_count")
                         .is("processed_at", null)
+                        .neq("content_type", "source_citation")
                         .order("scanned_at", { ascending: false })
                         .limit(batchSize);
 

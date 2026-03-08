@@ -1,0 +1,1 @@
+ALTER TABLE public.raw_market_signals ADD COLUMN parent_signal_id UUID REFERENCES public.raw_market_signals(id) ON DELETE SET NULL DEFAULT NULL;

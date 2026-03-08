@@ -611,6 +611,7 @@ export type Database = {
           likes_count: number
           opportunity_score: number | null
           pain_level: string | null
+          parent_signal_id: string | null
           processed_at: string | null
           scanned_at: string
           sentiment_score: number | null
@@ -629,6 +630,7 @@ export type Database = {
           likes_count?: number
           opportunity_score?: number | null
           pain_level?: string | null
+          parent_signal_id?: string | null
           processed_at?: string | null
           scanned_at?: string
           sentiment_score?: number | null
@@ -647,6 +649,7 @@ export type Database = {
           likes_count?: number
           opportunity_score?: number | null
           pain_level?: string | null
+          parent_signal_id?: string | null
           processed_at?: string | null
           scanned_at?: string
           sentiment_score?: number | null
@@ -655,7 +658,15 @@ export type Database = {
           source_url?: string | null
           topic_tags?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "raw_market_signals_parent_signal_id_fkey"
+            columns: ["parent_signal_id"]
+            isOneToOne: false
+            referencedRelation: "raw_market_signals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sample_reports: {
         Row: {
