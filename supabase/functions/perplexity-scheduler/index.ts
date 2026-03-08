@@ -6,9 +6,33 @@ const corsHeaders = {
 };
 
 // 种子关键词 — 当没有 scan_jobs 和用户行为数据时的兜底
-const SEED_KEYWORDS: string[] = [
-  "AI副业", "副业推荐", "自媒体变现", "远程办公", "AI工具赚钱",
-];
+// 按类别分组的种子关键词库，每次运行轮转选取不同类别
+const SEED_KEYWORD_GROUPS: Record<string, string[]> = {
+  "AI工具": ["AI写作工具", "AI绘画变现", "ChatGPT应用", "AI编程助手", "AI工具赚钱"],
+  "副业赚钱": ["副业推荐", "被动收入", "自媒体变现", "知识付费", "AI副业"],
+  "电商创业": ["跨境电商", "独立站运营", "直播带货", "一件代发", "Shopify开店"],
+  "教育培训": ["在线教育创业", "技能变现", "考证培训", "付费社群", "在线课程"],
+  "健康生活": ["减肥产品", "心理咨询创业", "养生保健", "睡眠改善", "健身私教"],
+  "数字游民": ["远程办公工具", "自由职业接单", "数字游民生活", "海外接单", "远程协作"],
+  "宠物经济": ["宠物用品创业", "宠物服务", "宠物食品", "萌宠博主", "宠物医疗"],
+  "个人IP": ["个人品牌打造", "短视频创业", "小红书运营", "知乎变现", "播客创业"],
+  "SaaS/开发": ["独立开发", "SaaS创业", "低代码工具", "开源项目变现", "API产品"],
+  "银发经济": ["老年人产品", "适老化设计", "养老服务创业", "银发社交", "老年教育"],
+};
+
+const ALL_CATEGORIES = Object.keys(SEED_KEYWORD_GROUPS);
+
+/** 根据当前小时轮转选取种子类别 */
+function getSeedKeywordsForRun(): string[] {
+  const hour = new Date().getHours();
+  const categoryIndex = Math.floor(hour / 4) % ALL_CATEGORIES.length;
+  // 选取 2 个相邻类别，确保多样性
+  const cat1 = ALL_CATEGORIES[categoryIndex];
+  const cat2 = ALL_CATEGORIES[(categoryIndex + 1) % ALL_CATEGORIES.length];
+  const combined = [...SEED_KEYWORD_GROUPS[cat1], ...SEED_KEYWORD_GROUPS[cat2]];
+  // 随机打乱后取前 5 个
+  return combined.sort(() => Math.random() - 0.5).slice(0, 5);
+}
 
 const DAILY_QUOTA = 100;
 const MAX_KEYWORDS_PER_RUN = 3;
@@ -197,7 +221,7 @@ async function collectKeywords(supabase: any): Promise<string[]> {
     }
   }
 
-  return keywords.length === 0 ? [...SEED_KEYWORDS] : keywords;
+  return keywords.length === 0 ? getSeedKeywordsForRun() : keywords;
 }
 
 /**
@@ -271,11 +295,17 @@ async function processKeyword(
   const avgHeat = signals.reduce((sum, s) => sum + (s.heat_indicator || 50), 0) / signals.length;
 
   const categoryMap: Record<string, string[]> = {
-    "AI工具": ["AI", "ChatGPT", "人工智能", "AI工具", "AI绘画", "AI写作"],
-    "副业赚钱": ["副业", "赚钱", "兼职", "被动收入", "变现"],
+    "AI工具": ["AI", "ChatGPT", "人工智能", "AI工具", "AI绘画", "AI写作", "AI编程", "GPT", "Copilot"],
+    "副业赚钱": ["副业", "赚钱", "兼职", "被动收入", "变现", "知识付费"],
+    "电商创业": ["电商", "跨境", "独立站", "直播带货", "代发", "Shopify", "亚马逊", "拼多多"],
+    "教育培训": ["在线教育", "培训", "课程", "考证", "技能", "付费社群"],
+    "健康生活": ["减肥", "健身", "睡眠", "心理", "养生", "保健", "私教", "冥想"],
+    "数字游民": ["远程", "自由职业", "数字游民", "在线创业", "海外接单", "远程协作"],
+    "宠物经济": ["宠物", "萌宠", "猫", "狗", "宠物食品", "宠物医疗"],
+    "个人IP": ["个人品牌", "短视频", "小红书", "知乎", "播客", "自媒体", "博主"],
+    "SaaS/开发": ["独立开发", "SaaS", "低代码", "开源", "API", "开发者工具"],
+    "银发经济": ["老年", "适老化", "养老", "银发", "退休"],
     "个人成长": ["时间管理", "自律", "效率", "学习", "职场"],
-    "健康生活": ["减肥", "健身", "睡眠", "心理", "养生"],
-    "数字游民": ["远程", "自由职业", "数字游民", "在线创业"],
   };
   let category = "用户关注";
   for (const [cat, words] of Object.entries(categoryMap)) {
@@ -359,7 +389,7 @@ Deno.serve(async (req) => {
 
     const keywordsToScan = freshKeywords.length > 0
       ? freshKeywords.slice(0, MAX_KEYWORDS_PER_RUN)
-      : SEED_KEYWORDS.filter(kw => !recentlyScanned.has(kw.toLowerCase())).slice(0, MAX_KEYWORDS_PER_RUN);
+      : getSeedKeywordsForRun().filter(kw => !recentlyScanned.has(kw.toLowerCase())).slice(0, MAX_KEYWORDS_PER_RUN);
 
     if (keywordsToScan.length === 0) {
       return new Response(
