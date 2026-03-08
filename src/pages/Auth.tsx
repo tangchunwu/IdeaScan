@@ -35,6 +35,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
   const redirectTo = searchParams.get('redirect') || "/";
+  const referralCode = searchParams.get('ref') || "";
 
   const {
     register: registerLogin,
