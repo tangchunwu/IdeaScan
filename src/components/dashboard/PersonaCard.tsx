@@ -2,7 +2,6 @@ import { useState } from "react";
 import { GlassCard } from "@/components/shared";
 import { Persona } from "@/services/validationService";
 import { User, Briefcase, Target, Zap, Loader2, ImageOff, Sparkles } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSettings } from "@/hooks/useSettings";
