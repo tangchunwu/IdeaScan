@@ -25,7 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
 
 export default function Discover() {
-  const { user } = useAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
+  const isAuthenticated = !!session?.user;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "market";
@@ -50,25 +51,28 @@ export default function Discover() {
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
 
   // Fetch trending topics
-  const { data: topics, isLoading: topicsLoading, refetch: refetchTopics } = useQuery({
-    queryKey: ['trending-topics', selectedCategory, minHeatScore, sortBy],
+  const { data: topics, isLoading: topicsLoading, error: topicsError, refetch: refetchTopics } = useQuery({
+    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy],
     queryFn: () => getTrendingTopics({
       category: selectedCategory || undefined,
       minHeatScore,
       sortBy,
     }),
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
-    queryKey: ['discover-categories'],
+    queryKey: ['discover-categories', session?.user?.id],
     queryFn: getCategories,
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['discover-stats'],
+    queryKey: ['discover-stats', session?.user?.id],
     queryFn: getDiscoverStats,
+    enabled: !authLoading && isAuthenticated,
   });
 
   // Fetch user interests when logged in
