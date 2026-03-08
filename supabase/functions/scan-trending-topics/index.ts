@@ -465,8 +465,157 @@ Deno.serve(async (req) => {
     const { categories, maxPerCategory = 2, includeDynamicKeywords = true } = body;
 
     if (!tikhubToken) {
+      // TikHub 不可用时，使用 Perplexity 作为回退
+      const perplexityBaseUrl = Deno.env.get("PERPLEXITY_BASE_URL");
+      const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+
+      if (!perplexityBaseUrl || !perplexityApiKey) {
+        return new Response(
+          JSON.stringify({ success: true, added: 0, message: "Neither TikHub nor Perplexity available; skipped scanning" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[Scan] TikHub unavailable, using Perplexity fallback");
+
+      // 用 Perplexity 扫描种子关键词
+      const categoriesToScanFallback = categories && Array.isArray(categories)
+        ? categories.filter((c: string) => SEED_KEYWORDS_BY_CATEGORY[c])
+        : Object.keys(SEED_KEYWORDS_BY_CATEGORY);
+
+      const fallbackTopics: TrendingTopicData[] = [];
+
+      // 每个 category 取 1 个关键词，最多 3 个
+      const fallbackKeywords: { keyword: string; category: string }[] = [];
+      for (const cat of categoriesToScanFallback) {
+        const kws = SEED_KEYWORDS_BY_CATEGORY[cat] || [];
+        if (kws.length > 0) {
+          fallbackKeywords.push({ keyword: kws[Math.floor(Math.random() * kws.length)], category: cat });
+        }
+        if (fallbackKeywords.length >= 3) break;
+      }
+
+      // 加入动态关键词
+      if (includeDynamicKeywords) {
+        const dynamicKws = await getHighPriorityKeywords(supabase);
+        for (const kw of dynamicKws.slice(0, 2)) {
+          if (!fallbackKeywords.some(f => f.keyword === kw)) {
+            fallbackKeywords.push({ keyword: kw, category: "用户关注" });
+          }
+        }
+      }
+
+      for (const { keyword: kw, category: cat } of fallbackKeywords.slice(0, 5)) {
+        try {
+          console.log(`[Scan/Perplexity] Scanning: ${kw} (${cat})`);
+          const prompt = `搜索"${kw}"的最新热度趋势。分析用户讨论量、痛点和情感倾向。
+返回 JSON 对象：
+{
+  "heat_estimate": 0-100的热度估计,
+  "pain_points": ["痛点1", "痛点2"],
+  "related_tags": ["标签1", "标签2"],
+  "positive_ratio": 0-100,
+  "negative_ratio": 0-100,
+  "neutral_ratio": 0-100,
+  "discussion_volume": "high/medium/low"
+}
+只返回 JSON，不要其他文字。`;
+
+          const response = await fetch(`${perplexityBaseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${perplexityApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "sonar",
+              temperature: 0.3,
+              messages: [
+                { role: "system", content: "你是趋势分析师。返回有效 JSON。" },
+                { role: "user", content: prompt },
+              ],
+            }),
+          });
+
+          if (!response.ok) {
+            console.warn(`[Scan/Perplexity] API error for "${kw}": ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content ?? "";
+          const citations: string[] = data.citations ?? [];
+
+          let parsed: any = {};
+          try {
+            const cleaned = content.replace(/,?\s*\[(\d+)\]\s*/g, " ").replace(/\s+/g, " ");
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+          } catch { /* ignore parse errors */ }
+
+          const heatScore = Math.min(100, Math.max(0, parsed.heat_estimate || 30));
+          if (heatScore >= 15) {
+            fallbackTopics.push({
+              keyword: kw,
+              category: cat,
+              heat_score: heatScore,
+              growth_rate: null,
+              sample_count: parsed.discussion_volume === "high" ? 100 : parsed.discussion_volume === "medium" ? 50 : 20,
+              avg_engagement: heatScore,
+              sentiment_positive: parsed.positive_ratio || 40,
+              sentiment_negative: parsed.negative_ratio || 20,
+              sentiment_neutral: parsed.neutral_ratio || 40,
+              top_pain_points: (parsed.pain_points || []).slice(0, 5),
+              related_keywords: (parsed.related_tags || []).slice(0, 10),
+              sources: [{ platform: "perplexity", count: citations.length || 1 }],
+            });
+          }
+
+          await new Promise(r => setTimeout(r, 1500));
+        } catch (e) {
+          console.error(`[Scan/Perplexity] Error for "${kw}":`, e);
+        }
+      }
+
+      // Upsert fallback topics
+      if (fallbackTopics.length > 0) {
+        const upsertData = fallbackTopics.map(t => ({
+          keyword: t.keyword,
+          category: t.category,
+          heat_score: t.heat_score,
+          growth_rate: t.growth_rate,
+          sample_count: t.sample_count,
+          avg_engagement: t.avg_engagement,
+          sentiment_positive: t.sentiment_positive,
+          sentiment_negative: t.sentiment_negative,
+          sentiment_neutral: t.sentiment_neutral,
+          top_pain_points: t.top_pain_points,
+          related_keywords: t.related_keywords,
+          sources: t.sources,
+          source_type: "perplexity_fallback",
+          is_active: true,
+          updated_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          last_crawled_at: new Date().toISOString(),
+          cache_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        }));
+
+        const { error: upsertError } = await supabase
+          .from("trending_topics")
+          .upsert(upsertData, { onConflict: "keyword" });
+
+        if (upsertError) {
+          console.error("[Scan/Perplexity] Upsert error:", upsertError);
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: true, added: 0, message: "TikHub token unavailable for system scan; skipped social crawling" }),
+        JSON.stringify({
+          success: true,
+          added: fallbackTopics.length,
+          source: "perplexity_fallback",
+          topics: fallbackTopics.map(t => ({ keyword: t.keyword, heat_score: t.heat_score })),
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

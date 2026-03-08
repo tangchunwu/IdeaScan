@@ -140,10 +140,48 @@ serve(async (req) => {
 
     console.log(`[hunter-scan] Scanning ${keywords.length} keywords:`, keywords);
 
+    // --- 配额保护：每日上限 ---
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { count: todayCount } = await supabase
+      .from("raw_market_signals")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "perplexity")
+      .gte("scanned_at", todayStart.toISOString());
+
+    const DAILY_LIMIT = 100;
+    const dailyUsed = todayCount || 0;
+    if (dailyUsed >= DAILY_LIMIT) {
+      console.log(`[hunter-scan] Daily quota exhausted: ${dailyUsed}/${DAILY_LIMIT}`);
+      return new Response(
+        JSON.stringify({ success: true, message: `Daily quota exhausted (${dailyUsed}/${DAILY_LIMIT})`, signals_inserted: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // --- 24h 关键词去重 ---
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentSignals } = await supabase
+      .from("raw_market_signals")
+      .select("topic_tags")
+      .eq("source", "perplexity")
+      .gte("scanned_at", since24h);
+
+    const recentKeywords = new Set<string>();
+    for (const row of recentSignals || []) {
+      for (const tag of (row as any).topic_tags || []) {
+        recentKeywords.add(tag.toLowerCase());
+      }
+    }
+
+    const freshKeywords = keywords.filter((kw: string) => !recentKeywords.has(kw.toLowerCase()));
+    const keywordsToScan = freshKeywords.length > 0 ? freshKeywords : keywords;
+    console.log(`[hunter-scan] After dedup: ${freshKeywords.length}/${keywords.length} fresh, scanning ${Math.min(keywordsToScan.length, 5)}`);
+
     let totalInserted = 0;
     const errors: string[] = [];
 
-    for (const keyword of keywords.slice(0, 5)) {
+    for (const keyword of keywordsToScan.slice(0, 5)) {
       try {
         const { signals, citations } = await searchWithPerplexity(keyword, baseUrl, apiKey);
         console.log(`[hunter-scan] "${keyword}": got ${signals.length} signals, ${citations.length} citations`);
