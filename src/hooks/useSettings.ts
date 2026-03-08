@@ -164,7 +164,7 @@ export const useSettings = create<SettingsState>()(
           }
 
           set({ isLoading: false, isSynced: true, lastSyncError: null });
-          console.log('Settings synced to cloud');
+          // Settings synced to cloud
         } catch (error) {
           console.error('Failed to sync settings to cloud:', error);
           set({

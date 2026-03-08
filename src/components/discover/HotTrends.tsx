@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Flame, ArrowUpRight, BarChart3, Sparkles, Target } from "lucide-react";
+import { TrendingUp, Flame, ArrowUpRight, BarChart3, Sparkles, Target, LogIn } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { getHotTrends, TrendingTopic, trackTopicClick } from "@/services/discoverService";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HotTrendsProps {
   limit?: number;
