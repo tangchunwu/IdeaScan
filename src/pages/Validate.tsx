@@ -266,89 +266,96 @@ const Validate = () => {
 
               <div className="h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
 
-              {/* Tags Section */}
-              <div className="space-y-4">
-                <label className="block text-base font-semibold text-foreground flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  目标赛道 <span className="text-sm font-normal text-muted-foreground ml-2">(可选)</span>
-                </label>
-
-                <div className="bg-muted/30 rounded-2xl p-6 border border-border/20">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs text-muted-foreground">可手动选择，也可先让 AI 推荐后再确认</span>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={handleSuggestTags}
-                        disabled={stream.isValidating || isSuggestingTags || !idea.trim()} className="h-8 rounded-lg">
-                        {isSuggestingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
-                        AI 推荐关键词
-                      </Button>
-                      {aiTagSuggestions.length > 0 && (
-                        <Button variant="secondary" size="sm" onClick={handleApplyTopAiTags}
-                          disabled={stream.isValidating || selectedTags.length >= 5} className="h-8 rounded-lg">
-                          一键采用前3
-                        </Button>
-                      )}
+              {/* Tags Section - Collapsible */}
+              <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group w-full">
+                    <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
+                      <Target className="w-4 h-4" />
                     </div>
-                  </div>
+                    <span>高级选项：目标赛道 & 关键词</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${advancedOpen ? 'rotate-180' : ''}`} />
+                    {selectedTags.length > 0 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">{selectedTags.length} 个标签已选</Badge>
+                    )}
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4">
+                  <div className="bg-muted/30 rounded-2xl p-6 border border-border/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-xs text-muted-foreground">可手动选择，也可先让 AI 推荐后再确认</span>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={handleSuggestTags}
+                          disabled={stream.isValidating || isSuggestingTags || !idea.trim()} className="h-8 rounded-lg">
+                          {isSuggestingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
+                          AI 推荐关键词
+                        </Button>
+                        {aiTagSuggestions.length > 0 && (
+                          <Button variant="secondary" size="sm" onClick={handleApplyTopAiTags}
+                            disabled={stream.isValidating || selectedTags.length >= 5} className="h-8 rounded-lg">
+                            一键采用前3
+                          </Button>
+                        )}
+                      </div>
+                    </div>
 
-                  {aiTagSuggestions.length > 0 && (
-                    <div className="mb-4 p-3 rounded-xl bg-background/70 border border-border/40">
-                      <p className="text-xs text-muted-foreground mb-2">AI 候选标签（点击加入）</p>
-                      <div className="flex flex-wrap gap-2">
-                        {aiTagSuggestions.slice(0, 6).map((item) => (
-                          <button key={`${item.tag}-${item.source}`} onClick={() => handleAddTag(item.tag)}
-                            disabled={selectedTags.length >= 5 || stream.isValidating || selectedTags.includes(item.tag)}
-                            className="text-xs px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary disabled:opacity-50"
-                            title={`${item.reason}（置信度 ${(item.confidence * 100).toFixed(0)}%）`}>
-                            + {item.tag} · {(item.confidence * 100).toFixed(0)}%
+                    {aiTagSuggestions.length > 0 && (
+                      <div className="mb-4 p-3 rounded-xl bg-background/70 border border-border/40">
+                        <p className="text-xs text-muted-foreground mb-2">AI 候选标签（点击加入）</p>
+                        <div className="flex flex-wrap gap-2">
+                          {aiTagSuggestions.slice(0, 6).map((item) => (
+                            <button key={`${item.tag}-${item.source}`} onClick={() => handleAddTag(item.tag)}
+                              disabled={selectedTags.length >= 5 || stream.isValidating || selectedTags.includes(item.tag)}
+                              className="text-xs px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary disabled:opacity-50"
+                              title={`${item.reason}（置信度 ${(item.confidence * 100).toFixed(0)}%）`}>
+                              + {item.tag} · {(item.confidence * 100).toFixed(0)}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Selected Tags */}
+                    <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+                      {selectedTags.length === 0 && (
+                        <span className="text-sm text-muted-foreground/50 italic py-1">暂未选择标签（系统将自动分析）</span>
+                      )}
+                      {selectedTags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="pl-3 pr-1 py-1.5 text-sm bg-background border-border/50 shadow-sm text-foreground hover:bg-background">
+                          {tag}
+                          <button onClick={() => handleRemoveTag(tag)} className="ml-2 p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" disabled={stream.isValidating}>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {/* Input & Suggestions */}
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1 flex gap-2">
+                        <Input placeholder="输入标签..." value={customTag} onChange={(e) => setCustomTag(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
+                          className="flex-1 rounded-xl border-border/50 bg-background/50 focus:bg-background h-10"
+                          disabled={selectedTags.length >= 5 || stream.isValidating} />
+                        <Button variant="secondary" size="icon" onClick={handleAddCustomTag}
+                          disabled={!customTag.trim() || selectedTags.length >= 5 || stream.isValidating} className="rounded-xl h-10 w-10 shrink-0">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex-1 flex flex-wrap gap-2 items-center">
+                        <span className="text-xs text-muted-foreground mr-1">热门:</span>
+                        {suggestedTags.filter(tag => !selectedTags.includes(tag)).slice(0, 5).map((tag) => (
+                          <button key={tag} onClick={() => handleAddTag(tag)}
+                            disabled={selectedTags.length >= 5 || stream.isValidating}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-border/40 bg-background/30 hover:bg-white hover:border-primary/30 text-muted-foreground hover:text-primary transition-all disabled:opacity-50">
+                            + {tag}
                           </button>
                         ))}
                       </div>
                     </div>
-                  )}
-
-                  {/* Selected Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
-                    {selectedTags.length === 0 && (
-                      <span className="text-sm text-muted-foreground/50 italic py-1">暂未选择标签（系统将自动分析）</span>
-                    )}
-                    {selectedTags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="pl-3 pr-1 py-1.5 text-sm bg-background border-border/50 shadow-sm text-foreground hover:bg-background">
-                        {tag}
-                        <button onClick={() => handleRemoveTag(tag)} className="ml-2 p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" disabled={stream.isValidating}>
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
                   </div>
-
-                  {/* Input & Suggestions */}
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 flex gap-2">
-                      <Input placeholder="输入标签..." value={customTag} onChange={(e) => setCustomTag(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                        className="flex-1 rounded-xl border-border/50 bg-background/50 focus:bg-background h-10"
-                        disabled={selectedTags.length >= 5 || stream.isValidating} />
-                      <Button variant="secondary" size="icon" onClick={handleAddCustomTag}
-                        disabled={!customTag.trim() || selectedTags.length >= 5 || stream.isValidating} className="rounded-xl h-10 w-10 shrink-0">
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <div className="flex-1 flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-muted-foreground mr-1">热门:</span>
-                      {suggestedTags.filter(tag => !selectedTags.includes(tag)).slice(0, 5).map((tag) => (
-                        <button key={tag} onClick={() => handleAddTag(tag)}
-                          disabled={selectedTags.length >= 5 || stream.isValidating}
-                          className="text-xs px-2.5 py-1 rounded-lg border border-border/40 bg-background/30 hover:bg-white hover:border-primary/30 text-muted-foreground hover:text-primary transition-all disabled:opacity-50">
-                          + {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </GlassCard>
 
