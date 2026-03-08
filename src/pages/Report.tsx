@@ -458,6 +458,12 @@ const Report = () => {
 
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
 
+          {/* Risk & Mitigation Cards */}
+          <RiskMitigationCards
+            weaknesses={aiAnalysis.weaknesses}
+            risks={aiAnalysis.risks}
+          />
+
           <DemandDecisionCard
             validation={validation}
             score={displayScore}
