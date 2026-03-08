@@ -441,9 +441,6 @@ const Report = () => {
               overallVerdict={aiAnalysis.overallVerdict}
               strengths={aiAnalysis.strengths || []}
               weaknesses={aiAnalysis.weaknesses || []}
-              sentiment={{ positive: sentimentAnalysis.positive, negative: sentimentAnalysis.negative }}
-              onValidateMore={() => window.location.href = '/validate'}
-              onStartBuilding={() => { captureEvent('start_building_clicked', { validation_id: validation.id }); window.open('https://lovable.dev', '_blank'); }}
             />
           </div>
 
