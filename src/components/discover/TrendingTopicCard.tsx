@@ -34,7 +34,7 @@ interface TrendingTopicCardProps {
   onDelete?: (topicId: string) => void;
 }
 
-export function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }: TrendingTopicCardProps) {
+export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardProps>(function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }, ref) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
