@@ -42,6 +42,8 @@ import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { RiskMitigationCards } from "@/components/report/RiskMitigationCards";
 import { MonetizationStrategies } from "@/components/report/MonetizationStrategies";
 import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
+import { ReportNotes } from "@/components/report/ReportNotes";
+import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
