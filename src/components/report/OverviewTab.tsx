@@ -6,6 +6,7 @@ import {
 import { Activity, PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Users, Target } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { CustomTooltip } from "./CustomTooltip";
+import { TrendTimelineChart } from "./TrendTimelineChart";
 import type { ReportDataResult } from "./useReportData";
 
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
