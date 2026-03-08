@@ -111,6 +111,7 @@ export function useReportData(data: FullValidation | null | undefined) {
     suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
     risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
     monetizationStrategies: Array.isArray(aiAnalysisRaw.monetizationStrategies) ? aiAnalysisRaw.monetizationStrategies : [],
+    brandNames: Array.isArray(aiAnalysisRaw.brandNames) ? aiAnalysisRaw.brandNames : [],
     overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
   };
 
