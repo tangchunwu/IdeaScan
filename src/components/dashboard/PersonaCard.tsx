@@ -129,7 +129,7 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         </blockquote>
 
         {/* Bottom Grid: Pain Points + Goals + Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Pain Points */}
           <div className="space-y-2">
             <h5 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
