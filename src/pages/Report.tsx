@@ -356,8 +356,28 @@ const Report = () => {
     navigate(`/validate?idea=${idea}&auto=true&resumeValidationId=${validation.id}`);
   };
 
+  // Scroll progress
+  const [scrollProgress, setScrollProgress] = useState(0);
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = document.documentElement;
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight - el.clientHeight;
+      setScrollProgress(scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <PageBackground showClouds={false}>
+      {/* Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-0.5">
+        <div
+          className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-150 ease-out"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
       <Navbar />
       <main className="pt-28 pb-16 px-4">
         <div id="report-content" className="max-w-6xl mx-auto">
