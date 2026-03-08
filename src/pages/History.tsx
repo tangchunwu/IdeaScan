@@ -519,7 +519,7 @@ const History = () => {
                 </div>
               )}
             </>
-          )}
+          
         </div>
       </main>
     </PageBackground>
