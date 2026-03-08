@@ -50,7 +50,7 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 - source_url: 来源URL（如果有）
 - topic_tags: 2-3个话题标签
 - opportunity_score: 商机评分（0-100，越高越有商业价值）
-- pain_level: 痛点等级（"high"/"medium"/"low"）
+- pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
 
 只返回 JSON 数组，不要其他文字。`;
