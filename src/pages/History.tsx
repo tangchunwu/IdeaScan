@@ -331,6 +331,8 @@ const History = () => {
             <>
               {/* Stats Dashboard */}
               <HistoryStatsBar validations={validations} />
+              {/* Referral Card */}
+              <ReferralCard />
 
               {/* Sample Reports Section */}
               <SampleReports />
