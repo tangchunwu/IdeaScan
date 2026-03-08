@@ -189,18 +189,76 @@ serve(async (req) => {
                         }
                 }
 
-                console.log(`[Processor] Complete: ${successCount} success, ${failCount} failed, ${highOpportunities.length} high-opportunity`);
+		console.log(`[Processor] Complete: ${successCount} success, ${failCount} failed, ${highOpportunities.length} high-opportunity`);
 
-                return new Response(
-                        JSON.stringify({
-                                success: true,
-                                processed: successCount,
-                                failed: failCount,
-                                high_opportunities: highOpportunities.length,
-                                sample_opportunities: highOpportunities.slice(0, 5)
-                        }),
-                        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                );
+		// === Aggregate niche_opportunities from high-score signals ===
+		let opportunitiesUpserted = 0;
+		try {
+			const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+			const { data: highSignals } = await supabase
+				.from("raw_market_signals")
+				.select("content, source, source_url, opportunity_score, topic_tags")
+				.gte("opportunity_score", 70)
+				.not("processed_at", "is", null)
+				.gte("scanned_at", sevenDaysAgo)
+				.order("opportunity_score", { ascending: false })
+				.limit(500);
+
+			if (highSignals && highSignals.length > 0) {
+				// Group by first topic_tag
+				const groups: Record<string, typeof highSignals> = {};
+				for (const s of highSignals) {
+					const tags = s.topic_tags as string[] | null;
+					const key = tags && tags.length > 0 ? tags[0] : "未分类";
+					if (!groups[key]) groups[key] = [];
+					groups[key].push(s);
+				}
+
+				for (const [tag, signals] of Object.entries(groups)) {
+					if (signals.length < 2) continue; // Need at least 2 signals
+
+					const avgScore = Math.round(signals.reduce((sum, s) => sum + (s.opportunity_score || 0), 0) / signals.length);
+					const topContent = signals.slice(0, 3).map(s => s.content.slice(0, 150)).join("\n---\n");
+					const sources = [...new Set(signals.map(s => s.source_url).filter(Boolean))].slice(0, 5);
+
+					const { error: upsertErr } = await supabase
+						.from("niche_opportunities")
+						.upsert({
+							keyword: tag,
+							title: tag,
+							description: topContent,
+							urgency_score: avgScore,
+							signal_count: signals.length,
+							avg_opportunity_score: avgScore,
+							top_sources: sources,
+							category: signals[0].source || "mixed",
+							discovered_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+						}, { onConflict: "keyword" });
+
+					if (upsertErr) {
+						console.error(`[Processor] Upsert opportunity "${tag}" failed:`, upsertErr);
+					} else {
+						opportunitiesUpserted++;
+					}
+				}
+				console.log(`[Processor] Upserted ${opportunitiesUpserted} niche opportunities`);
+			}
+		} catch (aggErr) {
+			console.error("[Processor] Opportunity aggregation error:", aggErr);
+		}
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				processed: successCount,
+				failed: failCount,
+				high_opportunities: highOpportunities.length,
+				opportunities_upserted: opportunitiesUpserted,
+				sample_opportunities: highOpportunities.slice(0, 5)
+			}),
+			{ headers: { ...corsHeaders, "Content-Type": "application/json" } }
+		);
 
 	} catch (error) {
 		console.error("[Processor] Fatal error:", error);
