@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useReportData } from "@/components/report/useReportData";
 import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
-import { OverviewTab } from "@/components/report/OverviewTab";
+import { DataOverviewTab } from "@/components/report/DataOverviewTab";
 import { useToast } from "@/hooks/use-toast";
 
 const SharedReport = () => {
