@@ -465,6 +465,11 @@ const Report = () => {
             risks={aiAnalysis.risks}
           />
 
+          {/* Monetization Strategies */}
+          <MonetizationStrategies
+            strategies={aiAnalysis.monetizationStrategies}
+          />
+
           <DemandDecisionCard
             validation={validation}
             score={displayScore}
