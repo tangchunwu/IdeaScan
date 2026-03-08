@@ -56,26 +56,7 @@ export const HotTrends = ({
     return "bg-muted text-muted-foreground";
   };
 
-  // Show login prompt for unauthenticated users
-  if (!user) {
-    return (
-      <GlassCard className={`p-6 ${className}`}>
-        {showTitle && (
-          <div className="flex items-center gap-2 mb-4">
-            <Flame className="w-5 h-5 text-orange-500" />
-            <h3 className="font-semibold">本周热门趋势</h3>
-          </div>
-        )}
-        <div className="text-center py-8 text-muted-foreground">
-          <LogIn className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm mb-3">登录后查看市场热门趋势</p>
-          <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
-            立即登录
-          </Button>
-        </div>
-      </GlassCard>
-    );
-  }
+  // Removed auth wall - anonymous users now see public preview via RPC
 
   if (isLoading) {
     return (
