@@ -110,6 +110,7 @@ export function useReportData(data: FullValidation | null | undefined) {
     weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
     suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
     risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
+    monetizationStrategies: Array.isArray(aiAnalysisRaw.monetizationStrategies) ? aiAnalysisRaw.monetizationStrategies : [],
     overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
   };
 
