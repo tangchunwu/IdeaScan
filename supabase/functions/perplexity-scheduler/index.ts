@@ -221,7 +221,7 @@ async function collectKeywords(supabase: any): Promise<string[]> {
     }
   }
 
-  return keywords.length === 0 ? [...SEED_KEYWORDS] : keywords;
+  return keywords.length === 0 ? getSeedKeywordsForRun() : keywords;
 }
 
 /**
