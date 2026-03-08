@@ -103,6 +103,7 @@ const Index = () => {
               <Button
                 asChild
                 size="lg"
+                data-tour="validate"
                 className="text-lg px-10 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 btn-ripple"
                 onClick={() => captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' })}
               >
@@ -115,6 +116,7 @@ const Index = () => {
                 asChild
                 variant="outline"
                 size="lg"
+                data-tour="history"
                 className="text-lg px-10 py-7 rounded-2xl glass-button border-border/50"
                 onClick={() => captureEvent('cta_clicked', { button: 'hero_history', page: 'index' })}
               >
