@@ -13,6 +13,7 @@ interface DemandDecisionCardProps {
   proofResult: { verdict: string; paidIntentRate: number; waitlistRate: number; sampleUv: number };
   costBreakdown: { estCost: number; llmCalls: number; externalApiCalls: number; crawlerCalls: number; promptTokens: number; completionTokens: number; latencyMs: number; crawlerLatencyMs: number };
   topEvidence: string[];
+  evidenceSummary: string;
   evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
 }
 
@@ -37,7 +38,7 @@ const useCountUp = (target: number, duration = 800) => {
 
 export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
-  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceItems,
+  aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems,
 }: DemandDecisionCardProps) => {
   const { toast } = useToast();
   const score = displayScore;
@@ -105,7 +106,7 @@ export const DemandDecisionCard = ({
         <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20">
           <div className="text-xs text-muted-foreground mb-1">结论证据摘要</div>
           <div className="text-sm font-medium">
-            {topEvidence.length > 0 ? topEvidence.join(" · ") : "当前样本不足，建议增加关键词并重跑验证"}
+            {evidenceSummary}
           </div>
         </div>
 

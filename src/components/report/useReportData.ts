@@ -216,6 +216,26 @@ export function useReportData(data: FullValidation | null | undefined) {
       .filter(Boolean).map((t: string) => `竞品: ${t}`),
   ].slice(0, 4);
 
+  // Build a synthesized evidence summary instead of raw title concatenation
+  const verdictText = aiAnalysis.overallVerdict;
+  const isGenericVerdict = !verdictText || verdictText === "已完成综合评估" || PLACEHOLDER_PATTERNS.some(p => verdictText.includes(p));
+  
+  const summaryParts: string[] = [];
+  if (!isGenericVerdict) {
+    summaryParts.push(verdictText);
+  }
+  const dataPoint = `基于${xiaohongshuData.totalNotes}条真实用户反馈，${sentimentAnalysis.positive}%用户持正向态度`;
+  summaryParts.push(dataPoint);
+  if (aiAnalysis.strengths.length > 0) {
+    summaryParts.push(`核心优势：${aiAnalysis.strengths.slice(0, 2).join("、")}`);
+  }
+  if (aiAnalysis.weaknesses.length > 0) {
+    summaryParts.push(`潜在风险：${aiAnalysis.weaknesses.slice(0, 1).join("、")}`);
+  }
+  const evidenceSummary = summaryParts.length > 0
+    ? summaryParts.join("。") + "。"
+    : "当前样本不足，建议增加关键词并重跑验证";
+
   return {
     validation,
     report,
@@ -232,6 +252,7 @@ export function useReportData(data: FullValidation | null | undefined) {
     competitorRows,
     evidenceItems,
     topEvidence,
+    evidenceSummary,
   };
 }
 
