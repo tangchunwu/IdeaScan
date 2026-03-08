@@ -15,44 +15,105 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     const url = new URL(req.url);
-    const token = url.searchParams.get("token");
-    const mode = url.searchParams.get("mode"); // "og" for OG HTML page
 
-    if (!token || token.length < 8) {
+    // POST: create share token (requires auth)
+    if (req.method === "POST") {
+      const body = await req.json();
+      if (body.action === "create" && body.validationId) {
+        // Verify user owns this validation
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const token = authHeader.replace("Bearer ", "").trim();
+        let userId: string | null = null;
+        try {
+          const { data: claimsData, error: claimsError } = await (supabase.auth as any).getClaims(token);
+          if (!claimsError && claimsData?.claims?.sub) userId = claimsData.claims.sub;
+        } catch {}
+        if (!userId) {
+          const { data: userData } = await supabase.auth.getUser(token);
+          userId = userData?.user?.id || null;
+        }
+        if (!userId) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Check ownership
+        const { data: v } = await supabase
+          .from("validations")
+          .select("id, share_token")
+          .eq("id", body.validationId)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!v) {
+          return new Response(JSON.stringify({ error: "Validation not found" }), {
+            status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (v.share_token) {
+          return new Response(JSON.stringify({ shareToken: v.share_token }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Generate token
+        const shareToken = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+        const { error: updateErr } = await supabase
+          .from("validations")
+          .update({ share_token: shareToken })
+          .eq("id", body.validationId)
+          .eq("user_id", userId);
+
+        if (updateErr) throw updateErr;
+
+        return new Response(JSON.stringify({ shareToken }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // GET: retrieve shared report
+    const shareToken = url.searchParams.get("token");
+    const mode = url.searchParams.get("mode");
+
+    if (!shareToken || shareToken.length < 8) {
       return new Response(JSON.stringify({ error: "Invalid share token" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Find validation by share_token
     const { data: validation, error: vErr } = await supabase
       .from("validations")
       .select("id, idea, overall_score, tags, status, created_at")
-      .eq("share_token", token)
+      .eq("share_token", shareToken)
       .maybeSingle();
 
     if (vErr || !validation) {
       return new Response(JSON.stringify({ error: "Report not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get report
     const { data: report } = await supabase
       .from("validation_reports")
       .select("ai_analysis, dimensions, market_analysis, xiaohongshu_data, sentiment_analysis, competitor_data, persona, evidence_grade, proof_result, data_quality_score, keywords_used, cost_breakdown")
       .eq("validation_id", validation.id)
       .maybeSingle();
 
-    // OG mode: return HTML with meta tags for social crawlers
+    // OG mode: return HTML with meta tags
     if (mode === "og") {
       const score = validation.overall_score || 0;
       const idea = escapeHtml(validation.idea || "");
@@ -60,7 +121,7 @@ serve(async (req) => {
       const verdict = escapeHtml(String(ai.overallVerdict || "AI 验证报告"));
       const tags = Array.isArray(validation.tags) ? validation.tags.slice(0, 3).map((t: string) => `#${t}`).join(" ") : "";
       const appUrl = "https://ideascan.lovable.app";
-      const shareUrl = `${appUrl}/share/${token}`;
+      const shareUrl = `${appUrl}/share/${shareToken}`;
 
       const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -87,13 +148,9 @@ serve(async (req) => {
   <a href="${shareUrl}">点击此处查看报告</a>
 </body>
 </html>`;
-
-      return new Response(html, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
+      return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
 
-    // JSON mode: return report data
     return new Response(
       JSON.stringify({ validation, report }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
