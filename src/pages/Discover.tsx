@@ -207,10 +207,30 @@ export default function Discover() {
             </div>
 
             {/* Topics Display */}
-            {topicsLoading ? (
+            {authLoading ? (
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
               </div>
+            ) : !isAuthenticated ? (
+              <EmptyState
+                icon={Compass}
+                title="请先登录查看热点雷达"
+                description="当前热点数据已启用登录访问保护，登录后即可查看完整市场趋势"
+                actionLabel="去登录"
+                actionLink="/auth"
+              />
+            ) : topicsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : topicsError ? (
+              <EmptyState
+                icon={Compass}
+                title="热点加载失败"
+                description="登录态可能已过期，请刷新页面或重新登录后重试"
+                actionLabel="重新加载"
+                onAction={() => refetchTopics()}
+              />
             ) : topics && topics.length > 0 ? (
               viewMode === "cards" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
