@@ -28,8 +28,13 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
               navigate(`/validate?idea=${encodeURIComponent(ideaContext)}&auto=true`);
        };
 
+       const handleCardClick = () => {
+              const ideaContext = `【${opp.title}】\n${opp.description || ""}`;
+              navigate(`/validate?idea=${encodeURIComponent(ideaContext)}`);
+       };
+
        return (
-              <GlassCard className="h-full hover:border-primary/50 transition-colors cursor-pointer group flex flex-col relative overflow-hidden">
+              <GlassCard className="h-full hover:border-primary/50 transition-colors cursor-pointer group flex flex-col relative overflow-hidden" onClick={handleCardClick}>
                      <div className="flex justify-between items-start mb-4 relative z-10">
                             <Badge variant="outline" className={`${opp.urgency_score && opp.urgency_score >= 80 ? 'border-red-500 text-red-500' : 'text-muted-foreground'
                                    }`}>
