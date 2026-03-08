@@ -246,6 +246,8 @@ export default function Discover() {
                       topic={topic}
                       userInterest={userInterests.get(topic.id)}
                       onInterestChange={handleInterestChange}
+                      isAdmin={isAdmin}
+                      onDelete={handleDeleteTopic}
                     />
                   ))}
                 </div>
