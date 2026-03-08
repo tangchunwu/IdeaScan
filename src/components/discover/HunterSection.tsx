@@ -21,6 +21,7 @@ import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
        const navigate = useNavigate();
+       const [expanded, setExpanded] = useState(false);
 
        const handleVerify = (e: React.MouseEvent) => {
               e.stopPropagation();
@@ -28,23 +29,51 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
               navigate(`/validate?idea=${encodeURIComponent(ideaContext)}&auto=true`);
        };
 
-       const handleCardClick = () => {
-              const ideaContext = `【${opp.title}】\n${opp.description || ""}`;
-              navigate(`/validate?idea=${encodeURIComponent(ideaContext)}`);
-       };
-
        return (
-              <GlassCard className="h-full hover:border-primary/50 transition-colors cursor-pointer group flex flex-col relative overflow-hidden" onClick={handleCardClick}>
+              <GlassCard
+                     className="h-full hover:border-primary/50 transition-colors cursor-pointer group flex flex-col relative overflow-hidden"
+                     onClick={() => setExpanded(!expanded)}
+              >
                      <div className="flex justify-between items-start mb-4 relative z-10">
-                            <Badge variant="outline" className={`${opp.urgency_score && opp.urgency_score >= 80 ? 'border-red-500 text-red-500' : 'text-muted-foreground'
-                                   }`}>
+                            <Badge variant="outline" className={`${opp.urgency_score && opp.urgency_score >= 80 ? 'border-red-500 text-red-500' : 'text-muted-foreground'}`}>
                                    {opp.urgency_score ? `🔥 ${opp.urgency_score} 紧迫度` : 'New'}
                             </Badge>
                             <span className="text-xs text-muted-foreground">{new Date(opp.discovered_at).toLocaleDateString()}</span>
                      </div>
 
-                     <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors relative z-10">{opp.title}</h3>
-                     <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1 relative z-10">{opp.description}</p>
+                     <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors relative z-10 flex items-center gap-2">
+                            {opp.title}
+                            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                     </h3>
+                     <p className={`text-sm text-muted-foreground mb-4 flex-1 relative z-10 ${expanded ? '' : 'line-clamp-3'}`}>{opp.description}</p>
+
+                     {expanded && (
+                            <div className="space-y-3 mb-4 relative z-10 animate-fade-in">
+                                   {opp.category && (
+                                          <div className="flex items-center gap-2">
+                                                 <span className="text-xs font-medium text-muted-foreground">分类:</span>
+                                                 <Badge variant="secondary" className="text-xs">{opp.category}</Badge>
+                                          </div>
+                                   )}
+                                   {opp.top_sources && opp.top_sources.length > 0 && (
+                                          <div className="space-y-1">
+                                                 <span className="text-xs font-medium text-muted-foreground">信号来源:</span>
+                                                 <div className="flex flex-col gap-1">
+                                                        {opp.top_sources.map((src, i) => (
+                                                               <a key={i} href={src} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-primary hover:underline truncate">
+                                                                      🔗 {src}
+                                                               </a>
+                                                        ))}
+                                                 </div>
+                                          </div>
+                                   )}
+                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <span>平均机会分: <strong className="text-foreground">{opp.avg_opportunity_score?.toFixed(0) || 'N/A'}</strong></span>
+                                          <span>·</span>
+                                          <span>市场规模: <strong className="text-foreground">{opp.market_size_est || '未知'}</strong></span>
+                                   </div>
+                            </div>
+                     )}
 
                      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 relative z-10">
                             <div className="flex items-center gap-1">
