@@ -1,16 +1,67 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# 修复「来源引用」统计为 0 的问题
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 原因
-`hunter-scan` 当前将 Perplexity 返回的 citations URL 直接存入 `intelligence` 记录的 `source_url` 字段，不再生成独立的 `source_citation` 类型记录。因此 `getSignalStats()` 查询 `content_type = 'source_citation'` 永远返回 0。
+## 竞品对标优化
 
-## 方案
-修改 `hunterService.getSignalStats()` 中 `citations` 的统计逻辑：从「统计 content_type 为 source_citation 的记录数」改为「统计 source_url 非空的记录数」，即有来源链接的信号数量。
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-| 文件 | 改动 |
-|------|------|
-| `src/services/hunterService.ts` | `getSignalStats` 中 citations 查询改为 `.not("source_url", "is", null)` |
+## Phase 6: 留存基础
 
-1 个文件，1 行逻辑改动。
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
+## Phase 7: 可视化升级
+
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
+
+## Phase 8: 增长引擎
+
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
+
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
