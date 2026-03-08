@@ -4,20 +4,27 @@ import { useOpenClawChat } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Send, Loader2, StopCircle, Bot, User, Plus, Image as ImageIcon } from "lucide-react";
+import { Send, Loader2, StopCircle, Bot, User, Plus, FileText, Lightbulb, BarChart3 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface OpenClawChannelProps {
   className?: string;
+  initialMessage?: string;
 }
 
-export function OpenClawChannel({ className }: OpenClawChannelProps) {
+const QUICK_PROMPTS = [
+  { icon: FileText, label: "写小红书文案", prompt: "请帮我写一篇适合小红书发布的种草文案，标题要有吸引力带 emoji，正文包含痛点引入、解决方案、使用体验。" },
+  { icon: BarChart3, label: "分析竞品差异", prompt: "请帮我分析竞品差异化策略，找出产品可以切入的差异化角度，给出定位建议和卖点提炼。" },
+  { icon: Lightbulb, label: "头脑风暴变体", prompt: "请帮我基于当前创意进行头脑风暴，提出 3-5 个产品变体方向，说明切入角度和目标人群。" },
+];
+
+export function OpenClawChannel({ className, initialMessage }: OpenClawChannelProps) {
   const { user } = useAuth();
   const { connections } = useOpenClawConnections(user?.id);
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
   const [input, setInput] = useState("");
+  const [initialSent, setInitialSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const defaultConnection = connections.find(c => c.is_default) || connections[0];
@@ -31,6 +38,18 @@ export function OpenClawChannel({ className }: OpenClawChannelProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
+
+  // Auto-send initial message
+  useEffect(() => {
+    if (initialMessage && !initialSent && activeConnectionId && !loading && !sending && connections.length > 0) {
+      setInitialSent(true);
+      // Small delay to ensure connection is ready
+      const timer = setTimeout(() => {
+        sendMessage(initialMessage);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [initialMessage, initialSent, activeConnectionId, loading, sending, connections.length]);
 
   const handleSend = () => {
     if (!input.trim() || sending) return;
@@ -47,6 +66,12 @@ export function OpenClawChannel({ className }: OpenClawChannelProps) {
 
   const handleNewSession = () => {
     setSessionId(`session-${Date.now()}`);
+    setInitialSent(false);
+  };
+
+  const handleQuickPrompt = (prompt: string) => {
+    if (sending) return;
+    sendMessage(prompt);
   };
 
   if (!user) {
@@ -99,10 +124,23 @@ export function OpenClawChannel({ className }: OpenClawChannelProps) {
           </div>
         )}
 
-        {!loading && messages.length === 0 && !streamingContent && (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
+        {!loading && messages.length === 0 && !streamingContent && !initialMessage && (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <Bot className="w-8 h-8 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground/60">开始和你的 AI Agent 对话吧</p>
+            {/* Quick prompt cards */}
+            <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-md">
+              {QUICK_PROMPTS.map((qp) => (
+                <button
+                  key={qp.label}
+                  onClick={() => handleQuickPrompt(qp.prompt)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <qp.icon className="w-3.5 h-3.5 text-primary/70" />
+                  {qp.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -123,7 +161,7 @@ export function OpenClawChannel({ className }: OpenClawChannelProps) {
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap">{msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}</p>
               )}
             </div>
             {msg.role === "user" && (
