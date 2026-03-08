@@ -55,15 +55,13 @@ export default function Discover() {
   // User interests map
   const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
 
-  // Fetch trending topics
+  // Fetch trending topics - authenticated gets full data, anonymous gets public preview
   const { data: topics, isLoading: topicsLoading, error: topicsError, refetch: refetchTopics } = useQuery({
-    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy],
-    queryFn: () => getTrendingTopics({
-      category: selectedCategory || undefined,
-      minHeatScore,
-      sortBy,
-    }),
-    enabled: !authLoading && isAuthenticated,
+    queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy, isAuthenticated],
+    queryFn: () => isAuthenticated
+      ? getTrendingTopics({ category: selectedCategory || undefined, minHeatScore, sortBy })
+      : getPublicTrendingTopics(5),
+    enabled: !authLoading,
   });
 
   // Fetch categories
