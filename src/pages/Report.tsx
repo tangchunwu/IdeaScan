@@ -557,10 +557,8 @@ const Report = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <OverviewTab data={reportData} />}</TabsContent>
-                <TabsContent value="insights" forceMount={activeTab === "insights" ? true : undefined}>{activeTab === "insights" && <DataInsightsTab dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
-                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketTab data={reportData} />}</TabsContent>
-                <TabsContent value="sentiment" forceMount={activeTab === "sentiment" ? true : undefined}>{activeTab === "sentiment" && <SentimentTab data={reportData} />}</TabsContent>
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
+                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketInsightsTab data={reportData} />}</TabsContent>
                 <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
                 <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} />}</TabsContent>
                 <TabsContent value="circle" forceMount={activeTab === "circle" ? true : undefined}>{activeTab === "circle" && <VCFeed validationId={validation.id} />}</TabsContent>
@@ -572,7 +570,6 @@ const Report = () => {
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="share" forceMount={activeTab === "share" ? true : undefined}>{activeTab === "share" && <ShareTab data={reportData} />}</TabsContent>
               </motion.div>
             </AnimatePresence>
           </Tabs>
