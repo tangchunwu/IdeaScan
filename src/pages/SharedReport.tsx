@@ -140,7 +140,7 @@ const SharedReport = () => {
           </div>
 
           {/* Overview - read only */}
-          <OverviewTab data={reportData} />
+          <DataOverviewTab data={reportData} />
 
           {/* CTA to validate own idea */}
           <GlassCard className="mt-8 p-6 text-center">
