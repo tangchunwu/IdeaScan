@@ -536,16 +536,13 @@ const Report = () => {
           {/* Tabs - Lazy rendered */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="relative">
-              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
-                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm"><BarChart3 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">概览</span></TabsTrigger>
-                <TabsTrigger value="insights" className="rounded-lg text-xs sm:text-sm"><Sparkles className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">数据洞察</span></TabsTrigger>
-                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm"><Target className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">市场分析</span></TabsTrigger>
-                <TabsTrigger value="sentiment" className="rounded-lg text-xs sm:text-sm"><PieChartIcon className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">情感分析</span></TabsTrigger>
+            <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
+                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm"><BarChart3 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">数据概览</span></TabsTrigger>
+                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm"><Sparkles className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">市场洞察</span></TabsTrigger>
                 <TabsTrigger value="competitors" className="rounded-lg text-xs sm:text-sm"><Globe className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">竞品搜索</span></TabsTrigger>
                 <TabsTrigger value="ai" className="rounded-lg text-xs sm:text-sm"><Brain className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">AI 点评</span></TabsTrigger>
                 <TabsTrigger value="circle" className="rounded-lg text-xs sm:text-sm"><MessageCircle className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">创投圈</span></TabsTrigger>
                 <TabsTrigger value="notes" className="rounded-lg text-xs sm:text-sm"><StickyNote className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">笔记</span></TabsTrigger>
-                <TabsTrigger value="share" className="rounded-lg text-xs sm:text-sm"><Share2 className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">分享</span></TabsTrigger>
               </TabsList>
               {/* Fade hints for scroll on mobile */}
               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none lg:hidden" />
