@@ -53,8 +53,8 @@ const Pricing = () => {
                             "专属客户经理",
                             "私有化部署支持"
                      ],
-                     cta: "联系商务",
-                     ctaLink: "mailto:business@ideascan.ai",
+               cta: "联系商务",
+                     ctaLink: "#",
                      variant: "outline"
               }
        ];

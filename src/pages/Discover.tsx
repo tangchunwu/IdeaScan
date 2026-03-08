@@ -214,11 +214,7 @@ export default function Discover() {
             </div>
 
             {/* Topics Display */}
-            {authLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <LoadingSpinner size="lg" />
-              </div>
-            ) : topicsLoading ? (
+            {(authLoading || topicsLoading) ? (
               <div className="flex items-center justify-center py-20">
                 <LoadingSpinner size="lg" />
               </div>

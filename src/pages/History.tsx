@@ -513,8 +513,6 @@ const History = () => {
                   <IdeaComparison />
                 </div>
               )}
-            </>
-          
         </div>
       </main>
     </PageBackground>

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
+import { useQuery } from "@tanstack/react-query";
+import { PageBackground, GlassCard, Navbar, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,34 +16,27 @@ interface GalleryReport {
   created_at: string;
 }
 
+const fetchGalleryReports = async (): Promise<GalleryReport[]> => {
+  const { data, error } = await supabase
+    .from("validations")
+    .select("id, idea, tags, overall_score, share_token, created_at")
+    .not("share_token", "is", null)
+    .not("overall_score", "is", null)
+    .gte("overall_score", 60)
+    .eq("status", "completed")
+    .order("overall_score", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data as GalleryReport[]) || [];
+};
+
 const Gallery = () => {
   useDocumentTitle("报告精选 Gallery — IdeaScan 高分验证报告展示");
-  const [reports, setReports] = useState<GalleryReport[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // Fetch public reports (those with share_token and high scores)
-        const { data, error } = await supabase
-          .from("validations")
-          .select("id, idea, tags, overall_score, share_token, created_at")
-          .not("share_token", "is", null)
-          .not("overall_score", "is", null)
-          .gte("overall_score", 60)
-          .eq("status", "completed")
-          .order("overall_score", { ascending: false })
-          .limit(20);
-
-        if (error) throw error;
-        setReports((data as GalleryReport[]) || []);
-      } catch (e) {
-        console.error("Gallery fetch error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data: reports = [], isLoading: loading } = useQuery({
+    queryKey: ['gallery-reports'],
+    queryFn: fetchGalleryReports,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-secondary";
