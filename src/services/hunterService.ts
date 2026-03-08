@@ -92,8 +92,16 @@ export const hunterService = {
 	},
 
 	async triggerCrawler() {
-		// Manually trigger the edge function
-		const { data, error } = await supabase.functions.invoke("crawler-scheduler");
+		// Trigger the Perplexity-powered hunter scan
+		const { data, error } = await supabase.functions.invoke("hunter-scan");
+		if (error) throw error;
+		return data;
+	},
+
+	async triggerHunterScan(keywords?: string[]) {
+		const { data, error } = await supabase.functions.invoke("hunter-scan", {
+			body: keywords ? { keywords } : {}
+		});
 		if (error) throw error;
 		return data;
 	},
