@@ -18,6 +18,7 @@ export interface RawMarketSignal {
 	pain_level?: string;
 	scanned_at: string;
 	processed_at?: string;
+	parent_signal_id?: string;
 }
 
 export interface NicheOpportunity {
