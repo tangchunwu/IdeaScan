@@ -1084,6 +1084,7 @@ export type Database = {
           id: string
           idea: string
           overall_score: number | null
+          share_token: string | null
           status: Database["public"]["Enums"]["validation_status"]
           tags: string[] | null
           updated_at: string
@@ -1094,6 +1095,7 @@ export type Database = {
           id?: string
           idea: string
           overall_score?: number | null
+          share_token?: string | null
           status?: Database["public"]["Enums"]["validation_status"]
           tags?: string[] | null
           updated_at?: string
@@ -1104,6 +1106,7 @@ export type Database = {
           id?: string
           idea?: string
           overall_score?: number | null
+          share_token?: string | null
           status?: Database["public"]["Enums"]["validation_status"]
           tags?: string[] | null
           updated_at?: string
