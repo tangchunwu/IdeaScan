@@ -8,7 +8,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   const lines: string[] = [];
   const { validation, aiAnalysis, dimensions, personaData, marketAnalysis, sentimentAnalysis, competitorRows, xiaohongshuData, evidenceGrade, proofResult } = r;
 
-  // Header
   lines.push(`# 验证报告摘要`);
   lines.push("");
   lines.push(`## 创意: ${validation.idea}`);
@@ -17,12 +16,10 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     lines.push(`标签: ${validation.tags.map(t => `#${t}`).join(" ")}`);
   }
 
-  // AI verdict
   lines.push("");
   lines.push(`## AI 综合判断`);
   lines.push(aiAnalysis.overallVerdict);
 
-  // Dimensions
   if (dimensions.length) {
     lines.push("");
     lines.push(`## 维度评分`);
@@ -31,7 +28,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     }
   }
 
-  // Persona
   if (personaData) {
     lines.push("");
     lines.push(`## 用户画像`);
@@ -42,7 +38,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     if (personaData.description) lines.push(`描述: ${personaData.description}`);
   }
 
-  // Market
   lines.push("");
   lines.push(`## 市场分析`);
   lines.push(`目标受众: ${marketAnalysis.targetAudience}`);
@@ -51,14 +46,12 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   lines.push(`趋势方向: ${marketAnalysis.trendDirection}`);
   if (marketAnalysis.keywords.length) lines.push(`关键词: ${marketAnalysis.keywords.join(", ")}`);
 
-  // Sentiment
   lines.push("");
   lines.push(`## 情感分析`);
   lines.push(`正面 ${sentimentAnalysis.positive}% | 中性 ${sentimentAnalysis.neutral}% | 负面 ${sentimentAnalysis.negative}%`);
   if (sentimentAnalysis.topPositive.length) lines.push(`正面关键词: ${sentimentAnalysis.topPositive.join(", ")}`);
   if (sentimentAnalysis.topNegative.length) lines.push(`负面关键词: ${sentimentAnalysis.topNegative.join(", ")}`);
 
-  // Strengths / Weaknesses / Risks
   if (aiAnalysis.strengths.length || aiAnalysis.weaknesses.length) {
     lines.push("");
     lines.push(`## 优势与劣势`);
@@ -68,7 +61,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     if (aiAnalysis.suggestions.length) lines.push(`建议: ${aiAnalysis.suggestions.join("；")}`);
   }
 
-  // Monetization
   if (aiAnalysis.monetizationStrategies.length) {
     lines.push("");
     lines.push(`## 盈利策略建议`);
@@ -81,7 +73,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     }
   }
 
-  // Brand names
   if (aiAnalysis.brandNames.length) {
     lines.push("");
     lines.push(`## 品牌名建议`);
@@ -94,7 +85,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     }
   }
 
-  // Real user voices
   const sampleNotes = xiaohongshuData.sampleNotes.slice(0, 6);
   const sampleComments = xiaohongshuData.sampleComments.slice(0, 6);
   if (sampleNotes.length || sampleComments.length) {
@@ -121,7 +111,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     }
   }
 
-  // Competitor data
   if (competitorRows.length) {
     lines.push("");
     lines.push(`## 竞品信息`);
@@ -132,7 +121,6 @@ export function buildOpenClawContext(r: ReportDataResult): string {
     }
   }
 
-  // Data summary if exists
   const dataSummary = (r.report?.data_summary ?? null) as unknown as Record<string, unknown> | null;
   if (dataSummary) {
     lines.push("");
@@ -151,11 +139,14 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   return lines.join("\n");
 }
 
+export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu";
+
 /**
  * Build the initial prompt message that wraps the context.
+ * Prompts explicitly instruct Agent to use its built-in tools.
  */
-export function buildOpenClawPrompt(context: string, task: "xiaohongshu" | "competitor" | "brainstorm" = "xiaohongshu"): string {
-  const taskInstructions: Record<string, string> = {
+export function buildOpenClawPrompt(context: string, task: OpenClawTaskType = "xiaohongshu"): string {
+  const taskInstructions: Record<OpenClawTaskType, string> = {
     xiaohongshu: `请基于以上验证报告数据，帮我撰写一篇适合在小红书发布的种草/测评文案。要求：
 1. 标题要有吸引力，带 emoji，15字以内
 2. 正文分段清晰，包含痛点引入、解决方案、使用体验、号召行动
@@ -163,15 +154,29 @@ export function buildOpenClawPrompt(context: string, task: "xiaohongshu" | "comp
 4. 结尾附上 5-8 个相关话题标签
 5. 可以参考样本笔记的爆款元素`,
 
-    competitor: `请基于以上验证报告数据，帮我深入分析竞品差异化策略。要求：
-1. 总结现有竞品的共同特点和差距
-2. 找出我的产品可以切入的差异化角度
-3. 给出具体的定位建议和卖点提炼`,
+    xiaohongshu_publish: `请基于以上验证报告数据，完成完整的小红书发布流程：
+1. 撰写一篇小红书种草文案（标题+正文+标签），标题带 emoji，15字以内
+2. 使用你的图片生成工具，为文案生成 1-3 张适合小红书的配图
+3. 使用你的小红书发布工具，将文案和配图发布到小红书
+每完成一步请告诉我进度。如果某个工具不可用，请告知并继续完成其余步骤。`,
 
-    brainstorm: `请基于以上验证报告数据，帮我进行创意头脑风暴。要求：
-1. 基于验证数据提出 3-5 个产品变体方向
-2. 每个方向说明切入角度、目标人群、核心卖点
-3. 评估每个方向的可行性和市场潜力`,
+    marketing_image: `请基于以上验证报告数据，为我的产品生成营销素材：
+1. 分析目标用户画像和产品卖点，确定视觉风格方向
+2. 使用你的图片生成工具，生成 2-3 张适合小红书/朋友圈传播的营销配图
+3. 为每张图片配上简短的文案说明
+风格要求：现代简洁，符合目标受众审美。`,
+
+    competitor_research: `请基于以上验证报告数据，进行深度竞品调研：
+1. 使用你的搜索工具，联网搜索主要竞品的最新动态、定价策略和用户评价
+2. 分析竞品的共同特点和差距，找出差异化切入点
+3. 输出一份完整的竞品调研报告，包含定位建议和卖点提炼
+4. 请将调研报告保存到 workspace/competitor-report.md`,
+
+    brainstorm: `请基于以上验证报告数据，进行创意头脑风暴：
+1. 基于验证数据中的用户痛点和市场机会，提出 5 个产品变体方向
+2. 每个方向说明切入角度、目标人群、核心卖点和预估可行性
+3. 评估每个方向的市场潜力（大/中/小）
+4. 请将结果保存到 workspace/ideas.md`,
   };
 
   return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${taskInstructions[task]}`;

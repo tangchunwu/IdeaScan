@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface ToolCallInfo {
+  id: string;
+  name: string;
+  arguments: string;
+  status: 'calling' | 'done';
+}
+
 export interface OpenClawMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   image_url?: string;
+  tool_calls?: ToolCallInfo[];
   created_at: string;
 }
 
@@ -14,6 +22,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [activeTools, setActiveTools] = useState<ToolCallInfo[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Reset on session change
@@ -21,6 +30,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     abortRef.current?.abort();
     setSending(false);
     setStreamingContent('');
+    setActiveTools([]);
   }, [sessionId]);
 
   // Load history
@@ -61,6 +71,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     }]);
     setSending(true);
     setStreamingContent('');
+    setActiveTools([]);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -91,10 +102,12 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 
-      // Parse SSE stream
+      // Parse SSE stream — handle both content and tool_calls deltas
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = '';
+      const toolCallsMap: Record<number, ToolCallInfo> = {};
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -103,22 +116,61 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
             const data = line.slice(6).trim();
             if (data === '[DONE]') continue;
             try {
-              const delta = JSON.parse(data).choices?.[0]?.delta?.content;
-              if (delta) { accumulated += delta; setStreamingContent(accumulated); }
+              const parsed = JSON.parse(data);
+              const choice = parsed.choices?.[0];
+              if (!choice) continue;
+
+              // Content delta
+              const contentDelta = choice.delta?.content;
+              if (contentDelta) {
+                accumulated += contentDelta;
+                setStreamingContent(accumulated);
+              }
+
+              // Tool calls delta
+              const tcDeltas = choice.delta?.tool_calls;
+              if (Array.isArray(tcDeltas)) {
+                for (const tc of tcDeltas) {
+                  const idx = tc.index ?? 0;
+                  if (!toolCallsMap[idx]) {
+                    toolCallsMap[idx] = {
+                      id: tc.id || `tool-${idx}`,
+                      name: tc.function?.name || '',
+                      arguments: '',
+                      status: 'calling',
+                    };
+                  }
+                  if (tc.function?.name) toolCallsMap[idx].name = tc.function.name;
+                  if (tc.function?.arguments) toolCallsMap[idx].arguments += tc.function.arguments;
+                  setActiveTools(Object.values(toolCallsMap));
+                }
+              }
+
+              // Finish reason
+              if (choice.finish_reason === 'tool_calls' || choice.finish_reason === 'stop') {
+                // Mark all tools as done
+                for (const k of Object.keys(toolCallsMap)) {
+                  toolCallsMap[Number(k)].status = 'done';
+                }
+                setActiveTools(Object.values(toolCallsMap));
+              }
             } catch { /* skip */ }
           }
         }
       }
 
-      if (accumulated.trim()) {
+      const finalToolCalls = Object.values(toolCallsMap);
+      if (accumulated.trim() || finalToolCalls.length) {
         setMessages(prev => [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: accumulated.trim(),
+          tool_calls: finalToolCalls.length ? finalToolCalls : undefined,
           created_at: new Date().toISOString(),
         }]);
       }
       setStreamingContent('');
+      setActiveTools([]);
     } catch (err: unknown) {
       if (!(err instanceof Error && err.name === 'AbortError')) {
         setMessages(prev => [...prev, {
@@ -129,6 +181,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
         }]);
       }
       setStreamingContent('');
+      setActiveTools([]);
     } finally {
       setSending(false);
       abortRef.current = null;
@@ -137,5 +190,5 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
 
   const abort = useCallback(() => { abortRef.current?.abort(); }, []);
 
-  return { messages, loading, sending, streamingContent, sendMessage, abort };
+  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort };
 }

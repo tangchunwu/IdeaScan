@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useOpenClawChat } from "@/hooks/useOpenClawChat";
+import { useOpenClawChat, type ToolCallInfo } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, StopCircle, Bot, User, Plus, FileText, Lightbulb, BarChart3 } from "lucide-react";
+import {
+  Send, Loader2, StopCircle, Bot, User, Plus,
+  Pencil, Image, Search, Lightbulb, Wrench,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface OpenClawChannelProps {
@@ -12,11 +15,61 @@ interface OpenClawChannelProps {
   initialMessage?: string;
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  file_write: "写入文件",
+  file_read: "读取文件",
+  image_generate: "生成图片",
+  web_search: "联网搜索",
+  xiaohongshu_publish: "发布小红书",
+  xiaohongshu_search: "搜索小红书",
+};
+
 const QUICK_PROMPTS = [
-  { icon: FileText, label: "写小红书文案", prompt: "请帮我写一篇适合小红书发布的种草文案，标题要有吸引力带 emoji，正文包含痛点引入、解决方案、使用体验。" },
-  { icon: BarChart3, label: "分析竞品差异", prompt: "请帮我分析竞品差异化策略，找出产品可以切入的差异化角度，给出定位建议和卖点提炼。" },
-  { icon: Lightbulb, label: "头脑风暴变体", prompt: "请帮我基于当前创意进行头脑风暴，提出 3-5 个产品变体方向，说明切入角度和目标人群。" },
+  {
+    icon: Pencil,
+    label: "一键发小红书",
+    prompt: "请完成完整的小红书发布流程：1) 写一篇种草文案 2) 生成配图 3) 发布到小红书。请依次使用你的工具完成，每步告诉我进度。",
+  },
+  {
+    icon: Image,
+    label: "生成营销图",
+    prompt: "请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。",
+  },
+  {
+    icon: Search,
+    label: "竞品深度调研",
+    prompt: "请联网搜索我的竞品信息，分析差异化机会，输出调研报告并保存到 workspace/competitor-report.md。",
+  },
+  {
+    icon: Lightbulb,
+    label: "头脑风暴",
+    prompt: "请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。",
+  },
 ];
+
+function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
+  const label = TOOL_LABELS[tool.name] || tool.name;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">
+      {tool.status === "calling" ? (
+        <Loader2 className="w-3 h-3 animate-spin" />
+      ) : (
+        <Wrench className="w-3 h-3" />
+      )}
+      {label}
+      {tool.status === "calling" && "..."}
+    </span>
+  );
+}
+
+/** Detect image URLs or markdown images in content */
+function renderMessageContent(content: string) {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-code:text-primary prose-code:bg-muted/40 prose-code:px-1 prose-code:rounded prose-img:rounded-lg prose-img:max-h-60">
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  );
+}
 
 export function OpenClawChannel({ className, initialMessage }: OpenClawChannelProps) {
   const { user } = useAuth();
@@ -30,20 +83,19 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
   const defaultConnection = connections.find(c => c.is_default) || connections[0];
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
 
-  const { messages, loading, sending, streamingContent, sendMessage, abort } = useOpenClawChat(
+  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId
   );
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingContent]);
+  }, [messages, streamingContent, activeTools]);
 
   // Auto-send initial message
   useEffect(() => {
     if (initialMessage && !initialSent && activeConnectionId && !loading && !sending && connections.length > 0) {
       setInitialSent(true);
-      // Small delay to ensure connection is ready
       const timer = setTimeout(() => {
         sendMessage(initialMessage);
       }, 500);
@@ -127,17 +179,18 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
         {!loading && messages.length === 0 && !streamingContent && !initialMessage && (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <Bot className="w-8 h-8 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground/60">开始和你的 AI Agent 对话吧</p>
-            {/* Quick prompt cards */}
-            <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-md">
+            <p className="text-sm text-muted-foreground/60">你的 AI Agent 已就绪，可以直接下达任务指令</p>
+            <div className="grid grid-cols-2 gap-2 mt-2 max-w-sm w-full">
               {QUICK_PROMPTS.map((qp) => (
                 <button
                   key={qp.label}
                   onClick={() => handleQuickPrompt(qp.prompt)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-xs text-muted-foreground hover:text-foreground"
+                  className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
                 >
-                  <qp.icon className="w-3.5 h-3.5 text-primary/70" />
-                  {qp.label}
+                  <div className="flex items-center gap-1.5">
+                    <qp.icon className="w-3.5 h-3.5 text-primary/70" />
+                    <span className="text-xs font-medium text-foreground">{qp.label}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -157,11 +210,21 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                 : "bg-muted/30 border border-border/20 rounded-bl-md"
             }`}>
               {msg.role === "assistant" ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-code:text-primary prose-code:bg-muted/40 prose-code:px-1 prose-code:rounded">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <div className="space-y-2">
+                  {msg.tool_calls && msg.tool_calls.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+                    </div>
+                  )}
+                  {msg.content && renderMessageContent(msg.content)}
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap">{msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}</p>
+                <p className="whitespace-pre-wrap">
+                  {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
+                </p>
+              )}
+              {msg.image_url && (
+                <img src={msg.image_url} alt="uploaded" className="mt-2 rounded-lg max-h-40 object-contain" />
               )}
             </div>
             {msg.role === "user" && (
@@ -172,21 +235,28 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
           </div>
         ))}
 
-        {/* Streaming */}
-        {streamingContent && (
+        {/* Streaming + active tool indicators */}
+        {(streamingContent || (sending && activeTools.length > 0)) && (
           <div className="flex gap-2.5 justify-start">
             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
               <Bot className="w-4 h-4 text-primary" />
             </div>
             <div className="max-w-[80%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm bg-muted/30 border border-border/20">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown>{streamingContent}</ReactMarkdown>
-              </div>
+              {activeTools.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {activeTools.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+                </div>
+              )}
+              {streamingContent && (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {sending && !streamingContent && (
+        {sending && !streamingContent && activeTools.length === 0 && (
           <div className="flex gap-2.5 justify-start">
             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-primary" />
@@ -208,7 +278,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
       <div className="px-4 py-3 border-t border-border/30">
         <div className="flex gap-2 items-end">
           <Textarea
-            placeholder="输入消息... (Shift+Enter 换行)"
+            placeholder="输入任务指令... (Shift+Enter 换行)"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
