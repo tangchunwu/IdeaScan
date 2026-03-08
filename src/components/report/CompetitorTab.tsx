@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
 import type { ReportDataResult } from "./useReportData";
+import { MarketResearchSection } from "./MarketResearchSection";
 
 interface CompetitorTabProps {
   data: ReportDataResult;
@@ -155,6 +156,9 @@ export function CompetitorTab({ data }: CompetitorTabProps) {
           ))}
         </div>
       )}
+
+      {/* Market Research Section */}
+      <MarketResearchSection items={general} />
 
       {/* Raw Search Results (collapsible) */}
       {general.length > 0 && (
