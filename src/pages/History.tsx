@@ -326,10 +326,7 @@ const History = () => {
               {/* Stats Dashboard */}
               <HistoryStatsBar validations={validations} />
               {/* Weekly Summary + Referral */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <WeeklySummaryCard />
-                <ReferralCard />
-              </div>
+              <WeeklySummaryCard />
 
               {/* Sample Reports Section */}
               <SampleReports />
