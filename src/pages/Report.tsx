@@ -48,6 +48,7 @@ const Report = () => {
   const [isRecrawling, setIsRecrawling] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const settings = useSettings();
+  useDocumentTitle(data?.idea ? `验证报告 - ${data.idea.slice(0, 30)}` : "验证报告", [data?.idea]);
 
   const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
   const reportData = useReportData(data);

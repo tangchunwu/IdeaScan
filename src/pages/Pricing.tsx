@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 const Pricing = () => {
        const { toast } = useToast();
+       useDocumentTitle("定价方案");
        const plans = [
               {
                      name: "免费版",
