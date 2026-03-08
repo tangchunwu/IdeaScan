@@ -7,9 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Users, MessageCircle, Brain, Target,
-  BarChart3, PieChartIcon, AlertCircle, Globe, Sparkles,
-  RefreshCw, Loader2, Share2, Download, StickyNote,
+  Users, MessageCircle, Brain,
+  BarChart3, AlertCircle, Globe, Sparkles,
+  RefreshCw, Loader2, Download, StickyNote,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
