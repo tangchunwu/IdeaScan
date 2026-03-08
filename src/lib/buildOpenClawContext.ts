@@ -133,7 +133,7 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   }
 
   // Data summary if exists
-  const dataSummary = (r.report?.data_summary ?? null) as Record<string, unknown> | null;
+  const dataSummary = (r.report?.data_summary ?? null) as unknown as Record<string, unknown> | null;
   if (dataSummary) {
     lines.push("");
     lines.push(`## 数据摘要`);
