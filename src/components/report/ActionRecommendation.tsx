@@ -101,9 +101,9 @@ export const ActionRecommendation = ({
   };
 
   return (
-    <GlassCard className="overflow-hidden h-full" padding="none">
+    <GlassCard className="overflow-hidden" padding="none">
       {/* Left color strip via border */}
-      <div className="flex h-full">
+      <div className="flex">
         <div className={`w-1 ${config.stripColor} flex-shrink-0`} />
         <div className="flex-1 p-5 sm:p-6">
           {/* Header */}

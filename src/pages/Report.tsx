@@ -454,7 +454,7 @@ const Report = () => {
           </div>
 
           {/* Action Recommendation & Data Confidence */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6 items-start">
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <ActionRecommendation
                 score={validation.overall_score || 0}
