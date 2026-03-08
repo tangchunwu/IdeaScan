@@ -14,6 +14,7 @@ import {
 import { hunterService, RawMarketSignal, ScanJob, NicheOpportunity } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // === Components ===
 
