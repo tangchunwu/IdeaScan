@@ -333,12 +333,26 @@ const History = () => {
                     <SelectItem value="score-desc">高分优先</SelectItem>
                   </SelectContent>
                 </Select>
+                {/* Tag Filter */}
+                {allTags.length > 0 && (
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="w-full sm:w-[120px] rounded-xl border-border/50 bg-background/50">
+                      <SelectValue placeholder="标签筛选" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部标签</SelectItem>
+                      {allTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl md:hidden" onClick={toggleAll}>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl sm:hidden" onClick={toggleAll}>
                   {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <div className="w-4 h-4 border-2 border-muted rounded" />}
                 </Button>
 
-                <Button variant="outline" size="sm" className="hidden md:flex rounded-xl" onClick={toggleAll}>
+                <Button variant="outline" size="sm" className="hidden sm:flex rounded-xl" onClick={toggleAll}>
                   {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 mr-2 text-primary" />
