@@ -74,3 +74,6 @@
 | AdminMonitorTab 组件拆分 | ✅ |
 | perplexity-scheduler 并发优化 | ✅ |
 | getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |
