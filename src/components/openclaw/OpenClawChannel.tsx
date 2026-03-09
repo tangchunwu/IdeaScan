@@ -151,7 +151,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession, historyToggle }: OpenClawChannelProps) {
   const { user } = useAuth();
   const { connections } = useOpenClawConnections(user?.id);
   const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
