@@ -190,11 +190,40 @@ const AdminMonitorTab = () => {
        const [loading, setLoading] = useState(true);
        const [expandedId, setExpandedId] = useState<string | null>(null);
        const [isProcessing, setIsProcessing] = useState(false);
+       const [schedulerEnabled, setSchedulerEnabled] = useState(false);
+       const [schedulerLoading, setSchedulerLoading] = useState(true);
+       const [togglingScheduler, setTogglingScheduler] = useState(false);
        const { toast } = useToast();
 
        useEffect(() => {
               loadData();
+              loadSchedulerConfig();
        }, []);
+
+       const loadSchedulerConfig = async () => {
+              setSchedulerLoading(true);
+              try {
+                     const config = await hunterService.getSchedulerConfig();
+                     setSchedulerEnabled(config.enabled);
+              } catch (e) {
+                     console.error("Failed to load scheduler config:", e);
+              } finally {
+                     setSchedulerLoading(false);
+              }
+       };
+
+       const handleToggleScheduler = async (enabled: boolean) => {
+              setTogglingScheduler(true);
+              try {
+                     await hunterService.toggleScheduler(enabled);
+                     setSchedulerEnabled(enabled);
+                     toast({ title: enabled ? "✅ 24小时扫描已启动" : "⏸️ 24小时扫描已暂停" });
+              } catch (e: any) {
+                     toast({ title: "操作失败", description: e.message, variant: "destructive" });
+              } finally {
+                     setTogglingScheduler(false);
+              }
+       };
 
        const loadData = async () => {
               setLoading(true);
