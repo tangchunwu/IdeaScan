@@ -1,67 +1,87 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 狩猎雷达 24 小时不间断扫描 + 管理员控制
 
-## 竞品对标优化
+## 现状
+- `pg_cron` 和 `pg_net` 扩展已安装，但**没有创建 cron job**
+- `perplexity-scheduler` edge function 已就绪，每次调用会自动选择领域、扫描关键词
+- 前端文案写了"24小时不间断"但实际只有手动触发
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+## 方案
 
-## Phase 6: 留存基础
+### 1. 创建调度控制表 `scheduler_config`
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+存储定时任务的开关状态，管理员可控制启停。
 
-## Phase 7: 可视化升级
+```sql
+CREATE TABLE public.scheduler_config (
+  id text PRIMARY KEY DEFAULT 'hunter_scheduler',
+  enabled boolean NOT NULL DEFAULT false,
+  interval_minutes integer NOT NULL DEFAULT 60,
+  last_toggled_at timestamptz DEFAULT now(),
+  toggled_by uuid REFERENCES auth.users(id)
+);
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+-- RLS: 管理员可读写，普通用户可读
+ALTER TABLE public.scheduler_config ENABLE ROW LEVEL SECURITY;
 
-## Phase 8: 增长引擎
+CREATE POLICY "Anyone authenticated can read" ON public.scheduler_config
+  FOR SELECT TO authenticated USING (true);
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+CREATE POLICY "Admins can update" ON public.scheduler_config
+  FOR UPDATE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
-## Phase 9: 高级功能（长期）
+INSERT INTO public.scheduler_config (id, enabled, interval_minutes)
+VALUES ('hunter_scheduler', false, 60);
+```
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+### 2. 注册 pg_cron 定时任务
+
+使用 `supabase--read_query` 插入 cron job（每小时调用一次 `perplexity-scheduler`）：
+
+```sql
+SELECT cron.schedule(
+  'hunter-perplexity-scan',
+  '0 * * * *',  -- 每小时整点
+  $$
+  SELECT net.http_post(
+    url := 'https://tayhqwtvsuurtwtpscai.supabase.co/functions/v1/perplexity-scheduler',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer <ANON_KEY>"}'::jsonb,
+    body := '{"source":"cron"}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### 3. 修改 `perplexity-scheduler` edge function
+
+在函数入口处检查 `scheduler_config.enabled`：
+- 如果来源是 `cron` 且 `enabled = false`，直接返回跳过
+- 手动触发（无 `source: cron`）不受影响
+
+| 文件 | 改动 |
+|------|------|
+| `supabase/functions/perplexity-scheduler/index.ts` | 入口添加 `scheduler_config` 检查逻辑（约 10 行） |
+
+### 4. 前端管理员控制面板
+
+在 HunterSection 的管理员"数据监控"Tab 中添加调度控制区域：
+- 显示当前状态（运行中/已停止）
+- 开关 Switch 控制启停
+- 显示扫描间隔（60 分钟）
+
+| 文件 | 改动 |
+|------|------|
+| `src/components/discover/HunterSection.tsx` | 管理员 Tab 添加调度控制 Switch + 状态显示 |
+| `src/services/hunterService.ts` | 新增 `getSchedulerConfig()` / `toggleScheduler()` 方法 |
+
+### 5. 更新文案
+
+将 L400 的描述改为准确反映 24 小时自动扫描能力（管理员启用后生效）。
+
+---
+
+**涉及改动**: 1 个新表 + 1 条 cron 注册 + 2 个前端文件 + 1 个 edge function 入口逻辑
+
