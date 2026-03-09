@@ -193,6 +193,7 @@ const AdminMonitorTab = () => {
        const [schedulerEnabled, setSchedulerEnabled] = useState(false);
        const [schedulerLoading, setSchedulerLoading] = useState(true);
        const [togglingScheduler, setTogglingScheduler] = useState(false);
+       const [cronInfo, setCronInfo] = useState<{ lastRunAt: string | null; insightsToday: number; lastKeyword: string | null }>({ lastRunAt: null, insightsToday: 0, lastKeyword: null });
        const { toast } = useToast();
 
        useEffect(() => {

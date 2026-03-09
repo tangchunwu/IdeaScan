@@ -232,6 +232,32 @@ export const hunterService = {
 		if (error) throw error;
 	},
 
+	async getLastCronRun(): Promise<{ lastRunAt: string | null; insightsToday: number; lastKeyword: string | null }> {
+		// Get the most recent perplexity insight
+		const { data: latest } = await fromTable("raw_market_signals")
+			.select("scanned_at, topic_tags")
+			.eq("source", "perplexity")
+			.eq("content_type", "insight")
+			.order("scanned_at", { ascending: false })
+			.limit(1);
+
+		// Get today's insight count
+		const todayStart = new Date();
+		todayStart.setHours(0, 0, 0, 0);
+		const { count } = await fromTable("raw_market_signals")
+			.select("id", { count: "exact", head: true })
+			.eq("source", "perplexity")
+			.eq("content_type", "insight")
+			.gte("scanned_at", todayStart.toISOString());
+
+		const latestRow = (latest as any)?.[0];
+		return {
+			lastRunAt: latestRow?.scanned_at || null,
+			insightsToday: count || 0,
+			lastKeyword: latestRow?.topic_tags?.[0] || null,
+		};
+	},
+
 	// Helper to get platform icon/color
 	getPlatformInfo(source: string) {
 		switch (source.toLowerCase()) {
