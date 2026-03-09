@@ -249,7 +249,7 @@ const History = () => {
                   <Button
                     variant="destructive"
                     className="rounded-xl animate-fade-in"
-                    onClick={handleBatchDelete}
+                    onClick={confirmBatchDelete}
                     disabled={isBatchDeleting}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
