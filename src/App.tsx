@@ -29,7 +29,7 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
-const Gallery = lazy(() => import("./pages/Gallery"));
+const GalleryRedirect = () => <Navigate to="/discover?tab=gallery" replace />;
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
 const ContentStudio = lazy(() => import("./pages/ContentStudio"));
 
