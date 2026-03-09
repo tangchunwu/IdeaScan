@@ -280,6 +280,12 @@ const Validate = () => {
                     placeholder="例如：我想开一家猫咪主题咖啡店，目标用户是25-35岁的都市白领，核心卖点是边撸猫边喝精品咖啡..."
                     value={idea}
                     onChange={(e) => setIdea(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && idea.trim() && !stream.isValidating) {
+                        e.preventDefault();
+                        handleValidate();
+                      }
+                    }}
                     className="min-h-[140px] md:min-h-[200px] text-lg leading-relaxed resize-none rounded-2xl border-border/40 bg-white/40 focus:bg-white/80 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all duration-300 placeholder:text-muted-foreground/50 p-6 pb-10 shadow-inner"
                     disabled={stream.isValidating}
                     maxLength={500}
