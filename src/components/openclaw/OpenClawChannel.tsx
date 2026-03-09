@@ -227,6 +227,31 @@ function formatTime(dateStr: string) {
   } catch { return ""; }
 }
 
+/* ─── Copy Message Button ─── */
+function CopyMessageButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [content]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/70 border border-border/30 opacity-0 group-hover/bubble:opacity-100 transition-all hover:bg-muted/80 z-10"
+      title="复制消息"
+    >
+      {copied ? (
+        <CheckCheck className="w-3.5 h-3.5 text-primary" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
 function renderMessageContent(content: string, isStreaming = false) {
   let processed = preprocessImageUrls(content);
   if (isStreaming) processed = stripIncompleteImages(processed);
