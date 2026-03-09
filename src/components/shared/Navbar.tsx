@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog } from "lucide-react";
+import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,8 +25,40 @@ const navItems = [
 export const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isLoading } = useAuth();
+  const { profile, isUploading, uploadAvatar } = useProfile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadAvatar(file);
+    e.target.value = "";
+  };
+
+  const AvatarDisplay = ({ size = "sm" }: { size?: "sm" | "md" }) => {
+    const sizeClass = size === "sm" ? "w-7 h-7" : "w-10 h-10";
+    const iconSize = size === "sm" ? "w-4 h-4" : "w-5 h-5";
+    
+    if (profile?.avatar_url) {
+      return (
+        <img
+          src={profile.avatar_url}
+          alt="头像"
+          className={cn(sizeClass, "rounded-full object-cover")}
+        />
+      );
+    }
+    return (
+      <div className={cn(sizeClass, "rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center")}>
+        <User className={cn(iconSize, "text-primary")} />
+      </div>
+    );
+  };
 
   const visibleNavItems = navItems.filter(item =>
     !item.requireAuth || user
@@ -93,18 +126,34 @@ export const Navbar = () => {
                         variant="ghost"
                         className="rounded-xl h-10 px-3 gap-2 hover:bg-muted/50"
                       >
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
+                        <AvatarDisplay size="sm" />
                         <span className="text-sm text-muted-foreground max-w-[120px] truncate">
-                          {user.email?.split('@')[0]}
+                          {profile?.display_name || user.email?.split('@')[0]}
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 glass-card border-border/50">
-                      <div className="px-3 py-2">
-                        <p className="text-sm font-medium text-foreground">账户</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      <div className="px-3 py-2 flex items-center gap-3">
+                        <div className="relative group/avatar">
+                          <AvatarDisplay size="md" />
+                          <button
+                            onClick={handleAvatarClick}
+                            disabled={isUploading}
+                            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                          >
+                            {isUploading ? (
+                              <Loader2 className="w-4 h-4 text-white animate-spin" />
+                            ) : (
+                              <Camera className="w-4 h-4 text-white" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {profile?.display_name || user.email?.split('@')[0]}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
                       </div>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer">
@@ -221,6 +270,13 @@ export const Navbar = () => {
         )}
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
     </nav>
   );
 };
