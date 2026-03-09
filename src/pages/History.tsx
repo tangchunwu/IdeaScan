@@ -422,8 +422,13 @@ const History = () => {
                               </Badge>
                             ))}
                             <Badge
-                              variant={item.status === 'completed' ? 'default' : 'secondary'}
-                              className={item.status === 'completed' ? 'bg-secondary/10 text-secondary' : ''}
+                              variant={item.status === 'failed' ? 'destructive' : item.status === 'completed' ? 'default' : 'secondary'}
+                              className={
+                                item.status === 'completed' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' :
+                                item.status === 'processing' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' :
+                                item.status === 'failed' ? 'bg-destructive/15 text-destructive border-destructive/30' :
+                                'bg-muted text-muted-foreground'
+                              }
                             >
                               {item.status === 'completed' ? '已完成' :
                                 item.status === 'processing' ? '分析中' :
