@@ -198,7 +198,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   };
 
   const handleNewSession = () => {
-    setSessionId(`session-${Date.now()}`);
+    if (onNewSession) {
+      onNewSession();
+    } else {
+      setInternalSessionId(`session-${Date.now()}`);
+    }
     setInitialSent(false);
   };
 
