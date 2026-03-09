@@ -311,11 +311,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                   {activeTools.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
                 </div>
               )}
-              {streamingContent && (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{streamingContent}</ReactMarkdown>
-                </div>
-              )}
+              {streamingContent && renderMessageContent(streamingContent, true)}
             </div>
           </div>
         )}
