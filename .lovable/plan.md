@@ -1,67 +1,50 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# IdeaScan 持续优化计划
 
-## 竞品对标优化
+## 发现的优化点
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+通过代码审查，识别出以下可改进领域：
 
-## Phase 6: 留存基础
+### 1. HunterSection 数据请求迁移到 React Query
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+**现状**: `HunterSection.tsx`（626 行）中所有数据加载使用手动 `useEffect` + `useState`，不支持自动缓存、后台刷新和加载状态管理。项目其他页面（Discover、History、Gallery）已统一使用 `@tanstack/react-query`。
 
-## Phase 7: 可视化升级
+**改动**:
+- `AdminMonitorTab`: 将 `loadData()` 和 `loadSchedulerConfig()` 分别改为 `useQuery`，key 如 `['hunter-admin-stats']`、`['hunter-scheduler-config']`
+- `HunterSection` 主组件: 将 `refreshData()` 改为 `useQuery`，key 如 `['hunter-opportunities']`、`['hunter-scan-jobs']`
+- 操作（toggle、delete）改用 `useMutation` + `queryClient.invalidateQueries`
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+| 文件 | 改动 |
+|------|------|
+| `src/components/discover/HunterSection.tsx` | 全面迁移到 React Query（约 40 行改动） |
 
-## Phase 8: 增长引擎
+### 2. HunterSection 组件拆分
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+**现状**: 单文件 626 行，包含 `OpportunityCard`、`CreateJobDialog`、`AdminMonitorTab`、`HunterSection` 四个组件。
 
-## Phase 9: 高级功能（长期）
+**改动**: 将 `AdminMonitorTab` 抽取为独立文件，减少主文件体积至约 400 行。
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+| 文件 | 改动 |
+|------|------|
+| `src/components/discover/AdminMonitorTab.tsx` | 新建，从 HunterSection 提取（约 240 行） |
+| `src/components/discover/HunterSection.tsx` | 导入 AdminMonitorTab，删除内联定义 |
+
+### 3. perplexity-scheduler 并发优化
+
+**现状**: `keywordsToScan` 逐个串行调用 `processKeyword`，每个之间还有 1.5 秒延迟。`MAX_DEEP_SCAN_PER_RUN = 2`，总延迟约 3 秒。
+
+**改动**: 将 2 个关键词改为 `Promise.allSettled` 并发执行，去掉中间的 `setTimeout(1500)`，整体耗时减半。
+
+| 文件 | 改动 |
+|------|------|
+| `supabase/functions/perplexity-scheduler/index.ts` | 将串行 for 循环改为 `Promise.allSettled`（约 15 行） |
+
+### 4. 更新 plan.md 路线图
+
+记录 Phase 10: 工程优化 的完成状态。
+
+---
+
+**总改动**: 1 个新文件 + 3 个文件修改，无数据库变更。
+
