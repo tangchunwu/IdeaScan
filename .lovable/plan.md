@@ -1,23 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# 问题分析
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-从截图和控制台日志看，有两个问题：
+## 竞品对标优化
 
-## 1. 图片加载失败（主要问题）
-Agent 返回的图片 URL 可能不以 `.png/.jpg` 等扩展名结尾（如 API 生成的图片 URL 格式为 `https://api.example.com/images/abc123`），当前的正则 `IMAGE_URL_RE` 只匹配以图片扩展名结尾的 URL，导致裸 URL 无法被转换为 markdown 图片语法。另外，即使 Agent 返回了 `![](url)` 格式，URL 本身可能需要特殊处理（如跨域、过期等），导致 `onError` 触发显示了 `ImageOff` fallback。
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-## 2. React ref 警告
-`ReactMarkdown` 的 `components.img` 映射到 `ChatImage`，但 ReactMarkdown 可能会尝试传递 ref，而 `ChatImage` 是普通函数组件未用 `forwardRef` 包裹。
+## Phase 6: 留存基础
 
-## 修复计划
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-| 文件 | 改动 |
-|------|------|
-| `src/components/openclaw/OpenClawChannel.tsx` | 3 处修复 |
+## Phase 7: 可视化升级
 
-### 具体改动：
-1. **放宽图片 URL 正则**：除了匹配扩展名结尾的 URL，还匹配常见图片服务域名模式（如含 `image`、`img`、`pic` 路径的 URL），以及 Agent 输出中 markdown 图片语法内不带扩展名的 URL
-2. **图片加载失败时显示原始 URL 链接**：不只显示 `ImageOff` 图标，还提供可点击的链接让用户在新标签页打开查看
-3. **用 `forwardRef` 包裹 `ChatImage`**：消除 React ref 警告
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
+## Phase 8: 增长引擎
+
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
+
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
+
+## Phase 10: 工程优化
+
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |

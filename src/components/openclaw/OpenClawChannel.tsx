@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawChat, type ToolCallInfo } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
@@ -65,13 +65,20 @@ function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
 }
 
 /** Convert bare image URLs to markdown image syntax */
-const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg)(?:\?\S*)?)$/gim;
+// Match image URLs with extensions OR common image service path patterns
+const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg|bmp|tiff?)(?:\?\S*)?)$/gim;
+const IMAGE_SERVICE_RE = /^(https?:\/\/\S*(?:\/(?:image|img|pic|photo|media|upload|generate|render|cdn)\S*))$/gim;
 const DATA_URI_RE = /^(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)$/gm;
 const INCOMPLETE_IMG_RE = /!\[[^\]]*\]\([^)]*$/;
 
 function preprocessImageUrls(content: string): string {
   return content
     .replace(IMAGE_URL_RE, '![]($1)')
+    .replace(IMAGE_SERVICE_RE, (match, url) => {
+      // Avoid double-wrapping if already markdown image
+      if (/!\[.*\]\(/.test(match)) return match;
+      return `![](${url})`;
+    })
     .replace(DATA_URI_RE, '![]($1)');
 }
 
@@ -81,22 +88,28 @@ function stripIncompleteImages(content: string): string {
   return content;
 }
 
-function ChatImage({ src, alt }: { src?: string; alt?: string }) {
+const ChatImage = React.forwardRef<HTMLDivElement, { src?: string; alt?: string }>(
+  function ChatImage({ src, alt }, ref) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [preview, setPreview] = useState(false);
 
   if (error || !src) {
     return (
-      <div className="flex items-center justify-center w-full h-32 rounded-xl bg-muted/30 border border-border/20">
+      <div ref={ref} className="flex flex-col items-center justify-center w-full h-32 rounded-xl bg-muted/30 border border-border/20 gap-2">
         <ImageOff className="w-6 h-6 text-muted-foreground/40" />
+        {src && (
+          <a href={src} target="_blank" rel="noopener noreferrer" className="text-xs text-primary/70 hover:text-primary underline truncate max-w-[80%]">
+            打开原始链接
+          </a>
+        )}
       </div>
     );
   }
 
   return (
     <>
-      <div className="relative group cursor-pointer inline-block" onClick={() => setPreview(true)}>
+      <div ref={ref} className="relative group cursor-pointer inline-block" onClick={() => setPreview(true)}>
         {!loaded && <Skeleton className="absolute inset-0 rounded-xl" />}
         <img
           src={src}
@@ -118,7 +131,7 @@ function ChatImage({ src, alt }: { src?: string; alt?: string }) {
       </Dialog>
     </>
   );
-}
+});
 
 const markdownComponents = {
   img: ({ src, alt }: { src?: string; alt?: string }) => <ChatImage src={src} alt={alt} />,
