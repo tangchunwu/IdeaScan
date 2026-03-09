@@ -30,6 +30,7 @@ const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
+const ContentStudio = lazy(() => import("./pages/ContentStudio"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +69,7 @@ const AnimatedRoutes = () => {
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
         <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
         <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />
+        <Route path="/content-studio" element={<PageTransition><ContentStudio /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>

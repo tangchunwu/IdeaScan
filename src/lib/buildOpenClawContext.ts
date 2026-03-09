@@ -139,7 +139,7 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   return lines.join("\n");
 }
 
-export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu";
+export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline";
 
 /**
  * Build the initial prompt message that wraps the context.
@@ -177,6 +177,36 @@ export function buildOpenClawPrompt(context: string, task: OpenClawTaskType = "x
 2. 每个方向说明切入角度、目标人群、核心卖点和预估可行性
 3. 评估每个方向的市场潜力（大/中/小）
 4. 请将结果保存到 workspace/ideas.md`,
+
+    content_pipeline: `请基于以上内容信息，完成多平台内容生产流水线：
+
+## 第一步：联网调研
+使用你的搜索工具，围绕给定主题搜索最新资讯、热门观点和用户痛点，整理 3-5 个关键角度。
+
+## 第二步：生成长文主稿
+基于调研结果，撰写一篇 800-1200 字的深度长文，包含：引言、核心论点（2-3个）、案例/数据支撑、结论与行动号召。
+请严格遵循品牌 Voice 设定（语气、人设、关键词）。
+
+## 第三步：拆分为三个平台版本
+
+### 🔴 小红书版本
+- 标题：15字以内，带 emoji，吸引力强
+- 正文：300-500字，分段清晰，口语化，带个人体验感
+- 结尾：5-8 个话题标签
+- 保存到 workspace/draft-xiaohongshu.md
+
+### 🐦 Twitter/X 版本
+- 主推文：280字符以内，简洁有力
+- 补充 Thread（3-5条），每条独立成段
+- 保存到 workspace/draft-twitter.md
+
+### 📱 公众号版本
+- 标题：吸引点击，20字以内
+- 正文：800-1500字，结构化分段，专业深度
+- 结尾：引导关注 + 互动话题
+- 保存到 workspace/draft-wechat.md
+
+每完成一个平台版本，请告知进度。最后输出三个版本的摘要供审核。`,
   };
 
   return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${taskInstructions[task]}`;
