@@ -127,6 +127,69 @@ export default function ContentStudioPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container max-w-5xl mx-auto pt-28 pb-12 px-4">
+        <ContentStudioInner draftsByPlatform={draftsByPlatform} {...{ topic, setTopic, voiceTone, setVoiceTone, voicePersona, setVoicePersona, voiceKeywords, setVoiceKeywords, generating, handleGenerate, activeTab, setActiveTab, isLoading, drafts, handleUpdateDraft, handleDeleteDraft, handleSaveDraft }} />
+      </div>
+    </div>
+  );
+}
+
+/** Inline version for embedding in OpenClaw page (no Navbar/wrapper) */
+export function ContentStudioInline() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { drafts, isLoading, createDraft, updateDraft, deleteDraft } = useContentDrafts();
+  const { connections } = useOpenClawConnections(user?.id);
+
+  const [topic, setTopic] = useState("");
+  const [voiceTone, setVoiceTone] = useState("");
+  const [voicePersona, setVoicePersona] = useState("");
+  const [voiceKeywords, setVoiceKeywords] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState("create");
+
+  const handleGenerate = useCallback(async () => {
+    if (!topic.trim()) { toast.error("请输入内容主题"); return; }
+    if (!user) { toast.error("请先登录"); return; }
+    const defaultConn = connections.find(c => c.is_default) ?? connections[0];
+    if (!defaultConn) { toast.error("请先在设置中添加 OpenClaw 连接"); return; }
+    setGenerating(true);
+    const brandVoice = {
+      tone: voiceTone.trim() || "专业友好",
+      persona: voicePersona.trim() || "行业专家",
+      keywords: voiceKeywords.split(/[,，、\s]+/).filter(Boolean),
+    };
+    const prompt = buildOpenClawPrompt(
+      `主题: ${topic}\n品牌 Voice: 语气=${brandVoice.tone}, 人设=${brandVoice.persona}, 关键词=${brandVoice.keywords.join("、") || "无"}`,
+      "content_pipeline"
+    );
+    sessionStorage.setItem("openclaw_initial_message", prompt);
+    sessionStorage.setItem("openclaw_content_studio", JSON.stringify({ topic: topic.trim(), brand_voice: brandVoice }));
+    navigate("/openclaw?from_validation=content_studio");
+    setGenerating(false);
+  }, [topic, voiceTone, voicePersona, voiceKeywords, user, connections, navigate]);
+
+  const handleSaveDraft = useCallback(async (platform: DraftPlatform, title: string, body: string) => {
+    if (!user) return;
+    const studioData = sessionStorage.getItem("openclaw_content_studio");
+    const parsed = studioData ? JSON.parse(studioData) : { topic: "未命名", brand_voice: {} };
+    await createDraft.mutateAsync({ topic: parsed.topic, brand_voice: parsed.brand_voice, platform, title, body });
+  }, [user, createDraft]);
+
+  const handleUpdateDraft = useCallback((id: string, fields: Partial<ContentDraft>) => { updateDraft.mutate({ id, ...fields }); }, [updateDraft]);
+  const handleDeleteDraft = useCallback((id: string) => { deleteDraft.mutate(id); }, [deleteDraft]);
+
+  if (!user) return null;
+
+  const draftsByPlatform = (platform: DraftPlatform) => drafts.filter(d => d.platform === platform);
+
+  return <ContentStudioInner draftsByPlatform={draftsByPlatform} {...{ topic, setTopic, voiceTone, setVoiceTone, voicePersona, setVoicePersona, voiceKeywords, setVoiceKeywords, generating, handleGenerate, activeTab, setActiveTab, isLoading, drafts, handleUpdateDraft, handleDeleteDraft, handleSaveDraft }} />;
+}
+
+/** Shared inner content (no page chrome) */
+function ContentStudioInner({ topic, setTopic, voiceTone, setVoiceTone, voicePersona, setVoicePersona, voiceKeywords, setVoiceKeywords, generating, handleGenerate, activeTab, setActiveTab, isLoading, drafts, draftsByPlatform, handleUpdateDraft, handleDeleteDraft, handleSaveDraft }: any) {
+  return (
+    <div>
+      <div className="max-w-5xl mx-auto">
         {/* Hero Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
