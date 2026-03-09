@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface OpenClawChannelProps {
   className?: string;
   initialMessage?: string;
+  sessionId?: string;
+  onNewSession?: () => void;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -148,11 +150,12 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession }: OpenClawChannelProps) {
   const { user } = useAuth();
   const { connections } = useOpenClawConnections(user?.id);
-  const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
+  const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
+  const sessionId = externalSessionId || internalSessionId;
   const [input, setInput] = useState("");
   const [initialSent, setInitialSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -195,7 +198,11 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
   };
 
   const handleNewSession = () => {
-    setSessionId(`session-${Date.now()}`);
+    if (onNewSession) {
+      onNewSession();
+    } else {
+      setInternalSessionId(`session-${Date.now()}`);
+    }
     setInitialSent(false);
   };
 
