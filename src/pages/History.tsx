@@ -487,43 +487,6 @@ const History = () => {
                 )}
               </div>
 
-              {/* Stats Summary */}
-              {filteredItems.length > 0 && (
-                <GlassCard className="mt-8 animate-slide-up" style={{ animationDelay: "300ms" }}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">{validations.length}</div>
-                      <div className="text-sm text-muted-foreground">总验证次数</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-secondary">
-                        {validations.filter(v => v.overall_score).length > 0
-                          ? Math.round(
-                            validations
-                              .filter(v => v.overall_score)
-                              .reduce((acc, item) => acc + (item.overall_score || 0), 0) /
-                            validations.filter(v => v.overall_score).length
-                          )
-                          : '-'
-                        }
-                      </div>
-                      <div className="text-sm text-muted-foreground">平均评分</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-primary">
-                        {validations.filter(item => (item.overall_score || 0) >= 80).length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">高分创意</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-accent">
-                        {new Set(validations.flatMap(item => item.tags)).size}
-                      </div>
-                      <div className="text-sm text-muted-foreground">涉及领域</div>
-                    </div>
-                  </div>
-                </GlassCard>
-              )}
 
               {/* Idea Comparison - 想法对比功能 */}
               {validations.filter(v => v.overall_score && v.status === 'completed').length >= 2 && (
