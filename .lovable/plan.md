@@ -1,79 +1,47 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 「微型 AI 公司」闭环实现状态分析
 
-## 竞品对标优化
+## 当前已实现的部分
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+| 闭环步骤 | 状态 | 说明 |
+|---------|------|------|
+| 1. 用户输入主题和品牌 voice | 部分实现 | 用户可在验证页输入创业想法，报告数据会自动打包为上下文发送给 OpenClaw，但**没有独立的"品牌 voice"输入字段** |
+| 2. OpenClaw 搜资料、抓引用、整理角度 | 已实现 | OpenClaw 可调用 `web_search` 工具联网搜索，`file_write` 保存调研结果 |
+| 3. 产出长文并拆分多平台版本 | 未实现 | 当前只有小红书单平台文案生成，**没有"拆分为推特版、公众号版"的多平台产出流程** |
+| 4. 用户审核、修改、批准 | 未实现 | Agent 输出后用户只能继续对话，**没有审核/修改/批准 UI**（如草稿编辑器、批准按钮） |
+| 5. OpenClaw 分发或生成待发布草稿 | 部分实现 | 有 `xiaohongshu_publish` 工具调用能力，但**没有草稿管理系统、没有多渠道分发** |
 
-## Phase 6: 留存基础
+## 需要新建的功能
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+### A. 内容工作流页面（核心缺失）
+新建 `src/pages/ContentStudio.tsx`，包含：
+- **输入面板**：主题 + 品牌 voice（语气、人设、关键词）表单
+- **草稿列表**：展示 OpenClaw 生成的各平台版本草稿
+- **编辑/审核面板**：用户可修改文案内容，点击"批准"或"重新生成"
+- **分发状态**：显示各渠道发布状态
 
-## Phase 7: 可视化升级
+### B. 数据库：内容草稿表
+新建 `content_drafts` 表：
+- `id`, `user_id`, `topic`, `brand_voice`, `platform` (xiaohongshu/twitter/wechat), `title`, `body`, `images`, `status` (draft/approved/published), `openclaw_session_id`, `created_at`, `published_at`
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+### C. 多平台拆分 Prompt
+在 `buildOpenClawContext.ts` 中新增 `content_pipeline` 任务类型，指令 Agent 一次性产出三个平台版本并通过 `file_write` 分别保存。
 
-## Phase 8: 增长引擎
+### D. 新增 Edge Function：保存草稿回调
+`save-content-draft`：OpenClaw 产出结果后，前端解析并存入 `content_drafts` 表。
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+## 实施计划
 
-## Phase 9: 高级功能（长期）
+| 文件 | 改动 |
+|------|------|
+| `src/pages/ContentStudio.tsx` | 新建，内容工作流页面（输入→生成→审核→分发） |
+| `src/components/content/DraftEditor.tsx` | 新建，草稿编辑/审核组件 |
+| `src/components/content/PlatformTabs.tsx` | 新建，多平台切换展示 |
+| `src/hooks/useContentDrafts.ts` | 新建，草稿 CRUD hook |
+| `src/lib/buildOpenClawContext.ts` | 新增 `content_pipeline` 任务 prompt |
+| `src/App.tsx` | 添加 `/content-studio` 路由 |
+| DB migration | 新建 `content_drafts` 表 + RLS |
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+**总计**：4 个新文件 + 2 个文件修改 + 1 个数据库迁移。
 
-## Phase 10: 工程优化
-
-| 改进项 | 状态 |
-|--------|------|
-| HunterSection React Query 迁移 | ✅ |
-| AdminMonitorTab 组件拆分 | ✅ |
-| perplexity-scheduler 并发优化 | ✅ |
-| getInsightTrend7Days 单查询优化 | ✅ |
-| Discover userInterests → React Query | ✅ |
-| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
-| 修复 PopularValidations 无效字段引用 | ✅ |
