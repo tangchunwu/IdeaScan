@@ -259,25 +259,34 @@ export const hunterService = {
 	},
 
 	async getInsightTrend7Days(): Promise<{ date: string; count: number }[]> {
+		const sevenDaysAgo = new Date();
+		sevenDaysAgo.setHours(0, 0, 0, 0);
+		sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+		const { data, error } = await fromTable("raw_market_signals")
+			.select("scanned_at")
+			.eq("source", "perplexity")
+			.in("content_type", ["insight", "intelligence"])
+			.gte("scanned_at", sevenDaysAgo.toISOString());
+
+		if (error) throw error;
+
+		// Build a map of date -> count from fetched rows
+		const countMap = new Map<string, number>();
+		for (const row of ((data || []) as unknown as { scanned_at: string }[])) {
+			const d = new Date(row.scanned_at);
+			const key = `${d.getMonth() + 1}/${d.getDate()}`;
+			countMap.set(key, (countMap.get(key) || 0) + 1);
+		}
+
+		// Generate 7-day series
 		const results: { date: string; count: number }[] = [];
 		for (let i = 6; i >= 0; i--) {
-			const dayStart = new Date();
-			dayStart.setHours(0, 0, 0, 0);
-			dayStart.setDate(dayStart.getDate() - i);
-			const dayEnd = new Date(dayStart);
-			dayEnd.setDate(dayEnd.getDate() + 1);
-
-			const { count } = await fromTable("raw_market_signals")
-				.select("id", { count: "exact", head: true })
-				.eq("source", "perplexity")
-				.in("content_type", ["insight", "intelligence"])
-				.gte("scanned_at", dayStart.toISOString())
-				.lt("scanned_at", dayEnd.toISOString());
-
-			results.push({
-				date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
-				count: count || 0,
-			});
+			const d = new Date();
+			d.setHours(0, 0, 0, 0);
+			d.setDate(d.getDate() - i);
+			const key = `${d.getMonth() + 1}/${d.getDate()}`;
+			results.push({ date: key, count: countMap.get(key) || 0 });
 		}
 		return results;
 	},
