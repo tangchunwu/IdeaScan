@@ -65,3 +65,12 @@
 | 报告笔记/评论 | ✅ |
 | 协作分享 | ✅ |
 | 周报摘要 | ✅ |
+
+## Phase 10: 工程优化
+
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
