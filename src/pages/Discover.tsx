@@ -1,29 +1,70 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Navbar } from "@/components/shared/Navbar";
 import { PageBackground } from "@/components/shared/PageBackground";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { GlassCard } from "@/components/shared/GlassCard";
 import { TrendingTopicCard } from "@/components/discover/TrendingTopicCard";
 import { DiscoverFilters } from "@/components/discover/DiscoverFilters";
 import { DiscoverStats } from "@/components/discover/DiscoverStats";
 import { PersonalizedSection } from "@/components/discover/PersonalizedSection";
 import { OpportunityBubbleChart } from "@/components/discover/OpportunityBubbleChart";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getTrendingTopics,
   getPublicTrendingTopics,
   getDiscoverStatsAndCategories,
   getUserTopicInterests,
 } from "@/services/discoverService";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp, LogIn } from "lucide-react";
+import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp, LogIn, Award, Eye, Search } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
+
+interface GalleryReport {
+  id: string;
+  idea: string;
+  tags: string[];
+  overall_score: number;
+  share_token: string;
+  created_at: string;
+}
+
+const fetchGalleryReports = async (): Promise<GalleryReport[]> => {
+  const { data, error } = await supabase
+    .from("validations")
+    .select("id, idea, tags, overall_score, share_token, created_at")
+    .not("share_token", "is", null)
+    .not("overall_score", "is", null)
+    .gte("overall_score", 60)
+    .eq("status", "completed")
+    .order("overall_score", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data as GalleryReport[]) || [];
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 80) return "text-secondary";
+  if (score >= 60) return "text-primary";
+  return "text-muted-foreground";
+};
+
+const getScoreLabel = (score: number) => {
+  if (score >= 85) return "极具潜力";
+  if (score >= 75) return "值得关注";
+  if (score >= 65) return "有一定潜力";
+  return "待深入分析";
+};
 
 export default function Discover() {
   const { user, session, isLoading: authLoading } = useAuth();
