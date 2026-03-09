@@ -88,15 +88,21 @@ function stripIncompleteImages(content: string): string {
   return content;
 }
 
-function ChatImage({ src, alt }: { src?: string; alt?: string }) {
+const ChatImage = React.forwardRef<HTMLDivElement, { src?: string; alt?: string }>(
+  function ChatImage({ src, alt }, ref) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [preview, setPreview] = useState(false);
 
   if (error || !src) {
     return (
-      <div className="flex items-center justify-center w-full h-32 rounded-xl bg-muted/30 border border-border/20">
+      <div ref={ref} className="flex flex-col items-center justify-center w-full h-32 rounded-xl bg-muted/30 border border-border/20 gap-2">
         <ImageOff className="w-6 h-6 text-muted-foreground/40" />
+        {src && (
+          <a href={src} target="_blank" rel="noopener noreferrer" className="text-xs text-primary/70 hover:text-primary underline truncate max-w-[80%]">
+            打开原始链接
+          </a>
+        )}
       </div>
     );
   }
