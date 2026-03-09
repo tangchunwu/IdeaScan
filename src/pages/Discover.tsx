@@ -187,6 +187,10 @@ export default function Discover() {
                 <Radar className="w-4 h-4" />
                 狩猎雷达
               </TabsTrigger>
+              <TabsTrigger value="gallery" className="px-6 gap-2">
+                <Award className="w-4 h-4" />
+                精选报告
+              </TabsTrigger>
             </TabsList>
           </div>
 
