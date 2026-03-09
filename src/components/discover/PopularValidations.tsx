@@ -70,7 +70,6 @@ const fetchPopularValidations = async (limit: number): Promise<PopularIdea[]> =>
               .map(item => ({
                      id: item.id,
                      idea: item.idea,
-                     category: item.category,
                      overall_score: item.overall_score,
                      validation_count: item.count,
                      created_at: item.created_at,
