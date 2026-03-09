@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { buildOpenClawPrompt } from "@/lib/buildOpenClawContext";
 import { Bot, Sparkles, FileText, Loader2, LogIn } from "lucide-react";
-import useDocumentTitle from "@/hooks/useDocumentTitle";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const PLATFORMS: { value: DraftPlatform; label: string }[] = [
   { value: "xiaohongshu", label: "小红书" },
