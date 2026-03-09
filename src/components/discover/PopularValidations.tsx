@@ -11,7 +11,6 @@ import { useNavigate } from "react-router-dom";
 interface PopularIdea {
        id: string;
        idea: string;
-       category: string | null;
        overall_score: number;
        validation_count: number;
        created_at: string;
