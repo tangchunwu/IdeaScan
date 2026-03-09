@@ -109,7 +109,7 @@ const ChatImage = React.forwardRef<HTMLDivElement, { src?: string; alt?: string 
 
   return (
     <>
-      <div className="relative group cursor-pointer inline-block" onClick={() => setPreview(true)}>
+      <div ref={ref} className="relative group cursor-pointer inline-block" onClick={() => setPreview(true)}>
         {!loaded && <Skeleton className="absolute inset-0 rounded-xl" />}
         <img
           src={src}
@@ -131,7 +131,7 @@ const ChatImage = React.forwardRef<HTMLDivElement, { src?: string; alt?: string 
       </Dialog>
     </>
   );
-}
+});
 
 const markdownComponents = {
   img: ({ src, alt }: { src?: string; alt?: string }) => <ChatImage src={src} alt={alt} />,
