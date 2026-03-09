@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface OpenClawSession {
   session_id: string;
-  last_message: string;
+  /** First user message as session title */
+  title: string;
   last_at: string;
   message_count: number;
 }
@@ -16,33 +17,45 @@ export function useOpenClawSessions(userId: string | undefined) {
     if (!userId) { setSessions([]); return; }
     setLoading(true);
     try {
-      // Get all messages grouped by session_id, ordered by latest first
       const { data } = await supabase
         .from('openclaw_messages' as any)
         .select('session_id, content, created_at, role')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (!data) { setSessions([]); return; }
 
-      const map = new Map<string, OpenClawSession>();
+      const map = new Map<string, { title: string; last_at: string; count: number }>();
       for (const row of data as any[]) {
         const sid = row.session_id as string;
-        if (!map.has(sid)) {
-          // First row per session is the latest message (desc order)
-          const preview = row.role === 'user' ? row.content : row.content;
-          map.set(sid, {
-            session_id: sid,
-            last_message: (preview || '').slice(0, 80),
-            last_at: row.created_at,
-            message_count: 1,
-          });
+        const existing = map.get(sid);
+        if (!existing) {
+          // Use first user message as title, fallback to any content
+          const title = row.role === 'user'
+            ? (row.content || '').replace(/\n/g, ' ').slice(0, 60)
+            : '';
+          map.set(sid, { title, last_at: row.created_at, count: 1 });
         } else {
-          map.get(sid)!.message_count++;
+          existing.count++;
+          existing.last_at = row.created_at; // keep updating to latest
+          // If title is still empty, try to grab first user message
+          if (!existing.title && row.role === 'user') {
+            existing.title = (row.content || '').replace(/\n/g, ' ').slice(0, 60);
+          }
         }
       }
 
-      setSessions(Array.from(map.values()));
+      // Sort by last_at descending
+      const result: OpenClawSession[] = Array.from(map.entries())
+        .map(([session_id, v]) => ({
+          session_id,
+          title: v.title || '新对话',
+          last_at: v.last_at,
+          message_count: v.count,
+        }))
+        .sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
+
+      setSessions(result);
     } finally {
       setLoading(false);
     }

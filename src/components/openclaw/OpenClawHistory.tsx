@@ -1,7 +1,6 @@
-import React from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useOpenClawSessions, type OpenClawSession } from "@/hooks/useOpenClawSessions";
-import { MessageSquare, Clock, Loader2 } from "lucide-react";
+import { useOpenClawSessions } from "@/hooks/useOpenClawSessions";
+import { MessageSquare, Clock, Loader2, MessageCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,33 +35,43 @@ export function OpenClawHistory({ currentSessionId, onSelectSession }: OpenClawH
 
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-1 p-2">
-        {sessions.map((s) => (
-          <button
-            key={s.session_id}
-            onClick={() => onSelectSession(s.session_id)}
-            className={`w-full text-left rounded-xl px-3 py-2.5 transition-all duration-200 group ${
-              s.session_id === currentSessionId
-                ? "bg-primary/10 border border-primary/20"
-                : "hover:bg-muted/40 border border-transparent"
-            }`}
-          >
-            <p className={`text-sm truncate leading-snug ${
-              s.session_id === currentSessionId ? "text-primary font-medium" : "text-foreground/90"
-            }`}>
-              {s.last_message || "新对话"}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <Clock className="w-3 h-3 text-muted-foreground/50" />
-              <span className="text-[10px] text-muted-foreground/60">
-                {formatDistanceToNow(new Date(s.last_at), { addSuffix: true, locale: zhCN })}
-              </span>
-              <span className="text-[10px] text-muted-foreground/40">
-                · {s.message_count} 条
-              </span>
-            </div>
-          </button>
-        ))}
+      <div className="space-y-0.5 p-1.5">
+        {sessions.map((s) => {
+          const isActive = s.session_id === currentSessionId;
+          return (
+            <button
+              key={s.session_id}
+              onClick={() => onSelectSession(s.session_id)}
+              className={`w-full text-left rounded-lg px-3 py-2 transition-all duration-150 group overflow-hidden ${
+                isActive
+                  ? "bg-primary/10 shadow-sm"
+                  : "hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                <MessageCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                  isActive ? "text-primary" : "text-muted-foreground/40"
+                }`} />
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[13px] leading-tight truncate ${
+                    isActive ? "text-primary font-medium" : "text-foreground/80"
+                  }`}>
+                    {s.title}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] text-muted-foreground/50">
+                      {formatDistanceToNow(new Date(s.last_at), { addSuffix: true, locale: zhCN })}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/30">·</span>
+                    <span className="text-[10px] text-muted-foreground/40">
+                      {s.message_count} 条
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </ScrollArea>
   );
