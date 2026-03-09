@@ -17,6 +17,7 @@ interface OpenClawChannelProps {
   initialMessage?: string;
   sessionId?: string;
   onNewSession?: () => void;
+  historyToggle?: React.ReactNode;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -150,7 +151,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession, historyToggle }: OpenClawChannelProps) {
   const { user } = useAuth();
   const { connections } = useOpenClawConnections(user?.id);
   const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
@@ -240,7 +241,8 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     <div className={`flex flex-col h-full ${className}`}>
       {/* Header - Refined */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 backdrop-blur-sm bg-background/80">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {historyToggle}
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-sm">
             <Bot className="w-4 h-4 text-primary-foreground" />
           </div>
