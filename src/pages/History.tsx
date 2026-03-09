@@ -534,6 +534,25 @@ const History = () => {
               )}
         </div>
       </main>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm?.type === 'batch'
+                ? `确定要删除选中的 ${selectedIds.size} 条验证记录吗？此操作不可撤销。`
+                : '确定要删除这条验证记录吗？此操作不可撤销。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageBackground>
   );
 };

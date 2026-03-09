@@ -501,7 +501,7 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
                 <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><BarChart3 className="w-4 h-4" /><span className="sm:inline">概览</span><span className="hidden sm:inline"> </span></TabsTrigger>

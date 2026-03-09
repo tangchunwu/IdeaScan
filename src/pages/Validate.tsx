@@ -485,6 +485,7 @@ const Validate = () => {
                   <Target className="w-5 h-5 mr-2" />
                   验证我的想法
                 </Button>
+                <p className="text-xs text-muted-foreground mt-2">按 ⌘/Ctrl + Enter 快速提交</p>
               </div>
             )}
           </div>
