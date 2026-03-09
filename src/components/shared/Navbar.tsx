@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog } from "lucide-react";
+import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
