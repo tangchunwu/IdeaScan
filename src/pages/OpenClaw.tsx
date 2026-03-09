@@ -112,6 +112,12 @@ export default function OpenClawPage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="content" className="mt-0">
+            <Suspense fallback={<BrandLoader text="加载内容工作室..." />}>
+              <ContentStudioInline />
+            </Suspense>
+          </TabsContent>
+
           <TabsContent value="settings" className="mt-0">
             <OpenClawSettings />
           </TabsContent>
