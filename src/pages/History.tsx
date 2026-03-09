@@ -281,45 +281,48 @@ const History = () => {
                   className="pl-10 rounded-xl border-border/50 bg-background/50"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as "all" | "completed" | "processing" | "failed")}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="all">全部状态</option>
-                  <option value="completed">已完成</option>
-                  <option value="processing">分析中</option>
-                  <option value="failed">失败</option>
-                </select>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "completed" | "processing" | "failed")}>
+                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="completed">已完成</SelectItem>
+                    <SelectItem value="processing">分析中</SelectItem>
+                    <SelectItem value="failed">失败</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {/* Score Filter Dropdown */}
-                <select
-                  value={scoreFilter}
-                  onChange={(e) => setScoreFilter(e.target.value as "all" | "high" | "medium" | "low")}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="all">全部评分</option>
-                  <option value="high">高分 (≥80)</option>
-                  <option value="medium">中等 (60-79)</option>
-                  <option value="low">低分 (&lt;60)</option>
-                </select>
+                {/* Score Filter */}
+                <Select value={scoreFilter} onValueChange={(v) => setScoreFilter(v as "all" | "high" | "medium" | "low")}>
+                  <SelectTrigger className="w-[130px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部评分</SelectItem>
+                    <SelectItem value="high">高分 (≥80)</SelectItem>
+                    <SelectItem value="medium">中等 (60-79)</SelectItem>
+                    <SelectItem value="low">低分 (&lt;60)</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {/* Sort Dropdown */}
-                <select
-                  value={`${sortBy}-${sortOrder}`}
-                  onChange={(e) => {
-                    const [by, order] = e.target.value.split("-") as ["date" | "score", "asc" | "desc"];
-                    setSortBy(by);
-                    setSortOrder(order);
-                  }}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="date-desc">最新优先</option>
-                  <option value="date-asc">最早优先</option>
-                  <option value="score-desc">高分优先</option>
-                </select>
+                {/* Sort */}
+                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(v) => {
+                  const [by, order] = v.split("-") as ["date" | "score", "asc" | "desc"];
+                  setSortBy(by);
+                  setSortOrder(order);
+                }}>
+                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">最新优先</SelectItem>
+                    <SelectItem value="date-asc">最早优先</SelectItem>
+                    <SelectItem value="score-desc">高分优先</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl md:hidden" onClick={toggleAll}>
                   {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <div className="w-4 h-4 border-2 border-muted rounded" />}
