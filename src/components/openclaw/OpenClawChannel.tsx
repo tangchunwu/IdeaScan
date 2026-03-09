@@ -156,6 +156,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
   const sessionId = externalSessionId || internalSessionId;
+  const [input, setInput] = useState("");
   const [initialSent, setInitialSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
