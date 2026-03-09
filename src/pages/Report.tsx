@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,9 +47,17 @@ const Report = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
+  const location = useLocation();
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [isRecrawling, setIsRecrawling] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const validTabs = ["overview", "market", "competitors", "ai", "circle", "notes"];
+  const initialTab = validTabs.includes(location.hash.replace("#", "")) ? location.hash.replace("#", "") : "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, "", `#${tab}`);
+  };
   const [scrollProgress, setScrollProgress] = useState(0);
   const settings = useSettings();
   useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", [data?.validation?.idea]);
@@ -283,7 +291,11 @@ const Report = () => {
       
       await navigator.clipboard.writeText(shareUrl);
       captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
-      toast({ title: "分享链接已复制", description: "任何人都可以通过此链接查看报告（无需登录）" });
+      toast({
+        title: "分享链接已复制",
+        description: shareUrl,
+        action: { label: "打开", onClick: () => window.open(shareUrl, "_blank") },
+      });
     } catch (e) {
       console.error("Share error:", e);
       toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
@@ -489,7 +501,7 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
                 <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><BarChart3 className="w-4 h-4" /><span className="sm:inline">概览</span><span className="hidden sm:inline"> </span></TabsTrigger>

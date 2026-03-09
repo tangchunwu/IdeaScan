@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Validation } from "@/services/validationService";
 import { useValidations, useDeleteValidation } from "@/hooks/useValidation";
@@ -38,22 +42,25 @@ const History = () => {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
   const deleteMutation = useDeleteValidation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'single' | 'batch'; id?: string } | null>(null);
 
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
 
-  // Filter by search and score
+  // Filter by search, score and status
   const filteredItems = validations
     .filter(item =>
       item.idea.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
     )
     .filter(item => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (scoreFilter === "all") return true;
       const score = item.overall_score || 0;
       if (scoreFilter === "high") return score >= 80;
@@ -73,16 +80,22 @@ const History = () => {
       }
     });
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
+  const confirmDelete = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeleteConfirm({ type: 'single', id });
+  };
+
+  const confirmBatchDelete = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteConfirm({ type: 'batch' });
+  };
+
+  const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
       await deleteMutation.mutateAsync(id);
       captureEvent('validation_deleted', { validation_id: id });
-      toast({
-        title: "删除成功",
-        description: "验证记录已删除",
-      });
+      toast({ title: "删除成功", description: "验证记录已删除" });
       if (selectedIds.has(id)) {
         const next = new Set(selectedIds);
         next.delete(id);
@@ -90,11 +103,7 @@ const History = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "删除失败";
-      toast({
-        title: "删除失败",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
     } finally {
       setDeletingId(null);
     }
@@ -102,25 +111,27 @@ const History = () => {
 
   const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return;
-
     setIsBatchDeleting(true);
     try {
       await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
       captureEvent('validation_batch_deleted', { count: selectedIds.size });
-      toast({
-        title: "批量删除成功",
-        description: `已删除 ${selectedIds.size} 条记录`,
-      });
+      toast({ title: "批量删除成功", description: `已删除 ${selectedIds.size} 条记录` });
       setSelectedIds(new Set());
     } catch (error) {
-      toast({
-        title: "部分删除失败",
-        description: "请刷新重试",
-        variant: "destructive",
-      });
+      toast({ title: "部分删除失败", description: "请刷新重试", variant: "destructive" });
     } finally {
       setIsBatchDeleting(false);
     }
+  };
+
+  const executeDeleteConfirm = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === 'single' && deleteConfirm.id) {
+      handleDelete(deleteConfirm.id);
+    } else {
+      handleBatchDelete();
+    }
+    setDeleteConfirm(null);
   };
 
   const toggleSelection = (id: string) => {
@@ -242,7 +253,7 @@ const History = () => {
                   <Button
                     variant="destructive"
                     className="rounded-xl animate-fade-in"
-                    onClick={handleBatchDelete}
+                    onClick={confirmBatchDelete}
                     disabled={isBatchDeleting}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
@@ -272,6 +283,18 @@ const History = () => {
                 />
               </div>
               <div className="flex gap-2">
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "all" | "completed" | "processing" | "failed")}
+                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">全部状态</option>
+                  <option value="completed">已完成</option>
+                  <option value="processing">分析中</option>
+                  <option value="failed">失败</option>
+                </select>
+
                 {/* Score Filter Dropdown */}
                 <select
                   value={scoreFilter}
@@ -442,7 +465,7 @@ const History = () => {
                             variant="ghost"
                             size="sm"
                             className="rounded-lg text-muted-foreground hover:text-destructive"
-                            onClick={(e) => handleDelete(item.id, e)}
+                            onClick={(e) => confirmDelete(item.id, e)}
                             disabled={deletingId === item.id}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -515,6 +538,25 @@ const History = () => {
               )}
         </div>
       </main>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm?.type === 'batch'
+                ? `确定要删除选中的 ${selectedIds.size} 条验证记录吗？此操作不可撤销。`
+                : '确定要删除这条验证记录吗？此操作不可撤销。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageBackground>
   );
 };

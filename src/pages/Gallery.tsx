@@ -1,7 +1,8 @@
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { PageBackground, GlassCard, Navbar, LoadingSpinner, EmptyState } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, EmptyState } from "@/components/shared";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,10 +91,28 @@ const Gallery = () => {
             </div>
           )}
 
-          {/* Loading */}
+          {/* Loading Skeleton */}
           {loading && (
-            <div className="py-20">
-              <LoadingSpinner size="lg" text="加载精选报告..." />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <GlassCard key={i} className="h-full animate-pulse">
+                  <div className="flex items-start justify-between mb-3">
+                    <Skeleton className="h-5 w-16 rounded" />
+                    <Skeleton className="h-8 w-12 rounded" />
+                  </div>
+                  <Skeleton className="h-5 w-full mb-1 rounded" />
+                  <Skeleton className="h-5 w-3/4 mb-4 rounded" />
+                  <div className="flex gap-1.5 mb-4">
+                    <Skeleton className="h-4 w-12 rounded" />
+                    <Skeleton className="h-4 w-14 rounded" />
+                    <Skeleton className="h-4 w-10 rounded" />
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-border/30">
+                    <Skeleton className="h-3 w-20 rounded" />
+                    <Skeleton className="h-3 w-14 rounded" />
+                  </div>
+                </GlassCard>
+              ))}
             </div>
           )}
 
