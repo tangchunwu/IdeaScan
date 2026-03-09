@@ -199,6 +199,8 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
           id: crypto.randomUUID(),
           role: 'assistant',
           content: `⚠️ 连接失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          is_error: true,
+          retry_prompt: content.trim() || undefined,
           created_at: new Date().toISOString(),
         }]);
       }
