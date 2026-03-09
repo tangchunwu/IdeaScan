@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link, useNavigate } from "react-router-dom";
 import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
@@ -42,6 +42,7 @@ const History = () => {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
   const deleteMutation = useDeleteValidation();
@@ -53,7 +54,14 @@ const History = () => {
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
 
-  // Filter by search, score and status
+  // Collect all unique tags for the filter
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    validations.forEach(v => v.tags.forEach(t => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [validations]);
+
+  // Filter by search, score, status and tag
   const filteredItems = validations
     .filter(item =>
       item.idea.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,6 +69,7 @@ const History = () => {
     )
     .filter(item => {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (tagFilter !== "all" && !item.tags.includes(tagFilter)) return false;
       if (scoreFilter === "all") return true;
       const score = item.overall_score || 0;
       if (scoreFilter === "high") return score >= 80;
@@ -487,7 +496,20 @@ const History = () => {
                   </>
                 )}
               </div>
-
+                {/* Tag Filter */}
+                {allTags.length > 0 && (
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                      <SelectValue placeholder="标签筛选" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部标签</SelectItem>
+                      {allTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
               {/* Idea Comparison - 想法对比功能 */}
               {validations.filter(v => v.overall_score && v.status === 'completed').length >= 2 && (
