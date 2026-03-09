@@ -205,6 +205,33 @@ export const hunterService = {
 		return (data || []) as unknown as RawMarketSignal[];
 	},
 
+	// === Scheduler Config ===
+
+	async getSchedulerConfig(): Promise<{ enabled: boolean; interval_minutes: number; last_toggled_at: string | null }> {
+		const { data, error } = await fromTable("scheduler_config")
+			.select("*")
+			.eq("id", "hunter_scheduler")
+			.single();
+
+		if (error) throw error;
+		return data as any;
+	},
+
+	async toggleScheduler(enabled: boolean): Promise<void> {
+		const { data: { user } } = await supabase.auth.getUser();
+		if (!user) throw new Error("Must be logged in");
+
+		const { error } = await fromTable("scheduler_config")
+			.update({
+				enabled,
+				last_toggled_at: new Date().toISOString(),
+				toggled_by: user.id,
+			})
+			.eq("id", "hunter_scheduler");
+
+		if (error) throw error;
+	},
+
 	// Helper to get platform icon/color
 	getPlatformInfo(source: string) {
 		switch (source.toLowerCase()) {

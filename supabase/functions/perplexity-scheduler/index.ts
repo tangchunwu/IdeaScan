@@ -421,6 +421,33 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ── 检查调度开关（cron 触发时，若 disabled 则跳过）──
+    let isCronTrigger = false;
+    try {
+      const body = await req.json();
+      isCronTrigger = body?.source === "cron";
+    } catch {}
+
+    if (isCronTrigger) {
+      const checkSupabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const { data: config } = await checkSupabase
+        .from("scheduler_config")
+        .select("enabled")
+        .eq("id", "hunter_scheduler")
+        .single();
+
+      if (!config?.enabled) {
+        console.log("[scheduler] Cron triggered but scheduler is disabled, skipping.");
+        return new Response(
+          JSON.stringify({ success: true, message: "Scheduler disabled, skipping" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const baseUrl = Deno.env.get("PERPLEXITY_BASE_URL");
     const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
     if (!baseUrl || !apiKey) {

@@ -190,11 +190,40 @@ const AdminMonitorTab = () => {
        const [loading, setLoading] = useState(true);
        const [expandedId, setExpandedId] = useState<string | null>(null);
        const [isProcessing, setIsProcessing] = useState(false);
+       const [schedulerEnabled, setSchedulerEnabled] = useState(false);
+       const [schedulerLoading, setSchedulerLoading] = useState(true);
+       const [togglingScheduler, setTogglingScheduler] = useState(false);
        const { toast } = useToast();
 
        useEffect(() => {
               loadData();
+              loadSchedulerConfig();
        }, []);
+
+       const loadSchedulerConfig = async () => {
+              setSchedulerLoading(true);
+              try {
+                     const config = await hunterService.getSchedulerConfig();
+                     setSchedulerEnabled(config.enabled);
+              } catch (e) {
+                     console.error("Failed to load scheduler config:", e);
+              } finally {
+                     setSchedulerLoading(false);
+              }
+       };
+
+       const handleToggleScheduler = async (enabled: boolean) => {
+              setTogglingScheduler(true);
+              try {
+                     await hunterService.toggleScheduler(enabled);
+                     setSchedulerEnabled(enabled);
+                     toast({ title: enabled ? "✅ 24小时扫描已启动" : "⏸️ 24小时扫描已暂停" });
+              } catch (e: any) {
+                     toast({ title: "操作失败", description: e.message, variant: "destructive" });
+              } finally {
+                     setTogglingScheduler(false);
+              }
+       };
 
        const loadData = async () => {
               setLoading(true);
@@ -257,10 +286,28 @@ const AdminMonitorTab = () => {
                                           <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
                                    </GlassCard>
                             ))}
-                     </div>
+                      </div>
 
-                     {/* Actions */}
-                     <div className="flex gap-3">
+                      {/* Scheduler Control */}
+                      <GlassCard className="flex items-center justify-between p-4">
+                             <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 rounded-full ${schedulerEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                                    <div>
+                                           <h4 className="font-bold text-foreground text-sm">24 小时自动扫描</h4>
+                                           <p className="text-xs text-muted-foreground">
+                                                  {schedulerEnabled ? '每小时自动扫描全网趋势' : '当前已暂停，点击开关启动'}
+                                           </p>
+                                    </div>
+                             </div>
+                             <Switch
+                                    checked={schedulerEnabled}
+                                    onCheckedChange={handleToggleScheduler}
+                                    disabled={schedulerLoading || togglingScheduler}
+                             />
+                      </GlassCard>
+
+                      {/* Actions */}
+                      <div className="flex gap-3">
                             <Button variant="outline" size="sm" onClick={handleProcess} disabled={isProcessing} className="gap-2">
                                    <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
                                    {isProcessing ? "处理中..." : "触发 AI 处理"}

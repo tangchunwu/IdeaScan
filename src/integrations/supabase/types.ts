@@ -946,6 +946,30 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduler_config: {
+        Row: {
+          enabled: boolean
+          id: string
+          interval_minutes: number
+          last_toggled_at: string | null
+          toggled_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          interval_minutes?: number
+          last_toggled_at?: string | null
+          toggled_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          interval_minutes?: number
+          last_toggled_at?: string | null
+          toggled_by?: string | null
+        }
+        Relationships: []
+      }
       trending_topics: {
         Row: {
           avg_engagement: number | null
