@@ -77,21 +77,21 @@ export default function OpenClawPage() {
               )}
 
               {/* Chat area */}
-              <div className="flex-1 rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden relative">
-                {!showHistory && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-3 left-3 z-10 h-8 w-8 p-0 backdrop-blur-sm bg-background/50"
-                    onClick={() => setShowHistory(true)}
-                  >
-                    <PanelLeft className="w-4 h-4 text-muted-foreground" />
-                  </Button>
-                )}
+              <div className="flex-1 rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
                 <OpenClawChannel
                   initialMessage={initialMessage}
                   sessionId={sessionId}
                   onNewSession={handleNewSession}
+                  historyToggle={!showHistory ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setShowHistory(true)}
+                    >
+                      <PanelLeft className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  ) : undefined}
                 />
               </div>
             </div>

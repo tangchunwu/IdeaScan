@@ -17,6 +17,7 @@ interface OpenClawChannelProps {
   initialMessage?: string;
   sessionId?: string;
   onNewSession?: () => void;
+  historyToggle?: React.ReactNode;
 }
 
 const TOOL_LABELS: Record<string, string> = {
