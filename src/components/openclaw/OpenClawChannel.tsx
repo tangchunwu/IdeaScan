@@ -150,10 +150,10 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession }: OpenClawChannelProps) {
   const { user } = useAuth();
   const { connections } = useOpenClawConnections(user?.id);
-  const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
+  const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
   const [input, setInput] = useState("");
   const [initialSent, setInitialSent] = useState(false);
