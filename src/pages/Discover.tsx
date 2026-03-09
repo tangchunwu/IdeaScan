@@ -313,6 +313,123 @@ export default function Discover() {
           <TabsContent value="hunter">
             <HunterSection />
           </TabsContent>
+          {/* Tab 3: Gallery */}
+          <TabsContent value="gallery" className="space-y-8 animate-fade-in">
+            {/* Stats */}
+            {!galleryLoading && galleryReports.length > 0 && (
+              <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
+                <GlassCard className="text-center py-3">
+                  <p className="text-2xl font-bold text-primary">{galleryReports.length}</p>
+                  <p className="text-xs text-muted-foreground">精选报告</p>
+                </GlassCard>
+                <GlassCard className="text-center py-3">
+                  <p className="text-2xl font-bold text-secondary">
+                    {Math.round(galleryReports.reduce((a, b) => a + b.overall_score, 0) / galleryReports.length)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">平均分</p>
+                </GlassCard>
+                <GlassCard className="text-center py-3">
+                  <p className="text-2xl font-bold text-foreground">{galleryReports[0]?.overall_score || 0}</p>
+                  <p className="text-xs text-muted-foreground">最高分</p>
+                </GlassCard>
+              </div>
+            )}
+
+            {/* Loading */}
+            {galleryLoading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <GlassCard key={i} className="h-full animate-pulse">
+                    <div className="flex items-start justify-between mb-3">
+                      <Skeleton className="h-5 w-16 rounded" />
+                      <Skeleton className="h-8 w-12 rounded" />
+                    </div>
+                    <Skeleton className="h-5 w-full mb-1 rounded" />
+                    <Skeleton className="h-5 w-3/4 mb-4 rounded" />
+                    <div className="flex gap-1.5 mb-4">
+                      <Skeleton className="h-4 w-12 rounded" />
+                      <Skeleton className="h-4 w-14 rounded" />
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
+            )}
+
+            {/* Empty */}
+            {!galleryLoading && galleryReports.length === 0 && (
+              <EmptyState
+                icon={Search}
+                title="暂无公开报告"
+                description="还没有用户分享他们的验证报告。成为第一个分享者！"
+                actionLabel="开始验证"
+                actionLink="/validate"
+              />
+            )}
+
+            {/* Report Grid */}
+            {!galleryLoading && galleryReports.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {galleryReports.map((report, index) => (
+                  <Link
+                    key={report.id}
+                    to={`/share/${report.share_token}`}
+                    className="group"
+                  >
+                    <GlassCard
+                      hover
+                      className="h-full animate-slide-up transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/10"
+                      style={{ animationDelay: `${index * 60}ms` }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <Badge variant="outline" className={`text-xs ${getScoreColor(report.overall_score)}`}>
+                          {getScoreLabel(report.overall_score)}
+                        </Badge>
+                        <div className="text-right">
+                          <span className={`text-2xl font-bold ${getScoreColor(report.overall_score)}`}>
+                            {report.overall_score}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/100</span>
+                        </div>
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                        {report.idea}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {(report.tags || []).slice(0, 3).map((tag, i) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] px-2 py-0 bg-muted/40">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between pt-3 border-t border-border/30">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(report.created_at).toLocaleDateString("zh-CN")}
+                        </span>
+                        <span className="text-xs text-primary flex items-center gap-1 group-hover:underline">
+                          <Eye className="w-3 h-3" />
+                          查看报告
+                        </span>
+                      </div>
+                    </GlassCard>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="text-center mt-4">
+              <GlassCard className="inline-block px-8 py-6">
+                <Sparkles className="w-8 h-8 text-primary mx-auto mb-3" />
+                <h3 className="text-lg font-bold mb-2">想让你的报告也出现在这里？</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  完成验证后，点击"分享"按钮即可将报告公开展示
+                </p>
+                <Button asChild className="rounded-full">
+                  <Link to="/validate">免费开始验证</Link>
+                </Button>
+              </GlassCard>
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
     </PageBackground>
