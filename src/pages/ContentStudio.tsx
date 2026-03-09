@@ -28,7 +28,7 @@ export default function ContentStudioPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { drafts, isLoading, createDraft, updateDraft, deleteDraft } = useContentDrafts();
-  const { connections } = useOpenClawConnections();
+  const { connections } = useOpenClawConnections(user?.id);
 
   const [topic, setTopic] = useState("");
   const [voiceTone, setVoiceTone] = useState("");
