@@ -17,7 +17,6 @@ import { SettingsDialog } from "./SettingsDialog";
 const navItems = [
   { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true, tourId: "nav-validate" },
   { path: "/discover", label: "热点雷达", icon: Radar, requireAuth: false, tourId: "nav-discover" },
-  { path: "/gallery", label: "精选报告", icon: Award, requireAuth: false, tourId: "nav-gallery" },
   { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
   { path: "/openclaw", label: "OpenClaw", icon: Cog, requireAuth: true, tourId: "nav-openclaw" },
 ];
