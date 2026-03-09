@@ -273,7 +273,7 @@ export const hunterService = {
 
 		// Build a map of date -> count from fetched rows
 		const countMap = new Map<string, number>();
-		for (const row of (data || []) as { scanned_at: string }[]) {
+		for (const row of ((data || []) as unknown as { scanned_at: string }[])) {
 			const d = new Date(row.scanned_at);
 			const key = `${d.getMonth() + 1}/${d.getDate()}`;
 			countMap.set(key, (countMap.get(key) || 0) + 1);
