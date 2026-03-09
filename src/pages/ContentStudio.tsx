@@ -123,7 +123,14 @@ export default function ContentStudioPage() {
 
   const draftsByPlatform = (platform: DraftPlatform) => drafts.filter(d => d.platform === platform);
 
-  return <ContentStudioInner draftsByPlatform={draftsByPlatform} {...{ topic, setTopic, voiceTone, setVoiceTone, voicePersona, setVoicePersona, voiceKeywords, setVoiceKeywords, generating, handleGenerate, activeTab, setActiveTab, isLoading, drafts, handleUpdateDraft, handleDeleteDraft, handleSaveDraft }} />;
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="container max-w-5xl mx-auto pt-28 pb-12 px-4">
+        <ContentStudioInner draftsByPlatform={draftsByPlatform} {...{ topic, setTopic, voiceTone, setVoiceTone, voicePersona, setVoicePersona, voiceKeywords, setVoiceKeywords, generating, handleGenerate, activeTab, setActiveTab, isLoading, drafts, handleUpdateDraft, handleDeleteDraft, handleSaveDraft }} />
+      </div>
+    </div>
+  );
 }
 
 /** Inline version for embedding in OpenClaw page (no Navbar/wrapper) */
