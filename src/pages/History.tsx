@@ -348,11 +348,6 @@ const History = () => {
           {/* Main Content */}
           {/* Stats Dashboard */}
           <HistoryStatsBar validations={validations} />
-              {/* Weekly Summary + Referral */}
-              <WeeklySummaryCard />
-
-              {/* Sample Reports Section */}
-              <SampleReports />
 
               {/* My Reports Header */}
               {filteredItems.length > 0 && (
