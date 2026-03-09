@@ -206,12 +206,14 @@ const AdminMonitorTab = () => {
        const loadSchedulerConfig = async () => {
               setSchedulerLoading(true);
               try {
-                     const [config, cron] = await Promise.all([
-                            hunterService.getSchedulerConfig(),
-                            hunterService.getLastCronRun(),
-                     ]);
-                     setSchedulerEnabled(config.enabled);
-                     setCronInfo(cron);
+                      const [config, cron, trend] = await Promise.all([
+                             hunterService.getSchedulerConfig(),
+                             hunterService.getLastCronRun(),
+                             hunterService.getInsightTrend7Days(),
+                      ]);
+                      setSchedulerEnabled(config.enabled);
+                      setCronInfo(cron);
+                      setTrendData(trend);
               } catch (e) {
                      console.error("Failed to load scheduler config:", e);
               } finally {
