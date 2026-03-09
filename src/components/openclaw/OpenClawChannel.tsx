@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Send, Loader2, StopCircle, Bot, User, Plus,
-  Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn,
+  Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
