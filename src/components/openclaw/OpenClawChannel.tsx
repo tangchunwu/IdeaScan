@@ -257,15 +257,30 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         </div>
         <div className="flex items-center gap-2">
           {connections.length > 1 && (
-            <select
-              className="text-xs bg-muted/30 backdrop-blur-sm border border-border/40 rounded-lg px-2 py-1.5 text-foreground/80 hover:bg-muted/50 transition-colors cursor-pointer"
-              value={activeConnectionId || ""}
-              onChange={e => setSelectedConnectionId(e.target.value || undefined)}
-            >
-              {connections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}{c.is_default ? " ✓" : ""}</option>
-              ))}
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-border/40 bg-muted/20 hover:bg-muted/40">
+                  <Server className="w-3 h-3 text-muted-foreground" />
+                  {activeConnection?.name || "选择连接"}
+                  <ChevronDown className="w-3 h-3 text-muted-foreground/60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                {connections.map(c => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onClick={() => setSelectedConnectionId(c.id)}
+                    className="text-xs gap-2 cursor-pointer"
+                  >
+                    <Server className="w-3 h-3 text-muted-foreground/60" />
+                    <span className="flex-1">{c.name}</span>
+                    {c.id === activeConnectionId && (
+                      <Check className="w-3.5 h-3.5 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button 
             variant="ghost" 
