@@ -54,7 +54,14 @@ const History = () => {
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
 
-  // Filter by search, score and status
+  // Collect all unique tags for the filter
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    validations.forEach(v => v.tags.forEach(t => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [validations]);
+
+  // Filter by search, score, status and tag
   const filteredItems = validations
     .filter(item =>
       item.idea.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,6 +69,7 @@ const History = () => {
     )
     .filter(item => {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (tagFilter !== "all" && !item.tags.includes(tagFilter)) return false;
       if (scoreFilter === "all") return true;
       const score = item.overall_score || 0;
       if (scoreFilter === "high") return score >= 80;
