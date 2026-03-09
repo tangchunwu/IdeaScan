@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
-import { WeeklySummaryCard } from "@/components/report/WeeklySummaryCard";
 import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
