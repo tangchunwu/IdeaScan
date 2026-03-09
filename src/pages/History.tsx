@@ -307,7 +307,7 @@ const History = () => {
 
                 {/* Score Filter */}
                 <Select value={scoreFilter} onValueChange={(v) => setScoreFilter(v as "all" | "high" | "medium" | "low")}>
-                  <SelectTrigger className="w-[130px] rounded-xl border-border/50 bg-background/50">
+                  <SelectTrigger className="w-full sm:w-[130px] rounded-xl border-border/50 bg-background/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
