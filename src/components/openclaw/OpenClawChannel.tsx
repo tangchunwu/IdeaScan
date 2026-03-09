@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface OpenClawChannelProps {
   className?: string;
   initialMessage?: string;
+  sessionId?: string;
+  onNewSession?: () => void;
 }
 
 const TOOL_LABELS: Record<string, string> = {
