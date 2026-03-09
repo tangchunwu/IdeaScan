@@ -1,67 +1,55 @@
-# IdeaScan 优化计划
 
-## ✅ 全部已完成
 
-| 改进项 | 状态 |
-|--------|------|
-| Discover 匿名用户开放（Top 5 热点） | ✅ |
-| 动态 SEO 标题（8 个页面） | ✅ |
-| Validate.tsx 拆分重构（850→310 行） | ✅ |
-| 移动端 Navbar 增加设置入口 | ✅ |
-| SocialProofCounter 真实数据 | ✅ |
-| HotTrends "发现更多"CTA | ✅ |
-| Toast 通知统一（sonner bridge） | ✅ |
-| Edge Function 错误友好化映射 | ✅ |
-| PDF 导出进度提示 | ✅ |
-| Report 移动端适配优化 | ✅ |
-| 付费转化路径（免费配额集成） | ✅ |
-| 报告公开分享功能（OG meta tags） | ✅ |
-| 首页内联输入框 + 示例报告链接 | ✅ |
-| 品牌名统一为 IdeaScan | ✅ |
-| 报告页 QuickInsightsCards 三卡片 | ✅ |
-| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
-| Validate 高级选项折叠 | ✅ |
-| 验证模式默认深度（移除模式选择 UI） | ✅ |
-| 首页用户评价区（TestimonialSection） | ✅ |
+# 项目优化计划：用户体验 & 功能完善
 
-## 竞品对标优化
+## 一、用户体验优化
 
-| 改进项 | 状态 |
-|--------|------|
-| Phase 1: 竞品分析结构化卡片 | ✅ |
-| Phase 2: 风险与缓解建议卡片 | ✅ |
-| Phase 3: 变现策略模块 | ✅ |
-| Phase 4: 品牌名建议工具 | ✅ |
-| Phase 5: 市场研究资讯聚合 | ✅ |
+### 1. History 页面：删除确认对话框
+当前单条/批量删除没有二次确认，容易误操作。添加 AlertDialog 确认弹窗。
 
-## Phase 6: 留存基础
+| 文件 | 改动 |
+|------|------|
+| `src/pages/History.tsx` | 删除操作前弹出 AlertDialog 确认，支持单条和批量两种场景 |
 
-| 改进项 | 状态 |
-|--------|------|
-| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
-| 报告页"重新分析"按钮显眼化 | ✅ |
-| 趋势时间线图（Overview Tab） | ✅ |
+### 2. Report 页面：Tab 切换记忆
+当前切换 Tab 后刷新页面会重置为 overview。将 activeTab 同步到 URL hash（如 `#market`），刷新后保留上次查看的 Tab。
 
-## Phase 7: 可视化升级
+| 文件 | 改动 |
+|------|------|
+| `src/pages/Report.tsx` | 从 `location.hash` 初始化 activeTab，切换时更新 hash |
 
-| 改进项 | 状态 |
-|--------|------|
-| 竞品矩阵散点图 | ✅ |
-| 情感词云 | ✅ |
-| Compare页雷达图叠加 + 差异分析 | ✅ |
+### 3. Validate 页面：提交按钮防抖 & 键盘提交
+- 空表单时 Enter 键无法提交（已有），但 Textarea 的 Enter 是换行。添加 `Ctrl/Cmd + Enter` 快捷键触发验证。
+- 提交后清除 localStorage 草稿。
 
-## Phase 8: 增长引擎
+| 文件 | 改动 |
+|------|------|
+| `src/pages/Validate.tsx` | 添加 `Ctrl+Enter` 提交、验证开始后清除草稿 |
 
-| 改进项 | 状态 |
-|--------|------|
-| 公开报告Gallery页 | ✅ |
-| 浏览器通知（验证完成） | ✅ |
-| 推荐邀请系统 | ✅ |
+### 4. Gallery 页面：加载骨架屏优化
+当前 Gallery 加载时显示 LoadingSpinner，改为与 History 一致的骨架屏卡片，减少布局跳动。
 
-## Phase 9: 高级功能（长期）
+| 文件 | 改动 |
+|------|------|
+| `src/pages/Gallery.tsx` | 替换 LoadingSpinner 为骨架屏卡片网格 |
 
-| 改进项 | 状态 |
-|--------|------|
-| 报告笔记/评论 | ✅ |
-| 协作分享 | ✅ |
-| 周报摘要 | ✅ |
+## 二、功能完善
+
+### 5. Report 分享链接：复制成功后显示预览
+当前复制链接后只有 toast 提示。改为短暂显示分享链接预览，方便用户确认。
+
+| 文件 | 改动 |
+|------|------|
+| `src/pages/Report.tsx` | 分享 toast 中展示可点击的分享链接 |
+
+### 6. History 页面：状态筛选
+当前只有评分筛选，缺少按验证状态（已完成/分析中/失败）筛选。在现有筛选下拉旁添加状态筛选。
+
+| 文件 | 改动 |
+|------|------|
+| `src/pages/History.tsx` | 添加 status filter select，支持 all/completed/processing/failed |
+
+---
+
+**涉及文件**: 4 个前端文件，无数据库改动。全部为 UI/交互层优化。
+
