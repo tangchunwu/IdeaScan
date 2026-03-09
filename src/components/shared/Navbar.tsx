@@ -25,8 +25,40 @@ const navItems = [
 export const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isLoading } = useAuth();
+  const { profile, isUploading, uploadAvatar } = useProfile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadAvatar(file);
+    e.target.value = "";
+  };
+
+  const AvatarDisplay = ({ size = "sm" }: { size?: "sm" | "md" }) => {
+    const sizeClass = size === "sm" ? "w-7 h-7" : "w-10 h-10";
+    const iconSize = size === "sm" ? "w-4 h-4" : "w-5 h-5";
+    
+    if (profile?.avatar_url) {
+      return (
+        <img
+          src={profile.avatar_url}
+          alt="头像"
+          className={cn(sizeClass, "rounded-full object-cover")}
+        />
+      );
+    }
+    return (
+      <div className={cn(sizeClass, "rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center")}>
+        <User className={cn(iconSize, "text-primary")} />
+      </div>
+    );
+  };
 
   const visibleNavItems = navItems.filter(item =>
     !item.requireAuth || user
