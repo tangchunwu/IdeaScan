@@ -432,11 +432,15 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
+              <div className={`relative group/bubble rounded-2xl px-4 py-3 text-sm shadow-sm ${
                 msg.role === "user"
                   ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
                   : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
               }`}>
+                {/* Copy button for assistant messages */}
+                {msg.role === "assistant" && msg.content && (
+                  <CopyMessageButton content={msg.content} />
+                )}
                 {msg.role === "assistant" ? (
                   <div className="space-y-2.5">
                     {msg.tool_calls && msg.tool_calls.length > 0 && (
