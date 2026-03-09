@@ -30,7 +30,7 @@ const fetchPopularValidations = async (limit: number): Promise<PopularIdea[]> =>
 
        const { data, error } = await supabase
               .from("validations")
-              .select("id, idea, category, overall_score, created_at")
+              .select("id, idea, overall_score, created_at")
               .gte("created_at", sevenDaysAgo.toISOString())
               .not("overall_score", "is", null)
               .order("created_at", { ascending: false })

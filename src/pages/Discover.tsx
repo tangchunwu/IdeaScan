@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navbar } from "@/components/shared/Navbar";
 import { PageBackground } from "@/components/shared/PageBackground";
@@ -13,10 +13,8 @@ import { Button } from "@/components/ui/button";
 import {
   getTrendingTopics,
   getPublicTrendingTopics,
-  getCategories,
-  getDiscoverStats,
+  getDiscoverStatsAndCategories,
   getUserTopicInterests,
-  TrendingTopic,
 } from "@/services/discoverService";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -52,10 +50,24 @@ export default function Discover() {
   const [minHeatScore, setMinHeatScore] = useState(0);
   const [sortBy, setSortBy] = useState<'heat_score' | 'growth_rate' | 'discovered_at' | 'quality_score' | 'validation_count'>('quality_score');
 
-  // User interests map
-  const [userInterests, setUserInterests] = useState<Map<string, 'saved' | 'validated' | 'dismissed'>>(new Map());
+  // User interests via React Query
+  const { data: userInterests = new Map<string, 'saved' | 'validated' | 'dismissed'>() } = useQuery({
+    queryKey: ['user-topic-interests', user?.id],
+    queryFn: getUserTopicInterests,
+    enabled: !!user,
+  });
 
-  // Fetch trending topics - authenticated gets full data, anonymous gets public preview
+  // Combined stats + categories in a single query
+  const { data: statsAndCategories, isLoading: statsLoading } = useQuery({
+    queryKey: ['discover-stats-categories', session?.user?.id],
+    queryFn: getDiscoverStatsAndCategories,
+    enabled: !authLoading && isAuthenticated,
+  });
+
+  const categories = statsAndCategories?.categories || [];
+  const stats = statsAndCategories;
+
+  // Fetch trending topics
   const { data: topics, isLoading: topicsLoading, error: topicsError, refetch: refetchTopics } = useQuery({
     queryKey: ['trending-topics', session?.user?.id, selectedCategory, minHeatScore, sortBy, isAuthenticated],
     queryFn: () => isAuthenticated
@@ -64,40 +76,8 @@ export default function Discover() {
     enabled: !authLoading,
   });
 
-  // Fetch categories
-  const { data: categories = [] } = useQuery({
-    queryKey: ['discover-categories', session?.user?.id],
-    queryFn: getCategories,
-    enabled: !authLoading && isAuthenticated,
-  });
-
-  // Fetch stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['discover-stats', session?.user?.id],
-    queryFn: getDiscoverStats,
-    enabled: !authLoading && isAuthenticated,
-  });
-
-  // Fetch user interests when logged in
-  useEffect(() => {
-    if (user) {
-      getUserTopicInterests().then(setUserInterests);
-    } else {
-      setUserInterests(new Map());
-    }
-  }, [user]);
-
   const handleInterestChange = (topicId: string, interest: 'saved' | 'validated' | 'dismissed' | null) => {
     captureEvent('discover_interest_changed', { topic_id: topicId, interest_type: interest });
-    setUserInterests(prev => {
-      const next = new Map(prev);
-      if (interest === null) {
-        next.delete(topicId);
-      } else {
-        next.set(topicId, interest);
-      }
-      return next;
-    });
   };
 
   const handleDeleteTopic = () => {
@@ -162,7 +142,7 @@ export default function Discover() {
             </TabsList>
           </div>
 
-          {/* Tab 1: Market Monitor (Existing Discover) */}
+          {/* Tab 1: Market Monitor */}
           <TabsContent value="market" className="space-y-8 animate-fade-in">
             {/* Stats */}
             <div className="mb-8">
@@ -247,7 +227,7 @@ export default function Discover() {
                     onBubbleClick={handleBubbleClick}
                   />
                 )}
-                {/* Login prompt for anonymous users to see more */}
+                {/* Login prompt for anonymous users */}
                 {!isAuthenticated && (
                   <div className="mt-8 text-center">
                     <div className="inline-flex flex-col items-center gap-3 p-6 rounded-2xl bg-muted/30 border border-border/30">
@@ -277,7 +257,7 @@ export default function Discover() {
             </div>
           </TabsContent>
 
-          {/* Tab 2: Hunter Radar (New Integration) */}
+          {/* Tab 2: Hunter Radar */}
           <TabsContent value="hunter">
             <HunterSection />
           </TabsContent>

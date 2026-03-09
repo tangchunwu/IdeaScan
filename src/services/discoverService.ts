@@ -18,13 +18,11 @@ export interface TrendingTopic {
   updated_at: string;
   is_active: boolean;
   created_by: string | null;
-  // New quality tracking fields
   validation_count?: number;
   avg_validation_score?: number;
   confidence_level?: 'high' | 'medium' | 'low';
   quality_score?: number;
   source_type?: 'user_validation' | 'scheduled_scan' | 'manual';
-  // User interaction state
   user_interest?: 'saved' | 'validated' | 'dismissed' | null;
 }
 
@@ -53,6 +51,15 @@ async function ensureTrendingBackfill(): Promise<void> {
   }
 }
 
+function mapTopicRow(topic: any): TrendingTopic {
+  return {
+    ...topic,
+    top_pain_points: topic.top_pain_points || [],
+    related_keywords: topic.related_keywords || [],
+    sources: (topic.sources as { platform: string; count: number }[]) || [],
+  };
+}
+
 async function queryTrendingTopics(filters: DiscoverFilters): Promise<TrendingTopic[]> {
   const { category, minHeatScore = 0, sortBy = 'heat_score', limit = 50 } = filters;
 
@@ -74,12 +81,7 @@ async function queryTrendingTopics(filters: DiscoverFilters): Promise<TrendingTo
     throw new Error('获取热点话题失败');
   }
 
-  return (data || []).map((topic: any) => ({
-    ...topic,
-    top_pain_points: topic.top_pain_points || [],
-    related_keywords: topic.related_keywords || [],
-    sources: (topic.sources as { platform: string; count: number }[]) || [],
-  }));
+  return (data || []).map(mapTopicRow);
 }
 
 // Fetch trending topics with optional filters
@@ -156,29 +158,15 @@ export async function removeTopicInterest(topicId: string): Promise<void> {
   }
 }
 
-// Get available categories
-export async function getCategories(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('trending_topics')
-    .select('category')
-    .eq('is_active', true)
-    .not('category', 'is', null);
-
-  if (error) {
-    console.error('Error fetching categories:', error);
-    return [];
-  }
-
-  const categories = [...new Set((data || []).map((d: any) => d.category).filter(Boolean) as string[])];
-  return categories.sort();
-}
-
-// Get topic statistics for dashboard
-export async function getDiscoverStats(): Promise<{
+// Combined: categories + stats in a single query
+export interface DiscoverStatsResult {
   totalTopics: number;
   avgHeatScore: number;
   topCategories: { category: string; count: number }[];
-}> {
+  categories: string[];
+}
+
+export async function getDiscoverStatsAndCategories(): Promise<DiscoverStatsResult> {
   let { data, error } = await supabase
     .from('trending_topics')
     .select('heat_score, category')
@@ -186,7 +174,7 @@ export async function getDiscoverStats(): Promise<{
 
   if (error) {
     console.error('Error fetching discover stats:', error);
-    return { totalTopics: 0, avgHeatScore: 0, topCategories: [] };
+    return { totalTopics: 0, avgHeatScore: 0, topCategories: [], categories: [] };
   }
 
   if (!data || data.length === 0) {
@@ -207,7 +195,6 @@ export async function getDiscoverStats(): Promise<{
     ? Math.round(topics.reduce((sum, t) => sum + (t.heat_score || 0), 0) / totalTopics)
     : 0;
 
-  // Count by category
   const categoryCount = new Map<string, number>();
   topics.forEach(t => {
     if (t.category) {
@@ -217,20 +204,41 @@ export async function getDiscoverStats(): Promise<{
 
   const topCategories = Array.from(categoryCount.entries())
     .map(([category, count]) => ({ category, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .sort((a, b) => b.count - a.count);
 
+  const categories = topCategories.map(c => c.category);
+
+  return {
+    totalTopics,
+    avgHeatScore,
+    topCategories: topCategories.slice(0, 5),
+    categories,
+  };
+}
+
+// Legacy wrappers (delegate to combined function)
+export async function getCategories(): Promise<string[]> {
+  const result = await getDiscoverStatsAndCategories();
+  return result.categories;
+}
+
+export async function getDiscoverStats(): Promise<{
+  totalTopics: number;
+  avgHeatScore: number;
+  topCategories: { category: string; count: number }[];
+}> {
+  const { totalTopics, avgHeatScore, topCategories } = await getDiscoverStatsAndCategories();
   return { totalTopics, avgHeatScore, topCategories };
 }
 
-// 新增：记录用户点击行为
+// 记录用户点击行为
 export async function trackTopicClick(
   topicId: string | null,
   keyword: string,
   clickType: 'view' | 'expand' | 'validate'
 ): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return; // 未登录用户不记录
+  if (!session) return;
 
   try {
     await supabase
@@ -242,7 +250,6 @@ export async function trackTopicClick(
         click_type: clickType,
       } as any);
   } catch (error) {
-    // 静默失败，不影响用户体验
     console.warn('Failed to track topic click:', error);
   }
 }
@@ -276,7 +283,7 @@ export async function getPublicTrendingTopics(limit = 5): Promise<TrendingTopic[
   }));
 }
 
-// 新增：获取热门趋势（用于首页展示，替代 PopularValidations）
+// 获取热门趋势（用于首页展示）
 export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
   let { data, error } = await supabase
     .from('trending_topics')
@@ -305,15 +312,10 @@ export async function getHotTrends(limit = 5): Promise<TrendingTopic[]> {
     }
   }
 
-  return (data || []).map((topic: any) => ({
-    ...topic,
-    top_pain_points: topic.top_pain_points || [],
-    related_keywords: topic.related_keywords || [],
-    sources: (topic.sources as { platform: string; count: number }[]) || [],
-  }));
+  return (data || []).map(mapTopicRow);
 }
 
-// 新增：获取个性化推荐 (基于用户历史验证的tags)
+// 获取个性化推荐 (基于用户历史验证的tags)
 export async function getPersonalizedRecommendations(limit = 6): Promise<TrendingTopic[]> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
@@ -367,7 +369,7 @@ export async function getPersonalizedRecommendations(limit = 6): Promise<Trendin
 
       topTags.forEach((tag, index) => {
         const tagLower = tag.toLowerCase();
-        const weight = 5 - index; // 越靠前的 tag 权重越高
+        const weight = 5 - index;
 
         if (keyword.includes(tagLower)) matchScore += weight * 3;
         if (category.includes(tagLower)) matchScore += weight * 2;
@@ -378,18 +380,11 @@ export async function getPersonalizedRecommendations(limit = 6): Promise<Trendin
     });
 
     // 6. 返回匹配度最高的话题
-    const recommended = scoredTopics
+    return scoredTopics
       .filter(item => item.matchScore > 0)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, limit)
-      .map(item => ({
-        ...item.topic,
-        top_pain_points: item.topic.top_pain_points || [],
-        related_keywords: item.topic.related_keywords || [],
-        sources: (item.topic.sources as { platform: string; count: number }[]) || [],
-      }));
-
-    return recommended;
+      .map(item => mapTopicRow(item.topic));
   } catch (error) {
     console.error('Error fetching personalized recommendations:', error);
     return [];
