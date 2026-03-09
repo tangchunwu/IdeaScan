@@ -126,11 +126,9 @@ export const Navbar = () => {
                         variant="ghost"
                         className="rounded-xl h-10 px-3 gap-2 hover:bg-muted/50"
                       >
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
+                        <AvatarDisplay size="sm" />
                         <span className="text-sm text-muted-foreground max-w-[120px] truncate">
-                          {user.email?.split('@')[0]}
+                          {profile?.display_name || user.email?.split('@')[0]}
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
