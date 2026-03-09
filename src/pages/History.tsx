@@ -496,20 +496,6 @@ const History = () => {
                   </>
                 )}
               </div>
-                {/* Tag Filter */}
-                {allTags.length > 0 && (
-                  <Select value={tagFilter} onValueChange={setTagFilter}>
-                    <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
-                      <SelectValue placeholder="标签筛选" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部标签</SelectItem>
-                      {allTags.map(tag => (
-                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
 
               {/* Idea Comparison - 想法对比功能 */}
               {validations.filter(v => v.overall_score && v.status === 'completed').length >= 2 && (
