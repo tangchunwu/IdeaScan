@@ -30,6 +30,7 @@ const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
+const ContentStudio = lazy(() => import("./pages/ContentStudio"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
