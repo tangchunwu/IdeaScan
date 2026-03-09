@@ -214,5 +214,14 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
 
   const abort = useCallback(() => { abortRef.current?.abort(); }, []);
 
-  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort };
+  const retryFromError = useCallback((errorMessageId: string) => {
+    const errorMsg = messages.find(m => m.id === errorMessageId);
+    if (!errorMsg?.retry_prompt || sending) return;
+    const prompt = errorMsg.retry_prompt;
+    // Remove the error message before resending
+    setMessages(prev => prev.filter(m => m.id !== errorMessageId));
+    setTimeout(() => sendMessage(prompt), 400);
+  }, [messages, sending, sendMessage]);
+
+  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError };
 }

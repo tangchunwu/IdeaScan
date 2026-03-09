@@ -332,12 +332,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                   {msg.content && renderMessageContent(msg.content)}
                   {msg.is_error && msg.retry_prompt && (
                     <button
-                      onClick={() => {
-                        if (sending) return;
-                        // Remove the error message and the failed user message, then resend
-                        setMessages(prev => prev.filter(m => m.id !== msg.id));
-                        setTimeout(() => sendMessage(msg.retry_prompt!), 600);
-                      }}
+                      onClick={() => retryFromError(msg.id)}
                       disabled={sending}
                       className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
                     >
