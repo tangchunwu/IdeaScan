@@ -294,7 +294,7 @@ const History = () => {
               <div className="grid grid-cols-2 sm:flex gap-2">
                 {/* Status Filter */}
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "completed" | "processing" | "failed")}>
-                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                  <SelectTrigger className="w-full sm:w-[120px] rounded-xl border-border/50 bg-background/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
