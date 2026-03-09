@@ -279,6 +279,18 @@ const History = () => {
                 />
               </div>
               <div className="flex gap-2">
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "all" | "completed" | "processing" | "failed")}
+                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">全部状态</option>
+                  <option value="completed">已完成</option>
+                  <option value="processing">分析中</option>
+                  <option value="failed">失败</option>
+                </select>
+
                 {/* Score Filter Dropdown */}
                 <select
                   value={scoreFilter}
