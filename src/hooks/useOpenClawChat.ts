@@ -98,8 +98,24 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || `HTTP ${res.status}`);
+        const errPayload = await res.json().catch(() => null as any);
+        const message =
+          (errPayload && (errPayload.error || errPayload.message)) ||
+          res.statusText ||
+          `HTTP ${res.status}`;
+
+        // Do NOT throw here — avoid triggering global runtime error overlays;
+        // render a friendly assistant message and keep the chat usable.
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `⚠️ ${message}`,
+          created_at: new Date().toISOString(),
+        }]);
+
+        setStreamingContent('');
+        setActiveTools([]);
+        return;
       }
 
       // Parse SSE stream — handle both content and tool_calls deltas
