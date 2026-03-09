@@ -1,32 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-## Plan: Optimize Agent Message Rendering
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-Based on the current `OpenClawChannel.tsx`, the assistant message rendering can be improved in several areas:
+## 竞品对标优化
 
-### Changes
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-**1. Enhanced Markdown Rendering (`OpenClawChannel.tsx`)**
-- Add syntax-highlighted code blocks with a copy button (using `<pre>` + copy-to-clipboard)
-- Style tables, blockquotes, and lists for better readability
-- Add `remark-gfm` support via ReactMarkdown for tables/strikethrough
-- Improve `prose` Tailwind classes for tighter, chat-optimized typography
+## Phase 6: 留存基础
 
-**2. Improved Tool Call Display**
-- Show tool arguments preview (e.g., file name, search query) instead of just the tool name
-- Add a completion checkmark animation when tool finishes
-- Use color-coded badges: blue for calling, green for done
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-**3. Better Streaming UX**
-- Add a blinking cursor at the end of streaming content
-- Smoother transition when streaming content finalizes into a message
+## Phase 7: 可视化升级
 
-**4. Message Layout Polish**
-- Wider max-width for assistant messages (`max-w-[85%]` instead of `75%`) since agent responses are often longer
-- Better spacing between code blocks and text
-- Add a subtle timestamp on hover for each message
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-### Files to Edit
-- `src/components/openclaw/OpenClawChannel.tsx` — All rendering improvements
-- `package.json` — Add `remark-gfm` if not present
+## Phase 8: 增长引擎
 
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
+
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
+
+## Phase 10: 工程优化
+
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |
