@@ -7,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Send, Loader2, StopCircle, Bot, User, Plus,
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
+  Check, ChevronDown, Server,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
