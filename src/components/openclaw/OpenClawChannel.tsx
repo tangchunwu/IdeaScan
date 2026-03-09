@@ -74,6 +74,11 @@ const INCOMPLETE_IMG_RE = /!\[[^\]]*\]\([^)]*$/;
 function preprocessImageUrls(content: string): string {
   return content
     .replace(IMAGE_URL_RE, '![]($1)')
+    .replace(IMAGE_SERVICE_RE, (match, url) => {
+      // Avoid double-wrapping if already markdown image
+      if (/!\[.*\]\(/.test(match)) return match;
+      return `![](${url})`;
+    })
     .replace(DATA_URI_RE, '![]($1)');
 }
 
