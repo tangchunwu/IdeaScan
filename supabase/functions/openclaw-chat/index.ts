@@ -5,6 +5,70 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// ── Settings decryption (shared with user-settings function) ──
+
+async function deriveKey(userId: string): Promise<CryptoKey> {
+  const serverSecret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  const keyMaterial = new TextEncoder().encode(userId + serverSecret);
+  const baseKey = await crypto.subtle.importKey('raw', keyMaterial, 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: new TextEncoder().encode('lovable-user-settings-v2'), iterations: 100000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+function decryptLegacyXOR(encoded: string, userId: string): string {
+  try {
+    const key = userId + (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.slice(0, 32) || '');
+    const keyBytes = new TextEncoder().encode(key);
+    const decoded = atob(encoded);
+    const bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+    const result = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) result[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+    return new TextDecoder().decode(result);
+  } catch { return ''; }
+}
+
+async function decryptSettings(encoded: string, userId: string): Promise<string> {
+  try {
+    const decoded = atob(encoded);
+    const bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+    if (bytes[0] === 0x02) {
+      const ivLength = bytes[1];
+      const iv = bytes.slice(2, 2 + ivLength);
+      const ciphertext = bytes.slice(2 + ivLength);
+      const key = await deriveKey(userId);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+      return new TextDecoder().decode(decrypted);
+    }
+    return decryptLegacyXOR(encoded, userId);
+  } catch { return ''; }
+}
+
+/** Fetch and decrypt user settings, returning image-gen related fields */
+async function getImageGenConfig(userId: string): Promise<{ baseUrl: string; apiKey: string; model: string } | null> {
+  try {
+    const serviceClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data } = await serviceClient.from('user_settings').select('settings_encrypted').eq('user_id', userId).maybeSingle();
+    if (!data?.settings_encrypted) return null;
+    const plain = await decryptSettings(data.settings_encrypted, userId);
+    if (!plain) return null;
+    const settings = JSON.parse(plain);
+    if (settings.imageGenBaseUrl && settings.imageGenApiKey && settings.imageGenModel) {
+      return { baseUrl: settings.imageGenBaseUrl, apiKey: settings.imageGenApiKey, model: settings.imageGenModel };
+    }
+    return null;
+  } catch (e) {
+    console.error('[openclaw-chat] Failed to load image gen config:', e);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -87,7 +151,16 @@ Deno.serve(async (req) => {
       .select('role, content').eq('user_id', userId).eq('session_id', session_id)
       .order('created_at', { ascending: true }).limit(20);
 
-    const messages: Array<{ role: string; content: unknown }> = [];
+    // ── Build system message with image-gen config ──
+    const imageGenConfig = await getImageGenConfig(userId);
+    let systemContent = '你是用户的 AI Agent 助手。';
+    if (imageGenConfig) {
+      systemContent += `\n\n## 图片生成配置\n用户已配置图片生成服务，当需要生成图片时请使用以下配置：\n- API 地址: ${imageGenConfig.baseUrl}\n- 模型: ${imageGenConfig.model}\n- API Key: ${imageGenConfig.apiKey}\n请通过 OpenAI 兼容的 chat/completions 接口调用，并在请求中加入 "modalities": ["image", "text"]。`;
+    }
+
+    const messages: Array<{ role: string; content: unknown }> = [
+      { role: 'system', content: systemContent },
+    ];
     const historyRows = history || [];
     for (const m of historyRows.slice(0, -1)) {
       messages.push({ role: m.role, content: m.content });
