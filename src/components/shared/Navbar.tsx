@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar, Award, Bot } from "lucide-react";
+import { Sparkles, History, Home, GitCompare, LogIn, LogOut, User, Menu, X, Settings, Radar, Award, Bot, PenTool } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
@@ -21,6 +21,7 @@ const navItems = [
   { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
   { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true, tourId: "nav-compare" },
   { path: "/openclaw", label: "AI Agent", icon: Bot, requireAuth: true, tourId: "nav-openclaw" },
+  { path: "/content-studio", label: "内容工作室", icon: PenTool, requireAuth: true, tourId: "nav-content-studio" },
 ];
 
 export const Navbar = () => {
