@@ -105,7 +105,7 @@ export function HistoryStatsBar({ validations }: HistoryStatsBarProps) {
                 <Icon className={`w-5 h-5 ${item.color}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{item.value}</p>
+                <p className="text-xl md:text-2xl font-bold text-foreground">{item.value}</p>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
               </div>
             </div>
