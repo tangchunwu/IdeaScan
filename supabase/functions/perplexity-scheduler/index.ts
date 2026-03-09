@@ -505,23 +505,29 @@ Deno.serve(async (req) => {
 
     console.log(`[scheduler] Deep analyzing keywords:`, keywordsToScan);
 
-    // 5. Deep Analyze — 逐个生成综合洞察
+    // 5. Deep Analyze — 并发处理关键词
     let insightsInserted = 0;
     let totalCitations = 0;
     let trendingUpdated = 0;
     const errors: string[] = [];
 
-    for (const keyword of keywordsToScan) {
-      try {
-        const result = await processKeyword(keyword, domain, supabase, baseUrl, apiKey, existingHashes);
+    const results = await Promise.allSettled(
+      keywordsToScan.map(keyword =>
+        processKeyword(keyword, domain, supabase, baseUrl, apiKey, existingHashes)
+          .then(result => ({ keyword, result }))
+      )
+    );
+
+    for (const settled of results) {
+      if (settled.status === "fulfilled") {
+        const { result } = settled.value;
         if (result.insightInserted) insightsInserted++;
         totalCitations += result.citationsInserted;
         if (result.trendingUpdated) trendingUpdated++;
-        await new Promise(r => setTimeout(r, 1500));
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(`[scheduler] Error for "${keyword}":`, msg);
-        errors.push(`${keyword}: ${msg}`);
+      } else {
+        const msg = settled.reason instanceof Error ? settled.reason.message : String(settled.reason);
+        console.error(`[scheduler] Error:`, msg);
+        errors.push(msg);
       }
     }
 
