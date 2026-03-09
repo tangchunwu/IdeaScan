@@ -115,7 +115,7 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
         title="复制代码"
       >
         {copied ? (
-          <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
+          <CheckCheck className="w-3.5 h-3.5 text-primary" />
         ) : (
           <Copy className="w-3.5 h-3.5 text-muted-foreground" />
         )}
