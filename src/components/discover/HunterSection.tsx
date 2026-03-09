@@ -286,10 +286,28 @@ const AdminMonitorTab = () => {
                                           <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
                                    </GlassCard>
                             ))}
-                     </div>
+                      </div>
 
-                     {/* Actions */}
-                     <div className="flex gap-3">
+                      {/* Scheduler Control */}
+                      <GlassCard className="flex items-center justify-between p-4">
+                             <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 rounded-full ${schedulerEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                                    <div>
+                                           <h4 className="font-bold text-foreground text-sm">24 小时自动扫描</h4>
+                                           <p className="text-xs text-muted-foreground">
+                                                  {schedulerEnabled ? '每小时自动扫描全网趋势' : '当前已暂停，点击开关启动'}
+                                           </p>
+                                    </div>
+                             </div>
+                             <Switch
+                                    checked={schedulerEnabled}
+                                    onCheckedChange={handleToggleScheduler}
+                                    disabled={schedulerLoading || togglingScheduler}
+                             />
+                      </GlassCard>
+
+                      {/* Actions */}
+                      <div className="flex gap-3">
                             <Button variant="outline" size="sm" onClick={handleProcess} disabled={isProcessing} className="gap-2">
                                    <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
                                    {isProcessing ? "处理中..." : "触发 AI 处理"}
