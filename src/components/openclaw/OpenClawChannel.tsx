@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Send, Loader2, StopCircle, Bot, User, Plus,
-  Pencil, Image, Search, Lightbulb, Wrench,
+  Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OpenClawChannelProps {
   className?: string;
@@ -62,11 +64,73 @@ function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
   );
 }
 
-/** Detect image URLs or markdown images in content */
-function renderMessageContent(content: string) {
+/** Convert bare image URLs to markdown image syntax */
+const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg)(?:\?\S*)?)$/gim;
+const DATA_URI_RE = /^(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)$/gm;
+const INCOMPLETE_IMG_RE = /!\[[^\]]*\]\([^)]*$/;
+
+function preprocessImageUrls(content: string): string {
+  return content
+    .replace(IMAGE_URL_RE, '![]($1)')
+    .replace(DATA_URI_RE, '![]($1)');
+}
+
+function stripIncompleteImages(content: string): string {
+  const match = content.match(INCOMPLETE_IMG_RE);
+  if (match) return content.slice(0, match.index);
+  return content;
+}
+
+function ChatImage({ src, alt }: { src?: string; alt?: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const [preview, setPreview] = useState(false);
+
+  if (error || !src) {
+    return (
+      <div className="flex items-center justify-center w-full h-32 rounded-xl bg-muted/30 border border-border/20">
+        <ImageOff className="w-6 h-6 text-muted-foreground/40" />
+      </div>
+    );
+  }
+
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-code:text-primary prose-code:bg-muted/40 prose-code:px-1 prose-code:rounded prose-img:rounded-lg prose-img:max-h-60">
-      <ReactMarkdown>{content}</ReactMarkdown>
+    <>
+      <div className="relative group cursor-pointer inline-block" onClick={() => setPreview(true)}>
+        {!loaded && <Skeleton className="absolute inset-0 rounded-xl" />}
+        <img
+          src={src}
+          alt={alt || ""}
+          className={`rounded-xl max-h-72 max-w-full object-contain shadow-sm border border-border/10 transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+        {loaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 rounded-xl transition-colors">
+            <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-80 transition-opacity" />
+          </div>
+        )}
+      </div>
+      <Dialog open={preview} onOpenChange={setPreview}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] p-2 bg-background/95 backdrop-blur-sm">
+          <img src={src} alt={alt || ""} className="w-full h-full object-contain rounded-lg" />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+const markdownComponents = {
+  img: ({ src, alt }: { src?: string; alt?: string }) => <ChatImage src={src} alt={alt} />,
+};
+
+function renderMessageContent(content: string, isStreaming = false) {
+  let processed = preprocessImageUrls(content);
+  if (isStreaming) processed = stripIncompleteImages(processed);
+
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-code:text-primary prose-code:bg-muted/40 prose-code:px-1 prose-code:rounded [&_img+img]:mt-2">
+      <ReactMarkdown components={markdownComponents}>{processed}</ReactMarkdown>
     </div>
   );
 }
@@ -247,11 +311,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                   {activeTools.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
                 </div>
               )}
-              {streamingContent && (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{streamingContent}</ReactMarkdown>
-                </div>
-              )}
+              {streamingContent && renderMessageContent(streamingContent, true)}
             </div>
           </div>
         )}

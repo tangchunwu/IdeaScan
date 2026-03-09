@@ -1,43 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-# OpenClaw 图文混排适配优化
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-## 问题分析
+## 竞品对标优化
 
-当前 `renderMessageContent` 使用 `ReactMarkdown` 渲染，但存在以下不足：
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-1. **图片样式受限**：`prose-img:max-h-60` 固定高度，无法点击放大查看
-2. **图片 URL 格式多样**：Agent 可能返回裸 URL（如 `https://...png`）、markdown 图片（`![](url)`）、或 base64 data URI，裸 URL 不会被 ReactMarkdown 渲染为图片
-3. **图文间距不协调**：连续多张图片之间没有 gallery 布局，文字与图片之间的视觉节奏生硬
-4. **流式渲染中图片闪烁**：streaming 阶段图片 URL 逐字符拼接，导致 `<img>` 反复加载失败
+## Phase 6: 留存基础
 
-## 改动计划
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-### 1. 增强 `renderMessageContent`（主改动）
+## Phase 7: 可视化升级
 
-在 `OpenClawChannel.tsx` 中：
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-- **预处理裸图片 URL**：用正则将独立行的图片 URL（`.png/.jpg/.webp/.gif` 或 data:image）转为 markdown `![](url)` 格式，让 ReactMarkdown 正确渲染
-- **自定义 ReactMarkdown `components.img`**：覆盖默认 `<img>` 渲染，添加：
-  - 点击放大（Dialog 全屏查看）
-  - 加载状态占位符（skeleton）
-  - 加载失败 fallback
-  - 多图时 grid 布局（检测连续 img 节点）
-- **优化 prose 样式**：调整图片圆角、阴影、间距
+## Phase 8: 增长引擎
 
-### 2. 流式渲染防闪烁
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
-在 streaming 阶段的 ReactMarkdown 中：
-- 对不完整的图片 URL（未闭合的 `![](` 标记）进行过滤，避免渲染半截 URL 产生的 broken image
-- 用简单正则检测未闭合的 markdown image 语法并截断
+## Phase 9: 高级功能（长期）
 
-### 3. 图片预览弹窗
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
 
-新增轻量的图片预览组件（使用已有的 Dialog），点击 assistant 消息中的图片可全屏查看。
+## Phase 10: 工程优化
 
-| 文件 | 改动 |
-|------|------|
-| `src/components/openclaw/OpenClawChannel.tsx` | 增强 `renderMessageContent`：裸 URL 预处理、自定义 img 组件、流式防闪烁、图片预览弹窗（约 80 行新增/修改） |
-
-**总计**：1 个文件修改，无数据库变更。
-
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |
