@@ -42,11 +42,13 @@ const History = () => {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
   const deleteMutation = useDeleteValidation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'single' | 'batch'; id?: string } | null>(null);
 
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
