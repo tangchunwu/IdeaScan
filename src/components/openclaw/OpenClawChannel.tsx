@@ -159,6 +159,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
 
   const defaultConnection = connections.find(c => c.is_default) || connections[0];
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
+  const activeConnection = connections.find(c => c.id === activeConnectionId);
 
   const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId
@@ -203,6 +204,11 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
     sendMessage(prompt);
   };
 
+  const getUserInitial = () => {
+    if (!user?.email) return "U";
+    return user.email[0].toUpperCase();
+  };
+
   if (!user) {
     return (
       <div className={`flex items-center justify-center h-full text-muted-foreground text-sm ${className}`}>
@@ -214,60 +220,87 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
   if (connections.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center h-full gap-3 text-center px-6 ${className}`}>
-        <Bot className="w-10 h-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">尚未配置 OpenClaw 连接</p>
-        <p className="text-xs text-muted-foreground/60">请在「设置」Tab 中添加你的 AI Agent 服务器地址</p>
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+          <Bot className="w-8 h-8 text-primary/60" />
+        </div>
+        <p className="text-sm font-medium text-foreground">尚未配置 OpenClaw 连接</p>
+        <p className="text-xs text-muted-foreground/70">请在「设置」Tab 中添加你的 AI Agent 服务器地址</p>
       </div>
     );
   }
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/30">
+      {/* Header - Refined */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 backdrop-blur-sm bg-background/80">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-sm">
+            <Bot className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-foreground">
+              {activeConnection?.name || "OpenClaw"}
+            </span>
+            <span className="text-[10px] text-muted-foreground/60">AI Agent</span>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium">OpenClaw</span>
           {connections.length > 1 && (
             <select
-              className="text-xs bg-transparent border border-border/30 rounded px-1.5 py-0.5 text-muted-foreground"
+              className="text-xs bg-muted/30 backdrop-blur-sm border border-border/40 rounded-lg px-2 py-1.5 text-foreground/80 hover:bg-muted/50 transition-colors cursor-pointer"
               value={activeConnectionId || ""}
               onChange={e => setSelectedConnectionId(e.target.value || undefined)}
             >
               {connections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}{c.is_default ? " (默认)" : ""}</option>
+                <option key={c.id} value={c.id}>{c.name}{c.is_default ? " ✓" : ""}</option>
               ))}
             </select>
           )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 text-xs gap-1.5 hover:bg-muted/50 transition-all hover:scale-105" 
+            onClick={handleNewSession}
+          >
+            <Plus className="w-3.5 h-3.5" /> 新对话
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleNewSession}>
-          <Plus className="w-3 h-3" /> 新对话
-        </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {loading && (
-          <div className="flex justify-center py-6">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <div className="flex justify-center py-8">
+            <div className="relative">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <div className="absolute inset-0 w-6 h-6 rounded-full bg-primary/20 animate-ping" />
+            </div>
           </div>
         )}
 
         {!loading && messages.length === 0 && !streamingContent && !initialMessage && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <Bot className="w-8 h-8 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground/60">你的 AI Agent 已就绪，可以直接下达任务指令</p>
-            <div className="grid grid-cols-2 gap-2 mt-2 max-w-sm w-full">
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-center px-4">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-transparent flex items-center justify-center shadow-lg">
+                <Bot className="w-10 h-10 text-primary" />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 to-transparent rounded-2xl blur-xl -z-10 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground mb-1">AI Agent 已就绪</p>
+              <p className="text-sm text-muted-foreground/70">选择快捷指令或直接下达任务</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-4 max-w-md w-full">
               {QUICK_PROMPTS.map((qp) => (
                 <button
                   key={qp.label}
                   onClick={() => handleQuickPrompt(qp.prompt)}
-                  className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+                  className="group flex flex-col items-start gap-2 px-4 py-3.5 rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <qp.icon className="w-3.5 h-3.5 text-primary/70" />
-                    <span className="text-xs font-medium text-foreground">{qp.label}</span>
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
+                    <qp.icon className="w-4 h-4 text-primary/80 group-hover:text-primary transition-colors" />
                   </div>
+                  <span className="text-xs font-medium text-foreground/90 group-hover:text-foreground transition-colors">{qp.label}</span>
                 </button>
               ))}
             </div>
@@ -275,19 +308,22 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
         )}
 
         {messages.map(msg => (
-          <div key={msg.id} className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
             {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                 <Bot className="w-4 h-4 text-primary" />
+                {sending && messages[messages.length - 1]?.id === msg.id && (
+                  <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
+                )}
               </div>
             )}
-            <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
+            <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
               msg.role === "user"
-                ? "bg-primary text-primary-foreground rounded-br-md"
-                : "bg-muted/30 border border-border/20 rounded-bl-md"
+                ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
+                : "glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
             }`}>
               {msg.role === "assistant" ? (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {msg.tool_calls && msg.tool_calls.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
@@ -296,17 +332,17 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                   {msg.content && renderMessageContent(msg.content)}
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap">
+                <p className="whitespace-pre-wrap leading-relaxed">
                   {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
                 </p>
               )}
               {msg.image_url && (
-                <img src={msg.image_url} alt="uploaded" className="mt-2 rounded-lg max-h-40 object-contain" />
+                <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
               )}
             </div>
             {msg.role === "user" && (
-              <div className="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center shrink-0 mt-0.5">
-                <User className="w-4 h-4 text-secondary-foreground" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <span className="text-xs font-semibold text-secondary-foreground">{getUserInitial()}</span>
               </div>
             )}
           </div>
@@ -314,13 +350,14 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
 
         {/* Streaming + active tool indicators */}
         {(streamingContent || (sending && activeTools.length > 0)) && (
-          <div className="flex gap-2.5 justify-start">
-            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="flex gap-3 justify-start animate-fade-in">
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
               <Bot className="w-4 h-4 text-primary" />
+              <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
             </div>
-            <div className="max-w-[80%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm bg-muted/30 border border-border/20">
+            <div className="max-w-[75%] rounded-2xl rounded-bl-md px-4 py-3 text-sm glass-card border border-border/30 backdrop-blur-md shadow-sm">
               {activeTools.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
                   {activeTools.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
                 </div>
               )}
@@ -330,15 +367,19 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
         )}
 
         {sending && !streamingContent && activeTools.length === 0 && (
-          <div className="flex gap-2.5 justify-start">
-            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="flex gap-3 justify-start animate-fade-in">
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0 shadow-sm">
               <Bot className="w-4 h-4 text-primary" />
+              <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
             </div>
-            <div className="rounded-2xl rounded-bl-md px-4 py-3 bg-muted/30 border border-border/20">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="rounded-2xl rounded-bl-md px-5 py-3.5 glass-card border border-border/30 backdrop-blur-md shadow-sm">
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0ms', animationDuration: '1.4s' }} />
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '200ms', animationDuration: '1.4s' }} />
+                  <span className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '400ms', animationDuration: '1.4s' }} />
+                </div>
+                <span className="text-xs text-muted-foreground/70 ml-1">AI 正在思考</span>
               </div>
             </div>
           </div>
@@ -347,24 +388,36 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-border/30">
-        <div className="flex gap-2 items-end">
-          <Textarea
-            placeholder="输入任务指令... (Shift+Enter 换行)"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="min-h-[40px] max-h-[120px] text-sm bg-muted/10 border-border/30 rounded-xl resize-none"
-            rows={1}
-          />
+      {/* Input - Modernized */}
+      <div className="px-4 py-4 border-t border-border/30 backdrop-blur-sm bg-background/80">
+        <div className="flex gap-2.5 items-end">
+          <div className="flex-1 relative">
+            <Textarea
+              placeholder="输入任务指令... (Shift+Enter 换行)"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="min-h-[44px] max-h-[120px] text-sm glass-card border-border/40 rounded-2xl resize-none pr-3 pl-4 py-3 backdrop-blur-md focus:border-primary/50 transition-all shadow-sm"
+              rows={1}
+            />
+          </div>
           {sending ? (
-            <Button variant="ghost" size="sm" className="shrink-0 h-10 w-10 p-0 rounded-xl" onClick={abort}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 transition-all hover:scale-105" 
+              onClick={abort}
+            >
               <StopCircle className="w-5 h-5 text-destructive" />
             </Button>
           ) : (
-            <Button size="sm" className="shrink-0 h-10 w-10 p-0 rounded-xl" onClick={handleSend} disabled={!input.trim()}>
-              <Send className="w-4 h-4" />
+            <Button 
+              size="sm" 
+              className="shrink-0 h-11 w-11 p-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary hover:to-primary shadow-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100" 
+              onClick={handleSend} 
+              disabled={!input.trim()}
+            >
+              <Send className="w-4.5 h-4.5" />
             </Button>
           )}
         </div>
