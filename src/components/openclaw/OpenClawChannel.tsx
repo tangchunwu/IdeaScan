@@ -227,6 +227,31 @@ function formatTime(dateStr: string) {
   } catch { return ""; }
 }
 
+/* ─── Copy Message Button ─── */
+function CopyMessageButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [content]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/70 border border-border/30 opacity-0 group-hover/bubble:opacity-100 transition-all hover:bg-muted/80 z-10"
+      title="复制消息"
+    >
+      {copied ? (
+        <CheckCheck className="w-3.5 h-3.5 text-primary" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
 function renderMessageContent(content: string, isStreaming = false) {
   let processed = preprocessImageUrls(content);
   if (isStreaming) processed = stripIncompleteImages(processed);
@@ -432,11 +457,15 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
+              <div className={`relative group/bubble rounded-2xl px-4 py-3 text-sm shadow-sm ${
                 msg.role === "user"
                   ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
                   : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
               }`}>
+                {/* Copy button for assistant messages */}
+                {msg.role === "assistant" && msg.content && (
+                  <CopyMessageButton content={msg.content} />
+                )}
                 {msg.role === "assistant" ? (
                   <div className="space-y-2.5">
                     {msg.tool_calls && msg.tool_calls.length > 0 && (
