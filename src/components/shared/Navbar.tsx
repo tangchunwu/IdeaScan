@@ -133,9 +133,27 @@ export const Navbar = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 glass-card border-border/50">
-                      <div className="px-3 py-2">
-                        <p className="text-sm font-medium text-foreground">账户</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      <div className="px-3 py-2 flex items-center gap-3">
+                        <div className="relative group/avatar">
+                          <AvatarDisplay size="md" />
+                          <button
+                            onClick={handleAvatarClick}
+                            disabled={isUploading}
+                            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                          >
+                            {isUploading ? (
+                              <Loader2 className="w-4 h-4 text-white animate-spin" />
+                            ) : (
+                              <Camera className="w-4 h-4 text-white" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {profile?.display_name || user.email?.split('@')[0]}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
                       </div>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer">
