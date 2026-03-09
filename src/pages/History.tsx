@@ -53,13 +53,14 @@ const History = () => {
   // Extract error message
   const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load history" : null;
 
-  // Filter by search and score
+  // Filter by search, score and status
   const filteredItems = validations
     .filter(item =>
       item.idea.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
     )
     .filter(item => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (scoreFilter === "all") return true;
       const score = item.overall_score || 0;
       if (scoreFilter === "high") return score >= 80;
