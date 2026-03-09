@@ -487,7 +487,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               <Bot className="w-4 h-4 text-primary" />
               <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
             </div>
-            <div className="max-w-[75%] rounded-2xl rounded-bl-md px-4 py-3 text-sm glass-card border border-border/30 backdrop-blur-md shadow-sm">
+            <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-sm glass-card border border-border/30 backdrop-blur-md shadow-sm">
               {activeTools.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2.5">
                   {activeTools.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
