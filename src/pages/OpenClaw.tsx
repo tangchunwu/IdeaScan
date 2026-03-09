@@ -71,7 +71,7 @@ export default function OpenClawPage() {
                     </Button>
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <OpenClawHistory currentSessionId={sessionId} onSelectSession={handleSelectSession} />
+                    <OpenClawHistory currentSessionId={sessionId} onSelectSession={handleSelectSession} onSessionDeleted={handleNewSession} />
                   </div>
                 </div>
               )}
