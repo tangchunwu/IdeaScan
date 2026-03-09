@@ -7,6 +7,7 @@ import { SilentErrorBoundary, PageErrorBoundary, BrandLoader, PageTransition } f
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Suspense, lazy } from "react";
+import { Navigate } from "react-router-dom";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
 import { AnalyticsProvider, usePageView } from "@/lib/posthog";
 
