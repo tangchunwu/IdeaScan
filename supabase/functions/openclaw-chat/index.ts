@@ -176,20 +176,43 @@ Deno.serve(async (req) => {
       messages.push({ role: 'user', content: message });
     }
 
-    // Call OpenClaw (OpenAI-compatible streaming)
-    const openclawResponse = await fetch(`${openclawUrl.replace(/\/$/, '')}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(openclawToken ? { Authorization: `Bearer ${openclawToken}` } : {}),
-      },
-      body: JSON.stringify({ model: 'default', messages, stream: true }),
-    });
+    // Call OpenClaw (OpenAI-compatible streaming) with timeout
+    const TIMEOUT_MS = 90_000; // 90 seconds — image gen can be slow
+    const fetchController = new AbortController();
+    const timeoutId = setTimeout(() => fetchController.abort(), TIMEOUT_MS);
+
+    let openclawResponse: Response;
+    try {
+      openclawResponse = await fetch(`${openclawUrl.replace(/\/$/, '')}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(openclawToken ? { Authorization: `Bearer ${openclawToken}` } : {}),
+        },
+        body: JSON.stringify({ model: 'default', messages, stream: true }),
+        signal: fetchController.signal,
+      });
+    } catch (fetchErr: unknown) {
+      clearTimeout(timeoutId);
+      const isTimeout = fetchErr instanceof Error && fetchErr.name === 'AbortError';
+      console.error('[openclaw-chat] fetch error:', fetchErr);
+      const errMsg = isTimeout
+        ? 'Agent 服务器响应超时（图片生成通常较慢，请稍后重试）'
+        : `连接 Agent 失败: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`;
+      return new Response(JSON.stringify({ error: errMsg }), {
+        status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    clearTimeout(timeoutId);
 
     if (!openclawResponse.ok) {
       const errText = await openclawResponse.text();
-      console.error('[openclaw-chat] upstream error:', openclawResponse.status, errText);
-      return new Response(JSON.stringify({ error: `OpenClaw returned ${openclawResponse.status}` }), {
+      console.error('[openclaw-chat] upstream error:', openclawResponse.status, errText.slice(0, 300));
+      const isGatewayTimeout = openclawResponse.status === 524 || openclawResponse.status === 504;
+      const userMsg = isGatewayTimeout
+        ? 'Agent 服务器网关超时（图片生成耗时较长，请稍等片刻后重试）'
+        : `OpenClaw 返回错误 ${openclawResponse.status}`;
+      return new Response(JSON.stringify({ error: userMsg }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
