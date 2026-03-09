@@ -80,16 +80,22 @@ const History = () => {
       }
     });
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
+  const confirmDelete = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeleteConfirm({ type: 'single', id });
+  };
+
+  const confirmBatchDelete = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteConfirm({ type: 'batch' });
+  };
+
+  const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
       await deleteMutation.mutateAsync(id);
       captureEvent('validation_deleted', { validation_id: id });
-      toast({
-        title: "删除成功",
-        description: "验证记录已删除",
-      });
+      toast({ title: "删除成功", description: "验证记录已删除" });
       if (selectedIds.has(id)) {
         const next = new Set(selectedIds);
         next.delete(id);
@@ -97,11 +103,7 @@ const History = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "删除失败";
-      toast({
-        title: "删除失败",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
     } finally {
       setDeletingId(null);
     }
@@ -109,25 +111,27 @@ const History = () => {
 
   const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return;
-
     setIsBatchDeleting(true);
     try {
       await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
       captureEvent('validation_batch_deleted', { count: selectedIds.size });
-      toast({
-        title: "批量删除成功",
-        description: `已删除 ${selectedIds.size} 条记录`,
-      });
+      toast({ title: "批量删除成功", description: `已删除 ${selectedIds.size} 条记录` });
       setSelectedIds(new Set());
     } catch (error) {
-      toast({
-        title: "部分删除失败",
-        description: "请刷新重试",
-        variant: "destructive",
-      });
+      toast({ title: "部分删除失败", description: "请刷新重试", variant: "destructive" });
     } finally {
       setIsBatchDeleting(false);
     }
+  };
+
+  const executeDeleteConfirm = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === 'single' && deleteConfirm.id) {
+      handleDelete(deleteConfirm.id);
+    } else {
+      handleBatchDelete();
+    }
+    setDeleteConfirm(null);
   };
 
   const toggleSelection = (id: string) => {
