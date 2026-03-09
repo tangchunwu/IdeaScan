@@ -200,6 +200,10 @@ const Validate = () => {
     const resumeIdForRun = resumeValidationId || undefined;
     if (resumeValidationId) setResumeValidationId("");
 
+    // Clear draft on successful start
+    localStorage.removeItem("ideascan_draft");
+    setShowRestore(false);
+
     stream.startValidation({
       idea: idea.trim(),
       selectedTags,
