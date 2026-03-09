@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Send, Loader2, StopCircle, Bot, User, Plus,
-  Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn,
+  Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -161,7 +161,7 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
-  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort } = useOpenClawChat(
+  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId
   );
 
@@ -330,6 +330,16 @@ export function OpenClawChannel({ className, initialMessage }: OpenClawChannelPr
                     </div>
                   )}
                   {msg.content && renderMessageContent(msg.content)}
+                  {msg.is_error && msg.retry_prompt && (
+                    <button
+                      onClick={() => retryFromError(msg.id)}
+                      disabled={sending}
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      重试
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p className="whitespace-pre-wrap leading-relaxed">

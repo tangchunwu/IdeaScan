@@ -15,6 +15,10 @@ export interface OpenClawMessage {
   image_url?: string;
   tool_calls?: ToolCallInfo[];
   created_at: string;
+  /** If true, this is a retryable error message */
+  is_error?: boolean;
+  /** The original user prompt that caused this error (for retry) */
+  retry_prompt?: string;
 }
 
 export function useOpenClawChat(userId: string | undefined, sessionId: string, connectionId?: string) {
@@ -110,6 +114,8 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
           id: crypto.randomUUID(),
           role: 'assistant',
           content: `⚠️ ${message}`,
+          is_error: true,
+          retry_prompt: content.trim() || undefined,
           created_at: new Date().toISOString(),
         }]);
 
@@ -193,6 +199,8 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
           id: crypto.randomUUID(),
           role: 'assistant',
           content: `⚠️ 连接失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          is_error: true,
+          retry_prompt: content.trim() || undefined,
           created_at: new Date().toISOString(),
         }]);
       }
@@ -206,5 +214,14 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
 
   const abort = useCallback(() => { abortRef.current?.abort(); }, []);
 
-  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort };
+  const retryFromError = useCallback((errorMessageId: string) => {
+    const errorMsg = messages.find(m => m.id === errorMessageId);
+    if (!errorMsg?.retry_prompt || sending) return;
+    const prompt = errorMsg.retry_prompt;
+    // Remove the error message before resending
+    setMessages(prev => prev.filter(m => m.id !== errorMessageId));
+    setTimeout(() => sendMessage(prompt), 400);
+  }, [messages, sending, sendMessage]);
+
+  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError };
 }
