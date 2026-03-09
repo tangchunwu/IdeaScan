@@ -96,7 +96,7 @@ export function HistoryStatsBar({ validations }: HistoryStatsBarProps) {
 
   return (
     <GlassCard className="mb-6">
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 md:gap-4">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -105,7 +105,7 @@ export function HistoryStatsBar({ validations }: HistoryStatsBarProps) {
                 <Icon className={`w-5 h-5 ${item.color}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{item.value}</p>
+                <p className="text-xl md:text-2xl font-bold text-foreground">{item.value}</p>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
               </div>
             </div>
@@ -120,7 +120,7 @@ export function HistoryStatsBar({ validations }: HistoryStatsBarProps) {
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-2xl font-bold text-foreground">{weekly.thisWeekCount}</span>
+                <span className="text-xl md:text-2xl font-bold text-foreground">{weekly.thisWeekCount}</span>
                 {weekTrend !== null && weekTrend !== 0 && (
                   <span className={`text-xs font-medium ${weekTrend > 0 ? "text-secondary" : "text-destructive"}`}>
                     {weekTrend > 0 ? `+${weekTrend}` : weekTrend}
