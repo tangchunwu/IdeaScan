@@ -42,6 +42,7 @@ const History = () => {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const { data: validations = [], isLoading, error: queryError } = useValidations(user?.id);
   const deleteMutation = useDeleteValidation();
