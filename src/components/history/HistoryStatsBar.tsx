@@ -120,7 +120,7 @@ export function HistoryStatsBar({ validations }: HistoryStatsBarProps) {
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-2xl font-bold text-foreground">{weekly.thisWeekCount}</span>
+                <span className="text-xl md:text-2xl font-bold text-foreground">{weekly.thisWeekCount}</span>
                 {weekTrend !== null && weekTrend !== 0 && (
                   <span className={`text-xs font-medium ${weekTrend > 0 ? "text-secondary" : "text-destructive"}`}>
                     {weekTrend > 0 ? `+${weekTrend}` : weekTrend}
