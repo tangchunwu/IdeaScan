@@ -21,6 +21,7 @@ const navItems = [
   { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
   { path: "/compare", label: "对比分析", icon: GitCompare, requireAuth: true, tourId: "nav-compare" },
   { path: "/openclaw", label: "AI Agent", icon: Bot, requireAuth: true, tourId: "nav-openclaw" },
+  { path: "/content-studio", label: "内容工作室", icon: PenTool, requireAuth: true, tourId: "nav-content-studio" },
 ];
 
 export const Navbar = () => {
