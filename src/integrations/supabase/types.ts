@@ -101,6 +101,65 @@ export type Database = {
           },
         ]
       }
+      content_drafts: {
+        Row: {
+          body: string
+          brand_voice: Json
+          created_at: string
+          id: string
+          images: string[]
+          openclaw_session_id: string | null
+          platform: string
+          published_at: string | null
+          status: string
+          title: string
+          topic: string
+          updated_at: string
+          user_id: string
+          validation_id: string | null
+        }
+        Insert: {
+          body?: string
+          brand_voice?: Json
+          created_at?: string
+          id?: string
+          images?: string[]
+          openclaw_session_id?: string | null
+          platform?: string
+          published_at?: string | null
+          status?: string
+          title?: string
+          topic: string
+          updated_at?: string
+          user_id: string
+          validation_id?: string | null
+        }
+        Update: {
+          body?: string
+          brand_voice?: Json
+          created_at?: string
+          id?: string
+          images?: string[]
+          openclaw_session_id?: string | null
+          platform?: string
+          published_at?: string | null
+          status?: string
+          title?: string
+          topic?: string
+          updated_at?: string
+          user_id?: string
+          validation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_drafts_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crawler_jobs: {
         Row: {
           attempt: number | null
