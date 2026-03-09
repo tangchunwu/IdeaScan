@@ -7,6 +7,7 @@ import { SilentErrorBoundary, PageErrorBoundary, BrandLoader, PageTransition } f
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Suspense, lazy } from "react";
+import { Navigate } from "react-router-dom";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
 import { AnalyticsProvider, usePageView } from "@/lib/posthog";
 
@@ -28,7 +29,7 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
-const Gallery = lazy(() => import("./pages/Gallery"));
+const GalleryRedirect = () => <Navigate to="/discover?tab=gallery" replace />;
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
 const ContentStudio = lazy(() => import("./pages/ContentStudio"));
 
@@ -67,7 +68,7 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
         <Route path="/admin/feedback" element={<PageTransition><FeedbackDashboard /></PageTransition>} />
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
-        <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
+        <Route path="/gallery" element={<PageTransition><GalleryRedirect /></PageTransition>} />
         <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />
         <Route path="/content-studio" element={<PageTransition><ContentStudio /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
