@@ -324,7 +324,7 @@ const History = () => {
                   setSortBy(by);
                   setSortOrder(order);
                 }}>
-                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                  <SelectTrigger className="w-full sm:w-[120px] rounded-xl border-border/50 bg-background/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
