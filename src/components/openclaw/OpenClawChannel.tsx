@@ -422,7 +422,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         )}
 
         {messages.map(msg => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
+          <div key={msg.id} className={`group/msg flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
             {msg.role === "assistant" && (
               <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                 <Bot className="w-4 h-4 text-primary" />
@@ -431,38 +431,46 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                 )}
               </div>
             )}
-            <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-              msg.role === "user"
-                ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
-                : "glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
-            }`}>
-              {msg.role === "assistant" ? (
-                <div className="space-y-2.5">
-                  {msg.tool_calls && msg.tool_calls.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
-                    </div>
-                  )}
-                  {msg.content && renderMessageContent(msg.content)}
-                  {msg.is_error && msg.retry_prompt && (
-                    <button
-                      onClick={() => retryFromError(msg.id)}
-                      disabled={sending}
-                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      重试
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap leading-relaxed">
-                  {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
-                </p>
-              )}
-              {msg.image_url && (
-                <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
-              )}
+            <div className="flex flex-col gap-0.5">
+              <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                msg.role === "user"
+                  ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
+                  : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
+              }`}>
+                {msg.role === "assistant" ? (
+                  <div className="space-y-2.5">
+                    {msg.tool_calls && msg.tool_calls.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+                      </div>
+                    )}
+                    {msg.content && renderMessageContent(msg.content)}
+                    {msg.is_error && msg.retry_prompt && (
+                      <button
+                        onClick={() => retryFromError(msg.id)}
+                        disabled={sending}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        重试
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap leading-relaxed">
+                    {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
+                  </p>
+                )}
+                {msg.image_url && (
+                  <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
+                )}
+              </div>
+              {/* Timestamp on hover */}
+              <span className={`text-[10px] text-muted-foreground/0 group-hover/msg:text-muted-foreground/50 transition-colors duration-200 ${
+                msg.role === "user" ? "self-end mr-1" : "ml-1"
+              }`}>
+                {formatTime(msg.created_at)}
+              </span>
             </div>
             {msg.role === "user" && (
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
