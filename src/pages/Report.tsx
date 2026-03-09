@@ -291,7 +291,11 @@ const Report = () => {
       
       await navigator.clipboard.writeText(shareUrl);
       captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
-      toast({ title: "分享链接已复制", description: "任何人都可以通过此链接查看报告（无需登录）" });
+      toast({
+        title: "分享链接已复制",
+        description: shareUrl,
+        action: { label: "打开", onClick: () => window.open(shareUrl, "_blank") },
+      });
     } catch (e) {
       console.error("Share error:", e);
       toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
