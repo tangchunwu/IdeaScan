@@ -193,6 +193,7 @@ const AdminMonitorTab = () => {
        const [schedulerEnabled, setSchedulerEnabled] = useState(false);
        const [schedulerLoading, setSchedulerLoading] = useState(true);
        const [togglingScheduler, setTogglingScheduler] = useState(false);
+       const [cronInfo, setCronInfo] = useState<{ lastRunAt: string | null; insightsToday: number; lastKeyword: string | null }>({ lastRunAt: null, insightsToday: 0, lastKeyword: null });
        const { toast } = useToast();
 
        useEffect(() => {
@@ -203,8 +204,12 @@ const AdminMonitorTab = () => {
        const loadSchedulerConfig = async () => {
               setSchedulerLoading(true);
               try {
-                     const config = await hunterService.getSchedulerConfig();
+                     const [config, cron] = await Promise.all([
+                            hunterService.getSchedulerConfig(),
+                            hunterService.getLastCronRun(),
+                     ]);
                      setSchedulerEnabled(config.enabled);
+                     setCronInfo(cron);
               } catch (e) {
                      console.error("Failed to load scheduler config:", e);
               } finally {
@@ -289,21 +294,36 @@ const AdminMonitorTab = () => {
                       </div>
 
                       {/* Scheduler Control */}
-                      <GlassCard className="flex items-center justify-between p-4">
-                             <div className="flex items-center gap-3">
-                                    <div className={`w-3 h-3 rounded-full ${schedulerEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
-                                    <div>
-                                           <h4 className="font-bold text-foreground text-sm">24 小时自动扫描</h4>
-                                           <p className="text-xs text-muted-foreground">
-                                                  {schedulerEnabled ? '每小时自动扫描全网趋势' : '当前已暂停，点击开关启动'}
-                                           </p>
+                      <GlassCard className="p-4 space-y-3">
+                             <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                           <div className={`w-3 h-3 rounded-full ${schedulerEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                                           <div>
+                                                  <h4 className="font-bold text-foreground text-sm">24 小时自动扫描</h4>
+                                                  <p className="text-xs text-muted-foreground">
+                                                         {schedulerEnabled ? '每小时自动扫描全网趋势' : '当前已暂停，点击开关启动'}
+                                                  </p>
+                                           </div>
                                     </div>
+                                    <Switch
+                                           checked={schedulerEnabled}
+                                           onCheckedChange={handleToggleScheduler}
+                                           disabled={schedulerLoading || togglingScheduler}
+                                    />
                              </div>
-                             <Switch
-                                    checked={schedulerEnabled}
-                                    onCheckedChange={handleToggleScheduler}
-                                    disabled={schedulerLoading || togglingScheduler}
-                             />
+                             {/* Cron execution info */}
+                             <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground border-t border-white/5 pt-3">
+                                    <span className="inline-flex items-center gap-1">
+                                           <Clock className="w-3 h-3" />
+                                           最近执行: {cronInfo.lastRunAt
+                                                  ? formatDistanceToNow(new Date(cronInfo.lastRunAt), { addSuffix: true, locale: zhCN })
+                                                  : '暂无记录'}
+                                    </span>
+                                    <span>今日洞察: <strong className="text-foreground">{cronInfo.insightsToday}</strong> / 50</span>
+                                    {cronInfo.lastKeyword && (
+                                           <span>最近领域: <strong className="text-foreground">{cronInfo.lastKeyword}</strong></span>
+                                    )}
+                             </div>
                       </GlassCard>
 
                       {/* Actions */}
