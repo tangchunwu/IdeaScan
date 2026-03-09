@@ -15,6 +15,10 @@ export interface OpenClawMessage {
   image_url?: string;
   tool_calls?: ToolCallInfo[];
   created_at: string;
+  /** If true, this is a retryable error message */
+  is_error?: boolean;
+  /** The original user prompt that caused this error (for retry) */
+  retry_prompt?: string;
 }
 
 export function useOpenClawChat(userId: string | undefined, sessionId: string, connectionId?: string) {
