@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link, useNavigate } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, SampleReports } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
