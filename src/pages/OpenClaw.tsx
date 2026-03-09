@@ -8,7 +8,7 @@ import { Bot, Settings, History, PanelLeftClose, PanelLeft, PenTool, Cog } from 
 import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/shared";
 
-const ContentStudio = lazy(() => import("./ContentStudio"));
+import { ContentStudioInline } from "./ContentStudio";
 
 export default function OpenClawPage() {
   const [searchParams] = useSearchParams();
