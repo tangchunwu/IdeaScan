@@ -83,6 +83,13 @@ export default function Discover() {
     });
   };
 
+  // Gallery reports query
+  const { data: galleryReports = [], isLoading: galleryLoading } = useQuery({
+    queryKey: ['gallery-reports'],
+    queryFn: fetchGalleryReports,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // View mode state
   const [viewMode, setViewMode] = useState<"cards" | "bubble">("cards");
 
