@@ -11,7 +11,6 @@ import { useNavigate } from "react-router-dom";
 interface PopularIdea {
        id: string;
        idea: string;
-       category: string | null;
        overall_score: number;
        validation_count: number;
        created_at: string;
@@ -30,7 +29,7 @@ const fetchPopularValidations = async (limit: number): Promise<PopularIdea[]> =>
 
        const { data, error } = await supabase
               .from("validations")
-              .select("id, idea, category, overall_score, created_at")
+              .select("id, idea, overall_score, created_at")
               .gte("created_at", sevenDaysAgo.toISOString())
               .not("overall_score", "is", null)
               .order("created_at", { ascending: false })
@@ -71,7 +70,6 @@ const fetchPopularValidations = async (limit: number): Promise<PopularIdea[]> =>
               .map(item => ({
                      id: item.id,
                      idea: item.idea,
-                     category: item.category,
                      overall_score: item.overall_score,
                      validation_count: item.count,
                      created_at: item.created_at,
