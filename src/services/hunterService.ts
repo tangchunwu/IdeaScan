@@ -258,6 +258,30 @@ export const hunterService = {
 		};
 	},
 
+	async getInsightTrend7Days(): Promise<{ date: string; count: number }[]> {
+		const results: { date: string; count: number }[] = [];
+		for (let i = 6; i >= 0; i--) {
+			const dayStart = new Date();
+			dayStart.setHours(0, 0, 0, 0);
+			dayStart.setDate(dayStart.getDate() - i);
+			const dayEnd = new Date(dayStart);
+			dayEnd.setDate(dayEnd.getDate() + 1);
+
+			const { count } = await fromTable("raw_market_signals")
+				.select("id", { count: "exact", head: true })
+				.eq("source", "perplexity")
+				.in("content_type", ["insight", "intelligence"])
+				.gte("scanned_at", dayStart.toISOString())
+				.lt("scanned_at", dayEnd.toISOString());
+
+			results.push({
+				date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
+				count: count || 0,
+			});
+		}
+		return results;
+	},
+
 	// Helper to get platform icon/color
 	getPlatformInfo(source: string) {
 		switch (source.toLowerCase()) {

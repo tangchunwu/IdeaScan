@@ -13,6 +13,7 @@ import {
        MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp,
        Trash2, Clock, Crosshair
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { hunterService, ScanJob, NicheOpportunity, RawMarketSignal } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
