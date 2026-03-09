@@ -461,7 +461,7 @@ const History = () => {
                             variant="ghost"
                             size="sm"
                             className="rounded-lg text-muted-foreground hover:text-destructive"
-                            onClick={(e) => handleDelete(item.id, e)}
+                            onClick={(e) => confirmDelete(item.id, e)}
                             disabled={deletingId === item.id}
                           >
                             <Trash2 className="w-4 h-4" />
