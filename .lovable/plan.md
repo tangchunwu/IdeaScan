@@ -1,35 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-## Plan: Polish History Page — From MVP to Production Quality
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-Looking at the screenshot, the page has several issues that make it feel unfinished:
+## 竞品对标优化
 
-1. **Redundant data sections**: Stats bar at top AND stats summary at bottom show the same metrics (total, avg score, etc.)
-2. **Sample Reports doesn't belong here**: It's already available in the Discover page's "精选报告" tab — showing it on History is noise
-3. **Too many stacked GlassCards**: Stats → Weekly Summary → Sample Reports → List creates visual overload with no hierarchy
-4. **Raw `<select>` elements**: The filter dropdowns use unstyled native selects instead of the design system's `Select` component
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-### Changes
+## Phase 6: 留存基础
 
-**1. Remove redundant sections from `src/pages/History.tsx`**
-- Remove the bottom stats summary (lines 493-529) — duplicates HistoryStatsBar
-- Remove `<SampleReports />` — already accessible via Discover page
-- Remove the `SampleReports` and `WeeklySummaryCard` imports if no longer used
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-**2. Merge Weekly Summary into Stats Bar (`src/components/history/HistoryStatsBar.tsx`)**
-- Integrate the "本周摘要" data (this week count, week-over-week change, best idea) directly into the stats bar as additional metrics
-- This eliminates one entire card layer while preserving the information
+## Phase 7: 可视化升级
 
-**3. Upgrade filter dropdowns to use Shadcn `Select` component**
-- Replace the three native `<select>` elements with `Select` / `SelectTrigger` / `SelectContent` from the UI library
-- Consistent rounded-xl styling matching the rest of the design system
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-**4. Tighten visual hierarchy**
-- Combine the search/filter bar and stats into a cleaner layout
-- Give the validation list items slightly more refined spacing and typography
-- Remove excessive `animate-slide-up` delays that make it feel slow
+## Phase 8: 增长引擎
 
-### Files to Edit
-- `src/pages/History.tsx` — Remove redundant sections, upgrade selects
-- `src/components/history/HistoryStatsBar.tsx` — Absorb weekly summary data
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
+## Phase 9: 高级功能（长期）
+
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
+
+## Phase 10: 工程优化
+
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |

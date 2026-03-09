@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link, useNavigate } from "react-router-dom";
-import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState, SampleReports } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ScoreCircle, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -28,7 +29,6 @@ import {
 } from "lucide-react";
 import { IdeaComparison } from "@/components/dashboard/IdeaComparison";
 import { HistoryStatsBar } from "@/components/history/HistoryStatsBar";
-import { WeeklySummaryCard } from "@/components/report/WeeklySummaryCard";
 import { captureEvent } from "@/lib/posthog";
 
 const History = () => {
@@ -282,45 +282,48 @@ const History = () => {
                   className="pl-10 rounded-xl border-border/50 bg-background/50"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as "all" | "completed" | "processing" | "failed")}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="all">全部状态</option>
-                  <option value="completed">已完成</option>
-                  <option value="processing">分析中</option>
-                  <option value="failed">失败</option>
-                </select>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "completed" | "processing" | "failed")}>
+                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="completed">已完成</SelectItem>
+                    <SelectItem value="processing">分析中</SelectItem>
+                    <SelectItem value="failed">失败</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {/* Score Filter Dropdown */}
-                <select
-                  value={scoreFilter}
-                  onChange={(e) => setScoreFilter(e.target.value as "all" | "high" | "medium" | "low")}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="all">全部评分</option>
-                  <option value="high">高分 (≥80)</option>
-                  <option value="medium">中等 (60-79)</option>
-                  <option value="low">低分 (&lt;60)</option>
-                </select>
+                {/* Score Filter */}
+                <Select value={scoreFilter} onValueChange={(v) => setScoreFilter(v as "all" | "high" | "medium" | "low")}>
+                  <SelectTrigger className="w-[130px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部评分</SelectItem>
+                    <SelectItem value="high">高分 (≥80)</SelectItem>
+                    <SelectItem value="medium">中等 (60-79)</SelectItem>
+                    <SelectItem value="low">低分 (&lt;60)</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {/* Sort Dropdown */}
-                <select
-                  value={`${sortBy}-${sortOrder}`}
-                  onChange={(e) => {
-                    const [by, order] = e.target.value.split("-") as ["date" | "score", "asc" | "desc"];
-                    setSortBy(by);
-                    setSortOrder(order);
-                  }}
-                  className="h-10 px-3 rounded-xl border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="date-desc">最新优先</option>
-                  <option value="date-asc">最早优先</option>
-                  <option value="score-desc">高分优先</option>
-                </select>
+                {/* Sort */}
+                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(v) => {
+                  const [by, order] = v.split("-") as ["date" | "score", "asc" | "desc"];
+                  setSortBy(by);
+                  setSortOrder(order);
+                }}>
+                  <SelectTrigger className="w-[120px] rounded-xl border-border/50 bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">最新优先</SelectItem>
+                    <SelectItem value="date-asc">最早优先</SelectItem>
+                    <SelectItem value="score-desc">高分优先</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl md:hidden" onClick={toggleAll}>
                   {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <div className="w-4 h-4 border-2 border-muted rounded" />}
@@ -346,11 +349,6 @@ const History = () => {
           {/* Main Content */}
           {/* Stats Dashboard */}
           <HistoryStatsBar validations={validations} />
-              {/* Weekly Summary + Referral */}
-              <WeeklySummaryCard />
-
-              {/* Sample Reports Section */}
-              <SampleReports />
 
               {/* My Reports Header */}
               {filteredItems.length > 0 && (
@@ -490,43 +488,6 @@ const History = () => {
                 )}
               </div>
 
-              {/* Stats Summary */}
-              {filteredItems.length > 0 && (
-                <GlassCard className="mt-8 animate-slide-up" style={{ animationDelay: "300ms" }}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">{validations.length}</div>
-                      <div className="text-sm text-muted-foreground">总验证次数</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-secondary">
-                        {validations.filter(v => v.overall_score).length > 0
-                          ? Math.round(
-                            validations
-                              .filter(v => v.overall_score)
-                              .reduce((acc, item) => acc + (item.overall_score || 0), 0) /
-                            validations.filter(v => v.overall_score).length
-                          )
-                          : '-'
-                        }
-                      </div>
-                      <div className="text-sm text-muted-foreground">平均评分</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-primary">
-                        {validations.filter(item => (item.overall_score || 0) >= 80).length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">高分创意</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-accent">
-                        {new Set(validations.flatMap(item => item.tags)).size}
-                      </div>
-                      <div className="text-sm text-muted-foreground">涉及领域</div>
-                    </div>
-                  </div>
-                </GlassCard>
-              )}
 
               {/* Idea Comparison - 想法对比功能 */}
               {validations.filter(v => v.overall_score && v.status === 'completed').length >= 2 && (
