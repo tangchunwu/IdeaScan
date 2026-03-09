@@ -328,9 +328,32 @@ const AdminMonitorTab = () => {
                                            <span>最近领域: <strong className="text-foreground">{cronInfo.lastKeyword}</strong></span>
                                     )}
                              </div>
-                      </GlassCard>
+                       </GlassCard>
 
-                      {/* Actions */}
+                       {/* 7-Day Insight Trend Chart */}
+                       <GlassCard className="p-4 space-y-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                     <BarChart3 className="w-4 h-4 text-primary" />
+                                     <h4 className="font-bold text-foreground text-sm">最近 7 天洞察产出</h4>
+                                     <span className="text-xs text-muted-foreground ml-auto">
+                                            合计: <strong className="text-foreground">{trendData.reduce((s, d) => s + d.count, 0)}</strong> 条
+                                     </span>
+                              </div>
+                              <div className="h-[180px]">
+                                     <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={trendData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                                                   <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                   <Tooltip
+                                                          contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                                                          formatter={(value: number) => [`${value} 条`, "洞察数"]}
+                                                   />
+                                                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                     </ResponsiveContainer>
+                              </div>
+                       </GlassCard>
                       <div className="flex gap-3">
                             <Button variant="outline" size="sm" onClick={handleProcess} disabled={isProcessing} className="gap-2">
                                    <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
