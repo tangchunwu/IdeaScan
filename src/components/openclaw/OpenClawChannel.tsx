@@ -65,7 +65,9 @@ function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
 }
 
 /** Convert bare image URLs to markdown image syntax */
-const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg)(?:\?\S*)?)$/gim;
+// Match image URLs with extensions OR common image service path patterns
+const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg|bmp|tiff?)(?:\?\S*)?)$/gim;
+const IMAGE_SERVICE_RE = /^(https?:\/\/\S*(?:\/(?:image|img|pic|photo|media|upload|generate|render|cdn)\S*))$/gim;
 const DATA_URI_RE = /^(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)$/gm;
 const INCOMPLETE_IMG_RE = /!\[[^\]]*\]\([^)]*$/;
 
