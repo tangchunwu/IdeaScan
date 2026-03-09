@@ -47,9 +47,17 @@ const Report = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
+  const location = useLocation();
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [isRecrawling, setIsRecrawling] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const validTabs = ["overview", "market", "competitors", "ai", "circle", "notes"];
+  const initialTab = validTabs.includes(location.hash.replace("#", "")) ? location.hash.replace("#", "") : "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, "", `#${tab}`);
+  };
   const [scrollProgress, setScrollProgress] = useState(0);
   const settings = useSettings();
   useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", [data?.validation?.idea]);
