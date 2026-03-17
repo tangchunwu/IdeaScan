@@ -196,8 +196,16 @@ serve(async (req) => {
     console.log(`[Processor] Found ${unprocessed?.length || 0} unprocessed signals`);
 
     let successCount = 0, failCount = 0;
+    let delayMs = 500; // start with 500ms between requests
+    let consecutiveRateLimits = 0;
 
     for (const signal of (unprocessed as RawSignal[]) || []) {
+      // If we hit too many consecutive rate limits, stop early
+      if (consecutiveRateLimits >= 3) {
+        console.log(`[Processor] Stopping early: ${consecutiveRateLimits} consecutive 429s. Will retry next invocation.`);
+        break;
+      }
+
       try {
         const analysis = await scoreSignal(signal, scoreApiKey, scoreBaseUrl, scoreModel);
         const { error: updateError } = await supabase
@@ -212,11 +220,21 @@ serve(async (req) => {
           .eq("id", signal.id);
 
         if (updateError) { failCount++; } else { successCount++; }
-        await new Promise(r => setTimeout(r, 100)); // rate limit
+        consecutiveRateLimits = 0; // reset on success
+        delayMs = Math.max(500, delayMs - 200); // speed up slightly on success
       } catch (e) {
-        console.error(`[Processor] Score error ${signal.id}:`, e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        const is429 = errMsg.includes("429");
+        if (is429) {
+          consecutiveRateLimits++;
+          delayMs = Math.min(10000, delayMs * 2); // exponential backoff
+          console.warn(`[Processor] Rate limited (${consecutiveRateLimits}x), backing off to ${delayMs}ms`);
+        } else {
+          console.error(`[Processor] Score error ${signal.id}:`, e);
+        }
         failCount++;
       }
+      await new Promise(r => setTimeout(r, delayMs));
     }
 
     console.log(`[Processor] Scoring done: ${successCount} ok, ${failCount} failed`);
