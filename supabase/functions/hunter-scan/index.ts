@@ -311,8 +311,11 @@ serve(async (req) => {
           errors.push(`discover: ${e instanceof Error ? e.message : String(e)}`);
         }
 
-        // Update scan_jobs
+        // Update scan_jobs then auto-trigger signal-processor
         await updateScanJobs(supabase, totalInserted);
+        if (totalInserted > 0) {
+          await triggerSignalProcessor(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        }
 
         return new Response(
           JSON.stringify({
@@ -389,8 +392,11 @@ serve(async (req) => {
       }
     }
 
-    // Update scan_jobs
+    // Update scan_jobs then auto-trigger signal-processor
     await updateScanJobs(supabase, totalInserted);
+    if (totalInserted > 0) {
+      await triggerSignalProcessor(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    }
 
     return new Response(
       JSON.stringify({
@@ -430,5 +436,24 @@ async function updateScanJobs(supabase: any, totalInserted: number) {
         signals_found: ((job as any).signals_found || 0) + totalInserted,
       }).eq("id", (job as any).id);
     }
+  }
+}
+
+/** Auto-trigger signal-processor after scan completes */
+async function triggerSignalProcessor(supabaseUrl: string, serviceRoleKey: string) {
+  try {
+    const url = `${supabaseUrl}/functions/v1/signal-processor`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ batchSize: 50 }),
+    });
+    const result = await response.json();
+    console.log("[hunter-scan] signal-processor result:", JSON.stringify(result));
+  } catch (e) {
+    console.error("[hunter-scan] Failed to trigger signal-processor:", e);
   }
 }

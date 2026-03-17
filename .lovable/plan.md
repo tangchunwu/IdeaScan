@@ -1,47 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-## 诊断结果与改进计划
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-### 当前问题
+## 竞品对标优化
 
-数据库实际状态：
-- `raw_market_signals`: 192 条信号，其中 **140 条 insight 未处理**（没有 `processed_at`）
-- `niche_opportunities`: 仅 **1 条**（"适老化改造"）
-- 原因：`signal-processor` 没有被自动触发，且聚合逻辑太粗糙（按第一个 tag 分组，要求 >=2 条才生成机会）
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-**核心瓶颈不是缺向量模型，而是管道断裂 + 聚合逻辑太弱。**
+## Phase 6: 留存基础
 
-### 改进方案（分两步）
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
-#### Step 1: 修复管道断裂 + 改进聚合
+## Phase 7: 可视化升级
 
-**`supabase/functions/hunter-scan/index.ts`**
-- 扫描完成后自动调用 `signal-processor`，不再依赖手动触发
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-**`supabase/functions/signal-processor/index.ts`**
-- 改进聚合逻辑：用 AI（Lovable AI）对高分信号做**语义聚类**，而非简单按 tag[0] 分组
-- 流程：取最近 7 天高分信号 → 发给 AI 做主题聚类 → 生成/更新 `niche_opportunities`
-- 这比 pgvector 轻量得多，效果立竿见影
+## Phase 8: 增长引擎
 
-#### Step 2（可选未来）: pgvector 向量检索
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
-当信号量超过 1000+ 条时再考虑：
-- 启用 pgvector 扩展，给 `raw_market_signals` 加 `embedding` 列
-- 用 AI embedding API 生成向量
-- 支持"语义相似搜索"（如：用户输入"宠物护理"能找到所有相关信号）
+## Phase 9: 高级功能（长期）
 
-**当前阶段不需要，Step 1 就能解决"数据没用上"的问题。**
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
 
-### 具体改动
+## Phase 10: 工程优化
 
-| 文件 | 改动 |
-|------|------|
-| `signal-processor/index.ts` | 用 Lovable AI 做语义聚类生成机会，替代 tag 分组 |
-| `hunter-scan/index.ts` | 扫描完成后自动 invoke `signal-processor` |
-
-### 预期效果
-
-- 140 条未处理信号将被 AI 评分 + 聚类
-- `niche_opportunities` 预计从 1 条增长到 10-20 条高质量商机
-- 每次 hunter-scan 后自动刷新商机列表
-
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |
