@@ -432,3 +432,22 @@ async function updateScanJobs(supabase: any, totalInserted: number) {
     }
   }
 }
+
+/** Auto-trigger signal-processor after scan completes */
+async function triggerSignalProcessor(supabaseUrl: string, serviceRoleKey: string) {
+  try {
+    const url = `${supabaseUrl}/functions/v1/signal-processor`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ batchSize: 50 }),
+    });
+    const result = await response.json();
+    console.log("[hunter-scan] signal-processor result:", JSON.stringify(result));
+  } catch (e) {
+    console.error("[hunter-scan] Failed to trigger signal-processor:", e);
+  }
+}
