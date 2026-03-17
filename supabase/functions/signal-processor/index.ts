@@ -49,8 +49,13 @@ ${signal.content.slice(0, 1500)}
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
   });
 
-  if (!response.ok) throw new Error(`AI score failed: ${response.status}`);
-  const data = await response.json();
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
+  }
+  const rawText = await response.text();
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
   const content = data.choices[0]?.message?.content || "";
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("AI did not return valid JSON");
