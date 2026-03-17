@@ -22,10 +22,40 @@ interface AIAnalysisResult {
   pain_level: string;
 }
 
+// ── Retry helper with exponential backoff ──
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: { maxRetries?: number; baseDelayMs?: number; retryOn429?: boolean } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 2000, retryOn429 = true } = opts;
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      const is429 = lastError.message.includes("429");
+      const is5xx = /5\d{2}/.test(lastError.message);
+
+      if (attempt < maxRetries && (retryOn429 && is429 || is5xx)) {
+        const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+        console.warn(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed (${is429 ? "429" : "5xx"}), waiting ${Math.round(delay)}ms`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw lastError;
+    }
+  }
+  throw lastError!;
+}
+
 // ── Step 1: Score individual unprocessed signals ──
 
 async function scoreSignal(signal: RawSignal, apiKey: string, baseUrl: string, model: string): Promise<AIAnalysisResult> {
-  const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
+  return withRetry(async () => {
+    const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
 
 用户内容:
 """
@@ -43,30 +73,31 @@ ${signal.content.slice(0, 1500)}
   "pain_level": "<mild|moderate|severe|critical>"
 }`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
-  });
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
+    });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
-  }
-  const rawText = await response.text();
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
-  const content = data.choices[0]?.message?.content || "";
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("AI did not return valid JSON");
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
+    }
+    const rawText = await response.text();
+    let data: any;
+    try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
+    const content = data.choices[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI did not return valid JSON");
 
-  const result = JSON.parse(jsonMatch[0]);
-  return {
-    sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
-    opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
-    topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
-    pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
-  };
+    const result = JSON.parse(jsonMatch[0]);
+    return {
+      sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
+      opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
+      topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
+      pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
+    };
+  }, { maxRetries: 3, baseDelayMs: 2000 });
 }
 
 // ── Step 2: Semantic clustering via Lovable AI ──
