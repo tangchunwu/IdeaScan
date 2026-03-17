@@ -187,6 +187,7 @@ ${signalSummaries}
       top_sources: [...new Set(matchedSignals.map(s => s.source_url).filter(Boolean))].slice(0, 5) as string[],
     };
   }).filter((c: ClusteredOpportunity) => c.signal_ids.length >= 2);
+  }, { maxRetries: 2, baseDelayMs: 3000 });
 }
 
 // ── Main handler ──
