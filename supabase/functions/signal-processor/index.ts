@@ -22,10 +22,40 @@ interface AIAnalysisResult {
   pain_level: string;
 }
 
+// ── Retry helper with exponential backoff ──
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: { maxRetries?: number; baseDelayMs?: number; retryOn429?: boolean } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 2000, retryOn429 = true } = opts;
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      const is429 = lastError.message.includes("429");
+      const is5xx = /5\d{2}/.test(lastError.message);
+
+      if (attempt < maxRetries && (retryOn429 && is429 || is5xx)) {
+        const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+        console.warn(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed (${is429 ? "429" : "5xx"}), waiting ${Math.round(delay)}ms`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw lastError;
+    }
+  }
+  throw lastError!;
+}
+
 // ── Step 1: Score individual unprocessed signals ──
 
 async function scoreSignal(signal: RawSignal, apiKey: string, baseUrl: string, model: string): Promise<AIAnalysisResult> {
-  const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
+  return withRetry(async () => {
+    const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
 
 用户内容:
 """
@@ -43,30 +73,31 @@ ${signal.content.slice(0, 1500)}
   "pain_level": "<mild|moderate|severe|critical>"
 }`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
-  });
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
+    });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
-  }
-  const rawText = await response.text();
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
-  const content = data.choices[0]?.message?.content || "";
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("AI did not return valid JSON");
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
+    }
+    const rawText = await response.text();
+    let data: any;
+    try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
+    const content = data.choices[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI did not return valid JSON");
 
-  const result = JSON.parse(jsonMatch[0]);
-  return {
-    sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
-    opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
-    topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
-    pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
-  };
+    const result = JSON.parse(jsonMatch[0]);
+    return {
+      sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
+      opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
+      topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
+      pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
+    };
+  }, { maxRetries: 3, baseDelayMs: 2000 });
 }
 
 // ── Step 2: Semantic clustering via Lovable AI ──
@@ -86,6 +117,7 @@ async function clusterSignalsWithAI(
   signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>,
   lovableApiKey: string
 ): Promise<ClusteredOpportunity[]> {
+  return withRetry(async () => {
   // Build a compact summary of signals for the AI
   const signalSummaries = signals.slice(0, 80).map((s, i) => 
     `[${i}] (score:${s.opportunity_score}) ${s.content.slice(0, 200)}`
@@ -155,6 +187,7 @@ ${signalSummaries}
       top_sources: [...new Set(matchedSignals.map(s => s.source_url).filter(Boolean))].slice(0, 5) as string[],
     };
   }).filter((c: ClusteredOpportunity) => c.signal_ids.length >= 2);
+  }, { maxRetries: 2, baseDelayMs: 3000 });
 }
 
 // ── Main handler ──
@@ -196,13 +229,12 @@ serve(async (req) => {
     console.log(`[Processor] Found ${unprocessed?.length || 0} unprocessed signals`);
 
     let successCount = 0, failCount = 0;
-    let delayMs = 500; // start with 500ms between requests
-    let consecutiveRateLimits = 0;
+    let consecutiveFails = 0;
 
     for (const signal of (unprocessed as RawSignal[]) || []) {
-      // If we hit too many consecutive rate limits, stop early
-      if (consecutiveRateLimits >= 3) {
-        console.log(`[Processor] Stopping early: ${consecutiveRateLimits} consecutive 429s. Will retry next invocation.`);
+      // Stop early if too many consecutive failures (even after retries)
+      if (consecutiveFails >= 3) {
+        console.log(`[Processor] Stopping early: ${consecutiveFails} consecutive failures after retries.`);
         break;
       }
 
@@ -220,21 +252,14 @@ serve(async (req) => {
           .eq("id", signal.id);
 
         if (updateError) { failCount++; } else { successCount++; }
-        consecutiveRateLimits = 0; // reset on success
-        delayMs = Math.max(500, delayMs - 200); // speed up slightly on success
+        consecutiveFails = 0;
       } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
-        const is429 = errMsg.includes("429");
-        if (is429) {
-          consecutiveRateLimits++;
-          delayMs = Math.min(10000, delayMs * 2); // exponential backoff
-          console.warn(`[Processor] Rate limited (${consecutiveRateLimits}x), backing off to ${delayMs}ms`);
-        } else {
-          console.error(`[Processor] Score error ${signal.id}:`, e);
-        }
+        console.error(`[Processor] Score error ${signal.id} (after retries):`, e);
         failCount++;
+        consecutiveFails++;
       }
-      await new Promise(r => setTimeout(r, delayMs));
+      // Base delay between signals (retries have their own backoff)
+      await new Promise(r => setTimeout(r, 800));
     }
 
     console.log(`[Processor] Scoring done: ${successCount} ok, ${failCount} failed`);
