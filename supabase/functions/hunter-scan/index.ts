@@ -311,8 +311,11 @@ serve(async (req) => {
           errors.push(`discover: ${e instanceof Error ? e.message : String(e)}`);
         }
 
-        // Update scan_jobs
+        // Update scan_jobs then auto-trigger signal-processor
         await updateScanJobs(supabase, totalInserted);
+        if (totalInserted > 0) {
+          await triggerSignalProcessor(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        }
 
         return new Response(
           JSON.stringify({
