@@ -178,11 +178,7 @@ serve(async (req) => {
     const scoreBaseUrl = "https://ai.gateway.lovable.dev/v1";
     const scoreModel = "google/gemini-2.5-flash-lite";
 
-    // Lovable AI key for semantic clustering (always use Lovable AI)
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!scoreApiKey) throw new Error("No AI API key configured");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured for clustering");
+    // lovableApiKey is already defined above and used for both scoring and clustering
 
     let batchSize = 50;
     try { const body = await req.json(); batchSize = body.batchSize || 50; } catch { /* default */ }
