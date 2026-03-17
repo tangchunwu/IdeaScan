@@ -117,6 +117,7 @@ async function clusterSignalsWithAI(
   signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>,
   lovableApiKey: string
 ): Promise<ClusteredOpportunity[]> {
+  return withRetry(async () => {
   // Build a compact summary of signals for the AI
   const signalSummaries = signals.slice(0, 80).map((s, i) => 
     `[${i}] (score:${s.opportunity_score}) ${s.content.slice(0, 200)}`
