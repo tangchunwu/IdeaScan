@@ -65,7 +65,7 @@ const fetchValidationById = async (id: string): Promise<ComparisonIdea | null> =
 };
 
 const fetchUserValidations = async (limit = 10): Promise<{ id: string; idea: string; score: number }[]> => {
-       const { data: { session } } = await supabase.auth.getSession();
+       const { data: { session } } = await supabase.auth.getSession() as any;
        if (!session) return [];
 
        const { data, error } = await supabase
@@ -259,9 +259,9 @@ export const IdeaComparison = ({
                                    {allDimensions.length > 0 && (
                                           <div className="space-y-3">
                                                  <h4 className="text-sm font-medium text-muted-foreground">维度对比</h4>
-                                                 {allDimensions.slice(0, 6).map((dim) => (
-                                                        <div key={dim} className="flex items-center gap-2">
-                                                               <span className="text-xs w-20 truncate text-muted-foreground">{dim}</span>
+                                                  {allDimensions.slice(0, 6).map((dim: string) => (
+                                                         <div key={dim as string} className="flex items-center gap-2">
+                                                                <span className="text-xs w-20 truncate text-muted-foreground">{dim as string}</span>
                                                                <div className="flex-1 flex gap-2">
                                                                       {comparisonData.map((idea) => {
                                                                              const dimData = idea.dimensions.find((d) => d.dimension === dim);
