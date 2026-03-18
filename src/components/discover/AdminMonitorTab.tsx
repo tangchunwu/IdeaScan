@@ -54,11 +54,23 @@ const AdminMonitorTab = () => {
   // ── Mutations ──
   const toggleSchedulerMutation = useMutation({
     mutationFn: (enabled: boolean) => hunterService.toggleScheduler(enabled),
+    onMutate: async (enabled) => {
+      await queryClient.cancelQueries({ queryKey: ["hunter-scheduler-config"] });
+      const previous = queryClient.getQueryData(["hunter-scheduler-config"]);
+      queryClient.setQueryData(["hunter-scheduler-config"], (old: any) => ({
+        ...old,
+        enabled,
+      }));
+      return { previous };
+    },
     onSuccess: (_data, enabled) => {
       queryClient.invalidateQueries({ queryKey: ["hunter-scheduler-config"] });
       toast({ title: enabled ? "✅ 24小时扫描已启动" : "⏸️ 24小时扫描已暂停" });
     },
-    onError: (e: any) => {
+    onError: (e: any, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["hunter-scheduler-config"], context.previous);
+      }
       toast({ title: "操作失败", description: e.message, variant: "destructive" });
     },
   });
