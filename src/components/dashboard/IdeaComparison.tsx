@@ -65,7 +65,7 @@ const fetchValidationById = async (id: string): Promise<ComparisonIdea | null> =
 };
 
 const fetchUserValidations = async (limit = 10): Promise<{ id: string; idea: string; score: number }[]> => {
-       const { data: { session } } = await supabase.auth.getSession();
+       const { data: { session } } = await supabase.auth.getSession() as any;
        if (!session) return [];
 
        const { data, error } = await supabase
