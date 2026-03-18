@@ -65,12 +65,10 @@ const Index = () => {
   const { data: validationCount } = useQuery({
     queryKey: ['validation-count'],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('validations')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'completed');
+      const { data, error } = await supabase
+        .rpc('get_completed_validation_count');
       if (error) throw error;
-      return count || 0;
+      return (data as number) || 0;
     },
     staleTime: 1000 * 60 * 10,
   });

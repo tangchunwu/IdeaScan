@@ -1504,6 +1504,7 @@ export type Database = {
           topic_id: string
         }[]
       }
+      get_completed_validation_count: { Args: never; Returns: number }
       get_public_trending_topics: {
         Args: { p_limit?: number }
         Returns: {
