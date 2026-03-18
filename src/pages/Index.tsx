@@ -138,7 +138,7 @@ const Index = () => {
             <div className="flex flex-col items-center gap-4 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
               <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
               <a
-                href="/share/bb05ee712f6340cb"
+                href={`${window.location.origin}/share/bb05ee712f6340cb`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
