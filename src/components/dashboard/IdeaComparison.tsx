@@ -71,7 +71,7 @@ const fetchUserValidations = async (limit = 10): Promise<{ id: string; idea: str
        const { data, error } = await supabase
               .from("validations")
               .select("id, idea, overall_score")
-              .eq("user_id", session.user.id)
+              .eq("user_id", user.id)
               .order("created_at", { ascending: false })
               .limit(limit);
 
