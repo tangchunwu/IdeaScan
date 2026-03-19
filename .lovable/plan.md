@@ -1,34 +1,79 @@
+# IdeaScan 优化计划
 
+## ✅ 全部已完成
 
-## Problem Analysis
+| 改进项 | 状态 |
+|--------|------|
+| Discover 匿名用户开放（Top 5 热点） | ✅ |
+| 动态 SEO 标题（8 个页面） | ✅ |
+| Validate.tsx 拆分重构（850→310 行） | ✅ |
+| 移动端 Navbar 增加设置入口 | ✅ |
+| SocialProofCounter 真实数据 | ✅ |
+| HotTrends "发现更多"CTA | ✅ |
+| Toast 通知统一（sonner bridge） | ✅ |
+| Edge Function 错误友好化映射 | ✅ |
+| PDF 导出进度提示 | ✅ |
+| Report 移动端适配优化 | ✅ |
+| 付费转化路径（免费配额集成） | ✅ |
+| 报告公开分享功能（OG meta tags） | ✅ |
+| 首页内联输入框 + 示例报告链接 | ✅ |
+| 品牌名统一为 IdeaScan | ✅ |
+| 报告页 QuickInsightsCards 三卡片 | ✅ |
+| DemandDecisionCard 精简（成本移至 DevPanel） | ✅ |
+| Validate 高级选项折叠 | ✅ |
+| 验证模式默认深度（移除模式选择 UI） | ✅ |
+| 首页用户评价区（TestimonialSection） | ✅ |
 
-The counter shows "9" because **the app cannot build at all** — the dependency environment is corrupted. The page you see is a stale cached version. Two problems need fixing:
+## 竞品对标优化
 
-1. **Build completely broken**: `rollup` and `vite` were accidentally added to `dependencies`, conflicting with the platform's pre-installed versions. `@types/react` version `18.3.12` in dependencies conflicts with recharts/framer-motion JSX types.
+| 改进项 | 状态 |
+|--------|------|
+| Phase 1: 竞品分析结构化卡片 | ✅ |
+| Phase 2: 风险与缓解建议卡片 | ✅ |
+| Phase 3: 变现策略模块 | ✅ |
+| Phase 4: 品牌名建议工具 | ✅ |
+| Phase 5: 市场研究资讯聚合 | ✅ |
 
-2. **Minor code issue**: `supabase.auth.getSession()` no longer exists in the current Supabase SDK version used.
+## Phase 6: 留存基础
 
-The RPC `get_completed_validation_count` is correct and returns the real global count. Once the build works, the counter will show the true number.
+| 改进项 | 状态 |
+|--------|------|
+| 历史页统计仪表盘（验证数、平均分、趋势图） | ✅ |
+| 报告页"重新分析"按钮显眼化 | ✅ |
+| 趋势时间线图（Overview Tab） | ✅ |
 
----
+## Phase 7: 可视化升级
 
-## Fix Plan
+| 改进项 | 状态 |
+|--------|------|
+| 竞品矩阵散点图 | ✅ |
+| 情感词云 | ✅ |
+| Compare页雷达图叠加 + 差异分析 | ✅ |
 
-### Step 1: Clean up package.json
-- **Remove** `rollup`, `vite`, and `@types/react` from `dependencies` (they belong in devDependencies or are provided by the platform)
-- Pin `@tanstack/react-query` to `^5.56.2` (caret instead of exact) to allow compatible resolution
+## Phase 8: 增长引擎
 
-### Step 2: Fix IdeaComparison.tsx
-- Replace `supabase.auth.getSession()` with `supabase.auth.getUser()` (the current SDK method)
+| 改进项 | 状态 |
+|--------|------|
+| 公开报告Gallery页 | ✅ |
+| 浏览器通知（验证完成） | ✅ |
+| 推荐邀请系统 | ✅ |
 
-### Step 3: Verify sample report link
-- Confirm the sample report link uses `window.location.origin` so it works on the custom domain
+## Phase 9: 高级功能（长期）
 
----
+| 改进项 | 状态 |
+|--------|------|
+| 报告笔记/评论 | ✅ |
+| 协作分享 | ✅ |
+| 周报摘要 | ✅ |
 
-## Technical Details
+## Phase 10: 工程优化
 
-The recharts JSX errors (`XAxis`, `YAxis`, `Tooltip`, `Bar` cannot be used as JSX component) are caused by `@types/react@18.3.12` in dependencies conflicting with the platform's type definitions. Removing it from dependencies resolves all ~30 recharts/framer-motion type errors at once.
-
-The `ERR_MODULE_NOT_FOUND: Cannot find package 'rollup'` runtime error is caused by `rollup@4.24.0` in dependencies interfering with vite's internal rollup resolution. Removing both `rollup` and `vite` from dependencies fixes the startup crash.
-
+| 改进项 | 状态 |
+|--------|------|
+| HunterSection React Query 迁移 | ✅ |
+| AdminMonitorTab 组件拆分 | ✅ |
+| perplexity-scheduler 并发优化 | ✅ |
+| getInsightTrend7Days 单查询优化 | ✅ |
+| Discover userInterests → React Query | ✅ |
+| 合并 getCategories + getDiscoverStats 冗余查询 | ✅ |
+| 修复 PopularValidations 无效字段引用 | ✅ |
