@@ -276,7 +276,7 @@ const Report = () => {
         shareToken = result.shareToken;
       }
       
-      const shareUrl = `${window.location.origin}/share/${shareToken}`;
+      const shareUrl = `https://ideascan.me/share/${shareToken}`;
       const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
       const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
       
