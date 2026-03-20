@@ -258,6 +258,38 @@ export const hunterService = {
 		};
 	},
 
+	async getSignalsByKeyword(keyword: string, limit = 3): Promise<RawMarketSignal[]> {
+		const { data, error } = await fromTable("raw_market_signals")
+			.select("*")
+			.in("content_type", ["insight", "intelligence"])
+			.contains("topic_tags", [keyword])
+			.order("opportunity_score", { ascending: false })
+			.limit(limit);
+
+		if (error) throw error;
+		return (data || []) as unknown as RawMarketSignal[];
+	},
+
+	async getOpportunityStats(): Promise<{ totalOpps: number; totalSignals: number; avgUrgency: number; categories: number }> {
+		const { data: opps } = await fromTable("niche_opportunities").select("urgency_score, category");
+		const { count: totalSignals } = await fromTable("raw_market_signals")
+			.select("*", { count: "exact", head: true })
+			.in("content_type", ["insight", "intelligence"]);
+
+		const oppList = (opps || []) as unknown as { urgency_score: number; category: string | null }[];
+		const categories = new Set(oppList.map(o => o.category).filter(Boolean));
+		const avgUrgency = oppList.length > 0
+			? Math.round(oppList.reduce((sum, o) => sum + (o.urgency_score || 0), 0) / oppList.length)
+			: 0;
+
+		return {
+			totalOpps: oppList.length,
+			totalSignals: totalSignals || 0,
+			avgUrgency,
+			categories: categories.size,
+		};
+	},
+
 	async getInsightTrend7Days(): Promise<{ date: string; count: number }[]> {
 		const sevenDaysAgo = new Date();
 		sevenDaysAgo.setHours(0, 0, 0, 0);
