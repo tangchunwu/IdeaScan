@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { GlassCard, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,13 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate } from "react-router-dom";
 import {
        Radar, Plus, Search, Filter, RefreshCw,
        MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp,
-       Trash2, Clock, Crosshair
+       Trash2, Clock, Crosshair, LayoutGrid, List, Zap, Target, FolderOpen
 } from "lucide-react";
-import { hunterService, ScanJob, NicheOpportunity } from "@/services/hunterService";
+import { hunterService, ScanJob, NicheOpportunity, RawMarketSignal } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +26,41 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminMonitorTab from "./AdminMonitorTab";
 
 const STALE_TIME = 5 * 60 * 1000;
+
+// === Related Signals Preview ===
+const RelatedSignals = ({ keyword }: { keyword: string }) => {
+       const { data: signals = [], isLoading } = useQuery({
+              queryKey: ["hunter-related-signals", keyword],
+              queryFn: () => hunterService.getSignalsByKeyword(keyword, 3),
+              staleTime: STALE_TIME,
+       });
+
+       if (isLoading) return <div className="text-xs text-muted-foreground animate-pulse">加载相关信号...</div>;
+       if (signals.length === 0) return null;
+
+       return (
+              <div className="space-y-2 mt-3 pt-3 border-t border-border/50">
+                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                            <Zap className="w-3 h-3" /> 支撑信号
+                     </span>
+                     {signals.map((s) => (
+                            <div key={s.id} className="text-xs bg-muted/30 rounded-md p-2 space-y-1">
+                                   <p className="line-clamp-2 text-foreground/80">{s.content.slice(0, 120)}...</p>
+                                   <div className="flex items-center gap-2 text-muted-foreground">
+                                          <span>{hunterService.getPlatformInfo(s.source).label}</span>
+                                          {s.opportunity_score != null && <span>机会分 {s.opportunity_score}</span>}
+                                          {s.source_url && (
+                                                 <a href={s.source_url} target="_blank" rel="noopener noreferrer"
+                                                        onClick={e => e.stopPropagation()} className="text-primary hover:underline">
+                                                        来源↗
+                                                 </a>
+                                          )}
+                                   </div>
+                            </div>
+                     ))}
+              </div>
+       );
+};
 
 // === Components ===
 
@@ -84,6 +121,7 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
                                           <span>·</span>
                                           <span>市场规模: <strong className="text-foreground">{opp.market_size_est || '未知'}</strong></span>
                                    </div>
+                                   <RelatedSignals keyword={opp.keyword} />
                             </div>
                      )}
 
@@ -186,10 +224,155 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
 });
 CreateJobDialog.displayName = "CreateJobDialog";
 
+// === Stats Overview ===
+const StatsOverview = () => {
+       const { data: stats } = useQuery({
+              queryKey: ["hunter-opp-stats"],
+              queryFn: () => hunterService.getOpportunityStats(),
+              staleTime: STALE_TIME,
+       });
+
+       if (!stats) return null;
+
+       const items = [
+              { label: "商机", value: stats.totalOpps, icon: Target, color: "text-primary" },
+              { label: "信号", value: stats.totalSignals, icon: Zap, color: "text-amber-500" },
+              { label: "平均紧迫度", value: stats.avgUrgency, icon: TrendingUp, color: "text-red-500" },
+              { label: "分类", value: stats.categories, icon: FolderOpen, color: "text-emerald-500" },
+       ];
+
+       return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                     {items.map(item => (
+                            <GlassCard key={item.label} padding="sm" className="flex items-center gap-3">
+                                   <div className={`p-2 rounded-lg bg-muted/30 ${item.color}`}>
+                                          <item.icon className="w-4 h-4" />
+                                   </div>
+                                   <div>
+                                          <div className="text-xl font-bold text-foreground">{item.value}</div>
+                                          <div className="text-xs text-muted-foreground">{item.label}</div>
+                                   </div>
+                            </GlassCard>
+                     ))}
+              </div>
+       );
+};
+
+// === Filter Bar ===
+type SortKey = "urgency" | "signals" | "latest";
+
+const FilterBar = ({
+       search, setSearch, sort, setSort, selectedCategory, setSelectedCategory,
+       categories, viewMode, setViewMode,
+}: {
+       search: string; setSearch: (v: string) => void;
+       sort: SortKey; setSort: (v: SortKey) => void;
+       selectedCategory: string | null; setSelectedCategory: (v: string | null) => void;
+       categories: string[];
+       viewMode: "grid" | "grouped"; setViewMode: (v: "grid" | "grouped") => void;
+}) => (
+       <div className="space-y-3 mb-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                     <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                   placeholder="搜索商机..."
+                                   value={search}
+                                   onChange={e => setSearch(e.target.value)}
+                                   className="pl-9"
+                            />
+                     </div>
+                     <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
+                            <SelectTrigger className="w-[160px]">
+                                   <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                   <SelectItem value="urgency">🔥 紧迫度优先</SelectItem>
+                                   <SelectItem value="signals">📊 信号量优先</SelectItem>
+                                   <SelectItem value="latest">🕐 最新发现</SelectItem>
+                            </SelectContent>
+                     </Select>
+                     <div className="flex border border-input rounded-md overflow-hidden">
+                            <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-none h-10 w-10"
+                                   onClick={() => setViewMode("grid")}>
+                                   <LayoutGrid className="w-4 h-4" />
+                            </Button>
+                            <Button variant={viewMode === "grouped" ? "default" : "ghost"} size="icon" className="rounded-none h-10 w-10"
+                                   onClick={() => setViewMode("grouped")}>
+                                   <List className="w-4 h-4" />
+                            </Button>
+                     </div>
+              </div>
+              {categories.length > 0 && (
+                     <div className="flex flex-wrap gap-2">
+                            <Badge
+                                   variant={selectedCategory === null ? "default" : "outline"}
+                                   className="cursor-pointer transition-colors"
+                                   onClick={() => setSelectedCategory(null)}
+                            >
+                                   全部
+                            </Badge>
+                            {categories.slice(0, 15).map(cat => (
+                                   <Badge
+                                          key={cat}
+                                          variant={selectedCategory === cat ? "default" : "outline"}
+                                          className="cursor-pointer transition-colors"
+                                          onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                                   >
+                                          {cat}
+                                   </Badge>
+                            ))}
+                            {categories.length > 15 && (
+                                   <Badge variant="outline" className="text-muted-foreground">+{categories.length - 15} 更多</Badge>
+                            )}
+                     </div>
+              )}
+       </div>
+);
+
+// === Grouped View ===
+const GroupedView = ({ groups }: { groups: Map<string, NicheOpportunity[]> }) => {
+       return (
+              <div className="space-y-4">
+                     {Array.from(groups.entries()).map(([category, opps]) => {
+                            const avgUrg = Math.round(opps.reduce((s, o) => s + (o.urgency_score || 0), 0) / opps.length);
+                            return (
+                                   <Collapsible key={category} defaultOpen={opps.length <= 5}>
+                                          <CollapsibleTrigger className="w-full">
+                                                 <GlassCard padding="sm" className="flex items-center justify-between hover:border-primary/30 transition-colors cursor-pointer">
+                                                        <div className="flex items-center gap-3">
+                                                               <FolderOpen className="w-4 h-4 text-primary" />
+                                                               <span className="font-medium text-foreground">{category || "未分类"}</span>
+                                                               <Badge variant="secondary" className="text-xs">{opps.length}</Badge>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                               <span>平均紧迫度 <strong className="text-foreground">{avgUrg}</strong></span>
+                                                               <ChevronDown className="w-4 h-4" />
+                                                        </div>
+                                                 </GlassCard>
+                                          </CollapsibleTrigger>
+                                          <CollapsibleContent>
+                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 ml-2">
+                                                        {opps.map(opp => (
+                                                               <OpportunityCard key={opp.id} opp={opp} />
+                                                        ))}
+                                                 </div>
+                                          </CollapsibleContent>
+                                   </Collapsible>
+                            );
+                     })}
+              </div>
+       );
+};
+
 // === Main Section Component ===
 
 export const HunterSection = () => {
        const [activeTab, setActiveTab] = useState("dashboard");
+       const [search, setSearch] = useState("");
+       const [sort, setSort] = useState<SortKey>("urgency");
+       const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+       const [viewMode, setViewMode] = useState<"grid" | "grouped">("grid");
        const { toast } = useToast();
        const { isAdmin } = useAdminAuth();
        const queryClient = useQueryClient();
@@ -208,9 +391,55 @@ export const HunterSection = () => {
 
        const isLoading = oppsLoading || jobsLoading;
 
+       // Derived: categories
+       const categories = useMemo(() => {
+              const cats = new Map<string, number>();
+              opportunities.forEach(o => {
+                     const c = o.category || "未分类";
+                     cats.set(c, (cats.get(c) || 0) + 1);
+              });
+              return Array.from(cats.entries())
+                     .sort((a, b) => b[1] - a[1])
+                     .map(([c]) => c);
+       }, [opportunities]);
+
+       // Derived: filtered & sorted
+       const filtered = useMemo(() => {
+              let list = [...opportunities];
+              if (search.trim()) {
+                     const q = search.toLowerCase();
+                     list = list.filter(o =>
+                            o.title.toLowerCase().includes(q) ||
+                            (o.description || "").toLowerCase().includes(q) ||
+                            o.keyword.toLowerCase().includes(q)
+                     );
+              }
+              if (selectedCategory) {
+                     list = list.filter(o => (o.category || "未分类") === selectedCategory);
+              }
+              switch (sort) {
+                     case "urgency": list.sort((a, b) => (b.urgency_score || 0) - (a.urgency_score || 0)); break;
+                     case "signals": list.sort((a, b) => (b.signal_count || 0) - (a.signal_count || 0)); break;
+                     case "latest": list.sort((a, b) => new Date(b.discovered_at).getTime() - new Date(a.discovered_at).getTime()); break;
+              }
+              return list;
+       }, [opportunities, search, selectedCategory, sort]);
+
+       // Derived: grouped
+       const grouped = useMemo(() => {
+              const map = new Map<string, NicheOpportunity[]>();
+              filtered.forEach(o => {
+                     const c = o.category || "未分类";
+                     if (!map.has(c)) map.set(c, []);
+                     map.get(c)!.push(o);
+              });
+              return map;
+       }, [filtered]);
+
        const invalidateAll = () => {
               queryClient.invalidateQueries({ queryKey: ["hunter-opportunities"] });
               queryClient.invalidateQueries({ queryKey: ["hunter-scan-jobs"] });
+              queryClient.invalidateQueries({ queryKey: ["hunter-opp-stats"] });
        };
 
        const toggleJobMutation = useMutation({
@@ -294,13 +523,16 @@ export const HunterSection = () => {
                                    )}
                             </TabsList>
 
-                            {/* Dashboard Tab - Only opportunities */}
-                            <TabsContent value="dashboard" className="animate-slide-up space-y-8">
+                            {/* Dashboard Tab */}
+                            <TabsContent value="dashboard" className="animate-slide-up space-y-4">
+                                   <StatsOverview />
+
                                    <section>
                                           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                                                  <TrendingUp className="w-5 h-5 text-green-500" />
                                                  潜力机会 (Top Picks)
                                           </h3>
+
                                           {isLoading ? (
                                                  <div className="py-20 flex justify-center"><LoadingSpinner /></div>
                                           ) : opportunities.length === 0 ? (
@@ -312,11 +544,29 @@ export const HunterSection = () => {
                                                         <p>请先创建监控任务，Hunter 需要积累一些数据才能利用 AI 挖掘机会。</p>
                                                  </GlassCard>
                                           ) : (
-                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                        {opportunities.map(opp => (
-                                                               <OpportunityCard key={opp.id} opp={opp} />
-                                                        ))}
-                                                 </div>
+                                                 <>
+                                                        <FilterBar
+                                                               search={search} setSearch={setSearch}
+                                                               sort={sort} setSort={setSort}
+                                                               selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
+                                                               categories={categories}
+                                                               viewMode={viewMode} setViewMode={setViewMode}
+                                                        />
+                                                        {filtered.length === 0 ? (
+                                                               <div className="py-12 text-center text-muted-foreground">
+                                                                      <Search className="w-8 h-8 opacity-20 mx-auto mb-2" />
+                                                                      <p>没有匹配的商机，试试调整筛选条件</p>
+                                                               </div>
+                                                        ) : viewMode === "grouped" ? (
+                                                               <GroupedView groups={grouped} />
+                                                        ) : (
+                                                               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                                      {filtered.map(opp => (
+                                                                             <OpportunityCard key={opp.id} opp={opp} />
+                                                                      ))}
+                                                               </div>
+                                                        )}
+                                                 </>
                                           )}
                                    </section>
                             </TabsContent>
