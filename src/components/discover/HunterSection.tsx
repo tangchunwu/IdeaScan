@@ -27,11 +27,76 @@ import AdminMonitorTab from "./AdminMonitorTab";
 
 const STALE_TIME = 5 * 60 * 1000;
 
+// === Signal Card with expand + citations ===
+const SignalCard = ({ signal }: { signal: RawMarketSignal }) => {
+       const [expanded, setExpanded] = useState(false);
+       const [citations, setCitations] = useState<RawMarketSignal[]>([]);
+       const [citationsLoaded, setCitationsLoaded] = useState(false);
+
+       useEffect(() => {
+              if (expanded && !citationsLoaded && signal.source === "perplexity") {
+                     hunterService.getCitationsForSignal(signal.id).then(c => {
+                            setCitations(c);
+                            setCitationsLoaded(true);
+                     }).catch(() => setCitationsLoaded(true));
+              }
+       }, [expanded, citationsLoaded, signal.id, signal.source]);
+
+       const displayContent = expanded
+              ? signal.content.slice(0, 800)
+              : signal.content.slice(0, 120);
+
+       return (
+              <div
+                     className="text-xs bg-muted/30 rounded-md p-2.5 space-y-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                     onClick={e => { e.stopPropagation(); setExpanded(!expanded); }}
+              >
+                     <p className={`text-foreground/80 ${expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+                            {displayContent}{!expanded && signal.content.length > 120 ? '...' : ''}
+                     </p>
+                     <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+                            <span>{hunterService.getPlatformInfo(signal.source).label}</span>
+                            {signal.opportunity_score != null && <span>机会分 {signal.opportunity_score}</span>}
+                            {signal.source_url && (
+                                   <a href={signal.source_url} target="_blank" rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()} className="text-primary hover:underline inline-flex items-center gap-0.5">
+                                          来源 <ExternalLink className="w-3 h-3" />
+                                   </a>
+                            )}
+                            <span className="ml-auto text-muted-foreground/60">
+                                   {expanded ? '收起 ▲' : '展开 ▼'}
+                            </span>
+                     </div>
+                     {expanded && citations.length > 0 && (
+                            <div className="pt-1.5 mt-1.5 border-t border-border/30 space-y-1">
+                                   <span className="text-muted-foreground font-medium">📎 引用来源</span>
+                                   {citations.map(c => {
+                                          const url = c.source_url;
+                                          if (!url) return null;
+                                          let hostname = url;
+                                          try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+                                          return (
+                                                 <a key={c.id} href={url} target="_blank" rel="noopener noreferrer"
+                                                        onClick={e => e.stopPropagation()}
+                                                        className="block text-primary hover:underline truncate">
+                                                        🔗 {hostname}
+                                                 </a>
+                                          );
+                                   })}
+                            </div>
+                     )}
+                     {expanded && !signal.source_url && citations.length === 0 && signal.content.length > 120 && (
+                            <p className="text-muted-foreground/70 italic pt-1">此信号为 AI 综合分析，无直接外部来源链接</p>
+                     )}
+              </div>
+       );
+};
+
 // === Related Signals Preview ===
 const RelatedSignals = ({ keyword }: { keyword: string }) => {
        const { data: signals = [], isLoading } = useQuery({
               queryKey: ["hunter-related-signals", keyword],
-              queryFn: () => hunterService.getSignalsByKeyword(keyword, 3),
+              queryFn: () => hunterService.getSignalsByKeyword(keyword, 5),
               staleTime: STALE_TIME,
        });
 
@@ -41,22 +106,10 @@ const RelatedSignals = ({ keyword }: { keyword: string }) => {
        return (
               <div className="space-y-2 mt-3 pt-3 border-t border-border/50">
                      <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                            <Zap className="w-3 h-3" /> 支撑信号
+                            <Zap className="w-3 h-3" /> 支撑信号 ({signals.length})
                      </span>
                      {signals.map((s) => (
-                            <div key={s.id} className="text-xs bg-muted/30 rounded-md p-2 space-y-1">
-                                   <p className="line-clamp-2 text-foreground/80">{s.content.slice(0, 120)}...</p>
-                                   <div className="flex items-center gap-2 text-muted-foreground">
-                                          <span>{hunterService.getPlatformInfo(s.source).label}</span>
-                                          {s.opportunity_score != null && <span>机会分 {s.opportunity_score}</span>}
-                                          {s.source_url && (
-                                                 <a href={s.source_url} target="_blank" rel="noopener noreferrer"
-                                                        onClick={e => e.stopPropagation()} className="text-primary hover:underline">
-                                                        来源↗
-                                                 </a>
-                                          )}
-                                   </div>
-                            </div>
+                            <SignalCard key={s.id} signal={s} />
                      ))}
               </div>
        );

@@ -258,13 +258,25 @@ export const hunterService = {
 		};
 	},
 
-	async getSignalsByKeyword(keyword: string, limit = 3): Promise<RawMarketSignal[]> {
+	async getSignalsByKeyword(keyword: string, limit = 5): Promise<RawMarketSignal[]> {
+		const safeKeyword = keyword.replace(/[%_]/g, '');
 		const { data, error } = await fromTable("raw_market_signals")
 			.select("*")
 			.in("content_type", ["insight", "intelligence"])
-			.contains("topic_tags", [keyword])
+			.or(`content.ilike.%${safeKeyword}%,topic_tags.cs.{${safeKeyword}}`)
 			.order("opportunity_score", { ascending: false })
 			.limit(limit);
+
+		if (error) throw error;
+		return (data || []) as unknown as RawMarketSignal[];
+	},
+
+	async getCitationsForSignal(parentId: string): Promise<RawMarketSignal[]> {
+		const { data, error } = await fromTable("raw_market_signals")
+			.select("*")
+			.eq("parent_signal_id", parentId)
+			.eq("content_type", "source_citation")
+			.order("scanned_at", { ascending: true });
 
 		if (error) throw error;
 		return (data || []) as unknown as RawMarketSignal[];
