@@ -4,14 +4,21 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageBackground, GlassCard, Navbar, EmptyState, ChartSkeleton } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Sparkles, Share2, Lock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, Sparkles, Share2, BarChart3, Globe, Brain, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportData } from "@/components/report/useReportData";
 import { ScoreHeroCard } from "@/components/report/ScoreHeroCard";
 import { RadarDimensionSection } from "@/components/report/RadarDimensionSection";
 import { DataOverviewTab } from "@/components/report/DataOverviewTab";
+import { MarketInsightsTab } from "@/components/report/MarketInsightsTab";
+import { CompetitorTab } from "@/components/report/CompetitorTab";
+import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
+import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
+import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 const SharedReport = () => {
   const { token } = useParams<{ token: string }>();
@@ -19,22 +26,13 @@ const SharedReport = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useDocumentTitle(data?.validation?.idea ? `分享报告 - ${data.validation.idea.slice(0, 30)}` : "分享报告", [data?.validation?.idea]);
 
   useEffect(() => {
     if (!token) return;
     (async () => {
-      try {
-        const { data: result, error: fnErr } = await supabase.functions.invoke("get-shared-report", {
-          body: null,
-          method: "GET",
-          headers: {},
-        });
-        // functions.invoke doesn't support GET query params easily, use fetch directly
-      } catch {}
-
-      // Use fetch directly for GET with query param
       try {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const resp = await fetch(
@@ -96,7 +94,10 @@ const SharedReport = () => {
     );
   }
 
-  const { validation, aiAnalysis, evidenceGrade, proofResult, dimensions, radarData, xiaohongshuData } = reportData;
+  const { validation, report, marketAnalysis, xiaohongshuData, sentimentAnalysis, aiAnalysis,
+    evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
+    competitorRows, evidenceItems, topEvidence, evidenceSummary } = reportData;
+
   const displayScore = aiAnalysis.feasibilityScore || validation.overall_score || 0;
 
   return (
@@ -129,30 +130,105 @@ const SharedReport = () => {
             </Button>
           </div>
 
-          {/* Score */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            <div className="lg:col-span-4 animate-slide-up">
-              <ScoreHeroCard score={displayScore} totalNotes={xiaohongshuData.totalNotes} isIncomplete={false} />
-            </div>
-            <div className="lg:col-span-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
-            </div>
+          {/* Quick Insights Cards */}
+          <QuickInsightsCards
+            score={displayScore}
+            competitionLevel={marketAnalysis.competitionLevel}
+            strengths={aiAnalysis.strengths}
+            weaknesses={aiAnalysis.weaknesses}
+            sentimentPositive={sentimentAnalysis.positive}
+          />
+
+          {/* Score Hero */}
+          <div className="mb-3 sm:mb-4 animate-slide-up">
+            <ScoreHeroCard
+              score={displayScore}
+              totalNotes={xiaohongshuData.totalNotes}
+              isIncomplete={false}
+              idea={validation.idea}
+              overallVerdict={aiAnalysis.overallVerdict}
+              strengths={aiAnalysis.strengths || []}
+              weaknesses={aiAnalysis.weaknesses || []}
+            />
           </div>
 
-          {/* Overview - read only */}
-          <DataOverviewTab data={reportData} />
+          {/* Persona Card */}
+          {personaData && (
+            <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+              <PersonaCard persona={personaData} validationId={validation.id} />
+            </div>
+          )}
 
-          {/* CTA to validate own idea */}
-          <GlassCard className="mt-8 p-6 text-center">
-            <Lock className="w-8 h-8 mx-auto mb-3 text-primary" />
-            <h3 className="text-lg font-bold mb-2">想验证你自己的创业想法？</h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              注册 IdeaScan，免费获得 AI 驱动的需求验证报告
-            </p>
-            <Button onClick={() => window.location.href = "/auth"} className="rounded-full">
-              免费开始验证
-            </Button>
-          </GlassCard>
+          {/* Radar */}
+          <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+            <div className="relative">
+              <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
+                <TabsTrigger value="overview" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><BarChart3 className="w-4 h-4" /><span>概览</span></TabsTrigger>
+                <TabsTrigger value="market" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Sparkles className="w-4 h-4" /><span>市场</span></TabsTrigger>
+                <TabsTrigger value="competitors" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Globe className="w-4 h-4" /><span>竞品</span></TabsTrigger>
+                <TabsTrigger value="ai" className="rounded-lg text-xs sm:text-sm gap-1 sm:gap-2"><Brain className="w-4 h-4" /><span>AI</span></TabsTrigger>
+              </TabsList>
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none lg:hidden" />
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+              >
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>
+                  {activeTab === "overview" && (
+                    <DataOverviewTab
+                      data={reportData}
+                      dataSummary={report?.data_summary as any}
+                      dataQualityScore={report?.data_quality_score ?? undefined}
+                      keywordsUsed={report?.keywords_used as any}
+                      demandDecisionProps={{
+                        validation,
+                        score: displayScore,
+                        xiaohongshuData,
+                        sentimentAnalysis,
+                        marketAnalysis,
+                        aiAnalysis,
+                        proofResult,
+                        costBreakdown,
+                        topEvidence,
+                        evidenceSummary,
+                        evidenceItems,
+                        platforms: [
+                          { name: "小红书", count: xiaohongshuData.totalNotes || 0 },
+                          ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []),
+                        ],
+                      }}
+                    />
+                  )}
+                </TabsContent>
+                <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>
+                  {activeTab === "market" && <MarketInsightsTab data={reportData} />}
+                </TabsContent>
+                <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>
+                  {activeTab === "competitors" && <CompetitorTab data={reportData} />}
+                </TabsContent>
+                <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>
+                  {activeTab === "ai" && <AIAnalysisTab data={reportData} aiAnalysis={aiAnalysis} />}
+                </TabsContent>
+              </motion.div>
+            </AnimatePresence>
+          </Tabs>
+
+          {/* Light footer hint */}
+          <div className="mt-10 text-center text-sm text-muted-foreground">
+            <span>由 </span>
+            <a href="/" className="text-primary hover:underline font-medium">IdeaScan</a>
+            <span> 生成 · </span>
+            <a href="/auth" className="text-primary hover:underline">免费验证你的创业想法 →</a>
+          </div>
         </div>
       </main>
     </PageBackground>
