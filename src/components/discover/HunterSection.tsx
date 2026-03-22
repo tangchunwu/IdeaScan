@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import {
        Radar, Plus, Search, Filter, RefreshCw,
        MessageSquare, TrendingUp, Rocket, BarChart3, ChevronDown, ChevronUp,
-       Trash2, Clock, Crosshair, LayoutGrid, List, Zap, Target, FolderOpen
+       Trash2, Clock, Crosshair, LayoutGrid, List, Zap, Target, FolderOpen, ExternalLink
 } from "lucide-react";
 import { hunterService, ScanJob, NicheOpportunity, RawMarketSignal } from "@/services/hunterService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
