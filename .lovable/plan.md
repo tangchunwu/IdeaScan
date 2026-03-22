@@ -1,61 +1,44 @@
 
 
-## 计划：让狩猎雷达数据真正"活"起来
+## 计划：改进支撑信号匹配与展示
 
-### 当前问题
+### 问题分析
 
-104 条商机、261 条信号全部处理完毕，但前端只是平铺展示商机卡片，缺乏：
-- 数据概览（总量、分布、趋势）
-- 筛选和排序能力
-- 分类聚合视图
-- 信号与商机的关联展示
+1. **匹配命中率低**：`getSignalsByKeyword` 使用 `.contains("topic_tags", [keyword])` 精确数组匹配。如果商机 keyword 是"AI电商"但信号标签是"AI"或"电商工具"，则无法匹配。
+2. **信号卡片不可交互**：内容被截断到 120 字符，无法展开查看完整内容。
+3. **来源链接缺失**：Perplexity 的引用 URL 存储在 `source_citation` 类型的子记录中（通过 `parent_signal_id` 关联），但 `RelatedSignals` 组件没有查询这些子记录。
 
-### 改进方案
+### 改动方案
 
-#### 1. 商机仪表盘头部 — 数据概览卡片
+#### 1. 改进匹配逻辑 (`hunterService.ts`)
 
-在"潜力机会"标题上方添加统计摘要行：
+将 `getSignalsByKeyword` 改为模糊匹配策略：
+- 先用 `ilike` 在 `content` 中搜索 keyword
+- 同时用 `or` 条件在 `topic_tags` 中匹配
+- 增加 limit 到 5 条，提高命中率
 
-```text
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  104 条商机   │ │  261 条信号   │ │  平均紧迫度 90 │ │  79 个分类    │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```typescript
+// 用 or + ilike 替代 contains 精确匹配
+.or(`content.ilike.%${keyword}%,topic_tags.cs.{${keyword}}`)
 ```
 
-数据来源：复用 `hunterService.getSignalStats()` + opportunities 计数。
+新增 `getCitationsForSignal(parentId)` 方法，查询 `content_type = 'source_citation'` 且 `parent_signal_id = parentId` 的记录，获取引用 URL。
 
-#### 2. 商机筛选与排序
+#### 2. 信号卡片可展开 (`HunterSection.tsx` - `RelatedSignals`)
 
-在商机列表上方添加筛选栏：
-- **排序**：紧迫度优先（默认）/ 信号量优先 / 最新发现
-- **分类筛选**：提取所有 category，显示为可点击的 Badge 标签（类似热点雷达的 DiscoverFilters）
-- **搜索**：关键词搜索商机标题和描述
+- 每条信号卡片添加展开/收起功能
+- 收起时显示前 120 字，展开时显示完整内容
+- 无 `source_url` 的信号，展开时显示更多上下文文本（最多 800 字）
 
-实现方式：前端过滤已加载的 opportunities 数据（104 条无需分页）。
+#### 3. 显示引用来源链接
 
-#### 3. 分类聚合视图
-
-添加按分类折叠的视图模式：
-- 将商机按 category 分组显示
-- 每组显示分类名称、商机数量、平均紧迫度
-- 可展开/收起每组内的商机卡片
-
-#### 4. 原始信号预览
-
-在商机卡片展开详情中，添加"相关信号"区域：
-- 通过 `keyword` 匹配 `raw_market_signals` 的 `topic_tags`
-- 显示 2-3 条原始信号摘要（标题、来源、机会分）
-- 让用户看到商机背后的真实数据支撑
+- 对每条 Perplexity 来源的信号，自动加载其关联的 `source_citation` 子记录
+- 在信号卡片底部展示引用链接列表（域名 + 可点击外链）
 
 ### 改动文件
 
 | 文件 | 改动 |
 |------|------|
-| `HunterSection.tsx` | 添加统计概览、筛选排序栏、分类视图切换 |
-| `OpportunityCard`（内嵌组件） | 展开时显示关联信号预览 |
-| `hunterService.ts` | 新增 `getSignalsByKeyword()` 方法 |
-
-### 不变的部分
-- 数据库无需改动，已有的表结构足够
-- 不引入新依赖
+| `src/services/hunterService.ts` | 改 `getSignalsByKeyword` 为模糊匹配；新增 `getCitationsForSignal` |
+| `src/components/discover/HunterSection.tsx` | 重写 `RelatedSignals`：可展开信号卡片、加载引用链接 |
 
