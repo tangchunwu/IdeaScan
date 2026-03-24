@@ -257,7 +257,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   if (isStreaming) processed = stripIncompleteImages(processed);
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 [&_img+img]:mt-2">
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 [&_img+img]:mt-2 break-words overflow-hidden [overflow-wrap:anywhere]">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{processed}</ReactMarkdown>
       {isStreaming && (
         <span className="inline-block w-0.5 h-4 bg-primary/70 animate-pulse ml-0.5 align-text-bottom rounded-full" />
