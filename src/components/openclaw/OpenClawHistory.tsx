@@ -146,8 +146,7 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
 
   return (
     <>
-      <ScrollArea className="h-full">
-        <div className="space-y-0.5 p-1.5">
+      <div className="space-y-0.5 p-1.5">
           {sortedSessions.map((s) => {
             const isActive = s.session_id === currentSessionId;
             const isRenaming = renameTarget === s.session_id;
@@ -246,7 +245,6 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
             );
           })}
         </div>
-      </ScrollArea>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
