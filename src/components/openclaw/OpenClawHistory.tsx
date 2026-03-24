@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawSessions } from "@/hooks/useOpenClawSessions";
-import { MessageSquare, Loader2, MessageCircle, Trash2, Pencil, Check, X } from "lucide-react";
+import { MessageSquare, Loader2, MessageCircle, Trash2, Pencil, Check, X, Pin, PinOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,19 @@ interface OpenClawHistoryProps {
   onSessionDeleted?: (deletedSessionId: string) => void;
 }
 
+const PINNED_KEY = "openclaw_pinned_sessions";
+
+function getPinnedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+
+function savePinnedIds(ids: Set<string>) {
+  localStorage.setItem(PINNED_KEY, JSON.stringify([...ids]));
+}
+
 export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDeleted }: OpenClawHistoryProps) {
   const { user } = useAuth();
   const { sessions, loading, deleteSession, renameSession } = useOpenClawSessions(user?.id);
@@ -25,20 +38,42 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
   const [deleting, setDeleting] = useState(false);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(getPinnedIds);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus rename input
   useEffect(() => {
     if (renameTarget) {
       setTimeout(() => renameInputRef.current?.focus(), 50);
     }
   }, [renameTarget]);
 
+  const togglePin = useCallback((sessionId: string) => {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+        toast.success("已取消置顶");
+      } else {
+        next.add(sessionId);
+        toast.success("已置顶");
+      }
+      savePinnedIds(next);
+      return next;
+    });
+  }, []);
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await deleteSession(deleteTarget);
+      // Also unpin if pinned
+      setPinnedIds(prev => {
+        const next = new Set(prev);
+        next.delete(deleteTarget);
+        savePinnedIds(next);
+        return next;
+      });
       if (deleteTarget === currentSessionId) {
         onSessionDeleted?.(deleteTarget);
       }
@@ -77,13 +112,18 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      confirmRename();
-    } else if (e.key === "Escape") {
-      cancelRename();
-    }
+    if (e.key === "Enter") { e.preventDefault(); confirmRename(); }
+    else if (e.key === "Escape") { cancelRename(); }
   };
+
+  // Sort: pinned first, then by date
+  const sortedSessions = [...sessions].sort((a, b) => {
+    const aPinned = pinnedIds.has(a.session_id);
+    const bPinned = pinnedIds.has(b.session_id);
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
+  });
 
   if (loading) {
     return (
@@ -108,9 +148,10 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
     <>
       <ScrollArea className="h-full">
         <div className="space-y-0.5 p-1.5">
-          {sessions.map((s) => {
+          {sortedSessions.map((s) => {
             const isActive = s.session_id === currentSessionId;
             const isRenaming = renameTarget === s.session_id;
+            const isPinned = pinnedIds.has(s.session_id);
 
             return (
               <div
@@ -121,7 +162,7 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
               >
                 <button
                   onClick={() => !isRenaming && onSelectSession(s.session_id)}
-                  className="w-full text-left px-3 py-2 pr-16"
+                  className="w-full text-left px-3 py-2 pr-20"
                 >
                   <div className="flex items-start gap-2 min-w-0">
                     <MessageCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
@@ -156,6 +197,7 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
                         <p className={`text-[13px] leading-tight truncate ${
                           isActive ? "text-primary font-medium" : "text-foreground/80"
                         }`}>
+                          {isPinned && <Pin className="w-3 h-3 inline-block mr-1 text-primary/60 -mt-0.5" />}
                           {s.title}
                         </p>
                       )}
@@ -174,6 +216,16 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
                 {/* Action buttons - visible on hover */}
                 {!isRenaming && (
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); togglePin(s.session_id); }}
+                      className="p-1.5 rounded-md hover:bg-primary/10 transition-all"
+                      title={isPinned ? "取消置顶" : "置顶"}
+                    >
+                      {isPinned
+                        ? <PinOff className="w-3.5 h-3.5 text-primary/60 hover:text-primary transition-colors" />
+                        : <Pin className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-primary transition-colors" />
+                      }
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); startRename(s.session_id, s.title); }}
                       className="p-1.5 rounded-md hover:bg-primary/10 transition-all"
