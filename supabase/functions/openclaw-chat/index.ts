@@ -151,12 +151,7 @@ Deno.serve(async (req) => {
       .select('role, content').eq('user_id', userId).eq('session_id', session_id)
       .order('created_at', { ascending: true }).limit(20);
 
-    // ── Build system message with image-gen config ──
-    const imageGenConfig = await getImageGenConfig(userId);
-    let systemContent = '你是用户的 AI Agent 助手。';
-    if (imageGenConfig) {
-      systemContent += `\n\n## 图片生成配置\n用户已配置图片生成服务，当需要生成图片时请使用以下配置：\n- API 地址: ${imageGenConfig.baseUrl}\n- 模型: ${imageGenConfig.model}\n- API Key: ${imageGenConfig.apiKey}\n请通过 OpenAI 兼容的 chat/completions 接口调用，并在请求中加入 "modalities": ["image", "text"]。`;
-    }
+    const systemContent = '你是用户的 AI Agent 助手。';
 
     const messages: Array<{ role: string; content: unknown }> = [
       { role: 'system', content: systemContent },
