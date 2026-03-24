@@ -460,7 +460,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               <div className={`relative group/bubble rounded-2xl px-4 py-3 text-sm shadow-sm ${
                 msg.role === "user"
                   ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
-                  : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
+                  : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words"
               }`}>
                 {/* Copy button for assistant messages */}
                 {msg.role === "assistant" && msg.content && (
