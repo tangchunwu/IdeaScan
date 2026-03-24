@@ -156,7 +156,7 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
             return (
               <div
                 key={s.session_id}
-                className={`group relative rounded-lg transition-all duration-150 overflow-hidden ${
+                className={`group relative rounded-lg transition-all duration-150 ${
                   isActive ? "bg-primary/10 shadow-sm" : "hover:bg-muted/50"
                 }`}
               >
