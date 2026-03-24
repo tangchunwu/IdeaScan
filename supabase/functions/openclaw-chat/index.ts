@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     }
 
     // Call OpenClaw (OpenAI-compatible streaming) with timeout
-    const TIMEOUT_MS = 90_000; // 90 seconds — image gen can be slow
+    const TIMEOUT_MS = 120_000; // 120 seconds — image gen can be slow
     const fetchController = new AbortController();
     const timeoutId = setTimeout(() => fetchController.abort(), TIMEOUT_MS);
 
