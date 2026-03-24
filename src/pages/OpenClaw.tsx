@@ -85,7 +85,7 @@ export default function OpenClawPage() {
                       <PanelLeftClose className="w-3.5 h-3.5 text-muted-foreground" />
                     </Button>
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
                     <OpenClawHistory currentSessionId={sessionId} onSelectSession={handleSelectSession} onSessionDeleted={handleNewSession} />
                   </div>
                 </div>
