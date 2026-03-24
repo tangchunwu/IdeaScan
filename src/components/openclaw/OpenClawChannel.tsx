@@ -199,7 +199,7 @@ const markdownComponents = {
   code: ({ children, className, ...props }: any) => {
     const isInline = !className && typeof children === "string" && !children.includes("\n");
     if (isInline) {
-      return <code className="px-1.5 py-0.5 rounded-md bg-muted/50 text-primary text-xs font-mono border border-border/20" {...props}>{children}</code>;
+      return <code className="px-1.5 py-0.5 rounded-md bg-muted/50 text-primary text-xs font-mono border border-border/20 break-all" {...props}>{children}</code>;
     }
     return <CodeBlock className={className}>{children}</CodeBlock>;
   },
@@ -257,7 +257,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   if (isStreaming) processed = stripIncompleteImages(processed);
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 [&_img+img]:mt-2">
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 [&_img+img]:mt-2 break-words overflow-hidden [overflow-wrap:anywhere]">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{processed}</ReactMarkdown>
       {isStreaming && (
         <span className="inline-block w-0.5 h-4 bg-primary/70 animate-pulse ml-0.5 align-text-bottom rounded-full" />
@@ -460,7 +460,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               <div className={`relative group/bubble rounded-2xl px-4 py-3 text-sm shadow-sm ${
                 msg.role === "user"
                   ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
-                  : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md"
+                  : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words"
               }`}>
                 {/* Copy button for assistant messages */}
                 {msg.role === "assistant" && msg.content && (
