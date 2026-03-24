@@ -199,7 +199,7 @@ const markdownComponents = {
   code: ({ children, className, ...props }: any) => {
     const isInline = !className && typeof children === "string" && !children.includes("\n");
     if (isInline) {
-      return <code className="px-1.5 py-0.5 rounded-md bg-muted/50 text-primary text-xs font-mono border border-border/20" {...props}>{children}</code>;
+      return <code className="px-1.5 py-0.5 rounded-md bg-muted/50 text-primary text-xs font-mono border border-border/20 break-all" {...props}>{children}</code>;
     }
     return <CodeBlock className={className}>{children}</CodeBlock>;
   },
