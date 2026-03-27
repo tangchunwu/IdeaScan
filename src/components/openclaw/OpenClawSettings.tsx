@@ -7,8 +7,31 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle } from "lucide-react";
 import { toast } from "sonner";
+
+const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
+
+function useRelayOnlineStatus(connections: OpenClawConnection[]) {
+  const [now, setNow] = useState(Date.now());
+  const hasRelay = connections.some(c => c.mode === 'relay');
+
+  useEffect(() => {
+    if (!hasRelay) return;
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, [hasRelay]);
+
+  return useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const c of connections) {
+      if (c.mode === 'relay' && c.last_synced_at) {
+        map[c.id] = now - new Date(c.last_synced_at).getTime() < ONLINE_THRESHOLD_MS;
+      }
+    }
+    return map;
+  }, [connections, now]);
+}
 
 export function OpenClawSettings() {
   const { user } = useAuth();
