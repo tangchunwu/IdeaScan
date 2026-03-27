@@ -174,11 +174,24 @@ export function OpenClawSettings() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    {conn.mode === 'relay' && (
+                      <span className="relative flex h-2.5 w-2.5 shrink-0" title={onlineStatus[conn.id] ? 'Bridge 在线' : 'Bridge 离线'}>
+                        {onlineStatus[conn.id] && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        )}
+                        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${onlineStatus[conn.id] ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                      </span>
+                    )}
                     <span className="text-sm font-medium truncate">{conn.name}</span>
                     {conn.is_default && <Badge variant="secondary" className="text-[9px]">默认</Badge>}
                     <Badge variant={conn.mode === 'relay' ? 'default' : 'outline'} className="text-[9px]">
                       {conn.mode === 'relay' ? '中继' : '直连'}
                     </Badge>
+                    {conn.mode === 'relay' && (
+                      <span className={`text-[9px] ${onlineStatus[conn.id] ? 'text-green-600' : 'text-muted-foreground/50'}`}>
+                        {onlineStatus[conn.id] ? '在线' : '离线'}
+                      </span>
+                    )}
                   </div>
                   {conn.mode === 'direct' && (
                     <p className="text-[10px] text-muted-foreground truncate mt-0.5">{conn.url}</p>
