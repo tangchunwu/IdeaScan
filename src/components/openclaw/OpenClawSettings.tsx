@@ -91,6 +91,12 @@ export function OpenClawSettings() {
 
   const [bridgeBackend, setBridgeBackend] = useState<'claude' | 'codex' | 'openai'>('claude');
 
+  const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/IdeaScan/ideascan/main/scripts/agent-bridge/bridge.py";
+
+  const getSetupCommands = () => {
+    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests`;
+  };
+
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
     const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
