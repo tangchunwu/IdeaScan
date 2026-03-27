@@ -1,64 +1,91 @@
 
 
-## 计划：OpenClaw 斜杠命令兼容与增强
+## 中继模式（Relay Mode）实现计划
 
-### 当前问题
+### 概述
+让没有公网 IP 的本地电脑也能作为 Agent 服务器，通过数据库消息队列 + 长轮询实现双向通信。
 
-OpenClaw Agent 服务器原生支持斜杠命令（如 `/new`、`/model`、`/help` 等），但网页端目前：
-1. **无命令自动补全** — 用户输入 `/` 时没有提示可用命令
-2. **无客户端拦截** — 部分命令（如 `/new`）可以在客户端直接处理，无需发送到服务器
-3. **命令响应无特殊渲染** — 服务器返回的命令结果（如模型列表）以纯文本显示
-
-### 改动方案
-
-#### 1. 斜杠命令自动补全菜单
-
-用户输入 `/` 时，在输入框上方弹出命令候选列表：
+### 架构
 
 ```text
-┌──────────────────────────┐
-│ /new     开启新对话       │
-│ /model   切换模型         │
-│ /help    查看帮助         │
-│ /clear   清空当前对话     │
-│ /retry   重试上一条       │
-│ /system  设置系统提示词   │
-└──────────────────────────┘
-│ [+] │ /mo█              │
+当前（直连）: 网页 → Edge Function → HTTP → Agent(需公网IP)
+新增（中继）: 网页 → Edge Function → 写DB(pending) → 本地脚本轮询拉取
+                                                          ↓
+              网页 ← Realtime订阅 ← 本地脚本写回DB(delivered)
 ```
 
-- 实时过滤：输入 `/mo` 只显示 `/model`
-- 键盘导航：上下键选择，Tab/Enter 补全
-- 支持自定义命令列表（可扩展）
+---
 
-#### 2. 客户端拦截命令
+### 第一步：数据库改造
 
-以下命令在客户端直接处理，不发送到服务器：
+1. `openclaw_connections` 加 `mode` 列（`direct` | `relay`，默认 `direct`）
+2. `openclaw_messages` 加 `status` 列（`delivered` | `pending` | `processing`，默认 `delivered`）
+3. 开启 `openclaw_messages` 的 Realtime 推送
+4. 给 `openclaw_messages` 加 service_role 的 ALL 权限策略（供 poll/reply Edge Function 使用）
 
-| 命令 | 客户端行为 |
-|------|-----------|
-| `/new` | 调用 `handleNewSession()`，创建新对话 |
-| `/clear` | 清空当前会话消息（仅前端） |
-| `/retry` | 重发最后一条用户消息 |
+### 第二步：新建 Edge Function — `openclaw-poll`
 
-其他命令（`/model`、`/help`、`/system` 等）正常发送给 Agent 服务器处理。
+- **无 JWT 验证**（Agent 用 connection token 认证）
+- 接收 `connection_id` + `token`，校验匹配
+- 查询 `status='pending'` 的消息，标记为 `processing`，返回消息列表
+- 同时返回该 session 的历史消息作为上下文
 
-#### 3. 命令响应的结构化渲染
+### 第三步：新建 Edge Function — `openclaw-reply`
 
-当 Agent 返回特定格式的命令响应时（如模型列表），做特殊 UI 渲染：
-- 模型切换成功 → 显示 toast 通知
-- 帮助信息 → 格式化为卡片样式
+- **无 JWT 验证**（Agent 用 connection token 认证）
+- 接收 `connection_id` + `token` + `message_id` + `content`
+- 写入 assistant 消息到 `openclaw_messages`（status=`delivered`）
+- 支持 `streaming: true` 参数做增量更新（Agent 分块写入 content）
 
-### 改动文件
+### 第四步：修改 `openclaw-chat` Edge Function
 
-| 文件 | 改动 |
+- 解析连接的 `mode` 字段
+- `mode='direct'`：保持现有逻辑不变
+- `mode='relay'`：只写入用户消息到数据库（status=`pending`），立即返回 `{ relay: true }`
+
+### 第五步：修改前端 `useOpenClawChat.ts`
+
+- 当 `mode='relay'` 时，发送消息后不等待 SSE 流
+- 使用 Supabase Realtime 订阅 `openclaw_messages` 表的 INSERT 事件
+- 过滤 `session_id` 匹配的 assistant 消息，实时追加到聊天列表
+- 支持流式效果（监听 UPDATE 事件，Agent 分块更新 content）
+
+### 第六步：修改前端 `OpenClawSettings.tsx`
+
+- 添加连接表单增加"模式"单选：直连 / 中继
+- 中继模式下隐藏 URL 输入（不需要），显示 `connection_id` 和自动生成的 token
+- 提供"复制启动命令"按钮
+
+### 第七步：本地 Bridge 脚本
+
+创建 `scripts/agent-bridge/bridge.py`：
+- 命令行参数：`--supabase-url`, `--connection-id`, `--token`, `--agent-url`（本地 Agent 地址）
+- 循环长轮询 `openclaw-poll`，拿到 pending 消息
+- 调用本地 Agent 的 `/v1/chat/completions`
+- 通过 `openclaw-reply` 写回结果
+- 支持流式转发（Agent 流式返回 → 分块调用 reply）
+
+---
+
+### 文件变更清单
+
+| 文件 | 操作 |
 |------|------|
-| `src/components/openclaw/OpenClawChannel.tsx` | 添加斜杠命令菜单 UI、客户端拦截逻辑、键盘导航 |
+| 数据库迁移 | `openclaw_connections` 加 `mode`；`openclaw_messages` 加 `status`；开启 Realtime；加 service_role 策略 |
+| `supabase/functions/openclaw-poll/index.ts` | 新建 |
+| `supabase/functions/openclaw-reply/index.ts` | 新建 |
+| `supabase/functions/openclaw-chat/index.ts` | 修改：支持 relay 模式 |
+| `supabase/config.toml` | 添加 poll/reply 的 `verify_jwt = false` |
+| `src/hooks/useOpenClawChat.ts` | 修改：加 Realtime 订阅 |
+| `src/hooks/useOpenClawConnections.ts` | 修改：类型加 `mode` 字段 |
+| `src/components/openclaw/OpenClawSettings.tsx` | 修改：模式选择 UI |
+| `scripts/agent-bridge/bridge.py` | 新建 |
+| `scripts/agent-bridge/requirements.txt` | 新建 |
 
-### 技术细节
+### 安全设计
 
-- 命令列表定义为常量数组，包含 `name`、`description`、`clientOnly` 字段
-- 输入框 `onChange` 检测 `/` 前缀，触发候选菜单
-- 客户端命令拦截在 `handleSend` 中处理，优先于发送到服务器
-- 非客户端命令直接作为普通消息发送（Agent 服务器自行解析）
+- `openclaw-poll` 和 `openclaw-reply` 通过 `connection_id` + `token` 双重验证
+- 只能操作属于该连接的消息
+- 使用 service_role client 在 Edge Function 内部操作，RLS 不影响
+- 中继模式下自动生成 token（如果用户未设置）
 
