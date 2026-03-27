@@ -39,15 +39,20 @@ export function useOpenClawConnections(userId: string | undefined) {
 
   useEffect(() => { load(); }, [load]);
 
-  const addConnection = useCallback(async (name: string, url: string, token: string) => {
+  const addConnection = useCallback(async (name: string, url: string, token: string, mode: 'direct' | 'relay' = 'direct') => {
     if (!userId) return;
     const isFirst = connections.length === 0;
-    const { error } = await supabase
+    // For relay mode, auto-generate token if not provided
+    const finalToken = token || (mode === 'relay' ? crypto.randomUUID() : null);
+    const { data, error } = await supabase
       .from('openclaw_connections' as any)
-      .insert({ user_id: userId, name, url, token: token || null, is_default: isFirst } as any);
+      .insert({ user_id: userId, name, url: url || 'relay://', token: finalToken, is_default: isFirst, mode } as any)
+      .select('id, token')
+      .single();
     if (error) { toast.error('添加失败'); throw error; }
     toast.success('连接已添加');
     await load();
+    return data as any;
   }, [userId, connections.length, load]);
 
   const updateConnection = useCallback(async (id: string, updates: Partial<Pick<OpenClawConnection, 'name' | 'url' | 'token'>>) => {

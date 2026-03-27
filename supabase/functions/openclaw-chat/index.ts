@@ -146,9 +146,19 @@ Deno.serve(async (req) => {
     if (image) dbContent += (dbContent ? '\n' : '') + '📷 [图片已发送]';
     if (file) dbContent += (dbContent ? '\n' : '') + `📎 [文件: ${file.name || 'unknown'}]`;
     if (!dbContent) dbContent = '📷 [图片已发送]';
+
+    const messageStatus = connectionMode === 'relay' ? 'pending' : 'delivered';
     await supabase.from('openclaw_messages').insert({
       user_id: userId, session_id, role: 'user', content: dbContent, connection_id: resolvedConnectionId,
-    });
+      status: messageStatus,
+    } as any);
+
+    // ── Relay mode: just queue the message and return ──
+    if (connectionMode === 'relay') {
+      return new Response(JSON.stringify({ relay: true, connection_id: resolvedConnectionId }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Load recent history
     const { data: history } = await supabase.from('openclaw_messages')
