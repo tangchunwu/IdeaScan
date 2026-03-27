@@ -46,7 +46,7 @@ const validationSteps: ValidationStep[] = [
 const Validate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  useDocumentTitle("验证我的想法");
+  useDocumentTitle("验证我的想法", { description: "一句话描述你的创业想法，AI 自动抓取社媒数据和竞品情报，3分钟生成需求验证报告。" });
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();

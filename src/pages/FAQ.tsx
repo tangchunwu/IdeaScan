@@ -9,7 +9,7 @@ import {
 import { Mail } from "lucide-react";
 
 const FAQ = () => {
-       useDocumentTitle("常见问题");
+       useDocumentTitle("常见问题", { description: "关于 IdeaScan AI 创业验证工具的常见问题解答。" });
        const faqs = [
               {
                      question: "IdeaScan 是如何验证我的创业点子的？",
