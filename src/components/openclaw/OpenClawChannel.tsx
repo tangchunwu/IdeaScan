@@ -890,10 +890,47 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
 
           {/* Input */}
           <div className="flex-1 relative">
+            {/* Slash command autocomplete menu */}
+            {showSlashMenu && filteredCommands.length > 0 && (
+              <div className="absolute bottom-full left-0 right-0 mb-1.5 rounded-xl border border-border/40 bg-popover/95 backdrop-blur-md shadow-lg overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="py-1">
+                  {filteredCommands.map((cmd, idx) => (
+                    <button
+                      key={cmd.name}
+                      onClick={() => handleSlashSelect(cmd)}
+                      onMouseEnter={() => setSlashSelectedIdx(idx)}
+                      className={`flex items-center gap-3 w-full px-3.5 py-2.5 text-left transition-colors ${
+                        idx === slashSelectedIdx
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        idx === slashSelectedIdx ? 'bg-primary/20' : 'bg-muted/50'
+                      }`}>
+                        <cmd.icon className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium font-mono">{cmd.name}</span>
+                        <span className="text-[11px] text-muted-foreground">{cmd.description}</span>
+                      </div>
+                      {cmd.clientOnly && (
+                        <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">本地</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="px-3 py-1.5 border-t border-border/30 text-[10px] text-muted-foreground/60 flex items-center gap-2">
+                  <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px]">↑↓</kbd> 导航
+                  <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px]">Tab</kbd> 选择
+                  <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px]">Esc</kbd> 关闭
+                </div>
+              </div>
+            )}
             <Textarea
-              placeholder={isRecording ? "录音中…" : "输入任务指令... (Shift+Enter 换行)"}
+              placeholder={isRecording ? "录音中…" : "输入指令或 / 查看命令... (Shift+Enter 换行)"}
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               className="min-h-[44px] max-h-[120px] text-sm glass-card border-border/40 rounded-2xl resize-none pr-3 pl-4 py-3 backdrop-blur-md focus:border-primary/50 transition-all shadow-sm"
               rows={1}
