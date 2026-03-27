@@ -295,6 +295,119 @@ function CopyMessageButton({ content }: { content: string }) {
   );
 }
 
+/* ─── Long-Press Context Menu (Mobile) ─── */
+interface LongPressMenuProps {
+  content: string;
+  messageId: string;
+  role: 'user' | 'assistant';
+  onRetry?: () => void;
+  onDelete?: () => void;
+  children: React.ReactNode;
+}
+
+function LongPressMenu({ content, messageId, role, onRetry, onDelete, children }: LongPressMenuProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchRef.current = { x: touch.clientX, y: touch.clientY };
+    timerRef.current = setTimeout(() => {
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(30);
+      setMenuPos({ x: touch.clientX, y: touch.clientY });
+      setMenuOpen(true);
+    }, 500);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchRef.current.x);
+    const dy = Math.abs(touch.clientY - touchRef.current.y);
+    if (dx > 10 || dy > 10) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(content);
+    toast.success('已复制到剪贴板');
+    setMenuOpen(false);
+  }, [content]);
+
+  const handleRetry = useCallback(() => {
+    setMenuOpen(false);
+    onRetry?.();
+  }, [onRetry]);
+
+  const handleDelete = useCallback(() => {
+    setMenuOpen(false);
+    onDelete?.();
+  }, [onDelete]);
+
+  return (
+    <>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {children}
+      </div>
+
+      {/* Overlay + floating menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50" onClick={() => setMenuOpen(false)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div
+            className="absolute z-50 min-w-[140px] rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-1 animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              left: Math.min(menuPos.x, window.innerWidth - 160),
+              top: Math.max(menuPos.y - 120, 8),
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <Copy className="w-4 h-4 text-muted-foreground" />
+              复制
+            </button>
+            {onRetry && (
+              <button
+                onClick={handleRetry}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                重试
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                删除
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
