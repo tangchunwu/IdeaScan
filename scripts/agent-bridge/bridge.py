@@ -486,6 +486,7 @@ def main():
                 elif current_backend == "codex":
                     call_codex(
                         user_content, session_id, args.work_dir, args.cli_timeout,
+                        args.dangerously_skip_permissions,
                         args.supabase_url, args.connection_id, args.token,
                         msg_id,
                     )
