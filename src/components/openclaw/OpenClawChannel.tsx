@@ -331,6 +331,15 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Slash command autocomplete state
+  const [slashFilter, setSlashFilter] = useState('');
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashSelectedIdx, setSlashSelectedIdx] = useState(0);
+
+  const filteredCommands = SLASH_COMMANDS.filter(cmd =>
+    cmd.name.startsWith(slashFilter.toLowerCase())
+  );
+
   // Voice recorder
   const { isRecording, duration, transcript, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
 
