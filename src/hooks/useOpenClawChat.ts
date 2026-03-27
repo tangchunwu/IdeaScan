@@ -29,7 +29,7 @@ export interface OpenClawMessage {
   retry_prompt?: string;
 }
 
-export function useOpenClawChat(userId: string | undefined, sessionId: string, connectionId?: string) {
+export function useOpenClawChat(userId: string | undefined, sessionId: string, connectionId?: string, connectionMode?: 'direct' | 'relay') {
   const [messages, setMessages] = useState<OpenClawMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
