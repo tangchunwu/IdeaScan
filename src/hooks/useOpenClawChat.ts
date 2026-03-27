@@ -67,6 +67,81 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     return () => { active = false; };
   }, [userId, sessionId]);
 
+  // ── Realtime subscription for relay mode ──
+  useEffect(() => {
+    if (connectionMode !== 'relay' || !userId || !sessionId) return;
+
+    const channel = supabase
+      .channel(`relay-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'openclaw_messages',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          if (row.role === 'assistant' && row.user_id === userId) {
+            setMessages(prev => {
+              // Avoid duplicates
+              if (prev.some(m => m.id === row.id)) return prev;
+              return [...prev, {
+                id: row.id,
+                role: 'assistant',
+                content: row.content,
+                created_at: row.created_at,
+              }];
+            });
+            setSending(false);
+            setStreamingContent('');
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'openclaw_messages',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          if (row.role === 'assistant' && row.user_id === userId) {
+            if (row.status === 'processing') {
+              // Streaming update — show as streaming content
+              setStreamingContent(row.content || '');
+            } else if (row.status === 'delivered') {
+              // Final delivery
+              setStreamingContent('');
+              setMessages(prev => {
+                const existing = prev.findIndex(m => m.id === row.id);
+                if (existing >= 0) {
+                  const updated = [...prev];
+                  updated[existing] = { ...updated[existing], content: row.content };
+                  return updated;
+                }
+                return [...prev, {
+                  id: row.id,
+                  role: 'assistant',
+                  content: row.content,
+                  created_at: row.created_at,
+                }];
+              });
+              setSending(false);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [connectionMode, userId, sessionId]);
+
   const sendMessage = useCallback(async (content: string, imageBase64?: string, file?: FileAttachment) => {
     if (!userId || (!content.trim() && !imageBase64 && !file) || sending) return;
 
