@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle } from "lucide-react";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
@@ -90,6 +90,12 @@ export function OpenClawSettings() {
   };
 
   const [bridgeBackend, setBridgeBackend] = useState<'claude' | 'codex' | 'openai'>('claude');
+
+  const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/IdeaScan/ideascan/main/scripts/agent-bridge/bridge.py";
+
+  const getSetupCommands = () => {
+    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests`;
+  };
 
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
@@ -239,8 +245,28 @@ export function OpenClawSettings() {
                     </div>
                   )}
 
+                  {/* Step 1: Setup — download bridge */}
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground">Agent 后端</Label>
+                    <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Download className="w-3 h-3" /> 第一步：下载脚本
+                    </Label>
+                    <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
+                      {getSetupCommands()}
+                    </pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-[10px] h-7 rounded-lg gap-1"
+                      onClick={() => copyToClipboard(getSetupCommands(), `setup-${conn.id}`)}
+                    >
+                      {copiedId === `setup-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                      复制安装命令
+                    </Button>
+                  </div>
+
+                  {/* Step 2: Choose backend & run */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">第二步：选择 Agent 后端并启动</Label>
                     <div className="flex gap-1">
                       {(['claude', 'codex', 'openai'] as const).map(b => (
                         <Button
