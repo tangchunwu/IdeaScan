@@ -107,3 +107,9 @@ verify_jwt = false
 
 [functions.linuxdo-auth]
 verify_jwt = false
+
+[functions.openclaw-poll]
+verify_jwt = false
+
+[functions.openclaw-reply]
+verify_jwt = false
