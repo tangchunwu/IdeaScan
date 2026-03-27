@@ -1,40 +1,49 @@
 
 
-# 三个问题修复计划
+# 统一 Bridge 脚本 + `/codex` `/claude` 切换命令
 
-## 问题分析
-
-### 问题一：离线状态不准确
-**根因**：`OpenClawChannel` 中的 `useOpenClawConnections` 只在组件挂载时加载一次连接数据，`last_synced_at` 永远是初始值。虽然 `statusNow` 每 5 秒更新，但 `activeConnection.last_synced_at` 始终是旧数据，所以总是显示离线。对比 `OpenClawSettings` 中有 `setInterval(() => reload(), 10_000)` 定时刷新。
-
-**修复**：在 `OpenClawChannel` 中也添加定时 reload 逻辑 — 从 `useOpenClawConnections` 解构出 `reload`，当有 relay 连接时每 10 秒刷新一次。
-
-### 问题二：连的 Codex 但回复说是 Claude
-**根因**：这不是代码 bug。OpenAI Codex CLI 底层可以调用不同模型。当你运行 `codex exec` 时，Codex CLI 内部路由到了 Claude Opus 4.6（Codex 支持多种模型后端）。这是 Codex CLI 自身的配置问题，不是 bridge 脚本的问题。
-
-**解决方案**：在 bridge 启动时传入 `--model` 参数或设置 Codex 的 `CODEX_MODEL` 环境变量来指定实际使用的模型。同时可以在 UI 的连接头部显示当前后端类型（如 "Codex CLI"）而非模型自报的名字。
-
-### 问题三：UI 对话框布局问题
-从截图看，用户气泡和 AI 气泡之间有过大的空白间距，且整体对话区域利用率不高。
-
-**修复**：
-- 减小消息间距（`space-y-5` → `space-y-3`）
-- 用户消息气泡增加 `max-w` 约束，确保短消息不会过于靠右
-- AI 消息气泡的宽度约束优化
-
----
+## 概述
+让一个 bridge 脚本同时配置好 Codex 和 Claude Code 两个后端，启动后默认用其中一个，用户在聊天中输入 `/codex` 或 `/claude` 即可实时切换。
 
 ## 实现步骤
 
-### 1. 修复离线状态（OpenClawChannel.tsx）
-- 从 `useOpenClawConnections` 解构 `reload`
-- 添加 `useEffect`：当 `isActiveRelay` 为 true 时，每 10 秒调用 `reload()`
+### 1. 修改 bridge.py — 支持运行时切换后端
+- 新增 `--backends` 参数，支持同时指定多个后端：`--backends claude,codex`
+- 保留 `--backend` 作为默认启动后端
+- 识别消息内容为 `/codex` 或 `/claude` 时，切换当前后端并回复确认，不转发给 CLI
+- 用一个全局变量 `current_backend` 跟踪当前激活的后端
 
-### 2. 显示后端类型标识（OpenClawChannel.tsx）
-- 在连接名称旁添加后端模式标签（如 "中继"），让用户知道当前是中继模式
-- 这不能解决 Codex vs Claude 的问题（那是 CLI 配置），但能提高透明度
+### 2. 前端添加斜杠命令（OpenClawChannel.tsx）
+- 在 `SLASH_COMMANDS` 数组中新增：
+  - `/codex` — 切换到 Codex 后端
+  - `/claude` — 切换到 Claude Code 后端
+- 这两个命令设为 `clientOnly: false`（发送到服务器，由 bridge 处理）
 
-### 3. 优化对话布局（OpenClawChannel.tsx）
-- 调整消息区域间距
-- 优化气泡最大宽度和对齐
+### 3. bridge.py 关键改动
+
+```text
+启动参数:
+  python bridge.py \
+    --supabase-url ... --connection-id ... --token ... \
+    --backends claude,codex \
+    --backend claude \        # 默认后端
+    --work-dir ~/my-project \
+    --dangerously-skip-permissions
+
+消息处理流程:
+  收到消息 → 检查是否为 /codex 或 /claude
+    是 → 切换 current_backend, 回复 "✅ 已切换到 Codex CLI"
+    否 → 用 current_backend 处理消息
+```
+
+### 技术细节
+
+**bridge.py 改动点：**
+- `parse_args()`: 新增 `--backends` 参数（逗号分隔），验证 `--backend` 在列表中
+- `main()` 循环中：消息以 `/codex` 或 `/claude` 开头时，修改 `current_backend` 变量并直接 `send_reply` 确认
+- 其余逻辑不变，只是从 `args.backend` 改为读 `current_backend`
+
+**OpenClawChannel.tsx 改动点：**
+- 导入 `Cpu` 图标（已有）或选用 `Terminal` / `Code` 图标
+- 在 `SLASH_COMMANDS` 数组添加 `/codex` 和 `/claude` 两项，`clientOnly: false`
 
