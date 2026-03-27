@@ -203,7 +203,18 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
         }]);
         setStreamingContent('');
         setActiveTools([]);
+        setSending(false);
         return;
+      }
+
+      // ── Relay mode: message queued, wait for Realtime ──
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const jsonData = await res.json();
+        if (jsonData.relay) {
+          // Relay mode — keep sending=true, Realtime will handle the response
+          return;
+        }
       }
 
       const reader = res.body!.getReader();
