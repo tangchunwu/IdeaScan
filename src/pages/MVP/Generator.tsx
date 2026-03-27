@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageBackground, Navbar, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { ArrowLeft, Save, Globe, Eye, Code, Rocket } from "lucide-react";
 import { captureEvent } from "@/lib/posthog";
 
 export default function MVPGenerator() {
+        useDocumentTitle("MVP 生成器");
         const { id: validationId } = useParams();
         const navigate = useNavigate();
         const { toast } = useToast();

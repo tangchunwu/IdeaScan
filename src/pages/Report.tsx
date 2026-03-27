@@ -60,7 +60,7 @@ const Report = () => {
   };
   const [scrollProgress, setScrollProgress] = useState(0);
   const settings = useSettings();
-  useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", [data?.validation?.idea]);
+  useDocumentTitle(data?.validation?.idea ? `验证报告 - ${data.validation.idea.slice(0, 30)}` : "验证报告", { deps: [data?.validation?.idea], description: "查看 AI 生成的需求验证报告，包含市场分析、竞品情报和用户画像。" });
 
   const error = queryError instanceof Error ? queryError.message : queryError ? "Loading failed" : null;
   const reportData = useReportData(data);

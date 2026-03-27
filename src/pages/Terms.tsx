@@ -1,8 +1,10 @@
 import { PageBackground, Navbar, GlassCard } from "@/components/shared";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const Terms = () => {
+       useDocumentTitle("服务条款", { description: "IdeaScan 服务条款，使用本服务前请仔细阅读。" });
        return (
               <PageBackground showClouds={false}>
                      <Navbar />

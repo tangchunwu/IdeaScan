@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { PageBackground, GlassCard } from "@/components/shared";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { captureEvent } from "@/lib/posthog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const Auth = () => {
+  useDocumentTitle("登录 / 注册", { description: "登录或注册 IdeaScan，开始验证你的创业想法。" });
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);

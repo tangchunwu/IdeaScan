@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getMVPBySlug, collectLead, trackExperimentEvent } from "@/services/mvpService";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ export default function PublicLandingPage() {
                 retry: false
         });
 
+        const pageTitle = (page?.content as any)?.hero?.headline || "MVP 落地页";
+        useDocumentTitle(pageTitle, [page]);
 	const submitMutation = useMutation({
 		mutationFn: () => collectLead(page!.id, email),
 		onSuccess: () => {

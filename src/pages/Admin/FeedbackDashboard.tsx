@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PageBackground, BrandLoader } from "@/components/shared";
@@ -28,6 +29,7 @@ interface FeedbackStats {
 }
 
 const FeedbackDashboard = () => {
+  useDocumentTitle("反馈管理后台");
   const navigate = useNavigate();
   const { isAdmin, isLoading } = useAdminAuth();
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);

@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { OpenClawChannel, OpenClawSettings } from "@/components/openclaw";
 import { OpenClawHistory } from "@/components/openclaw/OpenClawHistory";
 import { Navbar } from "@/components/shared/Navbar";
@@ -11,6 +12,7 @@ import { BrandLoader } from "@/components/shared";
 import { ContentStudioInline } from "./ContentStudio";
 
 export default function OpenClawPage() {
+  useDocumentTitle("OpenClaw AI 助手");
   const [searchParams] = useSearchParams();
   const [initialMessage, setInitialMessage] = useState<string | undefined>();
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
