@@ -10,7 +10,7 @@ import {
   Send, Loader2, StopCircle, Bot, User, Plus,
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
   Check, ChevronDown, Server, Copy, CheckCheck, Mic, MicOff, X, Paperclip,
-  FileText, Clock, ChevronRight, MessageSquarePlus, Cpu, HelpCircle, Trash2, RotateCcw, Terminal,
+  FileText, Clock, ChevronRight, MessageSquarePlus, Cpu, HelpCircle, Trash2, RotateCcw, Terminal, Code,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -77,6 +77,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/clear', description: '清空当前对话', icon: Trash2, clientOnly: true },
   { name: '/retry', description: '重试上一条消息', icon: RotateCcw, clientOnly: true },
   { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
+  { name: '/codex', description: '切换到 Codex 后端', icon: Terminal, clientOnly: false },
+  { name: '/claude', description: '切换到 Claude Code 后端', icon: Code, clientOnly: false },
   { name: '/help', description: '查看帮助', icon: HelpCircle, clientOnly: false },
   { name: '/system', description: '设置系统提示词', icon: Terminal, clientOnly: false },
 ];
