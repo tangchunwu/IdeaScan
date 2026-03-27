@@ -596,6 +596,7 @@ export type Database = {
           id: string
           is_default: boolean
           last_synced_at: string | null
+          mode: string
           name: string
           token: string | null
           updated_at: string
@@ -607,6 +608,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           last_synced_at?: string | null
+          mode?: string
           name?: string
           token?: string | null
           updated_at?: string
@@ -618,6 +620,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           last_synced_at?: string | null
+          mode?: string
           name?: string
           token?: string | null
           updated_at?: string
@@ -635,6 +638,7 @@ export type Database = {
           metadata: Json | null
           role: string
           session_id: string
+          status: string
           user_id: string
         }
         Insert: {
@@ -645,6 +649,7 @@ export type Database = {
           metadata?: Json | null
           role: string
           session_id: string
+          status?: string
           user_id: string
         }
         Update: {
@@ -655,6 +660,7 @@ export type Database = {
           metadata?: Json | null
           role?: string
           session_id?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
