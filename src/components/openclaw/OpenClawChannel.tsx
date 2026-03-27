@@ -467,9 +467,10 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const isActiveRelay = activeConnection?.mode === 'relay';
   useEffect(() => {
     if (!isActiveRelay) return;
-    const timer = setInterval(() => setStatusNow(Date.now()), 5_000);
-    return () => clearInterval(timer);
-  }, [isActiveRelay]);
+    const statusTimer = setInterval(() => setStatusNow(Date.now()), 5_000);
+    const reloadTimer = setInterval(() => reloadConnections(), 10_000);
+    return () => { clearInterval(statusTimer); clearInterval(reloadTimer); };
+  }, [isActiveRelay, reloadConnections]);
   const isRelayOnline = useMemo(() => {
     if (!isActiveRelay || !activeConnection?.last_synced_at) return false;
     return statusNow - new Date(activeConnection.last_synced_at).getTime() < 15_000;
