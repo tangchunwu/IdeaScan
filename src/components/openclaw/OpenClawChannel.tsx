@@ -607,21 +607,21 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 backdrop-blur-sm bg-background/80">
-        <div className="flex items-center gap-2">
+      <div className={`flex items-center justify-between ${isMobile ? 'px-3 py-2' : 'px-5 py-3'} border-b border-border/30 backdrop-blur-sm bg-background/80`}>
+        <div className="flex items-center gap-2 min-w-0">
           {historyToggle}
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-sm">
-            <Bot className="w-4 h-4 text-primary-foreground" />
+          <div className={`${isMobile ? 'w-7 h-7' : 'w-8 h-8'} rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-sm shrink-0`}>
+            <Bot className={`${isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-primary-foreground`} />
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-foreground">
+          <div className="flex flex-col min-w-0">
+            <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-foreground truncate`}>
               {activeConnection?.name || "OpenClaw"}
             </span>
-            <span className="text-[10px] text-muted-foreground/60">AI Agent</span>
+            {!isMobile && <span className="text-[10px] text-muted-foreground/60">AI Agent</span>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {connections.length > 1 && (
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {connections.length > 1 && !isMobile && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-border/40 bg-muted/20 hover:bg-muted/40">
@@ -650,10 +650,10 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-xs gap-1.5 hover:bg-muted/50 transition-all hover:scale-105"
+            className={`${isMobile ? 'h-7 text-[11px] gap-1 px-2' : 'h-8 text-xs gap-1.5'} hover:bg-muted/50 transition-all hover:scale-105`}
             onClick={handleNewSession}
           >
-            <Plus className="w-3.5 h-3.5" /> 新对话
+            <Plus className={`${isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} /> 新对话
           </Button>
         </div>
       </div>
