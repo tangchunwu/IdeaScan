@@ -804,7 +804,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
       </div>
 
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto ${isMobile ? 'px-2.5 py-3 space-y-3' : 'px-4 py-4 space-y-5'}`}>
+      <div className={`flex-1 overflow-y-auto ${isMobile ? 'px-2.5 py-3 space-y-2.5' : 'px-4 py-4 space-y-3'}`}>
         {loading && (
           <div className="flex justify-center py-8">
             <div className="relative">
