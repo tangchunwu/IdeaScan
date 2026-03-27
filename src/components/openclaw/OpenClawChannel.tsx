@@ -930,11 +930,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <Textarea
-              placeholder={isRecording ? "录音中…" : "输入指令或 / 查看命令... (Shift+Enter 换行)"}
+              placeholder={isRecording ? "录音中…" : (isMobile ? "输入指令或 / 命令..." : "输入指令或 / 查看命令... (Shift+Enter 换行)")}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              className="min-h-[44px] max-h-[120px] text-sm glass-card border-border/40 rounded-2xl resize-none pr-3 pl-4 py-3 backdrop-blur-md focus:border-primary/50 transition-all shadow-sm"
+              className={`${isMobile ? 'min-h-[40px] max-h-[100px] text-[13px] pl-3 py-2.5' : 'min-h-[44px] max-h-[120px] text-sm pl-4 py-3'} glass-card border-border/40 rounded-2xl resize-none pr-3 backdrop-blur-md focus:border-primary/50 transition-all shadow-sm`}
               rows={1}
               disabled={isRecording}
             />
@@ -945,30 +945,30 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
             <Button
               variant="ghost"
               size="sm"
-              className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 transition-all hover:scale-105"
+              className={`shrink-0 ${isMobile ? 'h-10 w-10' : 'h-11 w-11'} p-0 rounded-xl hover:bg-destructive/10 transition-all hover:scale-105`}
               onClick={abort}
             >
-              <StopCircle className="w-5 h-5 text-destructive" />
+              <StopCircle className={`${isMobile ? 'w-4.5 h-4.5' : 'w-5 h-5'} text-destructive`} />
             </Button>
           ) : hasContent ? (
             <Button
               size="sm"
-              className="shrink-0 h-11 w-11 p-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary hover:to-primary shadow-md hover:shadow-lg hover:scale-105 transition-all"
+              className={`shrink-0 ${isMobile ? 'h-10 w-10' : 'h-11 w-11'} p-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary hover:to-primary shadow-md hover:shadow-lg hover:scale-105 transition-all`}
               onClick={handleSend}
             >
-              <Send className="w-4.5 h-4.5" />
+              <Send className={`${isMobile ? 'w-4 h-4' : 'w-4.5 h-4.5'}`} />
             </Button>
           ) : (
             <Button
               variant="ghost"
               size="sm"
-              className={`shrink-0 h-11 w-11 p-0 rounded-xl transition-all hover:scale-105 ${isRecording ? 'bg-destructive/10 hover:bg-destructive/20' : 'hover:bg-muted/50'}`}
+              className={`shrink-0 ${isMobile ? 'h-10 w-10' : 'h-11 w-11'} p-0 rounded-xl transition-all hover:scale-105 ${isRecording ? 'bg-destructive/10 hover:bg-destructive/20' : 'hover:bg-muted/50'}`}
               onClick={handleVoiceToggle}
             >
               {isRecording ? (
-                <MicOff className="w-5 h-5 text-destructive" />
+                <MicOff className={`${isMobile ? 'w-4.5 h-4.5' : 'w-5 h-5'} text-destructive`} />
               ) : (
-                <Mic className="w-5 h-5 text-muted-foreground" />
+                <Mic className={`${isMobile ? 'w-4.5 h-4.5' : 'w-5 h-5'} text-muted-foreground`} />
               )}
             </Button>
           )}
