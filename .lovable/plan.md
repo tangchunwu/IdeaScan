@@ -1,49 +1,40 @@
 
 
-# 统一 Bridge 脚本 + `/codex` `/claude` 切换命令
+# 修复 Codex CLI 两个问题
 
-## 概述
-让一个 bridge 脚本同时配置好 Codex 和 Claude Code 两个后端，启动后默认用其中一个，用户在聊天中输入 `/codex` 或 `/claude` 即可实时切换。
+## 问题分析
 
-## 实现步骤
+从截图看到两个问题：
 
-### 1. 修改 bridge.py — 支持运行时切换后端
-- 新增 `--backends` 参数，支持同时指定多个后端：`--backends claude,codex`
-- 保留 `--backend` 作为默认启动后端
-- 识别消息内容为 `/codex` 或 `/claude` 时，切换当前后端并回复确认，不转发给 CLI
-- 用一个全局变量 `current_backend` 跟踪当前激活的后端
+1. **"Not inside a trusted directory and --skip-git-repo-check was not specified"** — `call_codex()` 没有传 `--skip-git-repo-check` 标志，Codex CLI 要求工作目录是受信任的 git 仓库
+2. **Codex CLI 命令格式可能不对** — 当前用的是 `codex exec message`，需要确认实际 CLI 语法
 
-### 2. 前端添加斜杠命令（OpenClawChannel.tsx）
-- 在 `SLASH_COMMANDS` 数组中新增：
-  - `/codex` — 切换到 Codex 后端
-  - `/claude` — 切换到 Claude Code 后端
-- 这两个命令设为 `clientOnly: false`（发送到服务器，由 bridge 处理）
+## 修改方案
 
-### 3. bridge.py 关键改动
+### `scripts/agent-bridge/bridge.py` — `call_codex()` 函数
+
+1. **添加 `--skip-git-repo-check`** 标志到所有 codex 命令中，解决目录信任问题
+2. **修正 Codex CLI 调用语法** — 根据 OpenAI Codex CLI 实际用法，命令应为：
+   - 首次：`codex --skip-git-repo-check --quiet "message"`
+   - 续接：`codex --skip-git-repo-check --quiet --resume "message"`
+3. **复用 `--dangerously-skip-permissions` 参数**（Codex 对应 `--full-auto`），让 codex 也能自动批准操作
 
 ```text
-启动参数:
-  python bridge.py \
-    --supabase-url ... --connection-id ... --token ... \
-    --backends claude,codex \
-    --backend claude \        # 默认后端
-    --work-dir ~/my-project \
-    --dangerously-skip-permissions
+修改前:
+  cmd = ["codex", "exec", message]
+  cmd = ["codex", "exec", "resume", "--last", message]
 
-消息处理流程:
-  收到消息 → 检查是否为 /codex 或 /claude
-    是 → 切换 current_backend, 回复 "✅ 已切换到 Codex CLI"
-    否 → 用 current_backend 处理消息
+修改后:
+  cmd = ["codex", "--skip-git-repo-check", "--quiet", message]
+  cmd = ["codex", "--skip-git-repo-check", "--quiet", "--resume", message]
+  # 如果 skip_permissions: 加 --full-auto
 ```
 
-### 技术细节
+### 同时修改
 
-**bridge.py 改动点：**
-- `parse_args()`: 新增 `--backends` 参数（逗号分隔），验证 `--backend` 在列表中
-- `main()` 循环中：消息以 `/codex` 或 `/claude` 开头时，修改 `current_backend` 变量并直接 `send_reply` 确认
-- 其余逻辑不变，只是从 `args.backend` 改为读 `current_backend`
+- `parse_args()` 中的帮助文本：说明 `--dangerously-skip-permissions` 也影响 Codex（映射为 `--full-auto`）
+- `call_codex()` 函数签名：增加 `skip_permissions` 参数
+- `main()` 中调用 `call_codex` 时传入 `args.dangerously_skip_permissions`
 
-**OpenClawChannel.tsx 改动点：**
-- 导入 `Cpu` 图标（已有）或选用 `Terminal` / `Code` 图标
-- 在 `SLASH_COMMANDS` 数组添加 `/codex` 和 `/claude` 两项，`clientOnly: false`
+涉及文件：`scripts/agent-bridge/bridge.py`（约改 20 行）
 
