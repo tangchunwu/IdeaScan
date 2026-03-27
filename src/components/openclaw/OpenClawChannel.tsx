@@ -63,6 +63,23 @@ const QUICK_PROMPTS = [
 const TEXT_FILE_TYPES = ['.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.html', '.css', '.js', '.ts', '.py'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+/* ─── Slash Command Definitions ─── */
+interface SlashCommand {
+  name: string;
+  description: string;
+  icon: React.ElementType;
+  clientOnly: boolean;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { name: '/new', description: '开启新对话', icon: MessageSquarePlus, clientOnly: true },
+  { name: '/clear', description: '清空当前对话', icon: Trash2, clientOnly: true },
+  { name: '/retry', description: '重试上一条消息', icon: RotateCcw, clientOnly: true },
+  { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
+  { name: '/help', description: '查看帮助', icon: HelpCircle, clientOnly: false },
+  { name: '/system', description: '设置系统提示词', icon: Terminal, clientOnly: false },
+];
+
 /* ─── Enhanced Tool Status Badge ─── */
 function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
   const [expanded, setExpanded] = useState(false);
