@@ -64,6 +64,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Update last_synced_at to track bridge online status
+    await serviceClient
+      .from('openclaw_connections')
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq('id', connection_id);
+
     if (!pendingMessages || pendingMessages.length === 0) {
       return new Response(JSON.stringify({ messages: [] }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

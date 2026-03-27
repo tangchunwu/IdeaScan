@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawConnections, type OpenClawConnection } from "@/hooks/useOpenClawConnections";
 import { GlassCard } from "@/components/shared";
@@ -7,12 +7,44 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle } from "lucide-react";
 import { toast } from "sonner";
+
+const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
+
+function useRelayOnlineStatus(connections: OpenClawConnection[]) {
+  const [now, setNow] = useState(Date.now());
+  const hasRelay = connections.some(c => c.mode === 'relay');
+
+  useEffect(() => {
+    if (!hasRelay) return;
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, [hasRelay]);
+
+  return useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const c of connections) {
+      if (c.mode === 'relay' && c.last_synced_at) {
+        map[c.id] = now - new Date(c.last_synced_at).getTime() < ONLINE_THRESHOLD_MS;
+      }
+    }
+    return map;
+  }, [connections, now]);
+}
 
 export function OpenClawSettings() {
   const { user } = useAuth();
-  const { connections, loading, addConnection, deleteConnection, setDefault, syncToOpenClaw } = useOpenClawConnections(user?.id);
+  const { connections, loading, addConnection, deleteConnection, setDefault, syncToOpenClaw, reload } = useOpenClawConnections(user?.id);
+  const onlineStatus = useRelayOnlineStatus(connections);
+
+  // Auto-reload connections every 10s to refresh last_synced_at for relay connections
+  useEffect(() => {
+    const hasRelay = connections.some(c => c.mode === 'relay');
+    if (!hasRelay) return;
+    const timer = setInterval(() => reload(), 10_000);
+    return () => clearInterval(timer);
+  }, [connections, reload]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("default");
   const [url, setUrl] = useState("");
@@ -142,11 +174,24 @@ export function OpenClawSettings() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    {conn.mode === 'relay' && (
+                      <span className="relative flex h-2.5 w-2.5 shrink-0" title={onlineStatus[conn.id] ? 'Bridge 在线' : 'Bridge 离线'}>
+                        {onlineStatus[conn.id] && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        )}
+                        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${onlineStatus[conn.id] ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                      </span>
+                    )}
                     <span className="text-sm font-medium truncate">{conn.name}</span>
                     {conn.is_default && <Badge variant="secondary" className="text-[9px]">默认</Badge>}
                     <Badge variant={conn.mode === 'relay' ? 'default' : 'outline'} className="text-[9px]">
                       {conn.mode === 'relay' ? '中继' : '直连'}
                     </Badge>
+                    {conn.mode === 'relay' && (
+                      <span className={`text-[9px] ${onlineStatus[conn.id] ? 'text-green-600' : 'text-muted-foreground/50'}`}>
+                        {onlineStatus[conn.id] ? '在线' : '离线'}
+                      </span>
+                    )}
                   </div>
                   {conn.mode === 'direct' && (
                     <p className="text-[10px] text-muted-foreground truncate mt-0.5">{conn.url}</p>
