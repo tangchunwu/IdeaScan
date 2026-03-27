@@ -202,17 +202,20 @@ def call_openai_non_streaming(agent_url, messages, model, base_url, connection_i
 # Backend: Claude Code CLI (stateful sessions via --continue)
 # ---------------------------------------------------------------------------
 
-# Maps OpenClaw session_id → Claude local session directory
-_claude_session_dirs: dict[str, str] = {}
+# Maps OpenClaw session_id → local session directory (shared by Claude & Codex)
+_session_dirs: dict[str, str] = {}
+
+# Tracks whether a Codex session has been started (for resume logic)
+_codex_session_started: dict[str, bool] = {}
 
 
-def _get_claude_session_dir(session_id: str, work_dir: str) -> str:
-    """Get or create a working directory for a Claude session."""
-    if session_id not in _claude_session_dirs:
+def _get_session_dir(session_id: str, work_dir: str) -> str:
+    """Get or create a working directory for a CLI session (Claude or Codex)."""
+    if session_id not in _session_dirs:
         session_dir = os.path.join(work_dir, ".openclaw-sessions", session_id[:8])
         os.makedirs(session_dir, exist_ok=True)
-        _claude_session_dirs[session_id] = session_dir
-    return _claude_session_dirs[session_id]
+        _session_dirs[session_id] = session_dir
+    return _session_dirs[session_id]
 
 
 def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
