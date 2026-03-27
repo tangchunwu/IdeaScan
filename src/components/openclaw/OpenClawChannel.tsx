@@ -859,14 +859,14 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           </div>
         )}
 
-        <div className="flex gap-2 items-end">
+        <div className={`flex ${isMobile ? 'gap-1.5' : 'gap-2'} items-end`}>
           {/* Attachment button */}
           <Popover open={attachMenuOpen} onOpenChange={setAttachMenuOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-muted/50 transition-all"
+                className={`shrink-0 ${isMobile ? 'h-10 w-10' : 'h-11 w-11'} p-0 rounded-xl hover:bg-muted/50 transition-all`}
                 disabled={sending}
               >
                 <Plus className="w-5 h-5 text-muted-foreground" />
