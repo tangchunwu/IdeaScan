@@ -1,44 +1,55 @@
 
 
-## 计划：SEO 全面优化
+## 计划：补全各页面 SEO 标题 + 添加动态 meta description
 
-### 当前问题
-
-1. **canonical 和 OG URL 指向错误域名**：`index.html` 中所有 URL 指向 `ideascan.lovable.app`，而非正式域名 `ideascan.me`
-2. **没有 sitemap.xml**：搜索引擎无法发现所有页面
-3. **robots.txt 缺少 sitemap 引用**
-4. **SPA 无结构化数据**：缺少 JSON-LD（Organization / WebApplication）
-5. **keywords 不够丰富**：缺少英文关键词，长尾词不足
+### 问题
+- 7-8 个页面缺少 `useDocumentTitle`，搜索引擎和浏览器标签显示默认标题
+- 所有页面共享同一个 meta description，搜索引擎无法区分各页面内容
 
 ### 改动方案
 
-#### 1. 修复 `index.html` — 域名统一 + 结构化数据
+#### 1. 为缺失页面添加 `useDocumentTitle`
 
-- canonical、og:url、twitter:url 全部改为 `https://ideascan.me`
-- og:image、twitter:image 改为 `https://ideascan.me/og-image.png`
-- 补充英文关键词：`startup validation, idea validator, market research AI`
-- 添加 JSON-LD 结构化数据（WebApplication schema）
+| 页面 | 标题 |
+|------|------|
+| Auth | "登录 / 注册" |
+| Privacy | "隐私政策" |
+| Terms | "服务条款" |
+| NotFound | "页面未找到" |
+| MVPGenerator | "MVP 生成器" |
+| PublicLandingPage | 动态："{产品名} - MVP 落地页" |
+| OpenClaw | "OpenClaw AI 助手" |
+| FeedbackDashboard | "反馈管理后台" |
 
-#### 2. 新建 `public/sitemap.xml`
+AuthCallback 为过渡页，不需要。
 
-包含所有公开页面：
-- `/` — 首页
-- `/validate` — 验证页
-- `/discover` — 发现页
-- `/pricing` — 定价页
-- `/faq` — FAQ
-- `/privacy` — 隐私政策
-- `/terms` — 服务条款
+#### 2. 扩展 `useDocumentTitle` 支持动态 meta description
 
-#### 3. 更新 `public/robots.txt`
+在 `useDocumentTitle` hook 中增加可选的 `description` 参数，动态更新 `<meta name="description">` 标签。
 
-添加 `Sitemap: https://ideascan.me/sitemap.xml`
+#### 3. 为核心页面补充独立 description
+
+| 页面 | description |
+|------|-------------|
+| Index | 保持 index.html 默认 |
+| Validate | "一句话描述你的创业想法，AI 自动抓取社媒数据和竞品情报，3分钟生成需求验证报告。" |
+| Discover | "发现正在爆发的市场机会，追踪社媒热门话题和创业趋势。" |
+| Pricing | "IdeaScan 定价方案，免费体验 AI 需求验证。" |
+| FAQ | "关于 IdeaScan AI 创业验证工具的常见问题解答。" |
+| Report | "查看 AI 生成的需求验证报告，包含市场分析、竞品情报和用户画像。" |
 
 ### 改动文件
 
 | 文件 | 改动 |
 |------|------|
-| `index.html` | 修复域名、补关键词、加 JSON-LD |
-| `public/sitemap.xml` | 新建 |
-| `public/robots.txt` | 加 sitemap 引用 |
+| `src/hooks/useDocumentTitle.ts` | 增加 description 参数，动态更新 meta |
+| `src/pages/Auth.tsx` | 添加 useDocumentTitle |
+| `src/pages/Privacy.tsx` | 添加 useDocumentTitle |
+| `src/pages/Terms.tsx` | 添加 useDocumentTitle |
+| `src/pages/NotFound.tsx` | 添加 useDocumentTitle |
+| `src/pages/MVP/Generator.tsx` | 添加 useDocumentTitle |
+| `src/pages/MVP/PublicLandingPage.tsx` | 添加 useDocumentTitle |
+| `src/pages/OpenClaw.tsx` | 添加 useDocumentTitle（如缺失）|
+| `src/pages/Admin/FeedbackDashboard.tsx` | 添加 useDocumentTitle |
+| 核心页面（Validate、Discover 等） | 补充 description 参数 |
 
