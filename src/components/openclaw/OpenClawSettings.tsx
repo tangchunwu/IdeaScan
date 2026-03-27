@@ -171,7 +171,7 @@ export function OpenClawSettings() {
                       ID: {conn.id}
                     </code>
                     <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.id, `id-${conn.id}`)}>
-                      {copiedId === `id-${conn.id}` ? <Check className="w-2.5 h-2.5 text-green-500" /> : <Copy className="w-2.5 h-2.5" />}
+                      {copiedId === `id-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
                     </Button>
                   </div>
                   <Button 
