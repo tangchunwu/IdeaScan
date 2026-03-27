@@ -681,12 +681,12 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               <p className="text-base font-medium text-foreground mb-1">AI Agent 已就绪</p>
               <p className="text-sm text-muted-foreground/70">选择快捷指令或直接下达任务</p>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-4 max-w-md w-full">
+            <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-2 gap-3'} mt-4 max-w-md w-full`}>
               {QUICK_PROMPTS.map((qp) => (
                 <button
                   key={qp.label}
                   onClick={() => handleQuickPrompt(qp.prompt)}
-                  className="group flex flex-col items-start gap-2 px-4 py-3.5 rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5"
+                  className={`group flex flex-col items-start gap-2 ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3.5'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
                     <qp.icon className="w-4 h-4 text-primary/80 group-hover:text-primary transition-colors" />
