@@ -1,15 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useOpenClawChat, type ToolCallInfo } from "@/hooks/useOpenClawChat";
+import { useOpenClawChat, type ToolCallInfo, type FileAttachment } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Send, Loader2, StopCircle, Bot, User, Plus,
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
-  Check, ChevronDown, Server, Copy, CheckCheck,
+  Check, ChevronDown, Server, Copy, CheckCheck, Mic, MicOff, X, Paperclip,
+  FileText, Clock, ChevronRight,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -56,37 +60,60 @@ const QUICK_PROMPTS = [
   },
 ];
 
-/* ─── Tool Status Badge (color-coded, with argument preview) ─── */
+const TEXT_FILE_TYPES = ['.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.html', '.css', '.js', '.ts', '.py'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+/* ─── Enhanced Tool Status Badge ─── */
 function ToolStatusBadge({ tool }: { tool: ToolCallInfo }) {
+  const [expanded, setExpanded] = useState(false);
   const label = TOOL_LABELS[tool.name] || tool.name;
   const isDone = tool.status === "done";
 
-  // Extract a short preview from arguments
   let argPreview = "";
+  let parsedArgs: Record<string, any> = {};
   try {
-    const args = JSON.parse(tool.arguments || "{}");
-    const preview = args.query || args.filename || args.file || args.prompt || args.keyword || args.url;
+    parsedArgs = JSON.parse(tool.arguments || "{}");
+    const preview = parsedArgs.query || parsedArgs.filename || parsedArgs.file || parsedArgs.prompt || parsedArgs.keyword || parsedArgs.url;
     if (preview && typeof preview === "string") {
       argPreview = preview.length > 24 ? preview.slice(0, 22) + "…" : preview;
     }
   } catch { /* ignore */ }
 
+  const elapsed = tool.startedAt
+    ? ((tool.finishedAt || Date.now()) - tool.startedAt) / 1000
+    : 0;
+
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-300 ${
-      isDone
-        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-        : "bg-primary/10 text-primary border-primary/20 animate-pulse"
-    }`}>
-      {isDone ? (
-        <Check className="w-3 h-3" />
-      ) : (
-        <Loader2 className="w-3 h-3 animate-spin" />
-      )}
-      <span>{label}</span>
-      {argPreview && (
-        <span className="text-[10px] opacity-60 max-w-[120px] truncate">· {argPreview}</span>
-      )}
-    </span>
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <button className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-300 cursor-pointer hover:opacity-80 ${
+          isDone
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            : "bg-primary/10 text-primary border-primary/20 animate-pulse"
+        }`}>
+          {isDone ? (
+            <Check className="w-3 h-3" />
+          ) : (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          )}
+          <span>{label}</span>
+          {argPreview && (
+            <span className="text-[10px] opacity-60 max-w-[120px] truncate">· {argPreview}</span>
+          )}
+          {isDone && elapsed > 0 && (
+            <span className="text-[10px] opacity-50 flex items-center gap-0.5">
+              <Clock className="w-2.5 h-2.5" />{elapsed.toFixed(1)}s
+            </span>
+          )}
+          <ChevronRight className={`w-3 h-3 opacity-40 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-1.5 ml-2 p-2.5 rounded-lg bg-muted/30 border border-border/20 text-[11px] font-mono text-muted-foreground max-h-32 overflow-auto">
+          <pre className="whitespace-pre-wrap break-all">{JSON.stringify(parsedArgs, null, 2)}</pre>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -127,7 +154,6 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
   );
 }
 
-/** Convert bare image URLs to markdown image syntax */
 const IMAGE_URL_RE = /^(https?:\/\/\S+\.(?:png|jpe?g|webp|gif|svg|bmp|tiff?)(?:\?\S*)?)$/gim;
 const IMAGE_SERVICE_RE = /^(https?:\/\/\S*(?:\/(?:image|img|pic|photo|media|upload|generate|render|cdn)\S*))$/gim;
 const DATA_URI_RE = /^(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)$/gm;
@@ -227,7 +253,6 @@ function formatTime(dateStr: string) {
   } catch { return ""; }
 }
 
-/* ─── Copy Message Button ─── */
 function CopyMessageButton({ content }: { content: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback((e: React.MouseEvent) => {
@@ -250,6 +275,12 @@ function CopyMessageButton({ content }: { content: string }) {
       )}
     </button>
   );
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function renderMessageContent(content: string, isStreaming = false) {
@@ -276,6 +307,16 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const [initialSent, setInitialSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Attachment state
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<FileAttachment | null>(null);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice recorder
+  const { isRecording, duration, transcript, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+
   const defaultConnection = connections.find(c => c.is_default) || connections[0];
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
@@ -284,12 +325,10 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     user?.id, sessionId, activeConnectionId
   );
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent, activeTools]);
 
-  // Auto-send initial message
   useEffect(() => {
     if (initialMessage && !initialSent && activeConnectionId && !loading && !sending && connections.length > 0) {
       setInitialSent(true);
@@ -300,11 +339,74 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     }
   }, [initialMessage, initialSent, activeConnectionId, loading, sending, connections.length]);
 
-  const handleSend = () => {
-    if (!input.trim() || sending) return;
-    sendMessage(input.trim());
+  // Image selection handler
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('图片不能超过 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingImage(reader.result as string);
+      setPendingFile(null);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, []);
+
+  // File selection handler
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('文件不能超过 5MB');
+      return;
+    }
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    const isTextFile = TEXT_FILE_TYPES.includes(ext);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (isTextFile) {
+        setPendingFile({ name: file.name, type: file.type || 'text/plain', data: reader.result as string });
+      } else {
+        const base64 = (reader.result as string).split(',')[1] || '';
+        setPendingFile({ name: file.name, type: file.type || 'application/octet-stream', data: base64 });
+      }
+      setPendingImage(null);
+    };
+    if (isTextFile) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+  }, []);
+
+  const handleSend = useCallback(() => {
+    if (sending) return;
+
+    // If recording, stop and use transcript
+    if (isRecording) {
+      stopRecording();
+      if (transcript.trim()) {
+        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined);
+        setPendingImage(null);
+        setPendingFile(null);
+        setInput("");
+      }
+      return;
+    }
+
+    const msg = input.trim();
+    if (!msg && !pendingImage && !pendingFile) return;
+    sendMessage(msg, pendingImage || undefined, pendingFile || undefined);
     setInput("");
-  };
+    setPendingImage(null);
+    setPendingFile(null);
+  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -327,9 +429,30 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     sendMessage(prompt);
   };
 
+  const handleVoiceToggle = useCallback(async () => {
+    if (isRecording) {
+      stopRecording();
+      // Use transcript if available
+      if (transcript.trim()) {
+        setInput(prev => prev ? prev + ' ' + transcript.trim() : transcript.trim());
+      }
+    } else {
+      try {
+        await startRecording();
+      } catch (err: any) {
+        toast.error(err.message || '无法启动录音');
+      }
+    }
+  }, [isRecording, transcript, startRecording, stopRecording]);
+
   const getUserInitial = () => {
     if (!user?.email) return "U";
     return user.email[0].toUpperCase();
+  };
+
+  const clearAttachment = () => {
+    setPendingImage(null);
+    setPendingFile(null);
   };
 
   if (!user) {
@@ -352,9 +475,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     );
   }
 
+  const hasContent = input.trim() || pendingImage || pendingFile;
+
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* Header - Refined */}
+      {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 backdrop-blur-sm bg-background/80">
         <div className="flex items-center gap-2">
           {historyToggle}
@@ -395,10 +520,10 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 text-xs gap-1.5 hover:bg-muted/50 transition-all hover:scale-105" 
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs gap-1.5 hover:bg-muted/50 transition-all hover:scale-105"
             onClick={handleNewSession}
           >
             <Plus className="w-3.5 h-3.5" /> 新对话
@@ -462,7 +587,6 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                   ? "max-w-[75%] self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20"
                   : "max-w-[85%] glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words"
               }`}>
-                {/* Copy button for assistant messages */}
                 {msg.role === "assistant" && msg.content && (
                   <CopyMessageButton content={msg.content} />
                 )}
@@ -486,15 +610,22 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                     )}
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap leading-relaxed">
-                    {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
-                  </p>
+                  <div>
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
+                    </p>
+                    {msg.file_name && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-foreground/10 text-[11px]">
+                        <FileText className="w-3 h-3" />
+                        {msg.file_name}
+                      </div>
+                    )}
+                  </div>
                 )}
                 {msg.image_url && (
                   <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
                 )}
               </div>
-              {/* Timestamp on hover */}
               <span className={`text-[10px] text-muted-foreground/0 group-hover/msg:text-muted-foreground/50 transition-colors duration-200 ${
                 msg.role === "user" ? "self-end mr-1" : "ml-1"
               }`}>
@@ -549,36 +680,132 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Modernized */}
+      {/* Input area */}
       <div className="px-4 py-4 border-t border-border/30 backdrop-blur-sm bg-background/80">
-        <div className="flex gap-2.5 items-end">
+        {/* Hidden file inputs */}
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+        <input ref={fileInputRef} type="file" accept=".txt,.md,.csv,.json,.xml,.yaml,.yml,.html,.css,.js,.ts,.py,.pdf,.docx,.doc" className="hidden" onChange={handleFileSelect} />
+
+        {/* Attachment preview */}
+        {(pendingImage || pendingFile) && (
+          <div className="mb-2.5 flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-muted/20">
+            {pendingImage && (
+              <img src={pendingImage} alt="preview" className="w-12 h-12 rounded-lg object-cover border border-border/20" />
+            )}
+            {pendingFile && (
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-foreground truncate max-w-[200px]">{pendingFile.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{pendingFile.type}</span>
+                </div>
+              </div>
+            )}
+            <button onClick={clearAttachment} className="ml-auto p-1 rounded-md hover:bg-muted/50 transition-colors">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
+        {/* Recording panel */}
+        {isRecording && (
+          <div className="mb-2.5 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5">
+            <div className="relative">
+              <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
+              <div className="absolute inset-0 w-3 h-3 rounded-full bg-destructive/40 animate-ping" />
+            </div>
+            <span className="text-sm font-mono text-destructive">{formatDuration(duration)}</span>
+            {transcript && (
+              <span className="text-xs text-muted-foreground truncate flex-1">{transcript.slice(-40)}</span>
+            )}
+            <button onClick={cancelRecording} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors">
+              <X className="w-4 h-4 text-destructive" />
+            </button>
+            <button
+              onClick={handleSend}
+              className="p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
+            >
+              <Send className="w-4 h-4 text-primary" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-2 items-end">
+          {/* Attachment button */}
+          <Popover open={attachMenuOpen} onOpenChange={setAttachMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-muted/50 transition-all"
+                disabled={sending}
+              >
+                <Plus className="w-5 h-5 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="start" className="w-44 p-1.5">
+              <button
+                onClick={() => { imageInputRef.current?.click(); setAttachMenuOpen(false); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors"
+              >
+                <Image className="w-4 h-4 text-primary" />
+                <span>上传图片</span>
+              </button>
+              <button
+                onClick={() => { fileInputRef.current?.click(); setAttachMenuOpen(false); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors"
+              >
+                <Paperclip className="w-4 h-4 text-primary" />
+                <span>上传文件</span>
+              </button>
+            </PopoverContent>
+          </Popover>
+
+          {/* Input */}
           <div className="flex-1 relative">
             <Textarea
-              placeholder="输入任务指令... (Shift+Enter 换行)"
+              placeholder={isRecording ? "录音中…" : "输入任务指令... (Shift+Enter 换行)"}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               className="min-h-[44px] max-h-[120px] text-sm glass-card border-border/40 rounded-2xl resize-none pr-3 pl-4 py-3 backdrop-blur-md focus:border-primary/50 transition-all shadow-sm"
               rows={1}
+              disabled={isRecording}
             />
           </div>
+
+          {/* Right action button */}
           {sending ? (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 transition-all hover:scale-105" 
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 transition-all hover:scale-105"
               onClick={abort}
             >
               <StopCircle className="w-5 h-5 text-destructive" />
             </Button>
-          ) : (
-            <Button 
-              size="sm" 
-              className="shrink-0 h-11 w-11 p-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary hover:to-primary shadow-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100" 
-              onClick={handleSend} 
-              disabled={!input.trim()}
+          ) : hasContent ? (
+            <Button
+              size="sm"
+              className="shrink-0 h-11 w-11 p-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary hover:to-primary shadow-md hover:shadow-lg hover:scale-105 transition-all"
+              onClick={handleSend}
             >
               <Send className="w-4.5 h-4.5" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`shrink-0 h-11 w-11 p-0 rounded-xl transition-all hover:scale-105 ${isRecording ? 'bg-destructive/10 hover:bg-destructive/20' : 'hover:bg-muted/50'}`}
+              onClick={handleVoiceToggle}
+            >
+              {isRecording ? (
+                <MicOff className="w-5 h-5 text-destructive" />
+              ) : (
+                <Mic className="w-5 h-5 text-muted-foreground" />
+              )}
             </Button>
           )}
         </div>
