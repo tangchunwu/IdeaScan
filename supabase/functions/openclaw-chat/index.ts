@@ -165,13 +165,22 @@ Deno.serve(async (req) => {
     }
 
     // Multimodal support
+    const userContentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+    if (message) userContentParts.push({ type: 'text', text: message });
+    if (file) {
+      const fileDesc = `[用户上传了文件: ${file.name} (类型: ${file.type})]\n\n文件内容:\n${file.data}`;
+      userContentParts.push({ type: 'text', text: fileDesc });
+    }
     if (image) {
-      const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-      if (message) contentParts.push({ type: 'text', text: message });
-      contentParts.push({ type: 'image_url', image_url: { url: image } });
-      messages.push({ role: 'user', content: contentParts });
+      userContentParts.push({ type: 'image_url', image_url: { url: image } });
+    }
+
+    if (userContentParts.length === 1 && userContentParts[0].type === 'text') {
+      messages.push({ role: 'user', content: userContentParts[0].text! });
+    } else if (userContentParts.length > 0) {
+      messages.push({ role: 'user', content: userContentParts });
     } else {
-      messages.push({ role: 'user', content: message });
+      messages.push({ role: 'user', content: message || '' });
     }
 
     // Call OpenClaw (OpenAI-compatible streaming) with timeout
