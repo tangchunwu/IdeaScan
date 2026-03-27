@@ -104,9 +104,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { message, session_id, image, connection_id } = await req.json();
-    if (!session_id || (!message && !image)) {
-      return new Response(JSON.stringify({ error: 'message or image, and session_id required' }), {
+    const { message, session_id, image, connection_id, file } = await req.json();
+    if (!session_id || (!message && !image && !file)) {
+      return new Response(JSON.stringify({ error: 'message, image, or file, and session_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -141,7 +141,10 @@ Deno.serve(async (req) => {
     }
 
     // Save user message
-    const dbContent = image ? (message ? `${message}\n📷 [图片已发送]` : '📷 [图片已发送]') : message;
+    let dbContent = message || '';
+    if (image) dbContent += (dbContent ? '\n' : '') + '📷 [图片已发送]';
+    if (file) dbContent += (dbContent ? '\n' : '') + `📎 [文件: ${file.name || 'unknown'}]`;
+    if (!dbContent) dbContent = '📷 [图片已发送]';
     await supabase.from('openclaw_messages').insert({
       user_id: userId, session_id, role: 'user', content: dbContent, connection_id: resolvedConnectionId,
     });
@@ -162,13 +165,22 @@ Deno.serve(async (req) => {
     }
 
     // Multimodal support
+    const userContentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+    if (message) userContentParts.push({ type: 'text', text: message });
+    if (file) {
+      const fileDesc = `[用户上传了文件: ${file.name} (类型: ${file.type})]\n\n文件内容:\n${file.data}`;
+      userContentParts.push({ type: 'text', text: fileDesc });
+    }
     if (image) {
-      const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-      if (message) contentParts.push({ type: 'text', text: message });
-      contentParts.push({ type: 'image_url', image_url: { url: image } });
-      messages.push({ role: 'user', content: contentParts });
+      userContentParts.push({ type: 'image_url', image_url: { url: image } });
+    }
+
+    if (userContentParts.length === 1 && userContentParts[0].type === 'text') {
+      messages.push({ role: 'user', content: userContentParts[0].text! });
+    } else if (userContentParts.length > 0) {
+      messages.push({ role: 'user', content: userContentParts });
     } else {
-      messages.push({ role: 'user', content: message });
+      messages.push({ role: 'user', content: message || '' });
     }
 
     // Call OpenClaw (OpenAI-compatible streaming) with timeout
