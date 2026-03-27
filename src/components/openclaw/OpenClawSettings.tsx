@@ -99,7 +99,7 @@ export function OpenClawSettings() {
 
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
-    const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
+    const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'} \\\n  --backends claude,codex`;
     if (bridgeBackend === 'claude') {
       return `${base} \\\n  --backend claude \\\n  --work-dir ~/my-project \\\n  --dangerously-skip-permissions`;
     }
