@@ -104,9 +104,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { message, session_id, image, connection_id } = await req.json();
-    if (!session_id || (!message && !image)) {
-      return new Response(JSON.stringify({ error: 'message or image, and session_id required' }), {
+    const { message, session_id, image, connection_id, file } = await req.json();
+    if (!session_id || (!message && !image && !file)) {
+      return new Response(JSON.stringify({ error: 'message, image, or file, and session_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
