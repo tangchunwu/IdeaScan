@@ -268,7 +268,7 @@ def call_codex(message: str, session_id: str, work_dir: str, timeout: int,
 
     try:
         proc = subprocess.Popen(
-            cmd, cwd=session_dir,
+            cmd, cwd=abs_work_dir,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, bufsize=1,
         )
