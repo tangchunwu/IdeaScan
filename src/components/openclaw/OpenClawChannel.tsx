@@ -777,7 +777,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                     onClick={() => setSelectedConnectionId(c.id)}
                     className="text-xs gap-2 cursor-pointer"
                   >
-                    <Server className="w-3 h-3 text-muted-foreground/60" />
+                    {c.mode === 'relay' ? (
+                      <span className={`inline-flex rounded-full h-2 w-2 shrink-0 ${c.last_synced_at && statusNow - new Date(c.last_synced_at).getTime() < 15_000 ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                    ) : (
+                      <Server className="w-3 h-3 text-muted-foreground/60" />
+                    )}
                     <span className="flex-1">{c.name}</span>
                     {c.id === activeConnectionId && (
                       <Check className="w-3.5 h-3.5 text-primary" />
