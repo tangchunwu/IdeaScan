@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawChat, type ToolCallInfo, type FileAttachment } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
