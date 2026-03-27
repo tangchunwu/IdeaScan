@@ -226,5 +226,18 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     setTimeout(() => sendMessage(prompt), 400);
   }, [messages, sending, sendMessage]);
 
-  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError };
+  const deleteMessage = useCallback((messageId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  }, []);
+
+  const retryMessage = useCallback((messageId: string) => {
+    const msg = messages.find(m => m.id === messageId);
+    if (!msg || sending) return;
+    const content = msg.role === 'user' ? msg.content : (msg.retry_prompt || '');
+    if (!content) return;
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    setTimeout(() => sendMessage(content), 400);
+  }, [messages, sending, sendMessage]);
+
+  return { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage };
 }

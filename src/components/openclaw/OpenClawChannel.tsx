@@ -295,6 +295,119 @@ function CopyMessageButton({ content }: { content: string }) {
   );
 }
 
+/* ─── Long-Press Context Menu (Mobile) ─── */
+interface LongPressMenuProps {
+  content: string;
+  messageId: string;
+  role: 'user' | 'assistant';
+  onRetry?: () => void;
+  onDelete?: () => void;
+  children: React.ReactNode;
+}
+
+function LongPressMenu({ content, messageId, role, onRetry, onDelete, children }: LongPressMenuProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchRef.current = { x: touch.clientX, y: touch.clientY };
+    timerRef.current = setTimeout(() => {
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(30);
+      setMenuPos({ x: touch.clientX, y: touch.clientY });
+      setMenuOpen(true);
+    }, 500);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchRef.current.x);
+    const dy = Math.abs(touch.clientY - touchRef.current.y);
+    if (dx > 10 || dy > 10) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(content);
+    toast.success('已复制到剪贴板');
+    setMenuOpen(false);
+  }, [content]);
+
+  const handleRetry = useCallback(() => {
+    setMenuOpen(false);
+    onRetry?.();
+  }, [onRetry]);
+
+  const handleDelete = useCallback(() => {
+    setMenuOpen(false);
+    onDelete?.();
+  }, [onDelete]);
+
+  return (
+    <>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {children}
+      </div>
+
+      {/* Overlay + floating menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50" onClick={() => setMenuOpen(false)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div
+            className="absolute z-50 min-w-[140px] rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-1 animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              left: Math.min(menuPos.x, window.innerWidth - 160),
+              top: Math.max(menuPos.y - 120, 8),
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <Copy className="w-4 h-4 text-muted-foreground" />
+              复制
+            </button>
+            {onRetry && (
+              <button
+                onClick={handleRetry}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                重试
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                删除
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -349,7 +462,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
-  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError } = useOpenClawChat(
+  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId
   );
 
@@ -709,50 +822,66 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <div className="flex flex-col gap-0.5 min-w-0">
-              <div className={`relative group/bubble rounded-2xl ${isMobile ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-sm'} shadow-sm ${
-                msg.role === "user"
-                  ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20`
-                  : `${isMobile ? 'max-w-[92%]' : 'max-w-[85%]'} glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words`
-              }`}>
-                {msg.role === "assistant" && msg.content && (
-                  <CopyMessageButton content={msg.content} />
-                )}
-                {msg.role === "assistant" ? (
-                  <div className="space-y-2.5">
-                    {msg.tool_calls && msg.tool_calls.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+              {(() => {
+                const bubble = (
+                  <div className={`relative group/bubble rounded-2xl ${isMobile ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-sm'} shadow-sm ${
+                    msg.role === "user"
+                      ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20`
+                      : `${isMobile ? 'max-w-[92%]' : 'max-w-[85%]'} glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words`
+                  }`}>
+                    {msg.role === "assistant" && msg.content && !isMobile && (
+                      <CopyMessageButton content={msg.content} />
+                    )}
+                    {msg.role === "assistant" ? (
+                      <div className="space-y-2.5">
+                        {msg.tool_calls && msg.tool_calls.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+                          </div>
+                        )}
+                        {msg.content && renderMessageContent(msg.content)}
+                        {msg.is_error && msg.retry_prompt && (
+                          <button
+                            onClick={() => retryFromError(msg.id)}
+                            disabled={sending}
+                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            重试
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
+                        </p>
+                        {msg.file_name && (
+                          <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-foreground/10 text-[11px]">
+                            <FileText className="w-3 h-3" />
+                            {msg.file_name}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {msg.content && renderMessageContent(msg.content)}
-                    {msg.is_error && msg.retry_prompt && (
-                      <button
-                        onClick={() => retryFromError(msg.id)}
-                        disabled={sending}
-                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        重试
-                      </button>
+                    {msg.image_url && (
+                      <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
                     )}
                   </div>
-                ) : (
-                  <div>
-                    <p className="whitespace-pre-wrap leading-relaxed">
-                      {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
-                    </p>
-                    {msg.file_name && (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-foreground/10 text-[11px]">
-                        <FileText className="w-3 h-3" />
-                        {msg.file_name}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {msg.image_url && (
-                  <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
-                )}
-              </div>
+                );
+
+                return isMobile ? (
+                  <LongPressMenu
+                    content={msg.content}
+                    messageId={msg.id}
+                    role={msg.role}
+                    onRetry={msg.role === 'user' ? () => retryMessage(msg.id) : (msg.is_error ? () => retryFromError(msg.id) : undefined)}
+                    onDelete={() => deleteMessage(msg.id)}
+                  >
+                    {bubble}
+                  </LongPressMenu>
+                ) : bubble;
+              })()}
               <span className={`text-[10px] text-muted-foreground/0 group-hover/msg:text-muted-foreground/50 transition-colors duration-200 ${
                 msg.role === "user" ? "self-end mr-1" : "ml-1"
               }`}>
