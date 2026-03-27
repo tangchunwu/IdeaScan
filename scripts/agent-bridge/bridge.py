@@ -276,7 +276,7 @@ def call_codex(message: str, session_id: str, work_dir: str, timeout: int,
     """Call Codex CLI with streaming output relay and session persistence."""
     abs_work_dir = os.path.abspath(work_dir)
 
-    cmd = ["codex", "--skip-git-repo-check", "--quiet"]
+    cmd = ["codex", "--quiet"]
     if skip_permissions:
         cmd.append("--full-auto")
     if session_id in _codex_session_started:
