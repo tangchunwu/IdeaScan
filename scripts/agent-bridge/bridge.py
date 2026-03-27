@@ -71,7 +71,7 @@ def parse_args():
     # CLI backend options (claude / codex)
     p.add_argument("--work-dir", default=".", help="Working directory for CLI backends (default: current dir)")
     p.add_argument("--dangerously-skip-permissions", action="store_true",
-                   help="Pass --dangerously-skip-permissions to Claude Code CLI")
+                   help="Pass --dangerously-skip-permissions to Claude Code CLI / --full-auto to Codex CLI")
     p.add_argument("--cli-timeout", type=int, default=300, help="CLI subprocess timeout in seconds (default: 300)")
 
     args = p.parse_args()
@@ -270,17 +270,20 @@ def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
 # ---------------------------------------------------------------------------
 
 def call_codex(message: str, session_id: str, work_dir: str, timeout: int,
+               skip_permissions: bool,
                base_url: str, connection_id: str, token: str,
                user_message_id: str):
     """Call Codex CLI with streaming output relay and session persistence."""
-    # Codex runs in the actual work_dir (must be a git repo or use --skip-git-repo-check)
     abs_work_dir = os.path.abspath(work_dir)
 
+    cmd = ["codex", "--skip-git-repo-check", "--quiet"]
+    if skip_permissions:
+        cmd.append("--full-auto")
     if session_id in _codex_session_started:
-        cmd = ["codex", "exec", "resume", "--last", message]
+        cmd.append("--resume")
     else:
-        cmd = ["codex", "exec", message]
         _codex_session_started[session_id] = True
+    cmd.append(message)
 
     try:
         proc = subprocess.Popen(
@@ -483,6 +486,7 @@ def main():
                 elif current_backend == "codex":
                     call_codex(
                         user_content, session_id, args.work_dir, args.cli_timeout,
+                        args.dangerously_skip_permissions,
                         args.supabase_url, args.connection_id, args.token,
                         msg_id,
                     )
