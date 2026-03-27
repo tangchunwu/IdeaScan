@@ -428,13 +428,112 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
 
     const msg = input.trim();
     if (!msg && !pendingImage && !pendingFile) return;
+
+    // Client-side slash command interception
+    if (msg.startsWith('/')) {
+      const cmdName = msg.split(/\s/)[0].toLowerCase();
+      const cmdArgs = msg.slice(cmdName.length).trim();
+
+      if (cmdName === '/new') {
+        handleNewSession();
+        setInput("");
+        setShowSlashMenu(false);
+        toast.success('已开启新对话');
+        return;
+      }
+      if (cmdName === '/clear') {
+        // Clear is handled by starting a new session with the same ID effect
+        handleNewSession();
+        setInput("");
+        setShowSlashMenu(false);
+        toast.success('对话已清空');
+        return;
+      }
+      if (cmdName === '/retry') {
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+          setInput("");
+          setShowSlashMenu(false);
+          sendMessage(lastUserMsg.content);
+        } else {
+          toast.error('没有可重试的消息');
+        }
+        return;
+      }
+    }
+
+    // Otherwise send to server (including server-side slash commands like /model, /help, /system)
     sendMessage(msg, pendingImage || undefined, pendingFile || undefined);
     setInput("");
+    setShowSlashMenu(false);
     setPendingImage(null);
     setPendingFile(null);
-  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording]);
+  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages]);
+
+  const handleSlashSelect = useCallback((cmd: SlashCommand) => {
+    // For client-only commands, fill and immediately execute
+    if (cmd.clientOnly) {
+      setInput(cmd.name);
+      setShowSlashMenu(false);
+      // Trigger execution on next tick
+      setTimeout(() => {
+        if (cmd.name === '/new') { handleNewSession(); setInput(''); toast.success('已开启新对话'); }
+        else if (cmd.name === '/clear') { handleNewSession(); setInput(''); toast.success('对话已清空'); }
+        else if (cmd.name === '/retry') {
+          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+          if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
+          else toast.error('没有可重试的消息');
+        }
+      }, 50);
+    } else {
+      // For server commands, fill the input with the command and a space for args
+      setInput(cmd.name + ' ');
+      setShowSlashMenu(false);
+    }
+  }, [messages, sendMessage]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setInput(val);
+
+    // Slash command detection: show menu when input starts with / and is on a single line
+    if (val.startsWith('/') && !val.includes('\n')) {
+      const filter = val.split(/\s/)[0]; // e.g. "/mo"
+      if (filter === val.trimEnd() || filter === val) {
+        // Only show autocomplete when typing the command name (no args yet)
+        setSlashFilter(filter);
+        setShowSlashMenu(true);
+        setSlashSelectedIdx(0);
+        return;
+      }
+    }
+    setShowSlashMenu(false);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Slash menu keyboard navigation
+    if (showSlashMenu && filteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashSelectedIdx(i => (i + 1) % filteredCommands.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length);
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault();
+        handleSlashSelect(filteredCommands[slashSelectedIdx]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowSlashMenu(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
