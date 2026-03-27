@@ -71,7 +71,7 @@ def parse_args():
     # CLI backend options (claude / codex)
     p.add_argument("--work-dir", default=".", help="Working directory for CLI backends (default: current dir)")
     p.add_argument("--dangerously-skip-permissions", action="store_true",
-                   help="Pass --dangerously-skip-permissions to Claude Code CLI")
+                   help="Pass --dangerously-skip-permissions to Claude Code CLI / --full-auto to Codex CLI")
     p.add_argument("--cli-timeout", type=int, default=300, help="CLI subprocess timeout in seconds (default: 300)")
 
     args = p.parse_args()
