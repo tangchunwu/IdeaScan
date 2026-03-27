@@ -91,7 +91,7 @@ export function OpenClawSettings() {
 
   const [bridgeBackend, setBridgeBackend] = useState<'claude' | 'codex' | 'openai'>('claude');
 
-  const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/IdeaScan/ideascan/main/scripts/agent-bridge/bridge.py";
+  const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/tangchunwu/IdeaScan/main/scripts/agent-bridge/bridge.py";
 
   const getSetupCommands = () => {
     return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests`;
