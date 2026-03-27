@@ -202,17 +202,20 @@ def call_openai_non_streaming(agent_url, messages, model, base_url, connection_i
 # Backend: Claude Code CLI (stateful sessions via --continue)
 # ---------------------------------------------------------------------------
 
-# Maps OpenClaw session_id → Claude local session directory
-_claude_session_dirs: dict[str, str] = {}
+# Maps OpenClaw session_id → local session directory (shared by Claude & Codex)
+_session_dirs: dict[str, str] = {}
+
+# Tracks whether a Codex session has been started (for resume logic)
+_codex_session_started: dict[str, bool] = {}
 
 
-def _get_claude_session_dir(session_id: str, work_dir: str) -> str:
-    """Get or create a working directory for a Claude session."""
-    if session_id not in _claude_session_dirs:
+def _get_session_dir(session_id: str, work_dir: str) -> str:
+    """Get or create a working directory for a CLI session (Claude or Codex)."""
+    if session_id not in _session_dirs:
         session_dir = os.path.join(work_dir, ".openclaw-sessions", session_id[:8])
         os.makedirs(session_dir, exist_ok=True)
-        _claude_session_dirs[session_id] = session_dir
-    return _claude_session_dirs[session_id]
+        _session_dirs[session_id] = session_dir
+    return _session_dirs[session_id]
 
 
 def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
@@ -220,7 +223,7 @@ def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
                 base_url: str, connection_id: str, token: str,
                 user_message_id: str):
     """Call Claude Code CLI with streaming output relay."""
-    session_dir = _get_claude_session_dir(session_id, work_dir)
+    session_dir = _get_session_dir(session_id, work_dir)
 
     cmd = ["claude", "-p", message, "--continue"]
     if skip_permissions:
@@ -253,12 +256,20 @@ def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
 def call_codex(message: str, session_id: str, work_dir: str, timeout: int,
                base_url: str, connection_id: str, token: str,
                user_message_id: str):
-    """Call Codex CLI with streaming output relay."""
-    cmd = ["codex", "exec", message]
+    """Call Codex CLI with streaming output relay and session persistence."""
+    session_dir = _get_session_dir(session_id, work_dir)
+
+    if session_id in _codex_session_started:
+        # Resume previous session in this directory
+        cmd = ["codex", "exec", "resume", "--last", message]
+    else:
+        # First interaction: start new exec
+        cmd = ["codex", "exec", message]
+        _codex_session_started[session_id] = True
 
     try:
         proc = subprocess.Popen(
-            cmd, cwd=work_dir,
+            cmd, cwd=session_dir,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, bufsize=1,
         )
