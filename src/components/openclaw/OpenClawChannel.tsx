@@ -431,7 +431,7 @@ function renderMessageContent(content: string, isStreaming = false) {
 export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession, historyToggle }: OpenClawChannelProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { connections } = useOpenClawConnections(user?.id);
+  const { connections, reload: reloadConnections } = useOpenClawConnections(user?.id);
   const [internalSessionId, setInternalSessionId] = useState(() => `session-${Date.now()}`);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
   const sessionId = externalSessionId || internalSessionId;
@@ -467,9 +467,10 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const isActiveRelay = activeConnection?.mode === 'relay';
   useEffect(() => {
     if (!isActiveRelay) return;
-    const timer = setInterval(() => setStatusNow(Date.now()), 5_000);
-    return () => clearInterval(timer);
-  }, [isActiveRelay]);
+    const statusTimer = setInterval(() => setStatusNow(Date.now()), 5_000);
+    const reloadTimer = setInterval(() => reloadConnections(), 10_000);
+    return () => { clearInterval(statusTimer); clearInterval(reloadTimer); };
+  }, [isActiveRelay, reloadConnections]);
   const isRelayOnline = useMemo(() => {
     if (!isActiveRelay || !activeConnection?.last_synced_at) return false;
     return statusNow - new Date(activeConnection.last_synced_at).getTime() < 15_000;
@@ -745,6 +746,9 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                 {activeConnection?.name || "OpenClaw"}
               </span>
               {isActiveRelay && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground font-medium">中继</span>
+              )}
+              {isActiveRelay && (
                 <span className="relative flex h-2 w-2 shrink-0" title={isRelayOnline ? 'Bridge 在线' : 'Bridge 离线'}>
                   {isRelayOnline && (
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -803,7 +807,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
       </div>
 
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto ${isMobile ? 'px-2.5 py-3 space-y-3' : 'px-4 py-4 space-y-5'}`}>
+      <div className={`flex-1 overflow-y-auto ${isMobile ? 'px-2.5 py-3 space-y-2.5' : 'px-4 py-4 space-y-3'}`}>
         {loading && (
           <div className="flex justify-center py-8">
             <div className="relative">
