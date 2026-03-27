@@ -141,7 +141,10 @@ Deno.serve(async (req) => {
     }
 
     // Save user message
-    const dbContent = image ? (message ? `${message}\n📷 [图片已发送]` : '📷 [图片已发送]') : message;
+    let dbContent = message || '';
+    if (image) dbContent += (dbContent ? '\n' : '') + '📷 [图片已发送]';
+    if (file) dbContent += (dbContent ? '\n' : '') + `📎 [文件: ${file.name || 'unknown'}]`;
+    if (!dbContent) dbContent = '📷 [图片已发送]';
     await supabase.from('openclaw_messages').insert({
       user_id: userId, session_id, role: 'user', content: dbContent, connection_id: resolvedConnectionId,
     });
