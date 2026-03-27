@@ -57,9 +57,18 @@ export function OpenClawSettings() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const [bridgeBackend, setBridgeBackend] = useState<'claude' | 'codex' | 'openai'>('claude');
+
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
-    return `python bridge.py --supabase-url ${supabaseUrl} --connection-id ${conn.id} --token ${conn.token || '<token>'} --agent-url http://localhost:11434`;
+    const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
+    if (bridgeBackend === 'claude') {
+      return `${base} \\\n  --backend claude \\\n  --work-dir ~/my-project \\\n  --dangerously-skip-permissions`;
+    }
+    if (bridgeBackend === 'codex') {
+      return `${base} \\\n  --backend codex \\\n  --work-dir ~/my-project`;
+    }
+    return `${base} \\\n  --backend openai \\\n  --agent-url http://localhost:11434`;
   };
 
   if (!user) return null;
