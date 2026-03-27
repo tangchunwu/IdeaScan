@@ -28,6 +28,8 @@ export default function PublicLandingPage() {
                 retry: false
         });
 
+        const pageTitle = (page?.content as any)?.hero?.headline || "MVP 落地页";
+        useDocumentTitle(pageTitle, [page]);
 	const submitMutation = useMutation({
 		mutationFn: () => collectLead(page!.id, email),
 		onSuccess: () => {

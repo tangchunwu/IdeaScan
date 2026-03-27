@@ -12,6 +12,7 @@ import { BrandLoader } from "@/components/shared";
 import { ContentStudioInline } from "./ContentStudio";
 
 export default function OpenClawPage() {
+  useDocumentTitle("OpenClaw AI 助手");
   const [searchParams] = useSearchParams();
   const [initialMessage, setInitialMessage] = useState<string | undefined>();
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);

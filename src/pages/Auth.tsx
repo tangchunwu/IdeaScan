@@ -31,6 +31,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const Auth = () => {
+  useDocumentTitle("登录 / 注册", { description: "登录或注册 IdeaScan，开始验证你的创业想法。" });
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
