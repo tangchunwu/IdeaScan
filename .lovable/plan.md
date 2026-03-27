@@ -1,46 +1,40 @@
 
 
-## 为 Codex 后端添加会话保持能力
+# 三个问题修复计划
 
-### 现状
+## 问题分析
 
-- Claude 后端：每个 OpenClaw session 映射一个本地子目录，使用 `--continue` 自动续接会话
-- Codex 后端：每次调用 `codex exec "message"`，无状态，上下文丢失
+### 问题一：离线状态不准确
+**根因**：`OpenClawChannel` 中的 `useOpenClawConnections` 只在组件挂载时加载一次连接数据，`last_synced_at` 永远是初始值。虽然 `statusNow` 每 5 秒更新，但 `activeConnection.last_synced_at` 始终是旧数据，所以总是显示离线。对比 `OpenClawSettings` 中有 `setInterval(() => reload(), 10_000)` 定时刷新。
 
-### Codex 会话保持机制
+**修复**：在 `OpenClawChannel` 中也添加定时 reload 逻辑 — 从 `useOpenClawConnections` 解构出 `reload`，当有 relay 连接时每 10 秒刷新一次。
 
-Codex CLI 支持 `codex exec resume --last "follow-up prompt"` 来续接上一次 exec 会话。方案：
+### 问题二：连的 Codex 但回复说是 Claude
+**根因**：这不是代码 bug。OpenAI Codex CLI 底层可以调用不同模型。当你运行 `codex exec` 时，Codex CLI 内部路由到了 Claude Opus 4.6（Codex 支持多种模型后端）。这是 Codex CLI 自身的配置问题，不是 bridge 脚本的问题。
 
-1. **维护 session 映射**：用一个 `_codex_session_started` 字典记录每个 OpenClaw session_id 是否已发起过 Codex exec
-2. **首次调用**：使用 `codex exec "message"` 启动新会话，设在对应 work_dir 子目录下执行
-3. **后续调用**：使用 `codex exec resume --last "message"` 续接同目录下最近的会话
-4. **目录隔离**：与 Claude 后端相同策略，每个 session 使用 `.openclaw-sessions/{session_id[:8]}` 子目录，确保 `--last` 能正确定位到该 session 的会话
+**解决方案**：在 bridge 启动时传入 `--model` 参数或设置 Codex 的 `CODEX_MODEL` 环境变量来指定实际使用的模型。同时可以在 UI 的连接头部显示当前后端类型（如 "Codex CLI"）而非模型自报的名字。
 
-### 文件变更
+### 问题三：UI 对话框布局问题
+从截图看，用户气泡和 AI 气泡之间有过大的空白间距，且整体对话区域利用率不高。
 
-| 文件 | 操作 |
-|------|------|
-| `scripts/agent-bridge/bridge.py` | 修改 `call_codex`：添加 session 目录映射 + 首次/续接判断逻辑 |
+**修复**：
+- 减小消息间距（`space-y-5` → `space-y-3`）
+- 用户消息气泡增加 `max-w` 约束，确保短消息不会过于靠右
+- AI 消息气泡的宽度约束优化
 
-### 关键代码逻辑
+---
 
-```python
-_codex_session_started: dict[str, bool] = {}
+## 实现步骤
 
-def call_codex(message, session_id, work_dir, ...):
-    session_dir = _get_codex_session_dir(session_id, work_dir)
-    
-    if session_id in _codex_session_started:
-        # 续接：resume --last + 追加 prompt
-        cmd = ["codex", "exec", "resume", "--last", message]
-    else:
-        # 首次：正常 exec
-        cmd = ["codex", "exec", message]
-        _codex_session_started[session_id] = True
-    
-    proc = subprocess.Popen(cmd, cwd=session_dir, ...)
-    _stream_subprocess_output(proc, ...)
-```
+### 1. 修复离线状态（OpenClawChannel.tsx）
+- 从 `useOpenClawConnections` 解构 `reload`
+- 添加 `useEffect`：当 `isActiveRelay` 为 true 时，每 10 秒调用 `reload()`
 
-复用现有的 `_get_claude_session_dir` 逻辑提取为通用的 `_get_session_dir`，供两个 CLI 后端共用。
+### 2. 显示后端类型标识（OpenClawChannel.tsx）
+- 在连接名称旁添加后端模式标签（如 "中继"），让用户知道当前是中继模式
+- 这不能解决 Codex vs Claude 的问题（那是 CLI 配置），但能提高透明度
+
+### 3. 优化对话布局（OpenClawChannel.tsx）
+- 调整消息区域间距
+- 优化气泡最大宽度和对齐
 
