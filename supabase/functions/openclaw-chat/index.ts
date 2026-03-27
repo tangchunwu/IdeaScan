@@ -115,26 +115,27 @@ Deno.serve(async (req) => {
     let openclawUrl: string | null = null;
     let openclawToken: string | null = null;
     let resolvedConnectionId: string | null = connection_id || null;
+    let connectionMode: string = 'direct';
 
     if (connection_id) {
       const { data: conn } = await supabase.from('openclaw_connections')
-        .select('id, url, token').eq('id', connection_id).eq('user_id', userId).single();
-      if (conn) { openclawUrl = conn.url; openclawToken = conn.token; resolvedConnectionId = conn.id; }
+        .select('id, url, token, mode').eq('id', connection_id).eq('user_id', userId).single();
+      if (conn) { openclawUrl = conn.url; openclawToken = conn.token; resolvedConnectionId = conn.id; connectionMode = (conn as any).mode || 'direct'; }
     }
 
-    if (!openclawUrl) {
+    if (!openclawUrl && connectionMode === 'direct') {
       const { data: defaultConn } = await supabase.from('openclaw_connections')
-        .select('id, url, token').eq('user_id', userId).eq('is_default', true).limit(1).single();
-      if (defaultConn) { openclawUrl = defaultConn.url; openclawToken = defaultConn.token; resolvedConnectionId = defaultConn.id; }
+        .select('id, url, token, mode').eq('user_id', userId).eq('is_default', true).limit(1).single();
+      if (defaultConn) { openclawUrl = defaultConn.url; openclawToken = defaultConn.token; resolvedConnectionId = defaultConn.id; connectionMode = (defaultConn as any).mode || 'direct'; }
     }
 
-    if (!openclawUrl) {
+    if (!openclawUrl && connectionMode === 'direct') {
       const { data: anyConn } = await supabase.from('openclaw_connections')
-        .select('id, url, token').eq('user_id', userId).limit(1).single();
-      if (anyConn) { openclawUrl = anyConn.url; openclawToken = anyConn.token; resolvedConnectionId = anyConn.id; }
+        .select('id, url, token, mode').eq('user_id', userId).limit(1).single();
+      if (anyConn) { openclawUrl = anyConn.url; openclawToken = anyConn.token; resolvedConnectionId = anyConn.id; connectionMode = (anyConn as any).mode || 'direct'; }
     }
 
-    if (!openclawUrl) {
+    if (connectionMode === 'direct' && !openclawUrl) {
       return new Response(JSON.stringify({ error: 'OpenClaw URL not configured' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -145,9 +146,19 @@ Deno.serve(async (req) => {
     if (image) dbContent += (dbContent ? '\n' : '') + '📷 [图片已发送]';
     if (file) dbContent += (dbContent ? '\n' : '') + `📎 [文件: ${file.name || 'unknown'}]`;
     if (!dbContent) dbContent = '📷 [图片已发送]';
+
+    const messageStatus = connectionMode === 'relay' ? 'pending' : 'delivered';
     await supabase.from('openclaw_messages').insert({
       user_id: userId, session_id, role: 'user', content: dbContent, connection_id: resolvedConnectionId,
-    });
+      status: messageStatus,
+    } as any);
+
+    // ── Relay mode: just queue the message and return ──
+    if (connectionMode === 'relay') {
+      return new Response(JSON.stringify({ relay: true, connection_id: resolvedConnectionId }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Load recent history
     const { data: history } = await supabase.from('openclaw_messages')
