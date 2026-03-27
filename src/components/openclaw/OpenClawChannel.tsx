@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawChat, type ToolCallInfo, type FileAttachment } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
@@ -462,6 +462,19 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
+  // Relay online status for active connection
+  const [statusNow, setStatusNow] = useState(Date.now());
+  const isActiveRelay = activeConnection?.mode === 'relay';
+  useEffect(() => {
+    if (!isActiveRelay) return;
+    const timer = setInterval(() => setStatusNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, [isActiveRelay]);
+  const isRelayOnline = useMemo(() => {
+    if (!isActiveRelay || !activeConnection?.last_synced_at) return false;
+    return statusNow - new Date(activeConnection.last_synced_at).getTime() < 15_000;
+  }, [isActiveRelay, activeConnection?.last_synced_at, statusNow]);
+
   const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId, activeConnection?.mode
   );
@@ -727,10 +740,24 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
             <Bot className={`${isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-primary-foreground`} />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-foreground truncate`}>
-              {activeConnection?.name || "OpenClaw"}
-            </span>
-            {!isMobile && <span className="text-[10px] text-muted-foreground/60">AI Agent</span>}
+            <div className="flex items-center gap-1.5">
+              <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-foreground truncate`}>
+                {activeConnection?.name || "OpenClaw"}
+              </span>
+              {isActiveRelay && (
+                <span className="relative flex h-2 w-2 shrink-0" title={isRelayOnline ? 'Bridge 在线' : 'Bridge 离线'}>
+                  {isRelayOnline && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isRelayOnline ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                </span>
+              )}
+            </div>
+            {!isMobile && (
+              <span className="text-[10px] text-muted-foreground/60">
+                {isActiveRelay ? (isRelayOnline ? '在线' : '离线') : 'AI Agent'}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -750,7 +777,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                     onClick={() => setSelectedConnectionId(c.id)}
                     className="text-xs gap-2 cursor-pointer"
                   >
-                    <Server className="w-3 h-3 text-muted-foreground/60" />
+                    {c.mode === 'relay' ? (
+                      <span className={`inline-flex rounded-full h-2 w-2 shrink-0 ${c.last_synced_at && statusNow - new Date(c.last_synced_at).getTime() < 15_000 ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                    ) : (
+                      <Server className="w-3 h-3 text-muted-foreground/60" />
+                    )}
                     <span className="flex-1">{c.name}</span>
                     {c.id === activeConnectionId && (
                       <Check className="w-3.5 h-3.5 text-primary" />
