@@ -1,102 +1,46 @@
 
 
-## 改造 Bridge 脚本支持 CLI 子进程模式（Claude Code + Codex）
+## 为 Codex 后端添加会话保持能力
 
-### 核心思路
+### 现状
 
-当前 `bridge.py` 只支持调用 OpenAI 兼容的 HTTP API。改造为支持三种后端模式：
+- Claude 后端：每个 OpenClaw session 映射一个本地子目录，使用 `--continue` 自动续接会话
+- Codex 后端：每次调用 `codex exec "message"`，无状态，上下文丢失
 
-```text
---backend openai   → 现有逻辑，调用 /v1/chat/completions（保留）
---backend claude   → 子进程调用 claude -p "message" --continue
---backend codex    → 子进程调用 codex exec "message"
-```
+### Codex 会话保持机制
 
-### Claude Code 的会话保持
+Codex CLI 支持 `codex exec resume --last "follow-up prompt"` 来续接上一次 exec 会话。方案：
 
-Claude Code CLI 原生支持 `--continue` 和 `--resume` 标志：
-- `claude -p "message" -c` — 自动续接当前目录下的最近会话
-- `claude -p "message" -r <session-id>` — 恢复指定会话
-
-Bridge 为每个 OpenClaw session 映射一个 Claude Code 本地 session，利用 `--continue` 实现有状态对话，无需手动管理上下文。
-
-### Codex 的调用
-
-Codex CLI 使用 `codex exec "message"` 执行单次任务，输出到 stdout。
-
-### 实现方案
-
-**只改一个文件：`scripts/agent-bridge/bridge.py`**
-
-1. 新增 `--backend` 参数：`openai`（默认）、`claude`、`codex`
-2. 新增 `--work-dir` 参数：CLI 工具的工作目录（默认当前目录）
-3. 新增 `--dangerously-skip-permissions` 标志：透传给 claude，跳过权限确认
-
-#### Claude 后端逻辑
-```python
-def call_claude(message, session_id, work_dir):
-    # 每个 OpenClaw session 对应一个 work_dir 子目录
-    session_dir = os.path.join(work_dir, f".openclaw-sessions/{session_id[:8]}")
-    os.makedirs(session_dir, exist_ok=True)
-    
-    cmd = ["claude", "-p", message, "--continue"]
-    # 可选: --dangerously-skip-permissions
-    
-    proc = subprocess.Popen(cmd, cwd=session_dir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate(timeout=300)
-    return stdout.decode("utf-8")
-```
-
-#### Codex 后端逻辑
-```python
-def call_codex(message, work_dir):
-    cmd = ["codex", "exec", message]
-    proc = subprocess.Popen(cmd, cwd=work_dir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate(timeout=300)
-    return stdout.decode("utf-8")
-```
-
-#### 流式输出
-- 使用 `subprocess.Popen` + 逐行读取 `stdout`
-- 每 0.5s 通过 `openclaw-reply` 推送增量内容
-- CLI 输出完成后发送 `done=True` 最终更新
-
-### 用法示例
-
-```bash
-# 使用 Claude Code 作为后端
-python bridge.py \
-  --supabase-url https://xxx.supabase.co \
-  --connection-id <uuid> \
-  --token <token> \
-  --backend claude \
-  --work-dir ~/my-project \
-  --dangerously-skip-permissions
-
-# 使用 Codex 作为后端
-python bridge.py \
-  --supabase-url https://xxx.supabase.co \
-  --connection-id <uuid> \
-  --token <token> \
-  --backend codex \
-  --work-dir ~/my-project
-
-# 仍然支持 OpenAI API（现有逻辑）
-python bridge.py \
-  --supabase-url https://xxx.supabase.co \
-  --connection-id <uuid> \
-  --token <token> \
-  --backend openai \
-  --agent-url http://localhost:11434
-```
+1. **维护 session 映射**：用一个 `_codex_session_started` 字典记录每个 OpenClaw session_id 是否已发起过 Codex exec
+2. **首次调用**：使用 `codex exec "message"` 启动新会话，设在对应 work_dir 子目录下执行
+3. **后续调用**：使用 `codex exec resume --last "message"` 续接同目录下最近的会话
+4. **目录隔离**：与 Claude 后端相同策略，每个 session 使用 `.openclaw-sessions/{session_id[:8]}` 子目录，确保 `--last` 能正确定位到该 session 的会话
 
 ### 文件变更
 
 | 文件 | 操作 |
 |------|------|
-| `scripts/agent-bridge/bridge.py` | 重构：新增 claude/codex 子进程后端，保留 openai 后端 |
+| `scripts/agent-bridge/bridge.py` | 修改 `call_codex`：添加 session 目录映射 + 首次/续接判断逻辑 |
 
-前端和 Edge Function 无需改动 — 传输层（poll/reply）已经完成，只是改变本地 bridge 调用 Agent 的方式。
+### 关键代码逻辑
+
+```python
+_codex_session_started: dict[str, bool] = {}
+
+def call_codex(message, session_id, work_dir, ...):
+    session_dir = _get_codex_session_dir(session_id, work_dir)
+    
+    if session_id in _codex_session_started:
+        # 续接：resume --last + 追加 prompt
+        cmd = ["codex", "exec", "resume", "--last", message]
+    else:
+        # 首次：正常 exec
+        cmd = ["codex", "exec", message]
+        _codex_session_started[session_id] = True
+    
+    proc = subprocess.Popen(cmd, cwd=session_dir, ...)
+    _stream_subprocess_output(proc, ...)
+```
+
+复用现有的 `_get_claude_session_dir` 逻辑提取为通用的 `_get_session_dir`，供两个 CLI 后端共用。
 
