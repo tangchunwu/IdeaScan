@@ -462,6 +462,19 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
+  // Relay online status for active connection
+  const [statusNow, setStatusNow] = useState(Date.now());
+  const isActiveRelay = activeConnection?.mode === 'relay';
+  useEffect(() => {
+    if (!isActiveRelay) return;
+    const timer = setInterval(() => setStatusNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, [isActiveRelay]);
+  const isRelayOnline = useMemo(() => {
+    if (!isActiveRelay || !activeConnection?.last_synced_at) return false;
+    return statusNow - new Date(activeConnection.last_synced_at).getTime() < 15_000;
+  }, [isActiveRelay, activeConnection?.last_synced_at, statusNow]);
+
   const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId, activeConnection?.mode
   );
