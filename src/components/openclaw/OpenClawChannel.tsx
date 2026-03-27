@@ -463,7 +463,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
   const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage } = useOpenClawChat(
-    user?.id, sessionId, activeConnectionId
+    user?.id, sessionId, activeConnectionId, activeConnection?.mode
   );
 
   useEffect(() => {
