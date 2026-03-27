@@ -822,50 +822,66 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <div className="flex flex-col gap-0.5 min-w-0">
-              <div className={`relative group/bubble rounded-2xl ${isMobile ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-sm'} shadow-sm ${
-                msg.role === "user"
-                  ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20`
-                  : `${isMobile ? 'max-w-[92%]' : 'max-w-[85%]'} glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words`
-              }`}>
-                {msg.role === "assistant" && msg.content && (
-                  <CopyMessageButton content={msg.content} />
-                )}
-                {msg.role === "assistant" ? (
-                  <div className="space-y-2.5">
-                    {msg.tool_calls && msg.tool_calls.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+              {(() => {
+                const bubble = (
+                  <div className={`relative group/bubble rounded-2xl ${isMobile ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-sm'} shadow-sm ${
+                    msg.role === "user"
+                      ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20`
+                      : `${isMobile ? 'max-w-[92%]' : 'max-w-[85%]'} glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words`
+                  }`}>
+                    {msg.role === "assistant" && msg.content && !isMobile && (
+                      <CopyMessageButton content={msg.content} />
+                    )}
+                    {msg.role === "assistant" ? (
+                      <div className="space-y-2.5">
+                        {msg.tool_calls && msg.tool_calls.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {msg.tool_calls.map(tc => <ToolStatusBadge key={tc.id} tool={tc} />)}
+                          </div>
+                        )}
+                        {msg.content && renderMessageContent(msg.content)}
+                        {msg.is_error && msg.retry_prompt && (
+                          <button
+                            onClick={() => retryFromError(msg.id)}
+                            disabled={sending}
+                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            重试
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
+                        </p>
+                        {msg.file_name && (
+                          <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-foreground/10 text-[11px]">
+                            <FileText className="w-3 h-3" />
+                            {msg.file_name}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {msg.content && renderMessageContent(msg.content)}
-                    {msg.is_error && msg.retry_prompt && (
-                      <button
-                        onClick={() => retryFromError(msg.id)}
-                        disabled={sending}
-                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all disabled:opacity-50"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        重试
-                      </button>
+                    {msg.image_url && (
+                      <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
                     )}
                   </div>
-                ) : (
-                  <div>
-                    <p className="whitespace-pre-wrap leading-relaxed">
-                      {msg.content.length > 300 ? `${msg.content.slice(0, 200)}...\n\n[完整上下文已发送给 Agent]` : msg.content}
-                    </p>
-                    {msg.file_name && (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-foreground/10 text-[11px]">
-                        <FileText className="w-3 h-3" />
-                        {msg.file_name}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {msg.image_url && (
-                  <img src={msg.image_url} alt="uploaded" className="mt-2.5 rounded-xl max-h-40 object-contain shadow-md" />
-                )}
-              </div>
+                );
+
+                return isMobile ? (
+                  <LongPressMenu
+                    content={msg.content}
+                    messageId={msg.id}
+                    role={msg.role}
+                    onRetry={msg.role === 'user' ? () => retryMessage(msg.id) : (msg.is_error ? () => retryFromError(msg.id) : undefined)}
+                    onDelete={() => deleteMessage(msg.id)}
+                  >
+                    {bubble}
+                  </LongPressMenu>
+                ) : bubble;
+              })()}
               <span className={`text-[10px] text-muted-foreground/0 group-hover/msg:text-muted-foreground/50 transition-colors duration-200 ${
                 msg.role === "user" ? "self-end mr-1" : "ml-1"
               }`}>
