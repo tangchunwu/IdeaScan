@@ -6,6 +6,15 @@ export interface ToolCallInfo {
   name: string;
   arguments: string;
   status: 'calling' | 'done';
+  startedAt?: number;
+  finishedAt?: number;
+}
+
+export interface FileAttachment {
+  name: string;
+  type: string;
+  /** base64 data or plain text content */
+  data: string;
 }
 
 export interface OpenClawMessage {
@@ -13,11 +22,10 @@ export interface OpenClawMessage {
   role: 'user' | 'assistant';
   content: string;
   image_url?: string;
+  file_name?: string;
   tool_calls?: ToolCallInfo[];
   created_at: string;
-  /** If true, this is a retryable error message */
   is_error?: boolean;
-  /** The original user prompt that caused this error (for retry) */
   retry_prompt?: string;
 }
 
@@ -29,7 +37,6 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
   const [activeTools, setActiveTools] = useState<ToolCallInfo[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Reset on session change
   useEffect(() => {
     abortRef.current?.abort();
     setSending(false);
@@ -37,7 +44,6 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     setActiveTools([]);
   }, [sessionId]);
 
-  // Load history
   useEffect(() => {
     let active = true;
     if (!userId || !sessionId) { setMessages([]); return () => { active = false; }; }
@@ -61,16 +67,19 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     return () => { active = false; };
   }, [userId, sessionId]);
 
-  const sendMessage = useCallback(async (content: string, imageBase64?: string) => {
-    if (!userId || (!content.trim() && !imageBase64) || sending) return;
-    const displayContent = imageBase64 ? (content.trim() || '📷 [图片]') : content.trim();
+  const sendMessage = useCallback(async (content: string, imageBase64?: string, file?: FileAttachment) => {
+    if (!userId || (!content.trim() && !imageBase64 && !file) || sending) return;
 
-    // Optimistic UI
+    let displayContent = content.trim();
+    if (imageBase64 && !displayContent) displayContent = '📷 [图片]';
+    if (file && !displayContent) displayContent = `📎 ${file.name}`;
+
     setMessages(prev => [...prev, {
       id: crypto.randomUUID(),
       role: 'user',
       content: displayContent,
       image_url: imageBase64,
+      file_name: file?.name,
       created_at: new Date().toISOString(),
     }]);
     setSending(true);
@@ -88,11 +97,12 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
       const url = `${SUPABASE_URL}/functions/v1/openclaw-chat`;
       const body: Record<string, any> = {
-        message: content.trim() || '请描述这张图片',
+        message: content.trim() || (imageBase64 ? '请描述这张图片' : '请处理这个文件'),
         session_id: sessionId,
       };
       if (connectionId) body.connection_id = connectionId;
       if (imageBase64) body.image = imageBase64;
+      if (file) body.file = { name: file.name, type: file.type, data: file.data };
 
       const res = await fetch(url, {
         method: 'POST',
@@ -108,8 +118,6 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
           res.statusText ||
           `HTTP ${res.status}`;
 
-        // Do NOT throw here — avoid triggering global runtime error overlays;
-        // render a friendly assistant message and keep the chat usable.
         setMessages(prev => [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -118,13 +126,11 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
           retry_prompt: content.trim() || undefined,
           created_at: new Date().toISOString(),
         }]);
-
         setStreamingContent('');
         setActiveTools([]);
         return;
       }
 
-      // Parse SSE stream — handle both content and tool_calls deltas
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = '';
@@ -142,14 +148,12 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
               const choice = parsed.choices?.[0];
               if (!choice) continue;
 
-              // Content delta
               const contentDelta = choice.delta?.content;
               if (contentDelta) {
                 accumulated += contentDelta;
                 setStreamingContent(accumulated);
               }
 
-              // Tool calls delta
               const tcDeltas = choice.delta?.tool_calls;
               if (Array.isArray(tcDeltas)) {
                 for (const tc of tcDeltas) {
@@ -160,6 +164,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
                       name: tc.function?.name || '',
                       arguments: '',
                       status: 'calling',
+                      startedAt: Date.now(),
                     };
                   }
                   if (tc.function?.name) toolCallsMap[idx].name = tc.function.name;
@@ -168,11 +173,10 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
                 }
               }
 
-              // Finish reason
               if (choice.finish_reason === 'tool_calls' || choice.finish_reason === 'stop') {
-                // Mark all tools as done
                 for (const k of Object.keys(toolCallsMap)) {
                   toolCallsMap[Number(k)].status = 'done';
+                  toolCallsMap[Number(k)].finishedAt = Date.now();
                 }
                 setActiveTools(Object.values(toolCallsMap));
               }
@@ -218,7 +222,6 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     const errorMsg = messages.find(m => m.id === errorMessageId);
     if (!errorMsg?.retry_prompt || sending) return;
     const prompt = errorMsg.retry_prompt;
-    // Remove the error message before resending
     setMessages(prev => prev.filter(m => m.id !== errorMessageId));
     setTimeout(() => sendMessage(prompt), 400);
   }, [messages, sending, sendMessage]);
