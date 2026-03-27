@@ -462,7 +462,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeConnectionId = selectedConnectionId || defaultConnection?.id;
   const activeConnection = connections.find(c => c.id === activeConnectionId);
 
-  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError } = useOpenClawChat(
+  const { messages, loading, sending, streamingContent, activeTools, sendMessage, abort, retryFromError, deleteMessage, retryMessage } = useOpenClawChat(
     user?.id, sessionId, activeConnectionId
   );
 
