@@ -8,6 +8,7 @@ export interface OpenClawConnection {
   name: string;
   url: string;
   token: string | null;
+  mode: 'direct' | 'relay';
   is_default: boolean;
   last_synced_at: string | null;
   created_at: string;
