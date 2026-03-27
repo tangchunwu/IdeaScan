@@ -7,18 +7,23 @@ OpenClaw Agent Bridge — 多后端本地桥接脚本
   --backend claude   → 子进程调用 Claude Code CLI（有状态会话）
   --backend codex    → 子进程调用 Codex CLI
 
+支持运行时切换：
+  启动时用 --backends claude,codex 同时配置多个后端
+  聊天中输入 /codex 或 /claude 即可实时切换
+
 用法:
-  # Claude Code 后端
+  # 同时配置 Claude + Codex，默认用 Claude
+  python bridge.py \
+    --supabase-url https://xxx.supabase.co \
+    --connection-id <uuid> --token <token> \
+    --backends claude,codex --backend claude \
+    --work-dir ~/my-project --dangerously-skip-permissions
+
+  # 单后端模式（向后兼容）
   python bridge.py \
     --supabase-url https://xxx.supabase.co \
     --connection-id <uuid> --token <token> \
     --backend claude --work-dir ~/my-project
-
-  # Codex 后端
-  python bridge.py \
-    --supabase-url https://xxx.supabase.co \
-    --connection-id <uuid> --token <token> \
-    --backend codex --work-dir ~/my-project
 
   # OpenAI 兼容 API 后端
   python bridge.py \
@@ -51,8 +56,11 @@ def parse_args():
     p.add_argument("--poll-interval", type=float, default=2.0, help="Poll interval in seconds")
 
     # Backend selection
-    p.add_argument("--backend", choices=["openai", "claude", "codex"], default="openai",
-                   help="Agent backend type (default: openai)")
+    p.add_argument("--backend", choices=["openai", "claude", "codex"], default="claude",
+                   help="Default agent backend type (default: claude)")
+    p.add_argument("--backends", default=None,
+                   help="Comma-separated list of available backends (e.g. claude,codex). "
+                        "Enables runtime switching via /codex and /claude commands.")
 
     # OpenAI backend options
     p.add_argument("--agent-url", default=None, help="Local agent URL (OpenAI compatible, required for --backend openai)")
@@ -68,8 +76,16 @@ def parse_args():
 
     args = p.parse_args()
 
-    if args.backend == "openai" and not args.agent_url:
-        p.error("--agent-url is required when using --backend openai")
+    # Parse --backends into a set
+    if args.backends:
+        args.available_backends = set(b.strip() for b in args.backends.split(","))
+        if args.backend not in args.available_backends:
+            p.error(f"--backend '{args.backend}' must be in --backends '{args.backends}'")
+    else:
+        args.available_backends = {args.backend}
+
+    if "openai" in args.available_backends and not args.agent_url:
+        p.error("--agent-url is required when using openai backend")
 
     return args
 
@@ -340,22 +356,68 @@ def _stream_subprocess_output(proc, timeout,
                    message_id=user_message_id)
 
 # ---------------------------------------------------------------------------
+# Slash command: runtime backend switching
+# ---------------------------------------------------------------------------
+
+BACKEND_LABELS = {
+    "openai": "OpenAI API",
+    "claude": "Claude Code CLI",
+    "codex": "Codex CLI",
+}
+
+SWITCH_COMMANDS = {
+    "/codex": "codex",
+    "/claude": "claude",
+    "/openai": "openai",
+}
+
+
+def try_handle_switch(user_content: str, available_backends: set,
+                      current_backend: str,
+                      base_url: str, connection_id: str, token: str,
+                      session_id: str, msg_id: str) -> str | None:
+    """Check if the message is a backend-switch slash command.
+    Returns the new backend name if switched, or None if not a switch command."""
+    cmd = user_content.strip().split()[0].lower() if user_content.strip() else ""
+    target = SWITCH_COMMANDS.get(cmd)
+    if not target:
+        return None
+
+    if target not in available_backends:
+        send_reply(base_url, connection_id, token, session_id,
+                   f"⚠️ 后端 `{target}` 未配置。可用后端: {', '.join(sorted(available_backends))}",
+                   message_id=msg_id)
+        return current_backend  # no change, but handled
+
+    if target == current_backend:
+        send_reply(base_url, connection_id, token, session_id,
+                   f"ℹ️ 当前已经是 {BACKEND_LABELS.get(target, target)} 后端。",
+                   message_id=msg_id)
+        return current_backend
+
+    send_reply(base_url, connection_id, token, session_id,
+               f"✅ 已切换到 **{BACKEND_LABELS.get(target, target)}** 后端。",
+               message_id=msg_id)
+    return target
+
+# ---------------------------------------------------------------------------
 # Main loop
 # ---------------------------------------------------------------------------
 
 def main():
     args = parse_args()
+    current_backend = args.backend
 
-    backend_labels = {"openai": "OpenAI API", "claude": "Claude Code CLI", "codex": "Codex CLI"}
     print(f"🔗 OpenClaw Agent Bridge 启动")
-    print(f"   后端:     {backend_labels[args.backend]}")
-    if args.backend == "openai":
+    print(f"   默认后端: {BACKEND_LABELS.get(current_backend, current_backend)}")
+    print(f"   可用后端: {', '.join(sorted(args.available_backends))}")
+    if "openai" in args.available_backends:
         print(f"   Agent:    {args.agent_url}")
-    else:
+    if args.available_backends & {"claude", "codex"}:
         print(f"   工作目录: {os.path.abspath(args.work_dir)}")
     print(f"   连接ID:   {args.connection_id}")
     print(f"   轮询间隔: {args.poll_interval}s")
-    if args.backend == "claude":
+    if "claude" in args.available_backends:
         print(f"   跳过权限: {'是' if args.dangerously_skip_permissions else '否'}")
     print()
 
@@ -374,10 +436,22 @@ def main():
                 user_content = msg["content"]
                 msg_id = msg["id"]
 
-                print(f"  → [{args.backend}] 处理消息 [{msg_id[:8]}]: {user_content[:50]}...")
+                print(f"  → [{current_backend}] 处理消息 [{msg_id[:8]}]: {user_content[:50]}...")
 
-                if args.backend == "openai":
-                    # Build messages array with history context
+                # Check for backend-switch slash commands
+                switch_result = try_handle_switch(
+                    user_content, args.available_backends, current_backend,
+                    args.supabase_url, args.connection_id, args.token,
+                    session_id, msg_id,
+                )
+                if switch_result is not None:
+                    if switch_result != current_backend:
+                        print(f"  🔄 后端切换: {current_backend} → {switch_result}")
+                    current_backend = switch_result
+                    continue
+
+                # Dispatch to active backend
+                if current_backend == "openai":
                     chat_messages = [
                         {"role": "system", "content": "你是用户的 AI Agent 助手。"},
                     ]
@@ -398,7 +472,7 @@ def main():
                             session_id, msg_id,
                         )
 
-                elif args.backend == "claude":
+                elif current_backend == "claude":
                     call_claude(
                         user_content, session_id, args.work_dir, args.cli_timeout,
                         args.dangerously_skip_permissions,
@@ -406,7 +480,7 @@ def main():
                         msg_id,
                     )
 
-                elif args.backend == "codex":
+                elif current_backend == "codex":
                     call_codex(
                         user_content, session_id, args.work_dir, args.cli_timeout,
                         args.supabase_url, args.connection_id, args.token,
