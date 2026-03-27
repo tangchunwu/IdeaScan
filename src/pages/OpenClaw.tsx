@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { OpenClawChannel, OpenClawSettings } from "@/components/openclaw";
 import { OpenClawHistory } from "@/components/openclaw/OpenClawHistory";
 import { Navbar } from "@/components/shared/Navbar";

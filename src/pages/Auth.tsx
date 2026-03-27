@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { PageBackground, GlassCard } from "@/components/shared";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { captureEvent } from "@/lib/posthog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

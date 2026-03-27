@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getMVPBySlug, collectLead, trackExperimentEvent } from "@/services/mvpService";
 import { Button } from "@/components/ui/button";

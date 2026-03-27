@@ -1,8 +1,10 @@
 import { PageBackground, Navbar, GlassCard } from "@/components/shared";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const Privacy = () => {
+       useDocumentTitle("隐私政策", { description: "IdeaScan 隐私政策，了解我们如何保护您的数据和隐私。" });
        return (
               <PageBackground showClouds={false}>
                      <Navbar />
