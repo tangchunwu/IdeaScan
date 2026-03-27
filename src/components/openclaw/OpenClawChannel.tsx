@@ -759,7 +759,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                 {formatTime(msg.created_at)}
               </span>
             </div>
-            {msg.role === "user" && (
+            {msg.role === "user" && !isMobile && (
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                 <span className="text-xs font-semibold text-secondary-foreground">{getUserInitial()}</span>
               </div>
