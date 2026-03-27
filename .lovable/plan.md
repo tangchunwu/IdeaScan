@@ -1,55 +1,81 @@
 
 
-## 计划：补全各页面 SEO 标题 + 添加动态 meta description
+## 计划：OpenClaw 多模态输入 + 运行反馈增强
 
-### 问题
-- 7-8 个页面缺少 `useDocumentTitle`，搜索引擎和浏览器标签显示默认标题
-- 所有页面共享同一个 meta description，搜索引擎无法区分各页面内容
+### 目标
+让网页版 OpenClaw 像 Telegram 一样支持文本、语音、文件、图片输入，并显示 Agent 工具执行的实时反馈。
+
+### 当前状态
+- **文本**: ✅ 已支持
+- **图片**: ⚠️ Hook 支持 base64 图片，但 UI 没有上传入口
+- **语音**: ❌ 不支持
+- **文件**: ❌ 不支持
+- **工具反馈**: ⚠️ 基础 tool_calls badge 已有，但信息有限
 
 ### 改动方案
 
-#### 1. 为缺失页面添加 `useDocumentTitle`
+#### 1. 输入区域重构 — 添加附件按钮
 
-| 页面 | 标题 |
-|------|------|
-| Auth | "登录 / 注册" |
-| Privacy | "隐私政策" |
-| Terms | "服务条款" |
-| NotFound | "页面未找到" |
-| MVPGenerator | "MVP 生成器" |
-| PublicLandingPage | 动态："{产品名} - MVP 落地页" |
-| OpenClaw | "OpenClaw AI 助手" |
-| FeedbackDashboard | "反馈管理后台" |
+在输入框左侧添加 `+` 按钮（类似 Telegram），下拉菜单包含：
+- 📷 **上传图片** — 选择图片文件，压缩为 base64 发送（复用已有 image 逻辑）
+- 🎤 **语音输入** — 录音后转文字发送（使用浏览器 Web Speech API / MediaRecorder）
+- 📎 **上传文件** — 选择文件，读取内容作为文本/base64 发送
 
-AuthCallback 为过渡页，不需要。
+图片/文件选中后在输入框上方显示预览缩略图，可取消。
 
-#### 2. 扩展 `useDocumentTitle` 支持动态 meta description
+#### 2. 语音输入功能
 
-在 `useDocumentTitle` hook 中增加可选的 `description` 参数，动态更新 `<meta name="description">` 标签。
+- 使用浏览器原生 `MediaRecorder` API 录音
+- 录音时显示波形动画和计时器
+- 录音完成后，使用 Web Speech API (`SpeechRecognition`) 转文字，或将音频 base64 发送给 Agent 处理
+- 长按/点击切换录音状态
 
-#### 3. 为核心页面补充独立 description
+#### 3. 文件上传处理
 
-| 页面 | description |
-|------|-------------|
-| Index | 保持 index.html 默认 |
-| Validate | "一句话描述你的创业想法，AI 自动抓取社媒数据和竞品情报，3分钟生成需求验证报告。" |
-| Discover | "发现正在爆发的市场机会，追踪社媒热门话题和创业趋势。" |
-| Pricing | "IdeaScan 定价方案，免费体验 AI 需求验证。" |
-| FAQ | "关于 IdeaScan AI 创业验证工具的常见问题解答。" |
-| Report | "查看 AI 生成的需求验证报告，包含市场分析、竞品情报和用户画像。" |
+- 支持常见文件类型：`.txt`, `.md`, `.csv`, `.json`, `.pdf`, `.docx`
+- 文本类文件直接读取内容，作为消息前缀发送
+- 二进制文件转 base64 发送（需扩展 edge function）
+- 文件大小限制 5MB
+
+#### 4. 工具执行反馈增强
+
+当前 `ToolStatusBadge` 只显示工具名和简短参数。增强为：
+- **展开式执行日志**: 点击 badge 可展开查看完整参数和返回结果
+- **执行耗时**: 显示每个工具调用耗时
+- **进度条风格**: 多步骤时显示 "步骤 1/3" 进度指示
+- **结果预览**: 文件写入显示文件名，搜索显示结果数，图片生成显示缩略图
+
+#### 5. Edge Function 扩展
+
+更新 `openclaw-chat/index.ts`：
+- 支持接收文件 base64（新增 `file` 字段，包含 `name`, `type`, `data`）
+- 将文件信息格式化后传给 Agent
 
 ### 改动文件
 
 | 文件 | 改动 |
 |------|------|
-| `src/hooks/useDocumentTitle.ts` | 增加 description 参数，动态更新 meta |
-| `src/pages/Auth.tsx` | 添加 useDocumentTitle |
-| `src/pages/Privacy.tsx` | 添加 useDocumentTitle |
-| `src/pages/Terms.tsx` | 添加 useDocumentTitle |
-| `src/pages/NotFound.tsx` | 添加 useDocumentTitle |
-| `src/pages/MVP/Generator.tsx` | 添加 useDocumentTitle |
-| `src/pages/MVP/PublicLandingPage.tsx` | 添加 useDocumentTitle |
-| `src/pages/OpenClaw.tsx` | 添加 useDocumentTitle（如缺失）|
-| `src/pages/Admin/FeedbackDashboard.tsx` | 添加 useDocumentTitle |
-| 核心页面（Validate、Discover 等） | 补充 description 参数 |
+| `src/components/openclaw/OpenClawChannel.tsx` | 重构输入区，添加附件菜单、图片预览、语音录制 UI |
+| `src/hooks/useOpenClawChat.ts` | `sendMessage` 扩展支持文件参数 |
+| `supabase/functions/openclaw-chat/index.ts` | 支持文件字段，格式化传给 Agent |
+| 新建 `src/hooks/useVoiceRecorder.ts` | 封装录音 + 语音识别逻辑 |
+
+### 技术细节
+
+```text
+输入区布局:
+┌─────────────────────────────────────────┐
+│ [预览: 图片缩略图 / 文件名]    [✕ 取消] │  ← 附件预览区（有附件时显示）
+├─────────────────────────────────────────┤
+│ [+] │ 输入框...              │ [🎤/▶️] │  ← + 打开附件菜单，右侧语音/发送切换
+└─────────────────────────────────────────┘
+
+附件菜单:
+  📷 图片
+  📎 文件
+```
+
+- 语音按钮：输入框为空时显示麦克风图标，有文字时显示发送按钮
+- 录音中：输入区变为录音面板（波形 + 时长 + 取消/发送）
+- Web Speech API 用于实时语音转文字（中文支持良好）
 
