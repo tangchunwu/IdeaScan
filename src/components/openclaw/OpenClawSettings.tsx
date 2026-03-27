@@ -57,9 +57,18 @@ export function OpenClawSettings() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const [bridgeBackend, setBridgeBackend] = useState<'claude' | 'codex' | 'openai'>('claude');
+
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
-    return `python bridge.py --supabase-url ${supabaseUrl} --connection-id ${conn.id} --token ${conn.token || '<token>'} --agent-url http://localhost:11434`;
+    const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
+    if (bridgeBackend === 'claude') {
+      return `${base} \\\n  --backend claude \\\n  --work-dir ~/my-project \\\n  --dangerously-skip-permissions`;
+    }
+    if (bridgeBackend === 'codex') {
+      return `${base} \\\n  --backend codex \\\n  --work-dir ~/my-project`;
+    }
+    return `${base} \\\n  --backend openai \\\n  --agent-url http://localhost:11434`;
   };
 
   if (!user) return null;
@@ -165,7 +174,7 @@ export function OpenClawSettings() {
 
               {/* Relay mode: show bridge command */}
               {conn.mode === 'relay' && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="flex items-center gap-1">
                     <code className="text-[9px] bg-muted/30 px-1.5 py-0.5 rounded flex-1 truncate font-mono">
                       ID: {conn.id}
@@ -174,6 +183,38 @@ export function OpenClawSettings() {
                       {copiedId === `id-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
                     </Button>
                   </div>
+                  {conn.token && (
+                    <div className="flex items-center gap-1">
+                      <code className="text-[9px] bg-muted/30 px-1.5 py-0.5 rounded flex-1 truncate font-mono">
+                        Token: {conn.token.slice(0, 8)}...{conn.token.slice(-4)}
+                      </code>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.token!, `tok-${conn.id}`)}>
+                        {copiedId === `tok-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Agent 后端</Label>
+                    <div className="flex gap-1">
+                      {(['claude', 'codex', 'openai'] as const).map(b => (
+                        <Button
+                          key={b}
+                          variant={bridgeBackend === b ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-6 text-[10px] px-2 rounded-md"
+                          onClick={() => setBridgeBackend(b)}
+                        >
+                          {b === 'claude' ? 'Claude Code' : b === 'codex' ? 'Codex' : 'OpenAI API'}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
+                    {getBridgeCommand(conn)}
+                  </pre>
+
                   <Button 
                     variant="outline" 
                     size="sm" 
