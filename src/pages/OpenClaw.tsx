@@ -154,9 +154,9 @@ export default function OpenClawPage() {
               </div>
             ) : (
               /* ─── Desktop: side-by-side layout ─── */
-              <div className="flex gap-3" style={{ height: "calc(100vh - 260px)" }}>
+              <div className="flex gap-3" style={{ height: "calc(100vh - 200px)" }}>
                 {showHistory && (
-                  <div className="w-64 shrink-0 rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden flex flex-col">
+                  <div className="w-56 shrink-0 rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30">
                       <div className="flex items-center gap-1.5">
                         <History className="w-3.5 h-3.5 text-muted-foreground" />

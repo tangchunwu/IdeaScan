@@ -863,7 +863,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
                 const bubble = (
                   <div className={`relative group/bubble rounded-2xl ${isMobile ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-sm'} shadow-sm ${
                     msg.role === "user"
-                      ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20`
+                      ? `${isMobile ? 'max-w-[85%]' : 'max-w-[75%]'} w-fit self-end bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-md shadow-primary/20 break-words [overflow-wrap:anywhere]`
                       : `${isMobile ? 'max-w-[92%]' : 'max-w-[85%]'} glass-card border border-border/30 rounded-bl-md backdrop-blur-md overflow-hidden break-words`
                   }`}>
                     {msg.role === "assistant" && msg.content && !isMobile && (
