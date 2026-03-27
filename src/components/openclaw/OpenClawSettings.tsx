@@ -180,7 +180,7 @@ export function OpenClawSettings() {
                     className="w-full text-[10px] h-7 rounded-lg gap-1"
                     onClick={() => copyToClipboard(getBridgeCommand(conn), `cmd-${conn.id}`)}
                   >
-                    {copiedId === `cmd-${conn.id}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                    {copiedId === `cmd-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
                     复制启动命令
                   </Button>
                 </div>
