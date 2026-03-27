@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawChat, type ToolCallInfo, type FileAttachment } from "@/hooks/useOpenClawChat";
 import { useOpenClawConnections } from "@/hooks/useOpenClawConnections";
