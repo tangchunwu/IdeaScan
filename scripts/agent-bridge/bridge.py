@@ -257,19 +257,18 @@ def call_codex(message: str, session_id: str, work_dir: str, timeout: int,
                base_url: str, connection_id: str, token: str,
                user_message_id: str):
     """Call Codex CLI with streaming output relay and session persistence."""
-    session_dir = _get_session_dir(session_id, work_dir)
+    # Codex runs in the actual work_dir (must be a git repo or use --skip-git-repo-check)
+    abs_work_dir = os.path.abspath(work_dir)
 
     if session_id in _codex_session_started:
-        # Resume previous session in this directory
         cmd = ["codex", "exec", "resume", "--last", message]
     else:
-        # First interaction: start new exec
         cmd = ["codex", "exec", message]
         _codex_session_started[session_id] = True
 
     try:
         proc = subprocess.Popen(
-            cmd, cwd=session_dir,
+            cmd, cwd=abs_work_dir,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, bufsize=1,
         )
