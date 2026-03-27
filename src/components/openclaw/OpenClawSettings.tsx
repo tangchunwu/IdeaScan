@@ -245,8 +245,28 @@ export function OpenClawSettings() {
                     </div>
                   )}
 
+                  {/* Step 1: Setup — download bridge */}
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground">Agent 后端</Label>
+                    <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Download className="w-3 h-3" /> 第一步：下载脚本
+                    </Label>
+                    <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
+                      {getSetupCommands()}
+                    </pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-[10px] h-7 rounded-lg gap-1"
+                      onClick={() => copyToClipboard(getSetupCommands(), `setup-${conn.id}`)}
+                    >
+                      {copiedId === `setup-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                      复制安装命令
+                    </Button>
+                  </div>
+
+                  {/* Step 2: Choose backend & run */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">第二步：选择 Agent 后端并启动</Label>
                     <div className="flex gap-1">
                       {(['claude', 'codex', 'openai'] as const).map(b => (
                         <Button
