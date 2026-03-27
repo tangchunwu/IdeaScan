@@ -223,7 +223,7 @@ def call_claude(message: str, session_id: str, work_dir: str, timeout: int,
                 base_url: str, connection_id: str, token: str,
                 user_message_id: str):
     """Call Claude Code CLI with streaming output relay."""
-    session_dir = _get_claude_session_dir(session_id, work_dir)
+    session_dir = _get_session_dir(session_id, work_dir)
 
     cmd = ["claude", "-p", message, "--continue"]
     if skip_permissions:
