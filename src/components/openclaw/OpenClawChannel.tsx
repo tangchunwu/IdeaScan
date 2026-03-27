@@ -740,10 +740,24 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
             <Bot className={`${isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-primary-foreground`} />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-foreground truncate`}>
-              {activeConnection?.name || "OpenClaw"}
-            </span>
-            {!isMobile && <span className="text-[10px] text-muted-foreground/60">AI Agent</span>}
+            <div className="flex items-center gap-1.5">
+              <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-foreground truncate`}>
+                {activeConnection?.name || "OpenClaw"}
+              </span>
+              {isActiveRelay && (
+                <span className="relative flex h-2 w-2 shrink-0" title={isRelayOnline ? 'Bridge 在线' : 'Bridge 离线'}>
+                  {isRelayOnline && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isRelayOnline ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                </span>
+              )}
+            </div>
+            {!isMobile && (
+              <span className="text-[10px] text-muted-foreground/60">
+                {isActiveRelay ? (isRelayOnline ? '在线' : '离线') : 'AI Agent'}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
