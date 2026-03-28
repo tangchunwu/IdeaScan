@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download } from "lucide-react";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { PairingDialog } from "./PairingDialog";
 
 const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
 
