@@ -31,7 +31,18 @@ const MESSAGES_FOR = (idea: string) => [
   { role: "user", content: idea },
 ];
 
-/** Try user-configured LLM first, then system LLM, then Lovable AI gateway. */
+/** Strip <think>...</think> blocks and other reasoning artifacts from model output. */
+function cleanModelOutput(raw: string): string {
+  let cleaned = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*/gi, "") // unclosed think tag
+    .trim();
+  // Remove leading prompt echo like "我需要将其扩写为..." or numbered lists that are instructions
+  cleaned = cleaned.replace(/^我需要将其扩写[\s\S]*?(?:\n\n)/i, "").trim();
+  return cleaned;
+}
+
+
 async function polishWithFallback(
   idea: string,
   config?: { llmBaseUrl?: string; llmApiKey?: string; llmModel?: string; llmFallbacks?: Array<{ baseUrl: string; apiKey: string; model: string }> },
@@ -49,7 +60,7 @@ async function polishWithFallback(
         baseUrl: userBase, apiKey: userKey, model: userModel,
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
       });
-      const content = extractAssistantContent(res.json).trim();
+      const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
       errors.push(`user_llm: ${(e as Error).message?.slice(0, 120)}`);
@@ -68,7 +79,7 @@ async function polishWithFallback(
           baseUrl: fbBase, apiKey: fbKey, model: fbModel,
           messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
         });
-        const content = extractAssistantContent(res.json).trim();
+        const content = cleanModelOutput(extractAssistantContent(res.json));
         if (content) return content;
       } catch (e) {
         errors.push(`fallback: ${(e as Error).message?.slice(0, 120)}`);
@@ -86,7 +97,7 @@ async function polishWithFallback(
         baseUrl: sysBase, apiKey: sysKey, model: sysModel,
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
       });
-      const content = extractAssistantContent(res.json).trim();
+      const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
       errors.push(`sys_llm: ${(e as Error).message?.slice(0, 120)}`);
@@ -103,7 +114,7 @@ async function polishWithFallback(
         model: "google/gemini-3-flash-preview",
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 25000,
       });
-      const content = extractAssistantContent(res.json).trim();
+      const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
       errors.push(`lovable_ai: ${(e as Error).message?.slice(0, 120)}`);
