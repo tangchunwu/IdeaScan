@@ -180,7 +180,7 @@ export function OpenClawSettings() {
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
       ) : connections.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-4">尚未添加任何连接，点击上方"添加"按钮开始配置</p>
+        <SetupGuide onStartPairing={() => setShowPairing(true)} />
       ) : (
         <div className="space-y-2">
           {connections.map(conn => (
