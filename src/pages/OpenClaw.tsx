@@ -17,6 +17,7 @@ export default function OpenClawPage() {
   useDocumentTitle("OpenClaw AI 助手");
   const [searchParams] = useSearchParams();
   const [initialMessage, setInitialMessage] = useState<string | undefined>();
+  const [validationId, setValidationId] = useState<string | undefined>();
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const [showHistory, setShowHistory] = useState(true);
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
@@ -50,6 +51,10 @@ export default function OpenClawPage() {
   useEffect(() => {
     const fromValidation = searchParams.get("from_validation");
     if (fromValidation) {
+      // Store validation ID for skill context injection (unless it's 'content_studio')
+      if (fromValidation !== "content_studio") {
+        setValidationId(fromValidation);
+      }
       const stored = sessionStorage.getItem("openclaw_initial_message");
       if (stored) {
         setInitialMessage(stored);
@@ -119,6 +124,7 @@ export default function OpenClawPage() {
                   <OpenClawChannel
                     initialMessage={initialMessage}
                     sessionId={sessionId}
+                    validationId={validationId}
                     onNewSession={handleNewSession}
                     historyToggle={
                       <Button
@@ -176,6 +182,7 @@ export default function OpenClawPage() {
                   <OpenClawChannel
                     initialMessage={initialMessage}
                     sessionId={sessionId}
+                    validationId={validationId}
                     onNewSession={handleNewSession}
                     historyToggle={!showHistory ? (
                       <Button

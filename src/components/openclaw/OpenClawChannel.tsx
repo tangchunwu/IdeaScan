@@ -27,6 +27,7 @@ interface OpenClawChannelProps {
   className?: string;
   initialMessage?: string;
   sessionId?: string;
+  validationId?: string;
   onNewSession?: () => void;
   historyToggle?: React.ReactNode;
 }
@@ -441,7 +442,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession, historyToggle }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, validationId, onNewSession, historyToggle }: OpenClawChannelProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { connections, reload: reloadConnections } = useOpenClawConnections(user?.id);
@@ -468,6 +469,30 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Validation report context cache for skills
+  const reportContextRef = useRef<string | null>(null);
+  const reportContextFetchedRef = useRef<string | null>(null); // tracks which validationId was fetched
+
+  // Fetch validation report context when we have a validationId
+  useEffect(() => {
+    if (!validationId || reportContextFetchedRef.current === validationId) return;
+    reportContextFetchedRef.current = validationId;
+    (async () => {
+      try {
+        const { getValidation } = await import('@/services/validationService');
+        const { useReportData } = await import('@/components/report/useReportData');
+        const { buildOpenClawContext } = await import('@/lib/buildOpenClawContext');
+        const fullData = await getValidation(validationId);
+        const reportData = useReportData(fullData);
+        if (reportData) {
+          reportContextRef.current = buildOpenClawContext(reportData);
+        }
+      } catch (e) {
+        console.warn('[OpenClaw] Failed to fetch validation report for skill context:', e);
+      }
+    })();
+  }, [validationId]);
 
   const filteredCommands = SLASH_COMMANDS.filter(cmd =>
     cmd.name.startsWith(slashFilter.toLowerCase())
@@ -565,7 +590,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     if (isRecording) {
       stopRecording();
       if (transcript.trim()) {
-        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
+        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined, activeSkill ? reportContextRef.current || undefined : undefined);
         setPendingImage(null);
         setPendingFile(null);
         setInput("");
@@ -611,7 +636,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'prd-generator');
+          sendMessage(cmdArgs, undefined, undefined, 'prd-generator', reportContextRef.current || undefined);
         } else {
           setActiveSkill('prd-generator');
           setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
@@ -623,7 +648,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis');
+          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis', reportContextRef.current || undefined);
         } else {
           setActiveSkill('competitive-analysis');
           setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
@@ -634,7 +659,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
-    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
+    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined, activeSkill ? reportContextRef.current || undefined : undefined);
     setInput("");
     setShowSlashMenu(false);
     setPendingImage(null);
