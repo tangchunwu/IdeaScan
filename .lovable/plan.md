@@ -1,52 +1,31 @@
 
 
-## 小猫 IP 持续优化计划
+## 温和借鉴「奶茶探险日志」风格 — 第一步
 
-在已有改造基础上，进一步深化小猫主题的细节和一致性。
-
----
-
-### 1. Toast 通知增加猫咪表情 (`sonner.tsx`)
-- 成功 toast 样式添加左侧绿色边框 + "🐱" 前缀图标
-- 错误 toast 添加红色边框 + "😿" 前缀
-- 圆角统一为 `rounded-xl`，与整体风格一致
-
-### 2. Card 组件升级 (`card.tsx`)
-- 圆角从 `rounded-lg` 升级为 `rounded-2xl`
-- 添加 hover 时微上浮效果 (`hover:-translate-y-0.5 transition-all`)
-- 边框改为半透明 `border-border/50`
-
-### 3. GlassCard 猫爪悬浮效果 (`GlassCard.tsx`)
-- hover 模式下添加微妙的猫爪印 CSS 装饰（伪元素圆点组合）
-- 增强 hover 阴影的温暖感（偏 primary 色调）
-
-### 4. BrandLoader 猫咪尾巴动画 (`BrandLoader.tsx`)
-- 加载文字改为 "喵~ 加载中..."
-- 进度条改为猫爪形状（圆润胶囊 + 小圆点装饰）
-- 旋转环改为猫尾摆动效果（左右摆动而非旋转）
-
-### 5. LoadingSpinner 猫爪 dots (`LoadingSpinner.tsx`)
-- dots 变体改为 3 个大小不同的圆点模拟猫爪掌心+肉垫
-- 弹跳动画保持，增加交错延迟
-
-### 6. Navbar 品牌名称 (`Navbar.tsx`)
-- 副标题 "需求验证" 旁添加小猫爪印装饰 `🐾`
-- 活跃导航项的底部指示点改为猫爪形（3 个小圆点组合）
-
-### 7. 全局 CSS 增强 (`index.css`)
-- 新增 `.cat-paw-indicator` 样式（3 个圆点组合的猫爪指示器）
-- Toast 相关样式覆盖
-- glass-card hover 阴影微调为更温暖的色调
+参考图中的设计亮点：章节标题带左侧色条 + emoji 图标、用户分层卡片带百分比角标、干净的圆角边框卡片。不大改，先做 3 个小优化过渡。
 
 ---
 
-### 涉及文件（7个）
+### 1. 章节标题组件 — 左侧色条装饰 (`SectionHeading.tsx`)
+- 新建轻量组件：左侧 3px 圆角色条（primary 色）+ emoji + 标题文字
+- 参考图中「用户分层结构」的样式：`border-left: 3px solid primary`
+- 用于报告页各 section 标题（用户画像、数据概览等），替代现在的纯文字标题
 
-1. `src/components/ui/sonner.tsx` — Toast 猫咪表情 + 圆角
-2. `src/components/ui/card.tsx` — 圆角 + hover 效果
-3. `src/components/shared/GlassCard.tsx` — 猫爪悬浮装饰
-4. `src/components/shared/BrandLoader.tsx` — 猫咪加载文案 + 尾巴动画
-5. `src/components/shared/LoadingSpinner.tsx` — 猫爪 dots
-6. `src/components/shared/Navbar.tsx` — 猫爪装饰 + 指示器
-7. `src/index.css` — 猫爪指示器样式 + toast 样式
+### 2. MultiPersonaCard 百分比角标
+- 参考图中卡片右上角的「20%」「50%」「30%」绿色角标
+- 在每个 persona type tab 和卡片头部加一个小型百分比 Badge
+- 根据 persona type 分配权重：primary=50%、secondary=30%、tertiary=20%
+- Badge 样式：小圆角 + 绿色背景 + 白色文字，定位在卡片右上角
+
+### 3. 报告页 section 间距与分隔优化 (`Report.tsx`)
+- 各 section 之间添加轻微的虚线分隔或更大间距
+- Tab 内容区顶部统一留白，视觉更透气
+
+---
+
+### 涉及文件（3个）
+
+1. `src/components/report/SectionHeading.tsx` — 新建，左侧色条章节标题
+2. `src/components/report/MultiPersonaCard.tsx` — 添加百分比角标
+3. `src/pages/Report.tsx` — 引入 SectionHeading，优化 section 间距
 
