@@ -71,7 +71,7 @@ export const DemandDecisionCard = ({
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30 border-l-[3px] border-l-primary">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">样本量</div>
             <div className="text-2xl font-semibold">{animatedNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
             {xiaohongshuData.totalNotes < 100 && <div className="text-xs text-orange-500">建议 &gt;100</div>}
