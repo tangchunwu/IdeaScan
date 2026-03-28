@@ -11,7 +11,7 @@ import {
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
   Check, ChevronDown, Server, Copy, CheckCheck, Mic, MicOff, X, Paperclip,
   FileText, Clock, ChevronRight, MessageSquarePlus, Cpu, HelpCircle, Trash2, RotateCcw, Terminal, Code,
-  TrendingUp, Rocket,
+  TrendingUp, Rocket, BarChart3, Palette, Blocks, Sparkles, Target, LayoutDashboard,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,51 +42,95 @@ const TOOL_LABELS: Record<string, string> = {
   xiaohongshu_search: "搜索小红书",
 };
 
-const QUICK_PROMPTS = [
+interface QuickPrompt {
+  icon: React.ElementType;
+  label: string;
+  prompt: string;
+  skillId?: string;
+  accent?: string; // tailwind color class for icon bg
+}
+
+interface SkillCategory {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: QuickPrompt[];
+}
+
+const SKILL_CATEGORIES: SkillCategory[] = [
   {
-    icon: Pencil,
-    label: "一键发小红书",
-    prompt: "请完成完整的小红书发布流程：1) 写一篇种草文案 2) 生成配图 3) 发布到小红书。请依次使用你的工具完成，每步告诉我进度。",
+    id: 'product',
+    label: '产品定义',
+    icon: LayoutDashboard,
+    items: [
+      {
+        icon: FileText,
+        label: '写 PRD',
+        prompt: '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。',
+        skillId: 'prd-generator',
+        accent: 'from-blue-500/20 to-blue-500/5',
+      },
+      {
+        icon: Search,
+        label: '竞品分析',
+        prompt: '请基于验证报告数据，进行系统化的竞品分析。',
+        skillId: 'competitive-analysis',
+        accent: 'from-violet-500/20 to-violet-500/5',
+      },
+      {
+        icon: Lightbulb,
+        label: '头脑风暴',
+        prompt: '请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。',
+        accent: 'from-yellow-500/20 to-yellow-500/5',
+      },
+    ],
   },
   {
-    icon: Image,
-    label: "生成营销图",
-    prompt: "请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。",
+    id: 'growth',
+    label: '增长与市场',
+    icon: BarChart3,
+    items: [
+      {
+        icon: TrendingUp,
+        label: '增长策略',
+        prompt: '请基于验证报告数据，帮我制定用户增长策略。',
+        skillId: 'growth-strategy',
+        accent: 'from-emerald-500/20 to-emerald-500/5',
+      },
+      {
+        icon: Rocket,
+        label: 'GTM 方案',
+        prompt: '请基于验证报告数据，帮我制定 Go-to-Market 方案。',
+        skillId: 'gtm-plan',
+        accent: 'from-orange-500/20 to-orange-500/5',
+      },
+    ],
   },
   {
-    icon: FileText,
-    label: "写 PRD",
-    prompt: "请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。",
-    skillId: "prd-generator",
-  },
-  {
-    icon: Search,
-    label: "竞品分析",
-    prompt: "请基于验证报告数据，进行系统化的竞品分析。",
-    skillId: "competitive-analysis",
-  },
-  {
-    icon: Lightbulb,
-    label: "头脑风暴",
-    prompt: "请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。",
-  },
-  {
-    icon: TrendingUp,
-    label: "增长策略",
-    prompt: "请基于验证报告数据，帮我制定用户增长策略。",
-    skillId: "growth-strategy",
-  },
-  {
-    icon: Rocket,
-    label: "GTM 方案",
-    prompt: "请基于验证报告数据，帮我制定 Go-to-Market 方案。",
-    skillId: "gtm-plan",
-  },
-  {
-    icon: Cpu,
-    label: "技术架构",
-    prompt: "请基于验证报告数据，帮我设计技术架构方案。",
-    skillId: "tech-architecture",
+    id: 'tech',
+    label: '技术与创作',
+    icon: Blocks,
+    items: [
+      {
+        icon: Cpu,
+        label: '技术架构',
+        prompt: '请基于验证报告数据，帮我设计技术架构方案。',
+        skillId: 'tech-architecture',
+        accent: 'from-cyan-500/20 to-cyan-500/5',
+      },
+      {
+        icon: Pencil,
+        label: '一键发小红书',
+        prompt: '请完成完整的小红书发布流程：1) 写一篇种草文案 2) 生成配图 3) 发布到小红书。请依次使用你的工具完成，每步告诉我进度。',
+        accent: 'from-rose-500/20 to-rose-500/5',
+      },
+      {
+        icon: Palette,
+        label: '生成营销图',
+        prompt: '请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。',
+        accent: 'from-pink-500/20 to-pink-500/5',
+      },
+    ],
   },
 ];
 
@@ -109,8 +153,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/competitive', description: '竞品分析', icon: Search, clientOnly: true },
   { name: '/growth', description: '用户增长策略', icon: TrendingUp, clientOnly: true },
   { name: '/gtm', description: 'Go-to-Market 方案', icon: Rocket, clientOnly: true },
-  { name: '/arch', description: '技术架构设计', icon: Cpu, clientOnly: true },
-  { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
+  { name: '/arch', description: '技术架构设计', icon: Blocks, clientOnly: true },
+  { name: '/model', description: '切换 AI 模型', icon: Target, clientOnly: false },
   { name: '/codex', description: '切换到 Codex 后端', icon: Terminal, clientOnly: false },
   { name: '/claude', description: '切换到 Claude Code 后端', icon: Code, clientOnly: false },
   { name: '/help', description: '查看帮助', icon: HelpCircle, clientOnly: false },
@@ -932,18 +976,33 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               <p className="text-base font-medium text-foreground mb-1">AI Agent 已就绪</p>
               <p className="text-sm text-muted-foreground/70">选择快捷指令或直接下达任务</p>
             </div>
-            <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-2 gap-3'} mt-4 max-w-md w-full`}>
-              {QUICK_PROMPTS.map((qp) => (
-                <button
-                  key={qp.label}
-                  onClick={() => handleQuickPrompt(qp.prompt, (qp as any).skillId)}
-                  className={`group flex flex-col items-start gap-2 ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3.5'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
-                    <qp.icon className="w-4 h-4 text-primary/80 group-hover:text-primary transition-colors" />
+            <div className={`mt-2 w-full ${isMobile ? 'max-w-sm' : 'max-w-lg'} space-y-4`}>
+              {SKILL_CATEGORIES.map((cat) => (
+                <div key={cat.id}>
+                  <div className="flex items-center gap-1.5 mb-2 px-1">
+                    <cat.icon className="w-3.5 h-3.5 text-muted-foreground/60" />
+                    <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/60">{cat.label}</span>
                   </div>
-                  <span className="text-xs font-medium text-foreground/90 group-hover:text-foreground transition-colors">{qp.label}</span>
-                </button>
+                  <div className={`grid ${isMobile ? 'grid-cols-2 gap-1.5' : `${cat.items.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}`}>
+                    {cat.items.map((qp) => (
+                      <button
+                        key={qp.label}
+                        onClick={() => handleQuickPrompt(qp.prompt, qp.skillId)}
+                        className={`group flex flex-col items-start gap-1.5 ${isMobile ? 'px-2.5 py-2' : 'px-3 py-3'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
+                      >
+                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${qp.accent || 'from-primary/20 to-primary/5'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                          <qp.icon className="w-3.5 h-3.5 text-foreground/70 group-hover:text-foreground transition-colors" />
+                        </div>
+                        <span className="text-[11px] font-medium text-foreground/80 group-hover:text-foreground transition-colors leading-tight">{qp.label}</span>
+                        {qp.skillId && (
+                          <span className="text-[9px] text-muted-foreground/50 flex items-center gap-0.5">
+                            <Sparkles className="w-2.5 h-2.5" /> Expert Skill
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
