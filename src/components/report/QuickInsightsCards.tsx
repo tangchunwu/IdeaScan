@@ -119,7 +119,7 @@ export const QuickInsightsCards = ({ score, competitionLevel, strengths = [], we
           return (
             <Tooltip key={card.title}>
               <TooltipTrigger asChild>
-                <div className="relative rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default overflow-hidden">
+                <div className="relative rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 border-l-[3px] border-l-primary shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default overflow-hidden">
                   {/* Top color strip */}
                   <div className={`h-[2px] bg-gradient-to-r ${card.stripFrom} ${card.stripTo}`} />
                   <div className="p-5">

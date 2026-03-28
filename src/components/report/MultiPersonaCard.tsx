@@ -164,11 +164,11 @@ export const MultiPersonaCard = ({
                                    {/* Details Grid */}
                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                           {/* Pain Points */}
-                                          <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-red-500">😣</span>
-                                                        核心痛点
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 border-l-[3px] border-l-red-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>😣</span>
+                                                         核心痛点
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.painPoints.slice(0, 3).map((point, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -180,11 +180,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Goals */}
-                                          <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-green-500">🎯</span>
-                                                        期望目标
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 border-l-[3px] border-l-green-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>🎯</span>
+                                                         期望目标
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.goals.slice(0, 3).map((goal, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -196,11 +196,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Behaviors */}
-                                          <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-blue-500">📱</span>
-                                                        行为特征
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 border-l-[3px] border-l-blue-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>📱</span>
+                                                         行为特征
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.behaviors.slice(0, 3).map((behavior, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -212,11 +212,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Channels */}
-                                          <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-purple-500">📢</span>
-                                                        触达渠道
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 border-l-[3px] border-l-purple-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>📢</span>
+                                                         触达渠道
+                                                  </h5>
                                                  <div className="flex flex-wrap gap-2">
                                                         {currentPersona.channels.map((channel, i) => (
                                                                <Badge key={i} variant="outline" className="text-xs">

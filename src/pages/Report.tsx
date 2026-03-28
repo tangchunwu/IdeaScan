@@ -444,6 +444,8 @@ const Report = () => {
             sentimentPositive={sentimentAnalysis.positive}
           />
 
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
+
           {/* Elevator Pitch Hero (full-width) */}
           <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
           <div className="mb-3 sm:mb-4 animate-slide-up">
@@ -457,6 +459,8 @@ const Report = () => {
               weaknesses={aiAnalysis.weaknesses || []}
             />
           </div>
+
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           {/* Persona Card (full-width) */}
           <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
@@ -476,6 +480,7 @@ const Report = () => {
             )}
           </div>
 
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
@@ -506,7 +511,8 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
-          <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" className="mt-8" />
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
+          <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" />
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
