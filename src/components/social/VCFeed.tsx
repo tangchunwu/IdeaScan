@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { MessageSquare, Loader2, RefreshCw, Sparkles, RotateCcw } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { FeedItem } from "./FeedItem";
 import { toast } from "sonner";
 import type { Comment } from "@/types/social";
 import { getComments, generateDiscussion, replyToComment, toggleCommentLike, getUserLikes } from "@/services/socialService";
+import { supabase } from "@/integrations/supabase/client";
 import { useSettings } from "@/hooks/useSettings";
 
 interface VCFeedProps {
@@ -61,10 +62,20 @@ export function VCFeed({ validationId }: VCFeedProps) {
     }
   };
 
-  const handleGenerateDiscussion = async () => {
+  const handleGenerateDiscussion = async (regenerate = false) => {
     setIsGenerating(true);
     setError(null);
     try {
+      // If regenerating, delete existing AI comments first
+      if (regenerate) {
+        const { error: delErr } = await supabase
+          .from("comments")
+          .delete()
+          .eq("validation_id", validationId)
+          .eq("is_ai", true);
+        if (delErr) console.error("Failed to delete old comments:", delErr);
+      }
+
       const result = await generateDiscussion(validationId, llmConfig);
       
       // Show fallback toast if applicable
@@ -155,7 +166,7 @@ export function VCFeed({ validationId }: VCFeedProps) {
           <p className="text-muted-foreground text-sm">
             让 4 位 AI 专家（VC、产品经理、用户、分析师）对你的创意进行激烈讨论。你可以随时加入反驳他们！
           </p>
-          <Button onClick={handleGenerateDiscussion} disabled={isGenerating} className="gap-2">
+          <Button onClick={() => handleGenerateDiscussion(false)} disabled={isGenerating} className="gap-2">
             {isGenerating ? (<><Loader2 className="w-4 h-4 animate-spin" />AI 专家正在思考...</>) : (<><Sparkles className="w-4 h-4" />召唤 AI 专家团</>)}
           </Button>
         </div>
@@ -171,8 +182,16 @@ export function VCFeed({ validationId }: VCFeedProps) {
           <h3 className="text-lg font-bold">VC Circle</h3>
           <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{comments.length} 条讨论</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={loadComments} className="text-muted-foreground hover:text-foreground">
-          <RefreshCw className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleGenerateDiscussion(true)}
+          disabled={isGenerating}
+          className="text-muted-foreground hover:text-foreground gap-1.5"
+          title="重新生成讨论"
+        >
+          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+          <span className="text-xs">重新生成</span>
         </Button>
       </div>
 
