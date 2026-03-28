@@ -434,6 +434,7 @@ const Report = () => {
           )}
 
           {/* Quick Insights Cards */}
+          <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
           <QuickInsightsCards
             score={displayScore}
             competitionLevel={marketAnalysis.competitionLevel}
