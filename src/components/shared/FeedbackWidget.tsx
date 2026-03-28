@@ -57,22 +57,15 @@ const FeedbackWidget = () => {
 
   return (
     <>
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25 backdrop-blur-sm border border-white/10 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 group"
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-sm font-medium">反馈</span>
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 py-3 px-1.5 rounded-l-lg bg-muted/80 backdrop-blur-sm border border-r-0 border-border/30 shadow-sm text-muted-foreground hover:bg-muted hover:text-foreground hover:px-2.5 hover:shadow-md transition-all duration-300 group"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-medium writing-vertical-rl hidden group-hover:block">反馈</span>
+        </button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[400px] bg-background/95 backdrop-blur-xl border-white/10">
