@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { message, session_id, image, connection_id, file } = await req.json();
+    const { message, session_id, image, connection_id, file, skill_id } = await req.json();
     if (!session_id || (!message && !image && !file)) {
       return new Response(JSON.stringify({ error: 'message, image, or file, and session_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -165,7 +165,13 @@ Deno.serve(async (req) => {
       .select('role, content').eq('user_id', userId).eq('session_id', session_id)
       .order('created_at', { ascending: true }).limit(20);
 
-    const systemContent = '你是用户的 AI Agent 助手。';
+    // Skill-specific system prompts
+    const SKILL_PROMPTS: Record<string, string> = {
+      'prd-generator': `你是一位资深产品经理，专长于撰写专业的产品需求文档（PRD）。用户会提供验证报告数据作为上下文。请基于这些数据：1) 确认核心产品方向 2) 询问产品形态/优先功能/技术栈 3) 输出完整 PRD（含产品概述、用户画像、功能规格、竞品差异化、商业模式、里程碑）。引用验证数据作为决策依据。`,
+      'competitive-analysis': `你是一位资深市场分析师，专长于系统化竞品分析。用户会提供验证报告数据作为上下文。请基于这些数据：1) 列出已识别的竞品并确认范围 2) 如有搜索工具则联网收集最新信息 3) 输出完整竞品分析报告（功能对比矩阵、SWOT、差异化机会、定价策略） 4) 给出具体可执行的策略建议。引用验证数据中的痛点和市场信号。`,
+    };
+
+    const systemContent = (skill_id && SKILL_PROMPTS[skill_id]) ? SKILL_PROMPTS[skill_id] : '你是用户的 AI Agent 助手。';
 
     const messages: Array<{ role: string; content: unknown }> = [
       { role: 'system', content: systemContent },

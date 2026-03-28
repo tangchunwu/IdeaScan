@@ -142,7 +142,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
     };
   }, [connectionMode, userId, sessionId]);
 
-  const sendMessage = useCallback(async (content: string, imageBase64?: string, file?: FileAttachment) => {
+  const sendMessage = useCallback(async (content: string, imageBase64?: string, file?: FileAttachment, skillId?: string) => {
     if (!userId || (!content.trim() && !imageBase64 && !file) || sending) return;
 
     let displayContent = content.trim();
@@ -178,6 +178,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
       if (connectionId) body.connection_id = connectionId;
       if (imageBase64) body.image = imageBase64;
       if (file) body.file = { name: file.name, type: file.type, data: file.data };
+      if (skillId) body.skill_id = skillId;
 
       const res = await fetch(url, {
         method: 'POST',

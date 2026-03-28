@@ -50,9 +50,16 @@ const QUICK_PROMPTS = [
     prompt: "请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。",
   },
   {
+    icon: FileText,
+    label: "写 PRD",
+    prompt: "请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。",
+    skillId: "prd-generator",
+  },
+  {
     icon: Search,
-    label: "竞品深度调研",
-    prompt: "请联网搜索我的竞品信息，分析差异化机会，输出调研报告并保存到 workspace/competitor-report.md。",
+    label: "竞品分析",
+    prompt: "请基于验证报告数据，进行系统化的竞品分析。",
+    skillId: "competitive-analysis",
   },
   {
     icon: Lightbulb,
@@ -76,6 +83,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/new', description: '开启新对话', icon: MessageSquarePlus, clientOnly: true },
   { name: '/clear', description: '清空当前对话', icon: Trash2, clientOnly: true },
   { name: '/retry', description: '重试上一条消息', icon: RotateCcw, clientOnly: true },
+  { name: '/prd', description: '生成产品需求文档', icon: FileText, clientOnly: true },
+  { name: '/competitive', description: '竞品分析', icon: Search, clientOnly: true },
   { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
   { name: '/codex', description: '切换到 Codex 后端', icon: Terminal, clientOnly: false },
   { name: '/claude', description: '切换到 Claude Code 后端', icon: Code, clientOnly: false },
@@ -591,6 +600,20 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         }
         return;
       }
+      if (cmdName === '/prd') {
+        setInput("");
+        setShowSlashMenu(false);
+        const topic = cmdArgs || '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。';
+        sendMessage(topic, undefined, undefined, 'prd-generator');
+        return;
+      }
+      if (cmdName === '/competitive') {
+        setInput("");
+        setShowSlashMenu(false);
+        const topic = cmdArgs || '请基于验证报告数据，进行系统化的竞品分析。';
+        sendMessage(topic, undefined, undefined, 'competitive-analysis');
+        return;
+      }
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
@@ -615,6 +638,8 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
           else toast.error('没有可重试的消息');
         }
+        else if (cmd.name === '/prd') { setInput(''); sendMessage('请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。', undefined, undefined, 'prd-generator'); }
+        else if (cmd.name === '/competitive') { setInput(''); sendMessage('请基于验证报告数据，进行系统化的竞品分析。', undefined, undefined, 'competitive-analysis'); }
       }, 50);
     } else {
       // For server commands, fill the input with the command and a space for args
@@ -680,9 +705,9 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     setInitialSent(false);
   };
 
-  const handleQuickPrompt = (prompt: string) => {
+  const handleQuickPrompt = (prompt: string, skillId?: string) => {
     if (sending) return;
-    sendMessage(prompt);
+    sendMessage(prompt, undefined, undefined, skillId);
   };
 
   const handleVoiceToggle = useCallback(async () => {
@@ -835,7 +860,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               {QUICK_PROMPTS.map((qp) => (
                 <button
                   key={qp.label}
-                  onClick={() => handleQuickPrompt(qp.prompt)}
+                  onClick={() => handleQuickPrompt(qp.prompt, (qp as any).skillId)}
                   className={`group flex flex-col items-start gap-2 ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3.5'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
