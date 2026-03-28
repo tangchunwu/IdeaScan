@@ -10,6 +10,7 @@ import {
   Users, MessageCircle, Brain,
   BarChart3, AlertCircle, Globe, Sparkles,
   RefreshCw, Loader2, Download, StickyNote,
+  Target, Radar, FileText,
 } from "lucide-react";
 import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
