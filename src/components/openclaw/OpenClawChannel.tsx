@@ -442,7 +442,7 @@ function renderMessageContent(content: string, isStreaming = false) {
   );
 }
 
-export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, onNewSession, historyToggle }: OpenClawChannelProps) {
+export function OpenClawChannel({ className, initialMessage, sessionId: externalSessionId, validationId, onNewSession, historyToggle }: OpenClawChannelProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { connections, reload: reloadConnections } = useOpenClawConnections(user?.id);
