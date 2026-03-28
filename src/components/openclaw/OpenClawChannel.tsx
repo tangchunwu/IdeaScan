@@ -648,7 +648,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis');
+          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis', reportContextRef.current || undefined);
         } else {
           setActiveSkill('competitive-analysis');
           setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
