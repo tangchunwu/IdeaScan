@@ -727,6 +727,15 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
 
   const handleQuickPrompt = (prompt: string, skillId?: string) => {
     if (sending) return;
+    if (skillId) {
+      const skill = getSkillById(skillId);
+      if (skill) {
+        setActiveSkill(skillId);
+        setInput(skill.inputPlaceholder);
+        setTimeout(() => inputRef.current?.focus(), 50);
+        return;
+      }
+    }
     sendMessage(prompt, undefined, undefined, skillId);
   };
 
