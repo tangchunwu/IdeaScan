@@ -636,7 +636,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'prd-generator');
+          sendMessage(cmdArgs, undefined, undefined, 'prd-generator', reportContextRef.current || undefined);
         } else {
           setActiveSkill('prd-generator');
           setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
