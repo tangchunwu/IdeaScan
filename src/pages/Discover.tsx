@@ -207,8 +207,9 @@ export default function Discover() {
               />
             </ScrollReveal>
 
-            {/* Personalized Recommendations */}
-            <PersonalizedSection />
+            <ScrollReveal delay={100}>
+              <PersonalizedSection />
+            </ScrollReveal>
 
             {/* Filters + View Toggle */}
             <div className="mb-6 flex flex-col md:flex-row md:items-center gap-4">
