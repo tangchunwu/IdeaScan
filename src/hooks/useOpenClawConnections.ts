@@ -19,9 +19,11 @@ export function useOpenClawConnections(userId: string | undefined) {
   const [connections, setConnections] = useState<OpenClawConnection[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
+  const initialLoadDone = useRef(false);
+
+  const load = useCallback(async (silent = false) => {
     if (!userId) { setConnections([]); return; }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('openclaw_connections' as any)
@@ -33,7 +35,7 @@ export function useOpenClawConnections(userId: string | undefined) {
     } catch (e) {
       console.error('Load connections error:', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [userId]);
 
