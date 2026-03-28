@@ -1,13 +1,14 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Zap, MessageSquare, AlertCircle, Database, Swords } from "lucide-react";
+import { Heart, Bookmark, MessageCircle, Database } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
 import { DemandDecisionCard } from "./DemandDecisionCard";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];
@@ -56,10 +57,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Content Type Distribution + Key Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <PieChartIcon className="w-5 h-5 text-accent" />
-            内容类型分布
-          </h3>
+          <SectionHeading emoji="📊" title="内容类型分布" />
           <div className="h-64 flex items-center">
             {xiaohongshuData.contentTypes.length > 0 ? (
               <>
@@ -90,10 +88,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
         </GlassCard>
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            关键指标
-          </h3>
+          <SectionHeading emoji="📈" title="关键指标" />
           <div className="space-y-4">
             {[
               { label: "总互动量", value: xiaohongshuData.totalEngagement.toLocaleString(), icon: Heart, color: "text-destructive" },
@@ -119,10 +114,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {hasInsightsData && (
         <GlassCard padding="md">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" />
-              数据质量评分
-            </h3>
+            <SectionHeading emoji="⚡" title="数据质量评分" className="mb-0" />
             <Badge variant="outline" className={
               (dataQualityScore || 0) >= 70 ? "border-green-500/50 text-green-500" :
                 (dataQualityScore || 0) >= 40 ? "border-yellow-500/50 text-yellow-500" :
@@ -141,11 +133,8 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Cross-Platform Resonance */}
       {dataSummary?.crossPlatformResonance?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Swords className="w-5 h-5 text-accent" />
-            跨平台强刚需
-            <Badge variant="outline" className="ml-2 bg-accent/10 text-accent border-accent/20">多平台验证</Badge>
-          </h3>
+          <SectionHeading emoji="🔗" title="跨平台强刚需" />
+          <Badge variant="outline" className="ml-2 mb-4 bg-accent/10 text-accent border-accent/20">多平台验证</Badge>
           <div className="space-y-4">
             {dataSummary.crossPlatformResonance
               .filter((r: any) => r.isHighIntensity)
@@ -181,10 +170,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Keywords Used */}
       {keywordsUsed && Object.keys(keywordsUsed).length > 0 && (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-secondary" />
-            搜索关键词
-          </h3>
+          <SectionHeading emoji="🔍" title="搜索关键词" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {keywordsUsed.coreKeywords?.length ? (
               <div>
@@ -213,10 +199,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Pain Point Clusters */}
       {dataSummary?.painPointClusters?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-accent" />
-            用户痛点聚类
-          </h3>
+          <SectionHeading emoji="💬" title="用户痛点聚类" />
           <div className="space-y-4">
             {dataSummary.painPointClusters.slice(0, 5).map((p: any, i: number) => (
               <div key={i} className="border-l-2 border-primary/30 pl-4">
@@ -239,10 +222,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Market Signals */}
       {dataSummary?.marketSignals?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-warning" />
-            市场信号
-          </h3>
+          <SectionHeading emoji="📡" title="市场信号" />
           <div className="space-y-3">
             {dataSummary.marketSignals.slice(0, 4).map((s: any, i: number) => (
               <div key={i} className="p-3 rounded-lg bg-muted/30">

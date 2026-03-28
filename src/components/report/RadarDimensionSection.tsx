@@ -5,8 +5,9 @@ import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, Radar, Tooltip,
 } from "recharts";
-import { Target, Activity, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { CustomTooltip } from "./CustomTooltip";
+import { SectionHeading } from "./SectionHeading";
 import ReactMarkdown from "react-markdown";
 
 interface RadarDimensionSectionProps {
@@ -57,9 +58,7 @@ const DimensionItem = ({ d, i }: { d: { dimension: string; score: number; reason
 export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionSectionProps) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
-      <h3 className="font-semibold mb-2 flex items-center gap-2">
-        <Target className="w-5 h-5 text-primary" />需求验证雷达
-      </h3>
+      <SectionHeading emoji="🕸️" title="需求验证雷达" className="mb-0" />
       <div className="flex-1 min-h-[250px] w-full mt-4">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
@@ -74,10 +73,10 @@ export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionS
     </GlassCard>
 
     <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
-      <h3 className="font-semibold mb-6 flex items-center gap-2">
-        <Activity className="w-5 h-5 text-secondary" />需求真伪分析
-        <span className="text-xs text-muted-foreground font-normal ml-auto">点击展开详情</span>
-      </h3>
+      <div className="flex items-center justify-between mb-6">
+        <SectionHeading emoji="🔬" title="需求真伪分析" className="mb-0" />
+        <span className="text-xs text-muted-foreground font-normal">点击展开详情</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
         {dimensions.map((d, i) => (
           <DimensionItem key={i} d={d} i={i} />

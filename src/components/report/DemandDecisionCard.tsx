@@ -62,7 +62,7 @@ export const DemandDecisionCard = ({
       <div className="p-6 md:p-8 space-y-5">
         {/* Verdict Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">需求验证结论</div>
+          <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold border-l-[3px] border-primary pl-3">需求验证结论</div>
           <div className={`text-lg font-bold px-5 py-1.5 rounded-full border ${verdictClass}`}>
             {verdictLabel}
           </div>
@@ -71,7 +71,7 @@ export const DemandDecisionCard = ({
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30 border-l-[3px] border-l-primary">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">样本量</div>
             <div className="text-2xl font-semibold">{animatedNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
             {xiaohongshuData.totalNotes < 100 && <div className="text-xs text-orange-500">建议 &gt;100</div>}

@@ -1,11 +1,12 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { PieChartIcon, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { CustomTooltip } from "./CustomTooltip";
 import { SentimentWordCloud } from "./SentimentWordCloud";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];
@@ -41,7 +42,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
 
       {/* Target Audience + Keywords */}
       <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <h3 className="text-lg font-semibold text-foreground mb-4">目标用户画像</h3>
+        <SectionHeading emoji="🎯" title="目标用户画像" />
         <p className="text-muted-foreground leading-relaxed">{marketAnalysis.targetAudience}</p>
         {(marketAnalysis.keywords?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
@@ -56,10 +57,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
 
       {/* Sentiment Pie Chart */}
       <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <PieChartIcon className="w-5 h-5 text-primary" />
-          情感分布
-        </h3>
+        <SectionHeading emoji="💬" title="情感分布" />
         <div className="h-64 flex items-center justify-center">
           <ResponsiveContainer width="50%" height="100%">
             <PieChart>
@@ -96,10 +94,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
       {/* Positive & Negative Points */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-secondary" />
-            正面评价要点
-          </h3>
+          <SectionHeading emoji="👍" title="正面评价要点" />
           <div className="space-y-2">
             {(sentimentAnalysis.topPositive || []).map((item: string, index: number) => (
               <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/10">
@@ -114,10 +109,8 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
         </GlassCard>
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "250ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-destructive" />
-            负面评价要点
-          </h3>
+          <SectionHeading emoji="👎" title="负面评价要点" />
+          
           <div className="space-y-2">
             {(sentimentAnalysis.topNegative || []).map((item: string, index: number) => (
               <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-destructive/10">

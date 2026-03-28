@@ -1,6 +1,6 @@
-import { TrendingUp, AlertCircle, Target } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import ReactMarkdown from "react-markdown";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 import { RiskMitigationCards } from "./RiskMitigationCards";
 import { MonetizationStrategies } from "./MonetizationStrategies";
@@ -21,12 +21,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
         <GlassCard className="h-full overflow-hidden" padding="none">
           <div className="h-1 bg-gradient-to-r from-green-500/40 to-transparent" />
           <div className="p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-              </div>
-              <span className="text-green-500">核心投资亮点</span>
-            </h3>
+            <SectionHeading emoji="✅" title="核心投资亮点" className="mb-0" />
             <ul className="space-y-3">
               {ai.strengths?.map((item: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
@@ -43,12 +38,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
         <GlassCard className="h-full overflow-hidden" padding="none">
           <div className="h-1 bg-gradient-to-r from-red-500/40 to-transparent" />
           <div className="p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-              </div>
-              <span className="text-red-500">关键风险与致命伤</span>
-            </h3>
+            <SectionHeading emoji="⚠️" title="关键风险与致命伤" className="mb-0" />
             <ul className="space-y-3">
               {ai.weaknesses?.map((item: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
@@ -65,10 +55,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
 
       {/* 2. Strategic Roadmap — Timeline style */}
       <GlassCard>
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
-          <Target className="w-5 h-5" />
-          战略路线图
-        </h3>
+        <SectionHeading emoji="🗺️" title="战略路线图" />
         <div className="relative pl-6">
           {/* Timeline connector line */}
           <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/60" />
