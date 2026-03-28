@@ -1176,7 +1176,8 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <Textarea
-              placeholder={isRecording ? "录音中…" : (isMobile ? "输入指令或 / 命令..." : "输入指令或 / 查看命令... (Shift+Enter 换行)")}
+              ref={inputRef}
+              placeholder={isRecording ? "录音中…" : (activeSkillDef ? activeSkillDef.inputPlaceholder : (isMobile ? "输入指令或 / 命令..." : "输入指令或 / 查看命令... (Shift+Enter 换行)"))}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
