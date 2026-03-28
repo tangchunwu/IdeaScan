@@ -41,6 +41,7 @@ import { MonetizationStrategies } from "@/components/report/MonetizationStrategi
 import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 import { ReportNotes } from "@/components/report/ReportNotes";
 import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
+import { SectionHeading } from "@/components/report/SectionHeading";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -434,6 +435,7 @@ const Report = () => {
           )}
 
           {/* Quick Insights Cards */}
+          <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
           <QuickInsightsCards
             score={displayScore}
             competitionLevel={marketAnalysis.competitionLevel}
@@ -443,6 +445,7 @@ const Report = () => {
           />
 
           {/* Elevator Pitch Hero (full-width) */}
+          <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
           <div className="mb-3 sm:mb-4 animate-slide-up">
             <ScoreHeroCard
               score={displayScore}
@@ -456,6 +459,7 @@ const Report = () => {
           </div>
 
           {/* Persona Card (full-width) */}
+          <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
           <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
             {personaData ? (
               <PersonaCard persona={personaData} validationId={validation.id} />
@@ -501,6 +505,7 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
+          <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" className="mt-8" />
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">

@@ -31,18 +31,21 @@ const personaTypeConfig = {
               color: "bg-primary text-primary-foreground",
               icon: Star,
               description: "最有可能购买的目标群体",
+              weight: "50%",
        },
        secondary: {
               label: "潜在用户",
               color: "bg-secondary text-secondary-foreground",
               icon: Target,
               description: "可转化的次要目标群体",
+              weight: "30%",
        },
        tertiary: {
               label: "边缘用户",
               color: "bg-muted text-muted-foreground",
               icon: User,
               description: "需要更多教育的群体",
+              weight: "20%",
        },
 };
 
@@ -124,11 +127,15 @@ export const MultiPersonaCard = ({
                                    exit={{ opacity: 0, x: -20 }}
                                    transition={{ duration: 0.2 }}
                             >
-                                   {/* Basic Info */}
-                                   <div className="flex items-start gap-4 mb-6 p-4 rounded-xl bg-muted/30">
-                                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-2xl">
-                                                 👤
-                                          </div>
+       {/* Basic Info */}
+                                    <div className="relative flex items-start gap-4 mb-6 p-4 rounded-xl bg-muted/30">
+                                           {/* Weight Badge */}
+                                           <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-green-500/90 text-white text-[10px] font-bold leading-tight">
+                                                  {config.weight}
+                                           </span>
+                                           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-2xl">
+                                                  👤
+                                           </div>
                                           <div className="flex-1">
                                                  <h4 className="font-bold text-xl mb-1">{currentPersona.name}</h4>
                                                  <p className="text-muted-foreground mb-2">{currentPersona.role}</p>
