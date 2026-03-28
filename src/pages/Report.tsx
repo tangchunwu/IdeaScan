@@ -444,6 +444,8 @@ const Report = () => {
             sentimentPositive={sentimentAnalysis.positive}
           />
 
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
+
           {/* Elevator Pitch Hero (full-width) */}
           <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
           <div className="mb-3 sm:mb-4 animate-slide-up">
