@@ -44,7 +44,7 @@ export function OpenClawSettings() {
   const hasRelay = connections.some(c => c.mode === 'relay');
   useEffect(() => {
     if (!hasRelay) return;
-    const timer = setInterval(() => reload(), 10_000);
+    const timer = setInterval(() => reload(true), 10_000);
     return () => clearInterval(timer);
   }, [hasRelay, reload]);
   const [showForm, setShowForm] = useState(false);
