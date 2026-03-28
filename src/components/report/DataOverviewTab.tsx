@@ -89,7 +89,6 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
           <SectionHeading emoji="📈" title="关键指标" />
-          </h3>
           <div className="space-y-4">
             {[
               { label: "总互动量", value: xiaohongshuData.totalEngagement.toLocaleString(), icon: Heart, color: "text-destructive" },
