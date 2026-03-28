@@ -415,7 +415,7 @@ export default function Discover() {
                       </div>
                     </GlassCard>
                   </Link>
-                ))}
+                  </ScrollReveal>
               </div>
             )}
 
