@@ -94,10 +94,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
       {/* Positive & Negative Points */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-secondary" />
-            正面评价要点
-          </h3>
+          <SectionHeading emoji="👍" title="正面评价要点" />
           <div className="space-y-2">
             {(sentimentAnalysis.topPositive || []).map((item: string, index: number) => (
               <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/10">
