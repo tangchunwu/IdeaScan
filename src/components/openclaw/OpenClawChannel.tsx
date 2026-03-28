@@ -50,9 +50,16 @@ const QUICK_PROMPTS = [
     prompt: "请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。",
   },
   {
+    icon: FileText,
+    label: "写 PRD",
+    prompt: "请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。",
+    skillId: "prd-generator",
+  },
+  {
     icon: Search,
-    label: "竞品深度调研",
-    prompt: "请联网搜索我的竞品信息，分析差异化机会，输出调研报告并保存到 workspace/competitor-report.md。",
+    label: "竞品分析",
+    prompt: "请基于验证报告数据，进行系统化的竞品分析。",
+    skillId: "competitive-analysis",
   },
   {
     icon: Lightbulb,
