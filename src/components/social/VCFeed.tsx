@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { MessageSquare, Loader2, RefreshCw, Sparkles, RotateCcw } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { FeedItem } from "./FeedItem";
