@@ -61,10 +61,20 @@ export function VCFeed({ validationId }: VCFeedProps) {
     }
   };
 
-  const handleGenerateDiscussion = async () => {
+  const handleGenerateDiscussion = async (regenerate = false) => {
     setIsGenerating(true);
     setError(null);
     try {
+      // If regenerating, delete existing AI comments first
+      if (regenerate) {
+        const { error: delErr } = await supabase
+          .from("comments")
+          .delete()
+          .eq("validation_id", validationId)
+          .eq("is_ai", true);
+        if (delErr) console.error("Failed to delete old comments:", delErr);
+      }
+
       const result = await generateDiscussion(validationId, llmConfig);
       
       // Show fallback toast if applicable
