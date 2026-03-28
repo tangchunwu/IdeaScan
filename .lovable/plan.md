@@ -1,47 +1,55 @@
 
 
-# 精简 OpenClaw 设置页面连接卡片
+## 小猫 IP 组件改造计划（保留现有配色）
 
-## 问题
+用小猫 🐱 作为品牌吉祥物，改造组件交互风格，配色体系不变。
 
-每个已配对的中继连接都展示了"第一步：下载脚本"和"第二步：选择后端"，信息冗余且过时：
-- 用户已经通过 `pair` 完成了配对，不需要再看下载和配对命令
-- 每个连接卡片占据大量纵向空间，两个连接就占满整屏
-- 真正有用的只是"重新启动"命令（`bridge.py run ...`）
+---
 
-## 方案
+### 改造内容
 
-**文件**：`src/components/openclaw/OpenClawSettings.tsx`
+**1. 品牌 Logo (`BrandLogo.tsx`)**
+- 图标从 `Sparkles` 换为 Lucide `Cat`
+- 渐变和配色保持不变
 
-将连接卡片改为精简卡片 + 可展开详情：
+**2. 按钮珍珠点击动效 (`button.tsx` + `index.css`)**
+- 新增 `@keyframes paw-press` 动画：点击时短暂缩放 + 柔光扩散
+- 按钮圆角加大到 `rounded-xl`
+- hover 微上浮已有，保持
 
-```text
-┌──────────────────────────────────────────┐
-│ 🟢 mac-agnet  [默认] [中继] 在线        │
-│ 最后同步: 2026/3/28 17:09               │
-│                                          │
-│ [▸ 启动命令]  [☆] [🔄] [🗑]             │
-│                                          │
-│  (展开后显示)                             │
-│  Claude Code | Codex | OpenAI            │
-│  python bridge.py run \                  │
-│    --connection-id xxx \                 │
-│    ...                                   │
-│  [复制命令]                               │
-└──────────────────────────────────────────┘
-```
+**3. 输入框 / 文本域 (`input.tsx` + `textarea.tsx`)**
+- 圆角加大到 `rounded-xl`
+- 聚焦时添加渐变发光边框效果（通过 `index.css` 的 focus 样式）
+- 添加轻微内阴影增加凹陷质感
 
-具体改动：
-1. **移除每个连接卡片中的"第一步：下载脚本"部分**（第284-301行） — 已配对的连接不需要重复展示下载和配对命令
-2. **将"第二步：启动命令"包裹在 Collapsible 中**，默认折叠，点击"启动命令"展开
-3. **保留 ID/Token 行**（方便调试复制），但也折叠到同一个展开区域内
-4. **顶部的通用安装命令保留在 `SetupGuide` 组件中**（仅在无连接时显示，已经是这样）
+**4. 开关 (`switch.tsx`)**
+- 滑块过渡改为弹跳曲线 `cubic-bezier(0.68, -0.55, 0.265, 1.55)`
+- 轨道添加内阴影增加质感
 
-这样每个连接卡片从 ~300px 高度缩减到 ~60px，页面更清爽。
+**5. 进度条 (`progress.tsx`)**
+- 容器改为胶囊形 + 更圆润
+- 填充条添加 primary→secondary 渐变
+- CSS 伪元素添加 2-3 颗小圆点装饰
 
-## 涉及文件
+**6. 空状态 (`EmptyState.tsx`)**
+- 默认描述改为小猫主题文案："喵~ 这里空空的，小猫还在探索中..."
+- 图标容器改为猫爪风格装饰
+- 保留 props 可覆盖
 
-| 文件 | 改动 |
-|------|------|
-| `src/components/openclaw/OpenClawSettings.tsx` | 移除冗余步骤，用 Collapsible 包裹启动命令 |
+**7. 全局动画 (`index.css`)**
+- 新增 `paw-press` 关键帧
+- glass-card hover 添加更柔和的阴影过渡
+
+---
+
+### 涉及文件（7个）
+
+1. `src/index.css` — 新增动画 + 输入框聚焦样式
+2. `src/components/ui/button.tsx` — 圆角 + 动效 class
+3. `src/components/ui/input.tsx` — 圆角 + 聚焦样式
+4. `src/components/ui/textarea.tsx` — 同上
+5. `src/components/ui/switch.tsx` — 弹跳过渡
+6. `src/components/ui/progress.tsx` — 胶囊形 + 渐变
+7. `src/components/shared/BrandLogo.tsx` — Cat 图标
+8. `src/components/shared/EmptyState.tsx` — 小猫主题文案
 
