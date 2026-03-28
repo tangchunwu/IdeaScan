@@ -202,10 +202,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Pain Point Clusters */}
       {dataSummary?.painPointClusters?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-accent" />
-            用户痛点聚类
-          </h3>
+          <SectionHeading emoji="💬" title="用户痛点聚类" />
           <div className="space-y-4">
             {dataSummary.painPointClusters.slice(0, 5).map((p: any, i: number) => (
               <div key={i} className="border-l-2 border-primary/30 pl-4">
