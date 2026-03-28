@@ -515,9 +515,8 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
-          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
-          <ScrollReveal delay={400}>
-          <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" />
+          <ScrollReveal delay={400} className="mt-10 sm:mt-14">
+          <SectionHeading icon={FileText} title="详细报告" subtitle="按维度展开查看" />
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
