@@ -225,10 +225,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Market Signals */}
       {dataSummary?.marketSignals?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-warning" />
-            市场信号
-          </h3>
+          <SectionHeading emoji="📡" title="市场信号" />
           <div className="space-y-3">
             {dataSummary.marketSignals.slice(0, 4).map((s: any, i: number) => (
               <div key={i} className="p-3 rounded-lg bg-muted/30">
