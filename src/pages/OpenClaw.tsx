@@ -17,6 +17,7 @@ export default function OpenClawPage() {
   useDocumentTitle("OpenClaw AI 助手");
   const [searchParams] = useSearchParams();
   const [initialMessage, setInitialMessage] = useState<string | undefined>();
+  const [validationId, setValidationId] = useState<string | undefined>();
   const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const [showHistory, setShowHistory] = useState(true);
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
