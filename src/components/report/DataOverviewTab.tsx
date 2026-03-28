@@ -136,11 +136,8 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Cross-Platform Resonance */}
       {dataSummary?.crossPlatformResonance?.length ? (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Swords className="w-5 h-5 text-accent" />
-            跨平台强刚需
-            <Badge variant="outline" className="ml-2 bg-accent/10 text-accent border-accent/20">多平台验证</Badge>
-          </h3>
+          <SectionHeading emoji="🔗" title="跨平台强刚需" />
+          <Badge variant="outline" className="ml-2 mb-4 bg-accent/10 text-accent border-accent/20">多平台验证</Badge>
           <div className="space-y-4">
             {dataSummary.crossPlatformResonance
               .filter((r: any) => r.isHighIntensity)
