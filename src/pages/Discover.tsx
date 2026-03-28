@@ -373,8 +373,8 @@ export default function Discover() {
             {!galleryLoading && galleryReports.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {galleryReports.map((report, index) => (
+                  <ScrollReveal key={report.id} delay={index * 80}>
                   <Link
-                    key={report.id}
                     to={`/share/${report.share_token}`}
                     className="group"
                   >
