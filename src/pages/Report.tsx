@@ -458,6 +458,7 @@ const Report = () => {
           </div>
 
           {/* Persona Card (full-width) */}
+          <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
           <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
             {personaData ? (
               <PersonaCard persona={personaData} validationId={validation.id} />
