@@ -57,9 +57,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Content Type Distribution + Key Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <PieChartIcon className="w-5 h-5 text-accent" />
-            内容类型分布
+          <SectionHeading emoji="📊" title="内容类型分布" />
           </h3>
           <div className="h-64 flex items-center">
             {xiaohongshuData.contentTypes.length > 0 ? (
