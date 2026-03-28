@@ -477,6 +477,7 @@ const Report = () => {
           </div>
 
 
+          <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
 
           {/* Prominent Re-analyze CTA when data is incomplete */}

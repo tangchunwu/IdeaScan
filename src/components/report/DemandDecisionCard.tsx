@@ -62,7 +62,7 @@ export const DemandDecisionCard = ({
       <div className="p-6 md:p-8 space-y-5">
         {/* Verdict Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">需求验证结论</div>
+          <div className="text-sm uppercase tracking-wider text-muted-foreground font-semibold border-l-[3px] border-primary pl-3">需求验证结论</div>
           <div className={`text-lg font-bold px-5 py-1.5 rounded-full border ${verdictClass}`}>
             {verdictLabel}
           </div>
