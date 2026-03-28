@@ -130,7 +130,7 @@ async function generateWithFallback(
   systemPrompt: string,
   userPrompt: string,
   temperature = 0.8,
-  maxTokens = 400,
+  maxTokens = 1000,
 ): Promise<{ content: string; provider: string; warnings: string[] }> {
   const warnings: string[] = [];
 
