@@ -89,9 +89,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
         </GlassCard>
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            关键指标
+          <SectionHeading emoji="📈" title="关键指标" />
           </h3>
           <div className="space-y-4">
             {[
