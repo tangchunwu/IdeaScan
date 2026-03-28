@@ -436,30 +436,34 @@ const Report = () => {
           )}
 
           {/* Quick Insights Cards */}
-          <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
-          <QuickInsightsCards
-            score={displayScore}
-            competitionLevel={marketAnalysis.competitionLevel}
-            strengths={aiAnalysis.strengths}
-            weaknesses={aiAnalysis.weaknesses}
-            sentimentPositive={sentimentAnalysis.positive}
-          />
+          <ScrollReveal>
+            <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
+            <QuickInsightsCards
+              score={displayScore}
+              competitionLevel={marketAnalysis.competitionLevel}
+              strengths={aiAnalysis.strengths}
+              weaknesses={aiAnalysis.weaknesses}
+              sentimentPositive={sentimentAnalysis.positive}
+            />
+          </ScrollReveal>
 
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           {/* Elevator Pitch Hero (full-width) */}
-          <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
-          <div className="mb-3 sm:mb-4 animate-slide-up">
-            <ScoreHeroCard
-              score={displayScore}
-              totalNotes={xiaohongshuData.totalNotes}
-              isIncomplete={isIncomplete}
-              idea={validation.idea}
-              overallVerdict={aiAnalysis.overallVerdict}
-              strengths={aiAnalysis.strengths || []}
-              weaknesses={aiAnalysis.weaknesses || []}
-            />
-          </div>
+          <ScrollReveal delay={100}>
+            <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
+            <div className="mb-3 sm:mb-4">
+              <ScoreHeroCard
+                score={displayScore}
+                totalNotes={xiaohongshuData.totalNotes}
+                isIncomplete={isIncomplete}
+                idea={validation.idea}
+                overallVerdict={aiAnalysis.overallVerdict}
+                strengths={aiAnalysis.strengths || []}
+                weaknesses={aiAnalysis.weaknesses || []}
+              />
+            </div>
+          </ScrollReveal>
 
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
