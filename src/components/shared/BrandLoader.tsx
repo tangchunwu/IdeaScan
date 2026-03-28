@@ -8,7 +8,7 @@ interface BrandLoaderProps {
        fullScreen?: boolean;
 }
 
-export const BrandLoader = ({ className, text = "Loading...", fullScreen = false }: BrandLoaderProps) => {
+export const BrandLoader = ({ className, text = "喵~ 加载中...", fullScreen = false }: BrandLoaderProps) => {
        const content = (
               <div className={cn("flex flex-col items-center justify-center gap-6", className)}>
                      <div className="relative">
