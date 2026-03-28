@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useOpenClawSessions } from "@/hooks/useOpenClawSessions";
-import { MessageSquare, Loader2, MessageCircle, Trash2, Pencil, Check, X, Pin, PinOff } from "lucide-react";
+import { MessageSquare, Loader2, Trash2, Pencil, Check, X, Pin, PinOff, MoreHorizontal } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 interface OpenClawHistoryProps {
@@ -67,7 +70,6 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
     setDeleting(true);
     try {
       await deleteSession(deleteTarget);
-      // Also unpin if pinned
       setPinnedIds(prev => {
         const next = new Set(prev);
         next.delete(deleteTarget);
@@ -125,6 +127,9 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
     return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
   });
 
+  // Group sessions by time period
+  const grouped = groupByTime(sortedSessions, pinnedIds);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -146,105 +151,103 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
 
   return (
     <>
-      <div className="space-y-0.5 p-1.5">
-          {sortedSessions.map((s) => {
-            const isActive = s.session_id === currentSessionId;
-            const isRenaming = renameTarget === s.session_id;
-            const isPinned = pinnedIds.has(s.session_id);
+      <div className="py-1 px-1">
+        {grouped.map(({ label, items }) => (
+          <div key={label}>
+            <div className="px-3 pt-3 pb-1">
+              <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-wide">{label}</span>
+            </div>
+            {items.map((s) => {
+              const isActive = s.session_id === currentSessionId;
+              const isRenaming = renameTarget === s.session_id;
+              const isPinned = pinnedIds.has(s.session_id);
 
-            return (
-              <div
-                key={s.session_id}
-                className={`group relative rounded-lg transition-all duration-150 ${
-                  isActive ? "bg-primary/10 shadow-sm" : "hover:bg-muted/50"
-                }`}
-              >
-                <button
-                  onClick={() => !isRenaming && onSelectSession(s.session_id)}
-                  className="w-full text-left px-3 py-2 pr-20"
+              return (
+                <div
+                  key={s.session_id}
+                  className={`group relative rounded-lg transition-all duration-150 ${
+                    isActive ? "bg-primary/10" : "hover:bg-muted/50"
+                  }`}
                 >
-                  <div className="flex items-start gap-2 min-w-0">
-                    <MessageCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                      isActive ? "text-primary" : "text-muted-foreground/40"
-                    }`} />
-                    <div className="min-w-0 flex-1">
-                      {isRenaming ? (
-                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                          <input
-                            ref={renameInputRef}
-                            value={renameValue}
-                            onChange={e => setRenameValue(e.target.value)}
-                            onKeyDown={handleRenameKeyDown}
-                            onBlur={confirmRename}
-                            className="w-full text-[13px] leading-tight bg-background border border-primary/40 rounded-md px-1.5 py-0.5 outline-none focus:border-primary transition-colors"
-                            maxLength={60}
-                          />
-                          <button
-                            onMouseDown={e => { e.preventDefault(); confirmRename(); }}
-                            className="p-0.5 rounded hover:bg-primary/10 transition-colors shrink-0"
-                          >
-                            <Check className="w-3.5 h-3.5 text-primary" />
-                          </button>
-                          <button
-                            onMouseDown={e => { e.preventDefault(); cancelRename(); }}
-                            className="p-0.5 rounded hover:bg-destructive/10 transition-colors shrink-0"
-                          >
-                            <X className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
-                        </div>
-                      ) : (
-                        <p className={`text-[13px] leading-tight truncate ${
-                          isActive ? "text-primary font-medium" : "text-foreground/80"
-                        }`}>
-                          {isPinned && <Pin className="w-3 h-3 inline-block mr-1 text-primary/60 -mt-0.5" />}
-                          {s.title}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-[10px] text-muted-foreground/50">
-                          {formatDistanceToNow(new Date(s.last_at), { addSuffix: true, locale: zhCN })}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground/30">·</span>
-                        <span className="text-[10px] text-muted-foreground/40">
-                          {s.message_count} 条
-                        </span>
+                  <button
+                    onClick={() => !isRenaming && onSelectSession(s.session_id)}
+                    className="w-full text-left px-3 py-2 pr-8"
+                  >
+                    {isRenaming ? (
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={handleRenameKeyDown}
+                          onBlur={confirmRename}
+                          className="w-full text-sm bg-background border border-primary/40 rounded-md px-1.5 py-0.5 outline-none focus:border-primary transition-colors"
+                          maxLength={60}
+                        />
+                        <button
+                          onMouseDown={e => { e.preventDefault(); confirmRename(); }}
+                          className="p-0.5 rounded hover:bg-primary/10 transition-colors shrink-0"
+                        >
+                          <Check className="w-3.5 h-3.5 text-primary" />
+                        </button>
+                        <button
+                          onMouseDown={e => { e.preventDefault(); cancelRename(); }}
+                          className="p-0.5 rounded hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5 text-muted-foreground" />
+                        </button>
                       </div>
+                    ) : (
+                      <p className={`text-sm truncate ${
+                        isActive ? "text-foreground font-medium" : "text-foreground/80"
+                      }`}>
+                        {isPinned && <Pin className="w-3 h-3 inline-block mr-1 text-primary/60 -mt-0.5" />}
+                        {s.title}
+                      </p>
+                    )}
+                  </button>
+
+                  {/* Context menu trigger */}
+                  {!isRenaming && (
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            onClick={e => e.stopPropagation()}
+                            className="p-1 rounded-md hover:bg-muted transition-colors"
+                          >
+                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-36">
+                          <DropdownMenuItem onClick={() => startRename(s.session_id, s.title)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" />
+                            重命名
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => togglePin(s.session_id)}>
+                            {isPinned
+                              ? <><PinOff className="w-3.5 h-3.5 mr-2" />取消置顶</>
+                              : <><Pin className="w-3.5 h-3.5 mr-2" />置顶聊天</>
+                            }
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeleteTarget(s.session_id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-2" />
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  </div>
-                </button>
-                {/* Action buttons - visible on hover */}
-                {!isRenaming && (
-                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); togglePin(s.session_id); }}
-                      className="p-1.5 rounded-md hover:bg-primary/10 transition-all"
-                      title={isPinned ? "取消置顶" : "置顶"}
-                    >
-                      {isPinned
-                        ? <PinOff className="w-3.5 h-3.5 text-primary/60 hover:text-primary transition-colors" />
-                        : <Pin className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-primary transition-colors" />
-                      }
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); startRename(s.session_id, s.title); }}
-                      className="p-1.5 rounded-md hover:bg-primary/10 transition-all"
-                      title="重命名"
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-primary transition-colors" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(s.session_id); }}
-                      className="p-1.5 rounded-md hover:bg-destructive/10 transition-all"
-                      title="删除会话"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-destructive transition-colors" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
@@ -264,4 +267,45 @@ export function OpenClawHistory({ currentSessionId, onSelectSession, onSessionDe
       </AlertDialog>
     </>
   );
+}
+
+// Group sessions into time buckets like ChatGPT
+type SessionItem = { session_id: string; title: string; last_at: string; message_count: number };
+
+function groupByTime(sessions: SessionItem[], pinnedIds: Set<string>) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+
+  const groups: { label: string; items: SessionItem[] }[] = [];
+  const pinned: SessionItem[] = [];
+  const todayItems: SessionItem[] = [];
+  const yesterdayItems: SessionItem[] = [];
+  const weekItems: SessionItem[] = [];
+  const monthItems: SessionItem[] = [];
+  const olderItems: SessionItem[] = [];
+
+  for (const s of sessions) {
+    if (pinnedIds.has(s.session_id)) {
+      pinned.push(s);
+      continue;
+    }
+    const d = new Date(s.last_at);
+    if (d >= today) todayItems.push(s);
+    else if (d >= yesterday) yesterdayItems.push(s);
+    else if (d >= sevenDaysAgo) weekItems.push(s);
+    else if (d >= thirtyDaysAgo) monthItems.push(s);
+    else olderItems.push(s);
+  }
+
+  if (pinned.length) groups.push({ label: "📌 置顶", items: pinned });
+  if (todayItems.length) groups.push({ label: "今天", items: todayItems });
+  if (yesterdayItems.length) groups.push({ label: "昨天", items: yesterdayItems });
+  if (weekItems.length) groups.push({ label: "最近 7 天", items: weekItems });
+  if (monthItems.length) groups.push({ label: "最近 30 天", items: monthItems });
+  if (olderItems.length) groups.push({ label: "更早", items: olderItems });
+
+  return groups;
 }
