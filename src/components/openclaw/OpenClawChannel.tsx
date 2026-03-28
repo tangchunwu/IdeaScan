@@ -11,6 +11,7 @@ import {
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
   Check, ChevronDown, Server, Copy, CheckCheck, Mic, MicOff, X, Paperclip,
   FileText, Clock, ChevronRight, MessageSquarePlus, Cpu, HelpCircle, Trash2, RotateCcw, Terminal, Code,
+  TrendingUp, Rocket,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
