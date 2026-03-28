@@ -55,10 +55,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
 
       {/* 2. Strategic Roadmap — Timeline style */}
       <GlassCard>
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-primary">
-          <Target className="w-5 h-5" />
-          战略路线图
-        </h3>
+        <SectionHeading emoji="🗺️" title="战略路线图" />
         <div className="relative pl-6">
           {/* Timeline connector line */}
           <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/60" />

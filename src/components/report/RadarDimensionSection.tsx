@@ -73,10 +73,10 @@ export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionS
     </GlassCard>
 
     <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
-      <h3 className="font-semibold mb-6 flex items-center gap-2">
-        <Activity className="w-5 h-5 text-secondary" />需求真伪分析
-        <span className="text-xs text-muted-foreground font-normal ml-auto">点击展开详情</span>
-      </h3>
+      <div className="flex items-center justify-between mb-6">
+        <SectionHeading emoji="🔬" title="需求真伪分析" className="mb-0" />
+        <span className="text-xs text-muted-foreground font-normal">点击展开详情</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
         {dimensions.map((d, i) => (
           <DimensionItem key={i} d={d} i={i} />

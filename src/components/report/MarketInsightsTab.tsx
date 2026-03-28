@@ -109,9 +109,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
         </GlassCard>
 
         <GlassCard className="animate-slide-up" style={{ animationDelay: "250ms" }}>
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-destructive" />
-            负面评价要点
+          <SectionHeading emoji="👎" title="负面评价要点" />
           </h3>
           <div className="space-y-2">
             {(sentimentAnalysis.topNegative || []).map((item: string, index: number) => (
