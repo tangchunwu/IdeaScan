@@ -172,7 +172,12 @@ Deno.serve(async (req) => {
     };
 
     // Priority: client-sent full prompt > local fallback > default
-    const systemContent = clientSystemPrompt || (skill_id && SKILL_PROMPTS[skill_id] ? SKILL_PROMPTS[skill_id] : '你是用户的 AI Agent 助手。');
+    let systemContent = clientSystemPrompt || (skill_id && SKILL_PROMPTS[skill_id] ? SKILL_PROMPTS[skill_id] : '你是用户的 AI Agent 助手。');
+
+    // Inject validation report context into system prompt when available
+    if (report_context && typeof report_context === 'string') {
+      systemContent += `\n\n---\n\n## 用户的 IdeaScan 验证报告数据（请引用这些数据作为分析依据）\n\n${report_context}`;
+    }
 
     const messages: Array<{ role: string; content: unknown }> = [
       { role: 'system', content: systemContent },
