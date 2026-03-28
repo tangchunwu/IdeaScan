@@ -114,7 +114,7 @@ async function polishWithFallback(
         model: "google/gemini-3-flash-preview",
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 25000,
       });
-      const content = extractAssistantContent(res.json).trim();
+      const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
       errors.push(`lovable_ai: ${(e as Error).message?.slice(0, 120)}`);
