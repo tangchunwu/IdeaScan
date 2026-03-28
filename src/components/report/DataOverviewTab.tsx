@@ -1,13 +1,14 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { PieChartIcon, TrendingUp, Heart, Bookmark, MessageCircle, Zap, MessageSquare, AlertCircle, Database, Swords } from "lucide-react";
+import { Heart, Bookmark, MessageCircle, Database } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
 import { DemandDecisionCard } from "./DemandDecisionCard";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 
 const CONTENT_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted-foreground))"];

@@ -1,11 +1,12 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { PieChartIcon, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { CustomTooltip } from "./CustomTooltip";
 import { SentimentWordCloud } from "./SentimentWordCloud";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 
 const SENTIMENT_COLORS = ["hsl(var(--secondary))", "hsl(var(--muted))", "hsl(var(--destructive))"];

@@ -5,8 +5,9 @@ import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, Radar, Tooltip,
 } from "recharts";
-import { Target, Activity, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { CustomTooltip } from "./CustomTooltip";
+import { SectionHeading } from "./SectionHeading";
 import ReactMarkdown from "react-markdown";
 
 interface RadarDimensionSectionProps {

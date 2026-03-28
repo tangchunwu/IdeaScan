@@ -1,6 +1,6 @@
-import { TrendingUp, AlertCircle, Target } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import ReactMarkdown from "react-markdown";
+import { SectionHeading } from "./SectionHeading";
 import type { ReportDataResult } from "./useReportData";
 import { RiskMitigationCards } from "./RiskMitigationCards";
 import { MonetizationStrategies } from "./MonetizationStrategies";
