@@ -264,15 +264,16 @@ export default function Discover() {
               <>
                 {viewMode === "cards" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {topics.map(topic => (
-                      <TrendingTopicCard
-                        key={topic.id}
-                        topic={topic}
-                        userInterest={userInterests.get(topic.id)}
-                        onInterestChange={handleInterestChange}
-                        isAdmin={isAdmin}
-                        onDelete={handleDeleteTopic}
-                      />
+                    {topics.map((topic, index) => (
+                      <ScrollReveal key={topic.id} delay={index * 80}>
+                        <TrendingTopicCard
+                          topic={topic}
+                          userInterest={userInterests.get(topic.id)}
+                          onInterestChange={handleInterestChange}
+                          isAdmin={isAdmin}
+                          onDelete={handleDeleteTopic}
+                        />
+                      </ScrollReveal>
                     ))}
                   </div>
                 ) : (
