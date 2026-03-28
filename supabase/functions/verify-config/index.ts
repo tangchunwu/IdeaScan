@@ -157,7 +157,7 @@ serve(async (req) => {
   "dimensions": [{"dimension":"需求痛感","score":50,"reason":""}]
 }`;
 
-        const completion = await requestChatCompletion({
+        const baseReq = {
           baseUrl: cleanBaseUrl,
           apiKey,
           model: model || "gpt-3.5-turbo",
@@ -165,8 +165,16 @@ serve(async (req) => {
           temperature: 0.2,
           maxTokens: 700,
           timeoutMs,
-          responseFormat: { type: "json_object" },
-        });
+        };
+
+        // Try with JSON mode first, then retry without it for models that don't support response_format
+        let completion: any;
+        try {
+          completion = await requestChatCompletion({ ...baseReq, responseFormat: { type: "json_object" } });
+        } catch {
+          // Retry without response_format (MiniMax, some other providers don't support it)
+          completion = await requestChatCompletion(baseReq);
+        }
 
         const content = extractAssistantContent(completion.json);
         const obj = parseModelJsonLoose(String(content));
