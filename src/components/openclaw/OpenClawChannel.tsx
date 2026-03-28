@@ -70,6 +70,24 @@ const QUICK_PROMPTS = [
     label: "头脑风暴",
     prompt: "请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。",
   },
+  {
+    icon: TrendingUp,
+    label: "增长策略",
+    prompt: "请基于验证报告数据，帮我制定用户增长策略。",
+    skillId: "growth-strategy",
+  },
+  {
+    icon: Rocket,
+    label: "GTM 方案",
+    prompt: "请基于验证报告数据，帮我制定 Go-to-Market 方案。",
+    skillId: "gtm-plan",
+  },
+  {
+    icon: Cpu,
+    label: "技术架构",
+    prompt: "请基于验证报告数据，帮我设计技术架构方案。",
+    skillId: "tech-architecture",
+  },
 ];
 
 const TEXT_FILE_TYPES = ['.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.html', '.css', '.js', '.ts', '.py'];
