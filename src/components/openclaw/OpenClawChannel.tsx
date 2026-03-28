@@ -600,6 +600,20 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         }
         return;
       }
+      if (cmdName === '/prd') {
+        setInput("");
+        setShowSlashMenu(false);
+        const topic = cmdArgs || '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。';
+        sendMessage(topic, undefined, undefined, 'prd-generator');
+        return;
+      }
+      if (cmdName === '/competitive') {
+        setInput("");
+        setShowSlashMenu(false);
+        const topic = cmdArgs || '请基于验证报告数据，进行系统化的竞品分析。';
+        sendMessage(topic, undefined, undefined, 'competitive-analysis');
+        return;
+      }
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
