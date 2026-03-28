@@ -638,6 +638,8 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
           else toast.error('没有可重试的消息');
         }
+        else if (cmd.name === '/prd') { setInput(''); sendMessage('请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。', undefined, undefined, 'prd-generator'); }
+        else if (cmd.name === '/competitive') { setInput(''); sendMessage('请基于验证报告数据，进行系统化的竞品分析。', undefined, undefined, 'competitive-analysis'); }
       }, 50);
     } else {
       // For server commands, fill the input with the command and a space for args
