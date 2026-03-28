@@ -83,6 +83,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/new', description: '开启新对话', icon: MessageSquarePlus, clientOnly: true },
   { name: '/clear', description: '清空当前对话', icon: Trash2, clientOnly: true },
   { name: '/retry', description: '重试上一条消息', icon: RotateCcw, clientOnly: true },
+  { name: '/prd', description: '生成产品需求文档', icon: FileText, clientOnly: true },
+  { name: '/competitive', description: '竞品分析', icon: Search, clientOnly: true },
   { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
   { name: '/codex', description: '切换到 Codex 后端', icon: Terminal, clientOnly: false },
   { name: '/claude', description: '切换到 Claude Code 后端', icon: Code, clientOnly: false },
