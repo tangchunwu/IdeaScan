@@ -64,19 +64,20 @@ export const BrandLoader = ({ className, text = "喵~ 加载中...", fullScreen 
                                    {text}
                             </motion.span>
 
-                            {/* Progress bar simulation */}
-                            <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
-                                   <motion.div
-                                          className="h-full bg-primary"
-                                          initial={{ x: "-100%" }}
-                                          animate={{ x: "100%" }}
-                                          transition={{
-                                                 repeat: Infinity,
-                                                 duration: 1.5,
-                                                 ease: "easeInOut",
-                                          }}
-                                   />
-                            </div>
+                             {/* Cat paw progress bar */}
+                             <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden relative">
+                                    <motion.div
+                                           className="h-full bg-gradient-to-r from-primary to-secondary rounded-full"
+                                           initial={{ x: "-100%" }}
+                                           animate={{ x: "100%" }}
+                                           transition={{
+                                                  repeat: Infinity,
+                                                  duration: 1.5,
+                                                  ease: "easeInOut",
+                                           }}
+                                    />
+                             </div>
+                             <span className="text-xs text-muted-foreground">🐾</span>
                      </div>
               </div>
        );
