@@ -96,7 +96,7 @@ export function OpenClawSettings() {
   const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/tangchunwu/IdeaScan/main/scripts/agent-bridge/bridge.py";
 
   const getSetupCommands = () => {
-    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests`;
+    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests\n\n# 3. 一键配对（推荐）\npython bridge.py pair --supabase-url ${import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`} --backend claude --work-dir ~/my-project`;
   };
 
   const getBridgeCommand = (conn: OpenClawConnection) => {
