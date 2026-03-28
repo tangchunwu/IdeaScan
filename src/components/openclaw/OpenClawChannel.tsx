@@ -511,8 +511,9 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Validation report context cache for skills
+  // Validation report context cache for skills (summary for follow-ups, full for first message)
   const reportContextRef = useRef<string | null>(null);
+  const reportContextSummaryRef = useRef<string | null>(null);
   const reportContextFetchedRef = useRef<string | null>(null); // tracks which validationId was fetched
 
   // Fetch validation report context when we have a validationId
@@ -523,11 +524,12 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
       try {
         const { getValidation } = await import('@/services/validationService');
         const { useReportData } = await import('@/components/report/useReportData');
-        const { buildOpenClawContext } = await import('@/lib/buildOpenClawContext');
+        const { buildOpenClawContext, buildOpenClawContextSummary } = await import('@/lib/buildOpenClawContext');
         const fullData = await getValidation(validationId);
         const reportData = useReportData(fullData);
         if (reportData) {
           reportContextRef.current = buildOpenClawContext(reportData);
+          reportContextSummaryRef.current = buildOpenClawContextSummary(reportData);
         }
       } catch (e) {
         console.warn('[OpenClaw] Failed to fetch validation report for skill context:', e);
