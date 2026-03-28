@@ -19,10 +19,23 @@ interface PairingDialogProps {
   onPaired: () => void;
 }
 
+const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/tangchunwu/IdeaScan/main/scripts/agent-bridge/bridge.py";
+
 export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogProps) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
+  const pairCommand = `curl -fsSL ${BRIDGE_RAW_URL} -o bridge.py && pip install requests && python bridge.py pair --supabase-url ${supabaseUrl} --backend claude --work-dir .`;
+
+  const copyCommand = async () => {
+    await navigator.clipboard.writeText(pairCommand);
+    setCopied(true);
+    toast.success("命令已复制");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleConfirm = async () => {
     if (code.length !== 6) return;
