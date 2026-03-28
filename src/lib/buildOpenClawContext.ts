@@ -139,7 +139,7 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   return lines.join("\n");
 }
 
-export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline";
+export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline" | "prd" | "competitive_analysis";
 
 /**
  * Build the initial prompt message that wraps the context.
