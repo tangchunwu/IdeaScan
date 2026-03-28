@@ -29,6 +29,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
+import { ScrollReveal } from "@/components/shared/ScrollReveal";
 
 interface GalleryReport {
   id: string;
@@ -197,17 +198,18 @@ export default function Discover() {
           {/* Tab 1: Market Monitor */}
           <TabsContent value="market" className="space-y-8 animate-fade-in">
             {/* Stats */}
-            <div className="mb-8">
+            <ScrollReveal>
               <DiscoverStats
                 totalTopics={stats?.totalTopics || 0}
                 avgHeatScore={stats?.avgHeatScore || 0}
                 topCategories={stats?.topCategories || []}
                 isLoading={statsLoading}
               />
-            </div>
+            </ScrollReveal>
 
-            {/* Personalized Recommendations */}
-            <PersonalizedSection />
+            <ScrollReveal delay={100}>
+              <PersonalizedSection />
+            </ScrollReveal>
 
             {/* Filters + View Toggle */}
             <div className="mb-6 flex flex-col md:flex-row md:items-center gap-4">
@@ -262,15 +264,16 @@ export default function Discover() {
               <>
                 {viewMode === "cards" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {topics.map(topic => (
-                      <TrendingTopicCard
-                        key={topic.id}
-                        topic={topic}
-                        userInterest={userInterests.get(topic.id)}
-                        onInterestChange={handleInterestChange}
-                        isAdmin={isAdmin}
-                        onDelete={handleDeleteTopic}
-                      />
+                    {topics.map((topic, index) => (
+                      <ScrollReveal key={topic.id} delay={index * 80}>
+                        <TrendingTopicCard
+                          topic={topic}
+                          userInterest={userInterests.get(topic.id)}
+                          onInterestChange={handleInterestChange}
+                          isAdmin={isAdmin}
+                          onDelete={handleDeleteTopic}
+                        />
+                      </ScrollReveal>
                     ))}
                   </div>
                 ) : (
@@ -370,8 +373,8 @@ export default function Discover() {
             {!galleryLoading && galleryReports.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {galleryReports.map((report, index) => (
+                  <ScrollReveal key={report.id} delay={index * 80}>
                   <Link
-                    key={report.id}
                     to={`/share/${report.share_token}`}
                     className="group"
                   >
@@ -412,6 +415,7 @@ export default function Discover() {
                       </div>
                     </GlassCard>
                   </Link>
+                  </ScrollReveal>
                 ))}
               </div>
             )}

@@ -42,6 +42,7 @@ import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 import { ReportNotes } from "@/components/report/ReportNotes";
 import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
 import { SectionHeading } from "@/components/report/SectionHeading";
+import { ScrollReveal } from "@/components/shared/ScrollReveal";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
@@ -435,55 +436,63 @@ const Report = () => {
           )}
 
           {/* Quick Insights Cards */}
-          <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
-          <QuickInsightsCards
-            score={displayScore}
-            competitionLevel={marketAnalysis.competitionLevel}
-            strengths={aiAnalysis.strengths}
-            weaknesses={aiAnalysis.weaknesses}
-            sentimentPositive={sentimentAnalysis.positive}
-          />
+          <ScrollReveal>
+            <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
+            <QuickInsightsCards
+              score={displayScore}
+              competitionLevel={marketAnalysis.competitionLevel}
+              strengths={aiAnalysis.strengths}
+              weaknesses={aiAnalysis.weaknesses}
+              sentimentPositive={sentimentAnalysis.positive}
+            />
+          </ScrollReveal>
 
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           {/* Elevator Pitch Hero (full-width) */}
-          <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
-          <div className="mb-3 sm:mb-4 animate-slide-up">
-            <ScoreHeroCard
-              score={displayScore}
-              totalNotes={xiaohongshuData.totalNotes}
-              isIncomplete={isIncomplete}
-              idea={validation.idea}
-              overallVerdict={aiAnalysis.overallVerdict}
-              strengths={aiAnalysis.strengths || []}
-              weaknesses={aiAnalysis.weaknesses || []}
-            />
-          </div>
+          <ScrollReveal delay={100}>
+            <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
+            <div className="mb-3 sm:mb-4">
+              <ScoreHeroCard
+                score={displayScore}
+                totalNotes={xiaohongshuData.totalNotes}
+                isIncomplete={isIncomplete}
+                idea={validation.idea}
+                overallVerdict={aiAnalysis.overallVerdict}
+                strengths={aiAnalysis.strengths || []}
+                weaknesses={aiAnalysis.weaknesses || []}
+              />
+            </div>
+          </ScrollReveal>
 
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           {/* Persona Card (full-width) */}
-          <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
-          <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
-            {personaData ? (
-              <PersonaCard persona={personaData} validationId={validation.id} />
-            ) : (
-              <GlassCard className="flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed py-12">
-                <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
-                <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
-                <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
-                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                  {isReanalyzing ? "分析中..." : "补充分析用户画像"}
-                </Button>
-              </GlassCard>
-            )}
-          </div>
+          <ScrollReveal delay={200}>
+            <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
+            <div className="mb-3 sm:mb-4">
+              {personaData ? (
+                <PersonaCard persona={personaData} validationId={validation.id} />
+              ) : (
+                <GlassCard className="flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border-dashed py-12">
+                  <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                  <h3 className="text-lg font-medium mb-2">用户画像数据缺失</h3>
+                  <p className="text-sm opacity-60 mb-4">点击下方按钮补充 AI 分析</p>
+                  <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10" onClick={handleReanalyze} disabled={isReanalyzing}>
+                    {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    {isReanalyzing ? "分析中..." : "补充分析用户画像"}
+                  </Button>
+                </GlassCard>
+              )}
+            </div>
+          </ScrollReveal>
 
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
-          <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
-          <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
+          <ScrollReveal delay={300}>
+            <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
+            <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
+          </ScrollReveal>
 
           {/* Prominent Re-analyze CTA when data is incomplete */}
           {needsReanalysis && !isIncomplete && (
@@ -512,6 +521,7 @@ const Report = () => {
 
           {/* Tabs - Lazy rendered */}
           <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
+          <ScrollReveal delay={400}>
           <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" />
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
@@ -552,6 +562,7 @@ const Report = () => {
               </motion.div>
             </AnimatePresence>
           </Tabs>
+          </ScrollReveal>
 
           <DevPanel report={report} validationId={validation.id} />
         </div>
