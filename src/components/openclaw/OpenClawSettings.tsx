@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download, Link2 } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, ChevronRight, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { PairingDialog } from "./PairingDialog";
 import { SetupGuide } from "./SetupGuide";
@@ -259,50 +260,37 @@ export function OpenClawSettings() {
                 </div>
               </div>
 
-              {/* Relay mode: show bridge command */}
+              {/* Relay mode: collapsible details */}
               {conn.mode === 'relay' && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <code className="text-[9px] bg-muted/30 px-1.5 py-0.5 rounded flex-1 truncate font-mono">
-                      ID: {conn.id}
-                    </code>
-                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.id, `id-${conn.id}`)}>
-                      {copiedId === `id-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2 gap-1 text-muted-foreground hover:text-foreground w-full justify-start rounded-lg group">
+                      <ChevronRight className="w-3 h-3 transition-transform group-data-[state=open]:rotate-90" />
+                      启动命令 & 连接信息
                     </Button>
-                  </div>
-                  {conn.token && (
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 pt-1">
+                    {/* ID & Token */}
                     <div className="flex items-center gap-1">
                       <code className="text-[9px] bg-muted/30 px-1.5 py-0.5 rounded flex-1 truncate font-mono">
-                        Token: {conn.token.slice(0, 8)}...{conn.token.slice(-4)}
+                        ID: {conn.id}
                       </code>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.token!, `tok-${conn.id}`)}>
-                        {copiedId === `tok-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.id, `id-${conn.id}`)}>
+                        {copiedId === `id-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
                       </Button>
                     </div>
-                  )}
+                    {conn.token && (
+                      <div className="flex items-center gap-1">
+                        <code className="text-[9px] bg-muted/30 px-1.5 py-0.5 rounded flex-1 truncate font-mono">
+                          Token: {conn.token.slice(0, 8)}...{conn.token.slice(-4)}
+                        </code>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(conn.token!, `tok-${conn.id}`)}>
+                          {copiedId === `tok-${conn.id}` ? <Check className="w-2.5 h-2.5 text-primary" /> : <Copy className="w-2.5 h-2.5" />}
+                        </Button>
+                      </div>
+                    )}
 
-                  {/* Step 1: Setup — download bridge */}
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Download className="w-3 h-3" /> 第一步：下载脚本
-                    </Label>
-                    <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
-                      {getSetupCommands()}
-                    </pre>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-[10px] h-7 rounded-lg gap-1"
-                      onClick={() => copyToClipboard(getSetupCommands(), `setup-${conn.id}`)}
-                    >
-                      {copiedId === `setup-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
-                      复制安装命令
-                    </Button>
-                  </div>
-
-                  {/* Step 2: Choose backend & run */}
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground">第二步：选择 Agent 后端并启动</Label>
+                    {/* Backend selector + command */}
                     <div className="flex gap-1">
                       {(['claude', 'codex', 'openai'] as const).map(b => (
                         <Button
@@ -316,22 +304,22 @@ export function OpenClawSettings() {
                         </Button>
                       ))}
                     </div>
-                  </div>
 
-                  <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
-                    {getBridgeCommand(conn)}
-                  </pre>
+                    <pre className="text-[9px] bg-muted/30 p-2 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap break-all text-muted-foreground leading-relaxed">
+                      {getBridgeCommand(conn)}
+                    </pre>
 
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full text-[10px] h-7 rounded-lg gap-1"
-                    onClick={() => copyToClipboard(getBridgeCommand(conn), `cmd-${conn.id}`)}
-                  >
-                    {copiedId === `cmd-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
-                    复制启动命令
-                  </Button>
-                </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full text-[10px] h-7 rounded-lg gap-1"
+                      onClick={() => copyToClipboard(getBridgeCommand(conn), `cmd-${conn.id}`)}
+                    >
+                      {copiedId === `cmd-${conn.id}` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                      复制启动命令
+                    </Button>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </div>
           ))}
