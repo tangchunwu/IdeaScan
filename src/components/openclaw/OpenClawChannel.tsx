@@ -687,9 +687,9 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     setInitialSent(false);
   };
 
-  const handleQuickPrompt = (prompt: string) => {
+  const handleQuickPrompt = (prompt: string, skillId?: string) => {
     if (sending) return;
-    sendMessage(prompt);
+    sendMessage(prompt, undefined, undefined, skillId);
   };
 
   const handleVoiceToggle = useCallback(async () => {
