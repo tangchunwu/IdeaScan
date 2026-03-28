@@ -659,7 +659,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
-    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
+    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined, activeSkill ? reportContextRef.current || undefined : undefined);
     setInput("");
     setShowSlashMenu(false);
     setPendingImage(null);
