@@ -25,17 +25,21 @@ export const LoadingSpinner = ({
   if (variant === "dots") {
     return (
       <div className={cn("flex flex-col items-center", config.container, className)}>
-        <div className="flex gap-1.5">
-          {[0, 1, 2].map((i) => (
+        {/* Cat paw dots: large pad + two smaller toes */}
+        <div className="flex items-end gap-1">
+          {[
+            { scale: 0.7, delay: 0 },
+            { scale: 1, delay: 0.12 },
+            { scale: 0.7, delay: 0.24 },
+          ].map((dot, i) => (
             <div
               key={i}
-              className={cn(
-                "rounded-full bg-primary",
-                size === "sm" ? "w-2 h-2" : size === "md" ? "w-2.5 h-2.5" : "w-3 h-3"
-              )}
+              className="rounded-full bg-primary"
               style={{
+                width: `${(size === "sm" ? 8 : size === "md" ? 10 : 12) * dot.scale}px`,
+                height: `${(size === "sm" ? 8 : size === "md" ? 10 : 12) * dot.scale}px`,
                 animation: "bounce-gentle 1.4s ease-in-out infinite",
-                animationDelay: `${i * 0.16}s`,
+                animationDelay: `${dot.delay}s`,
               }}
             />
           ))}

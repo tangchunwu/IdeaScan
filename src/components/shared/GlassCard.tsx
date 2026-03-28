@@ -42,7 +42,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
           elevated ? "glass-card-elevated" : "glass-card",
           paddingMap[padding],
           "transition-all duration-300",
-          hover && "hover:-translate-y-1 hover:shadow-xl hover:border-primary/20 cursor-pointer",
+          hover && "hover:-translate-y-1 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.15)] hover:border-primary/20 cursor-pointer cat-paw-hover",
           glow && "ghibli-glow",
           interactive && "card-interactive",
           onClick && "cursor-pointer",

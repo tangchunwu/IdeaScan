@@ -666,3 +666,61 @@
   box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3) !important;
   border-radius: 0.75rem !important;
 }
+
+/* ========================================
+   Cat Paw Indicator (3-dot paw pattern)
+   ======================================== */
+
+.cat-paw-indicator {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.cat-paw-indicator::before,
+.cat-paw-indicator::after {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: hsl(var(--primary-foreground));
+}
+
+.cat-paw-indicator::before {
+  transform: translateY(-1px);
+}
+
+.cat-paw-indicator::after {
+  transform: translateY(-1px);
+}
+
+/* Cat paw hover decoration on GlassCard */
+.cat-paw-hover {
+  position: relative;
+}
+
+.cat-paw-hover::after {
+  content: '🐾';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  opacity: 0;
+  transform: scale(0.5) rotate(-15deg);
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  pointer-events: none;
+}
+
+.cat-paw-hover:hover::after {
+  opacity: 0.4;
+  transform: scale(1) rotate(0deg);
+}
+
+/* Toast cat-themed enhancements */
+.toaster .toast[data-type="success"] {
+  border-left: 4px solid hsl(var(--secondary)) !important;
+}
+
+.toaster .toast[data-type="error"] {
+  border-left: 4px solid hsl(var(--destructive)) !important;
+}

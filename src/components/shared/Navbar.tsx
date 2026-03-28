@@ -76,7 +76,7 @@ export const Navbar = () => {
                 IdeaScan
               </span>
               <span className="text-xs text-muted-foreground">
-                需求验证
+                需求验证 🐾
               </span>
             </div>
           </Link>
@@ -105,10 +105,10 @@ export const Navbar = () => {
                   )} />
                   <span className="text-sm font-medium">{item.label}</span>
 
-                  {/* 活跃指示器 */}
-                  {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-foreground" />
-                  )}
+                   {/* Cat paw active indicator */}
+                   {isActive && (
+                     <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 cat-paw-indicator" />
+                   )}
                 </Link>
               );
             })}
