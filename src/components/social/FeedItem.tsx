@@ -1,5 +1,5 @@
-import { useState, forwardRef } from "react";
-import { Heart, MessageCircle, ChevronDown, ChevronUp, Send, Loader2 } from "lucide-react";
+import { useState, useMemo, forwardRef } from "react";
+import { Heart, MessageCircle, ChevronDown, ChevronUp, Send, Loader2, Brain } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { PersonaAvatar } from "./PersonaAvatar";
@@ -29,6 +29,21 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
   const [replyContent, setReplyContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
+  const [showThinking, setShowThinking] = useState(false);
+
+  // Split <think>...</think> blocks from visible content
+  const { thinkingContent, visibleContent } = useMemo(() => {
+    const raw = comment.content || "";
+    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+    // Also handle unclosed <think> tags
+    const unclosedMatch = !thinkMatch ? raw.match(/<think>([\s\S]*)/i) : null;
+    const thinking = thinkMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim() || "";
+    const visible = raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/<think>[\s\S]*/gi, "")
+      .trim();
+    return { thinkingContent: thinking, visibleContent: visible };
+  }, [comment.content]);
 
   const persona = comment.persona;
   const replies = comment.replies || [];
@@ -84,8 +99,25 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
             <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
 
+          {thinkingContent && (
+            <button
+              onClick={() => setShowThinking(!showThinking)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors mb-2 mt-1"
+            >
+              <Brain className="w-3.5 h-3.5" />
+              <span>{showThinking ? "收起思考过程" : "查看思考过程"}</span>
+              {showThinking ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          )}
+
+          {showThinking && thinkingContent && (
+            <div className="mb-3 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              {thinkingContent}
+            </div>
+          )}
+
           <div className="text-foreground/90 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2">
-            <ReactMarkdown>{comment.content}</ReactMarkdown>
+            <ReactMarkdown>{visibleContent}</ReactMarkdown>
           </div>
 
           <div className="flex items-center gap-4 mt-2">
