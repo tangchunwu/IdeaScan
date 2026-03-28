@@ -50,13 +50,6 @@ interface QuickPrompt {
   accent?: string; // tailwind color class for icon bg
 }
 
-interface SkillCategory {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  items: QuickPrompt[];
-}
-
 const PRIMARY_SKILLS: QuickPrompt[] = [
   {
     icon: FileText,
