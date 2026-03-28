@@ -289,7 +289,11 @@ ${reportContext}${attitudeHint}
       fallbackUsed = true;
     }
 
-    const aiReplyContent = result.content;
+    // Clean <think> blocks and reasoning artifacts from AI output
+    const aiReplyContent = result.content
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/<think>[\s\S]*/gi, "")
+      .trim();
 
     // Save AI reply
     const { data: aiReply, error: insertAiError } = await supabase

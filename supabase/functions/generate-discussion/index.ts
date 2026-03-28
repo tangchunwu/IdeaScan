@@ -167,12 +167,24 @@ async function generateWithFallback(
 }
 
 function cleanCommentContent(content: string, personaName: string): string {
-  // Remove "[名字]:" or "名字:" prefix
+  // Strip <think>...</think> reasoning blocks (closed and unclosed)
   let cleaned = content
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*/gi, "")
+    .trim();
+
+  // Remove "[名字]:" or "名字:" prefix
+  cleaned = cleaned
     .replace(new RegExp(`^\\[?${personaName}\\]?[:：]\\s*`, 'i'), '')
     .replace(/^\[.*?\][:：]\s*/, '')
     .trim();
   
+  // Strip reasoning preamble lines (e.g. "让我分析这个创业项目，用...的视角来评价。")
+  cleaned = cleaned
+    .replace(/^让我[^\n]*?来[^\n]*?[。\.]\n*/i, '')
+    .replace(/^从[^\n]*?角度[^\n]*?[：:]\n*/i, '')
+    .trim();
+
   // Normalize whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   return cleaned || content;
