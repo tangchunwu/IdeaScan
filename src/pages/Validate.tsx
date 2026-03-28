@@ -163,7 +163,15 @@ const Validate = () => {
     setPolishedResult(null);
     try {
       const { data, error } = await invokeFunction<{ polished: string }>("polish-idea", {
-        body: { idea: idea.trim() },
+        body: {
+          idea: idea.trim(),
+          config: {
+            llmBaseUrl: settings.llmBaseUrl,
+            llmApiKey: settings.llmApiKey,
+            llmModel: settings.llmModel,
+            llmFallbacks: settings.llmFallbacks,
+          },
+        },
       }, true);
       if (error) throw new Error(error.message || "润色失败");
       if (data?.polished) {
