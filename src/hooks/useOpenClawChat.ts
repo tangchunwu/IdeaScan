@@ -178,7 +178,13 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
       if (connectionId) body.connection_id = connectionId;
       if (imageBase64) body.image = imageBase64;
       if (file) body.file = { name: file.name, type: file.type, data: file.data };
-      if (skillId) body.skill_id = skillId;
+      if (skillId) {
+        body.skill_id = skillId;
+        // Pass full system prompt from frontend — single source of truth
+        const { getSkillSystemPrompt } = await import('@/lib/openclawSkills');
+        const fullPrompt = getSkillSystemPrompt(skillId);
+        if (fullPrompt) body.system_prompt = fullPrompt;
+      }
 
       const res = await fetch(url, {
         method: 'POST',
