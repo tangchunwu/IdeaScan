@@ -505,6 +505,7 @@ const Report = () => {
           )}
 
           {/* Tabs - Lazy rendered */}
+          <SectionHeading emoji="📋" title="详细报告" subtitle="按维度展开查看" className="mt-8" />
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
             <div className="relative">
             <TabsList className="glass-card p-1 w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap">
