@@ -173,10 +173,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Keywords Used */}
       {keywordsUsed && Object.keys(keywordsUsed).length > 0 && (
         <GlassCard padding="md">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-secondary" />
-            搜索关键词
-          </h3>
+          <SectionHeading emoji="🔍" title="搜索关键词" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {keywordsUsed.coreKeywords?.length ? (
               <div>
