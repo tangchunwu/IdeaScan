@@ -11,6 +11,7 @@ import {
   Pencil, Image, Search, Lightbulb, Wrench, ImageOff, ZoomIn, RefreshCw,
   Check, ChevronDown, Server, Copy, CheckCheck, Mic, MicOff, X, Paperclip,
   FileText, Clock, ChevronRight, MessageSquarePlus, Cpu, HelpCircle, Trash2, RotateCcw, Terminal, Code,
+  TrendingUp, Rocket,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -69,6 +70,24 @@ const QUICK_PROMPTS = [
     label: "头脑风暴",
     prompt: "请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。",
   },
+  {
+    icon: TrendingUp,
+    label: "增长策略",
+    prompt: "请基于验证报告数据，帮我制定用户增长策略。",
+    skillId: "growth-strategy",
+  },
+  {
+    icon: Rocket,
+    label: "GTM 方案",
+    prompt: "请基于验证报告数据，帮我制定 Go-to-Market 方案。",
+    skillId: "gtm-plan",
+  },
+  {
+    icon: Cpu,
+    label: "技术架构",
+    prompt: "请基于验证报告数据，帮我设计技术架构方案。",
+    skillId: "tech-architecture",
+  },
 ];
 
 const TEXT_FILE_TYPES = ['.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.html', '.css', '.js', '.ts', '.py'];
@@ -88,6 +107,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/retry', description: '重试上一条消息', icon: RotateCcw, clientOnly: true },
   { name: '/prd', description: '生成产品需求文档', icon: FileText, clientOnly: true },
   { name: '/competitive', description: '竞品分析', icon: Search, clientOnly: true },
+  { name: '/growth', description: '用户增长策略', icon: TrendingUp, clientOnly: true },
+  { name: '/gtm', description: 'Go-to-Market 方案', icon: Rocket, clientOnly: true },
+  { name: '/arch', description: '技术架构设计', icon: Cpu, clientOnly: true },
   { name: '/model', description: '切换 AI 模型', icon: Cpu, clientOnly: false },
   { name: '/codex', description: '切换到 Codex 后端', icon: Terminal, clientOnly: false },
   { name: '/claude', description: '切换到 Claude Code 后端', icon: Code, clientOnly: false },
@@ -632,26 +654,23 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         }
         return;
       }
-      if (cmdName === '/prd') {
+      // Generic skill slash commands
+      const SKILL_CMD_MAP: Record<string, string> = {
+        '/prd': 'prd-generator',
+        '/competitive': 'competitive-analysis',
+        '/growth': 'growth-strategy',
+        '/gtm': 'gtm-plan',
+        '/arch': 'tech-architecture',
+      };
+      const skillId = SKILL_CMD_MAP[cmdName];
+      if (skillId) {
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'prd-generator', reportContextRef.current || undefined);
+          sendMessage(cmdArgs, undefined, undefined, skillId, reportContextRef.current || undefined);
         } else {
-          setActiveSkill('prd-generator');
-          setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
-          setTimeout(() => inputRef.current?.focus(), 50);
-        }
-        return;
-      }
-      if (cmdName === '/competitive') {
-        setShowSlashMenu(false);
-        if (cmdArgs) {
-          setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis', reportContextRef.current || undefined);
-        } else {
-          setActiveSkill('competitive-analysis');
-          setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+          setActiveSkill(skillId);
+          setInput(getSkillById(skillId)?.inputPlaceholder || '');
           setTimeout(() => inputRef.current?.focus(), 50);
         }
         return;
@@ -677,15 +696,18 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
         else toast.error('没有可重试的消息');
       }
-      else if (cmd.name === '/prd') {
-        setActiveSkill('prd-generator');
-        setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-      else if (cmd.name === '/competitive') {
-        setActiveSkill('competitive-analysis');
-        setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
-        setTimeout(() => inputRef.current?.focus(), 50);
+      else {
+        // Generic skill slash command handling
+        const SLASH_SKILL_MAP: Record<string, string> = {
+          '/prd': 'prd-generator', '/competitive': 'competitive-analysis',
+          '/growth': 'growth-strategy', '/gtm': 'gtm-plan', '/arch': 'tech-architecture',
+        };
+        const sid = SLASH_SKILL_MAP[cmd.name];
+        if (sid) {
+          setActiveSkill(sid);
+          setInput(getSkillById(sid)?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
       }
     } else {
       setInput(cmd.name + ' ');

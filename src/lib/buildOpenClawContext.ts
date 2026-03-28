@@ -139,7 +139,7 @@ export function buildOpenClawContext(r: ReportDataResult): string {
   return lines.join("\n");
 }
 
-export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline" | "prd" | "competitive_analysis";
+export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline" | "prd" | "competitive_analysis" | "growth_strategy" | "gtm_plan" | "tech_architecture";
 
 /**
  * Build the initial prompt message that wraps the context.
@@ -221,6 +221,27 @@ export function buildOpenClawPrompt(context: string, task: OpenClawTaskType = "x
 3. 输出完整竞品分析报告：功能对比矩阵、SWOT 分析、差异化机会、定价策略建议
 4. 给出 3-5 条具体可执行的产品策略建议
 请引用验证数据中的痛点和市场信号作为分析基础。`,
+
+    growth_strategy: `请基于以上验证报告数据，制定用户增长策略：
+1. 诊断当前产品阶段，分析 AARRR 漏斗
+2. 评估各获客渠道的 CAC 和适配度
+3. 设计 3-5 个增长实验（含假设、指标、成功标准）
+4. 输出 90 天增长路线图
+请引用验证数据中的用户画像和市场信号。`,
+
+    gtm_plan: `请基于以上验证报告数据，制定 Go-to-Market 方案：
+1. 明确市场定位和价值主张
+2. 制定定价策略（对比竞品定价）
+3. 规划发布渠道和时间线（预热→发布→持续增长）
+4. 定义成功 KPI 和衡量方式
+请引用验证数据中的竞品信息和用户画像。`,
+
+    tech_architecture: `请基于以上验证报告数据和产品方向，设计技术架构方案：
+1. 梳理功能需求和非功能需求
+2. 推荐技术栈选型（含对比和理由）
+3. 设计系统架构图（Mermaid）和数据模型
+4. 给出 MVP 阶段部署方案和成本估算
+请基于产品方向推断技术需求。`,
   };
 
   return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${taskInstructions[task]}`;
