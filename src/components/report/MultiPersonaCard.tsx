@@ -164,11 +164,11 @@ export const MultiPersonaCard = ({
                                    {/* Details Grid */}
                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                           {/* Pain Points */}
-                                          <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-red-500">😣</span>
-                                                        核心痛点
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 border-l-[3px] border-l-red-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>😣</span>
+                                                         核心痛点
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.painPoints.slice(0, 3).map((point, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
