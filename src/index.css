@@ -235,6 +235,51 @@
     transition: transform 0.1s;
   }
 
+  /* 猫爪按压动效 */
+  .paw-press:active {
+    animation: paw-press 0.3s ease-out;
+  }
+
+  @keyframes paw-press {
+    0% { transform: scale(1); }
+    40% { transform: scale(0.92); }
+    100% { transform: scale(1); }
+  }
+
+  /* 输入框聚焦渐变发光 */
+  .input-cat-focus {
+    @apply transition-all duration-300;
+    box-shadow: inset 0 2px 4px hsl(var(--glass-shadow));
+  }
+
+  .input-cat-focus:focus,
+  .input-cat-focus:focus-visible {
+    border-color: hsl(var(--primary));
+    box-shadow:
+      inset 0 2px 4px hsl(var(--glass-shadow)),
+      0 0 0 3px hsl(var(--primary) / 0.15),
+      0 0 12px hsl(var(--secondary) / 0.1);
+  }
+
+  /* 开关弹跳过渡 */
+  .switch-bounce [data-state] {
+    transition: transform 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* 进度条珍珠装饰 */
+  .progress-capsule [role="progressbar"] > div::after {
+    content: '';
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: hsl(var(--primary-foreground) / 0.5);
+    box-shadow: -12px 0 0 hsl(var(--primary-foreground) / 0.3);
+  }
+
   @keyframes float {
 
     0%,

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Sparkles } from "lucide-react";
+import { Cat } from "lucide-react";
 
 interface BrandLogoProps {
   className?: string;
@@ -39,7 +39,7 @@ export const BrandLogo = ({
         <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent opacity-50" />
         
         {/* Icon */}
-        <Sparkles className={cn("text-white relative z-10 transition-transform duration-500 group-hover:rotate-12", iconSizes[size])} strokeWidth={2.5} />
+        <Cat className={cn("text-white relative z-10 transition-transform duration-500 group-hover:rotate-12", iconSizes[size])} strokeWidth={2.5} />
         
         {/* Background blobs */}
         <div className="absolute -bottom-2 -right-2 w-full h-full bg-accent text-accent mix-blend-overlay opacity-40 blur-sm rounded-full" />
