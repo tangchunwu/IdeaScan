@@ -157,6 +157,25 @@ const Validate = () => {
     setSelectedTags(merged.slice(0, 5));
   };
 
+  const handlePolish = async () => {
+    if (!idea.trim() || idea.trim().length < 5) return;
+    setIsPolishing(true);
+    setPolishedResult(null);
+    try {
+      const { data, error } = await invokeFunction<{ polished: string }>("polish-idea", {
+        body: { idea: idea.trim() },
+      }, true);
+      if (error) throw new Error(error.message || "润色失败");
+      if (data?.polished) {
+        setPolishedResult(data.polished);
+      }
+    } catch (e) {
+      toast({ title: "AI 润色失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
+    } finally {
+      setIsPolishing(false);
+    }
+  };
+
   // Handle URL params
   useEffect(() => {
     const ideaParam = searchParams.get('idea');
