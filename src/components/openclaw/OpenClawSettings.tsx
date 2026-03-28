@@ -41,12 +41,12 @@ export function OpenClawSettings() {
   const onlineStatus = useRelayOnlineStatus(connections);
 
   // Auto-reload connections every 10s to refresh last_synced_at for relay connections
+  const hasRelay = connections.some(c => c.mode === 'relay');
   useEffect(() => {
-    const hasRelay = connections.some(c => c.mode === 'relay');
     if (!hasRelay) return;
     const timer = setInterval(() => reload(), 10_000);
     return () => clearInterval(timer);
-  }, [connections, reload]);
+  }, [hasRelay, reload]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("default");
   const [url, setUrl] = useState("");
