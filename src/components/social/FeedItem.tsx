@@ -29,6 +29,21 @@ export const FeedItem = forwardRef<HTMLDivElement, FeedItemProps>(function FeedI
   const [replyContent, setReplyContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
+  const [showThinking, setShowThinking] = useState(false);
+
+  // Split <think>...</think> blocks from visible content
+  const { thinkingContent, visibleContent } = useMemo(() => {
+    const raw = comment.content || "";
+    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+    // Also handle unclosed <think> tags
+    const unclosedMatch = !thinkMatch ? raw.match(/<think>([\s\S]*)/i) : null;
+    const thinking = thinkMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim() || "";
+    const visible = raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/<think>[\s\S]*/gi, "")
+      .trim();
+    return { thinkingContent: thinking, visibleContent: visible };
+  }, [comment.content]);
 
   const persona = comment.persona;
   const replies = comment.replies || [];
