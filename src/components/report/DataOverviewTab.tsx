@@ -58,7 +58,6 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
           <SectionHeading emoji="📊" title="内容类型分布" />
-          </h3>
           <div className="h-64 flex items-center">
             {xiaohongshuData.contentTypes.length > 0 ? (
               <>
