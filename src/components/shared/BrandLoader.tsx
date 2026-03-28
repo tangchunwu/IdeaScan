@@ -26,16 +26,16 @@ export const BrandLoader = ({ className, text = "喵~ 加载中...", fullScreen 
                                    className="absolute inset-0 rounded-full bg-primary/20 blur-xl"
                             />
 
-                            {/* Rotating ring */}
-                            <motion.div
-                                   animate={{ rotate: 360 }}
-                                   transition={{
-                                          duration: 8,
-                                          repeat: Infinity,
-                                          ease: "linear",
-                                   }}
-                                   className="absolute -inset-4 rounded-full border border-dashed border-primary/30"
-                            />
+                             {/* Cat tail swinging */}
+                             <motion.div
+                                    animate={{ rotate: ["-15deg", "15deg", "-15deg"] }}
+                                    transition={{
+                                           duration: 2,
+                                           repeat: Infinity,
+                                           ease: "easeInOut",
+                                    }}
+                                    className="absolute -inset-4 rounded-full border border-dashed border-primary/30"
+                             />
 
                             {/* Logo with pulse */}
                             <motion.div
