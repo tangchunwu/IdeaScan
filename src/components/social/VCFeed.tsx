@@ -182,8 +182,16 @@ export function VCFeed({ validationId }: VCFeedProps) {
           <h3 className="text-lg font-bold">VC Circle</h3>
           <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{comments.length} 条讨论</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={loadComments} className="text-muted-foreground hover:text-foreground">
-          <RefreshCw className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleGenerateDiscussion(true)}
+          disabled={isGenerating}
+          className="text-muted-foreground hover:text-foreground gap-1.5"
+          title="重新生成讨论"
+        >
+          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+          <span className="text-xs">重新生成</span>
         </Button>
       </div>
 
