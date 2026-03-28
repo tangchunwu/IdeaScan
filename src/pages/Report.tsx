@@ -480,6 +480,7 @@ const Report = () => {
             )}
           </div>
 
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
 
           <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
           <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
