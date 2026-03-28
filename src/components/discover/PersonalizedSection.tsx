@@ -57,7 +57,7 @@ export function PersonalizedSection({ onValidate }: PersonalizedSectionProps) {
                                         <TrendingTopicCard
                                                 key={topic.id}
                                                 topic={topic}
-                                                onValidate={() => onValidate?.(topic)}
+                                                onValidate={onValidate ? () => onValidate(topic) : undefined}
                                                 isPersonalized
                                         />
                                 ))}
