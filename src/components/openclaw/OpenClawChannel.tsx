@@ -20,6 +20,8 @@ import remarkGfm from "remark-gfm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getSkillById } from "@/lib/openclawSkills";
+import { SkillProgressPanel } from "./SkillProgressPanel";
 
 interface OpenClawChannelProps {
   className?: string;
