@@ -12,24 +12,19 @@ OpenClaw Agent Bridge — 多后端本地桥接脚本
   聊天中输入 /codex 或 /claude 即可实时切换
 
 用法:
-  # 同时配置 Claude + Codex，默认用 Claude
-  python bridge.py \
+  # 一键配对模式（推荐）
+  python bridge.py pair --supabase-url https://xxx.supabase.co --backend claude --work-dir ~/my-project
+
+  # 手动连接模式
+  python bridge.py run \
     --supabase-url https://xxx.supabase.co \
     --connection-id <uuid> --token <token> \
     --backends claude,codex --backend claude \
     --work-dir ~/my-project --dangerously-skip-permissions
 
-  # 单后端模式（向后兼容）
-  python bridge.py \
-    --supabase-url https://xxx.supabase.co \
-    --connection-id <uuid> --token <token> \
-    --backend claude --work-dir ~/my-project
-
-  # OpenAI 兼容 API 后端
-  python bridge.py \
-    --supabase-url https://xxx.supabase.co \
-    --connection-id <uuid> --token <token> \
-    --backend openai --agent-url http://localhost:11434
+  # curl 一键运行
+  curl -fsSL https://raw.githubusercontent.com/tangchunwu/IdeaScan/main/scripts/agent-bridge/bridge.py | \
+    python3 - pair --supabase-url https://xxx.supabase.co --backend claude --work-dir .
 
 依赖:
   pip install requests
@@ -50,42 +45,70 @@ import requests
 
 def parse_args():
     p = argparse.ArgumentParser(description="OpenClaw Agent Bridge")
-    p.add_argument("--supabase-url", required=True, help="Supabase project URL")
-    p.add_argument("--connection-id", required=True, help="Connection UUID")
-    p.add_argument("--token", required=True, help="Connection token")
-    p.add_argument("--poll-interval", type=float, default=2.0, help="Poll interval in seconds")
+    sub = p.add_subparsers(dest="command")
 
-    # Backend selection
-    p.add_argument("--backend", choices=["openai", "claude", "codex"], default="claude",
-                   help="Default agent backend type (default: claude)")
-    p.add_argument("--backends", default=None,
-                   help="Comma-separated list of available backends (e.g. claude,codex). "
-                        "Enables runtime switching via /codex and /claude commands.")
+    # ---- pair subcommand ----
+    pair_p = sub.add_parser("pair", help="一键配对模式：生成配对码，等待 Web 端确认后自动启动")
+    pair_p.add_argument("--supabase-url", required=True, help="Supabase project URL")
+    pair_p.add_argument("--backend", choices=["openai", "claude", "codex"], default="claude",
+                        help="Agent backend type (default: claude)")
+    pair_p.add_argument("--backends", default=None,
+                        help="Comma-separated list of available backends (e.g. claude,codex)")
+    pair_p.add_argument("--work-dir", default=".", help="Working directory for CLI backends")
+    pair_p.add_argument("--machine-name", default=None, help="Machine name (default: hostname)")
+    pair_p.add_argument("--dangerously-skip-permissions", action="store_true",
+                        help="Pass --dangerously-skip-permissions to Claude / --full-auto to Codex")
+    pair_p.add_argument("--agent-url", default=None, help="Local agent URL (for openai backend)")
+    pair_p.add_argument("--model", default="default", help="Model name for OpenAI backend")
+    pair_p.add_argument("--cli-timeout", type=int, default=300, help="CLI subprocess timeout")
+    pair_p.add_argument("--poll-interval", type=float, default=2.0, help="Poll interval in seconds")
 
-    # OpenAI backend options
-    p.add_argument("--agent-url", default=None, help="Local agent URL (OpenAI compatible, required for --backend openai)")
-    p.add_argument("--model", default="default", help="Model name for OpenAI backend")
-    p.add_argument("--stream", action="store_true", default=True, help="Enable streaming for OpenAI backend")
-    p.add_argument("--no-stream", action="store_false", dest="stream", help="Disable streaming for OpenAI backend")
-
-    # CLI backend options (claude / codex)
-    p.add_argument("--work-dir", default=".", help="Working directory for CLI backends (default: current dir)")
-    p.add_argument("--dangerously-skip-permissions", action="store_true",
-                   help="Pass --dangerously-skip-permissions to Claude Code CLI / --full-auto to Codex CLI")
-    p.add_argument("--cli-timeout", type=int, default=300, help="CLI subprocess timeout in seconds (default: 300)")
+    # ---- run subcommand (legacy / manual) ----
+    run_p = sub.add_parser("run", help="手动连接模式：使用已有的 connection-id 和 token")
+    run_p.add_argument("--supabase-url", required=True, help="Supabase project URL")
+    run_p.add_argument("--connection-id", required=True, help="Connection UUID")
+    run_p.add_argument("--token", required=True, help="Connection token")
+    run_p.add_argument("--poll-interval", type=float, default=2.0, help="Poll interval in seconds")
+    run_p.add_argument("--backend", choices=["openai", "claude", "codex"], default="claude",
+                        help="Default agent backend type (default: claude)")
+    run_p.add_argument("--backends", default=None,
+                        help="Comma-separated list of available backends")
+    run_p.add_argument("--agent-url", default=None, help="Local agent URL (OpenAI compatible)")
+    run_p.add_argument("--model", default="default", help="Model name for OpenAI backend")
+    run_p.add_argument("--stream", action="store_true", default=True)
+    run_p.add_argument("--no-stream", action="store_false", dest="stream")
+    run_p.add_argument("--work-dir", default=".", help="Working directory for CLI backends")
+    run_p.add_argument("--dangerously-skip-permissions", action="store_true",
+                        help="Pass --dangerously-skip-permissions to Claude / --full-auto to Codex")
+    run_p.add_argument("--cli-timeout", type=int, default=300, help="CLI subprocess timeout")
 
     args = p.parse_args()
 
+    # Backwards compatibility: if no subcommand and --connection-id is present, treat as "run"
+    if args.command is None:
+        # Re-parse with run defaults
+        # Check if --connection-id appears in sys.argv
+        if "--connection-id" in sys.argv:
+            args = run_p.parse_args(sys.argv[1:])
+            args.command = "run"
+        else:
+            p.print_help()
+            sys.exit(1)
+
     # Parse --backends into a set
-    if args.backends:
+    if hasattr(args, 'backends') and args.backends:
         args.available_backends = set(b.strip() for b in args.backends.split(","))
         if args.backend not in args.available_backends:
             p.error(f"--backend '{args.backend}' must be in --backends '{args.backends}'")
     else:
         args.available_backends = {args.backend}
 
-    if "openai" in args.available_backends and not args.agent_url:
+    if "openai" in args.available_backends and not getattr(args, 'agent_url', None):
         p.error("--agent-url is required when using openai backend")
+
+    # Ensure stream attribute exists
+    if not hasattr(args, 'stream'):
+        args.stream = True
 
     return args
 
@@ -136,6 +159,75 @@ def send_reply(base_url, connection_id, token, session_id, content,
     except requests.exceptions.RequestException as e:
         print(f"[reply] Network error: {e}", file=sys.stderr)
         return None
+
+# ---------------------------------------------------------------------------
+# Pairing: request code → poll for confirmation → auto-start
+# ---------------------------------------------------------------------------
+
+def do_pair(args):
+    """Handle the 'pair' subcommand: request a pairing code, wait for web confirmation."""
+    import socket
+    machine_name = args.machine_name or socket.gethostname()
+    base_url = args.supabase_url.rstrip("/")
+
+    print("🔗 OpenClaw 一键配对")
+    print(f"   后端: {args.backend}")
+    print(f"   工作目录: {os.path.abspath(args.work_dir)}")
+    print()
+
+    # Step 1: Request pairing code
+    url = f"{base_url}/functions/v1/openclaw-pair"
+    try:
+        resp = requests.post(url, json={
+            "action": "request_pair",
+            "machine_name": machine_name,
+            "backend": args.backend,
+            "work_dir": os.path.abspath(args.work_dir),
+        }, timeout=30)
+        if resp.status_code != 200:
+            print(f"❌ 请求配对码失败: {resp.status_code} {resp.text[:200]}", file=sys.stderr)
+            sys.exit(1)
+        code = resp.json()["code"]
+    except Exception as e:
+        print(f"❌ 网络错误: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"  ✅ 配对码: {code}")
+    print()
+    print(f"  请在 IdeaScan OpenClaw 设置页输入此码（5 分钟内有效）")
+    print(f"  等待确认中", end="", flush=True)
+
+    # Step 2: Poll for confirmation
+    start = time.time()
+    while time.time() - start < 300:  # 5 min timeout
+        time.sleep(2)
+        print(".", end="", flush=True)
+        try:
+            resp = requests.post(url, json={
+                "action": "check_pair",
+                "code": code,
+            }, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("status") == "paired":
+                    print()
+                    print()
+                    print(f"  🎉 配对成功！")
+                    print(f"  Connection ID: {data['connection_id']}")
+                    print()
+
+                    # Auto-start bridge
+                    args.connection_id = data["connection_id"]
+                    args.token = data["token"]
+                    args.command = "run"
+                    run_bridge(args)
+                    return
+        except Exception:
+            pass
+
+    print()
+    print("❌ 配对超时（5 分钟），请重试。")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Backend: OpenAI-compatible HTTP API
@@ -404,18 +496,18 @@ def try_handle_switch(user_content: str, available_backends: set,
     return target
 
 # ---------------------------------------------------------------------------
-# Main loop
+# Main bridge loop
 # ---------------------------------------------------------------------------
 
-def main():
-    args = parse_args()
+def run_bridge(args):
+    """Run the main polling bridge loop."""
     current_backend = args.backend
 
     print(f"🔗 OpenClaw Agent Bridge 启动")
     print(f"   默认后端: {BACKEND_LABELS.get(current_backend, current_backend)}")
     print(f"   可用后端: {', '.join(sorted(args.available_backends))}")
     if "openai" in args.available_backends:
-        print(f"   Agent:    {args.agent_url}")
+        print(f"   Agent:    {getattr(args, 'agent_url', 'N/A')}")
     if args.available_backends & {"claude", "codex"}:
         print(f"   工作目录: {os.path.abspath(args.work_dir)}")
     print(f"   连接ID:   {args.connection_id}")
@@ -499,6 +591,15 @@ def main():
         except Exception as e:
             print(f"[main] 未预期错误: {e}", file=sys.stderr)
             time.sleep(args.poll_interval)
+
+
+def main():
+    args = parse_args()
+
+    if args.command == "pair":
+        do_pair(args)
+    else:
+        run_bridge(args)
 
 
 if __name__ == "__main__":

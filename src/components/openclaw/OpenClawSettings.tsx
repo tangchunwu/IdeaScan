@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download } from "lucide-react";
+import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { PairingDialog } from "./PairingDialog";
 
 const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
 
@@ -53,6 +54,7 @@ export function OpenClawSettings() {
   const [adding, setAdding] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showPairing, setShowPairing] = useState(false);
 
   const handleAdd = async () => {
     if (mode === 'direct' && !url.trim()) return;
@@ -94,12 +96,12 @@ export function OpenClawSettings() {
   const BRIDGE_RAW_URL = "https://raw.githubusercontent.com/tangchunwu/IdeaScan/main/scripts/agent-bridge/bridge.py";
 
   const getSetupCommands = () => {
-    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests`;
+    return `# 1. 下载 bridge 脚本\ncurl -fsSL ${BRIDGE_RAW_URL} -o bridge.py\n\n# 2. 安装依赖\npip install requests\n\n# 3. 一键配对（推荐）\npython bridge.py pair --supabase-url ${import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`} --backend claude --work-dir ~/my-project`;
   };
 
   const getBridgeCommand = (conn: OpenClawConnection) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
-    const base = `python bridge.py \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
+    const base = `python bridge.py run \\\n  --supabase-url ${supabaseUrl} \\\n  --connection-id ${conn.id} \\\n  --token ${conn.token || '<token>'}`;
     if (bridgeBackend === 'claude') {
       return `${base} \\\n  --backends claude,codex \\\n  --backend claude \\\n  --work-dir ~/my-project \\\n  --dangerously-skip-permissions`;
     }
@@ -118,9 +120,14 @@ export function OpenClawSettings() {
           <h3 className="font-semibold text-sm text-foreground">OpenClaw 连接</h3>
           <p className="text-xs text-muted-foreground mt-0.5">连接你的 AI Agent 服务器</p>
         </div>
-        <Button size="sm" variant="outline" className="rounded-xl gap-1" onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-3 h-3" /> 添加
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="default" className="rounded-xl gap-1" onClick={() => setShowPairing(true)}>
+            <Link2 className="w-3 h-3" /> 配对
+          </Button>
+          <Button size="sm" variant="outline" className="rounded-xl gap-1" onClick={() => setShowForm(!showForm)}>
+            <Plus className="w-3 h-3" /> 手动添加
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -301,6 +308,12 @@ export function OpenClawSettings() {
           ))}
         </div>
       )}
+
+      <PairingDialog
+        open={showPairing}
+        onOpenChange={setShowPairing}
+        onPaired={() => reload()}
+      />
     </GlassCard>
   );
 }
