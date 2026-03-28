@@ -54,6 +54,7 @@ export function OpenClawSettings() {
   const [adding, setAdding] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showPairing, setShowPairing] = useState(false);
 
   const handleAdd = async () => {
     if (mode === 'direct' && !url.trim()) return;
