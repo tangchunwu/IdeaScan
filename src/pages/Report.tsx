@@ -41,6 +41,7 @@ import { MonetizationStrategies } from "@/components/report/MonetizationStrategi
 import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 import { ReportNotes } from "@/components/report/ReportNotes";
 import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
+import { SectionHeading } from "@/components/report/SectionHeading";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
