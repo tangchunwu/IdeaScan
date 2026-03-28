@@ -116,9 +116,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {hasInsightsData && (
         <GlassCard padding="md">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" />
-              数据质量评分
+            <SectionHeading emoji="⚡" title="数据质量评分" className="mb-0" />
             </h3>
             <Badge variant="outline" className={
               (dataQualityScore || 0) >= 70 ? "border-green-500/50 text-green-500" :
