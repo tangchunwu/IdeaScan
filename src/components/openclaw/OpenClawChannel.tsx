@@ -696,15 +696,18 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
         else toast.error('没有可重试的消息');
       }
-      else if (cmd.name === '/prd') {
-        setActiveSkill('prd-generator');
-        setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-      else if (cmd.name === '/competitive') {
-        setActiveSkill('competitive-analysis');
-        setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
-        setTimeout(() => inputRef.current?.focus(), 50);
+      else {
+        // Generic skill slash command handling
+        const SLASH_SKILL_MAP: Record<string, string> = {
+          '/prd': 'prd-generator', '/competitive': 'competitive-analysis',
+          '/growth': 'growth-strategy', '/gtm': 'gtm-plan', '/arch': 'tech-architecture',
+        };
+        const sid = SLASH_SKILL_MAP[cmd.name];
+        if (sid) {
+          setActiveSkill(sid);
+          setInput(getSkillById(sid)?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
       }
     } else {
       setInput(cmd.name + ' ');
