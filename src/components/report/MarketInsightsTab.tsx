@@ -57,10 +57,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
 
       {/* Sentiment Pie Chart */}
       <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <PieChartIcon className="w-5 h-5 text-primary" />
-          情感分布
-        </h3>
+        <SectionHeading emoji="💬" title="情感分布" />
         <div className="h-64 flex items-center justify-center">
           <ResponsiveContainer width="50%" height="100%">
             <PieChart>
