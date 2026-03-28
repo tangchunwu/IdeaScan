@@ -166,7 +166,7 @@ export function VCFeed({ validationId }: VCFeedProps) {
           <p className="text-muted-foreground text-sm">
             让 4 位 AI 专家（VC、产品经理、用户、分析师）对你的创意进行激烈讨论。你可以随时加入反驳他们！
           </p>
-          <Button onClick={handleGenerateDiscussion} disabled={isGenerating} className="gap-2">
+          <Button onClick={() => handleGenerateDiscussion(false)} disabled={isGenerating} className="gap-2">
             {isGenerating ? (<><Loader2 className="w-4 h-4 animate-spin" />AI 专家正在思考...</>) : (<><Sparkles className="w-4 h-4" />召唤 AI 专家团</>)}
           </Button>
         </div>
