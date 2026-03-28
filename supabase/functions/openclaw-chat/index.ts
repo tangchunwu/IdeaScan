@@ -69,6 +69,14 @@ async function getImageGenConfig(userId: string): Promise<{ baseUrl: string; api
   }
 }
 
+/** Rough token estimate: ~1 token per 2 Chinese chars or per 4 English chars */
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  const cjk = text.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/g)?.length || 0;
+  const rest = text.length - cjk;
+  return Math.ceil(cjk / 1.5 + rest / 4);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -109,6 +117,35 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'message, image, or file, and session_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    const serviceClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // ── Session context persistence ──
+    // On first message with system_prompt/report_context, store them.
+    // On follow-up messages, read from DB.
+    let sessionSystemPrompt: string | null = clientSystemPrompt || null;
+    let sessionReportContext: string | null = report_context || null;
+
+    if (sessionSystemPrompt || sessionReportContext) {
+      // Store session context
+      await serviceClient.from('openclaw_session_context').upsert({
+        user_id: userId,
+        session_id,
+        system_prompt: sessionSystemPrompt || undefined,
+        report_context_summary: sessionReportContext || undefined,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,session_id' });
+    } else {
+      // Try to read persisted context
+      const { data: ctx } = await serviceClient.from('openclaw_session_context')
+        .select('system_prompt, report_context_summary')
+        .eq('user_id', userId).eq('session_id', session_id)
+        .maybeSingle();
+      if (ctx) {
+        sessionSystemPrompt = ctx.system_prompt || null;
+        sessionReportContext = ctx.report_context_summary || null;
+      }
     }
 
     // Resolve connection config
@@ -160,30 +197,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Build system prompt
+    let systemContent = sessionSystemPrompt || '你是用户的 AI Agent 助手。';
+
+    // Inject validation report context into system prompt when available
+    if (sessionReportContext && typeof sessionReportContext === 'string') {
+      systemContent += `\n\n---\n\n## 用户的 IdeaScan 验证报告数据（请引用这些数据作为分析依据）\n\n${sessionReportContext}`;
+    }
+
+    // ── Sliding window: dynamic history limit ──
+    const systemTokens = estimateTokens(systemContent);
+    const maxHistory = systemTokens > 3000 ? 6 : systemTokens > 1500 ? 8 : 10;
+
     // Load recent history
     const { data: history } = await supabase.from('openclaw_messages')
       .select('role, content').eq('user_id', userId).eq('session_id', session_id)
-      .order('created_at', { ascending: true }).limit(20);
-
-    // Skill-specific system prompts
-    const SKILL_PROMPTS: Record<string, string> = {
-      'prd-generator': `你是一位资深产品经理，专长于撰写专业的产品需求文档（PRD）。用户会提供验证报告数据作为上下文。请基于这些数据：1) 确认核心产品方向 2) 询问产品形态/优先功能/技术栈 3) 输出完整 PRD（含产品概述、用户画像、功能规格、竞品差异化、商业模式、里程碑）。引用验证数据作为决策依据。`,
-      'competitive-analysis': `你是一位资深市场分析师，专长于系统化竞品分析。用户会提供验证报告数据作为上下文。请基于这些数据：1) 列出已识别的竞品并确认范围 2) 如有搜索工具则联网收集最新信息 3) 输出完整竞品分析报告（功能对比矩阵、SWOT、差异化机会、定价策略） 4) 给出具体可执行的策略建议。引用验证数据中的痛点和市场信号。`,
-    };
-
-    // Priority: client-sent full prompt > local fallback > default
-    let systemContent = clientSystemPrompt || (skill_id && SKILL_PROMPTS[skill_id] ? SKILL_PROMPTS[skill_id] : '你是用户的 AI Agent 助手。');
-
-    // Inject validation report context into system prompt when available
-    if (report_context && typeof report_context === 'string') {
-      systemContent += `\n\n---\n\n## 用户的 IdeaScan 验证报告数据（请引用这些数据作为分析依据）\n\n${report_context}`;
-    }
+      .order('created_at', { ascending: true }).limit(maxHistory + 5); // fetch a few extra, trim below
 
     const messages: Array<{ role: string; content: unknown }> = [
       { role: 'system', content: systemContent },
     ];
-    const historyRows = history || [];
-    for (const m of historyRows.slice(0, -1)) {
+    const historyRows = (history || []).filter((m: any) => m.role === 'user' || m.role === 'assistant');
+    // Take the most recent N messages (excluding the current user message which is last)
+    const relevantHistory = historyRows.slice(0, -1).slice(-maxHistory);
+    for (const m of relevantHistory) {
       messages.push({ role: m.role, content: m.content });
     }
 
@@ -274,7 +311,6 @@ Deno.serve(async (req) => {
             }
           }
           if (fullContent.trim()) {
-            const serviceClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
             await serviceClient.from('openclaw_messages').insert({
               user_id: userId, session_id, role: 'assistant', content: fullContent.trim(), connection_id: resolvedConnectionId,
             });

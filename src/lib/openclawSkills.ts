@@ -787,3 +787,7 @@ export function getSkillById(skillId: string): OpenClawSkill | undefined {
 export function getSkillSystemPrompt(skillId: string): string | undefined {
   return OPENCLAW_SKILLS[skillId]?.systemPrompt;
 }
+
+export function getSkillByTaskType(taskType: string): OpenClawSkill | undefined {
+  return Object.values(OPENCLAW_SKILLS).find(s => s.taskType === taskType);
+}
