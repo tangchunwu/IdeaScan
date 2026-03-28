@@ -97,7 +97,7 @@ async function polishWithFallback(
         baseUrl: sysBase, apiKey: sysKey, model: sysModel,
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
       });
-      const content = extractAssistantContent(res.json).trim();
+      const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
       errors.push(`sys_llm: ${(e as Error).message?.slice(0, 120)}`);
