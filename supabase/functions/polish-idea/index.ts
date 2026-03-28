@@ -79,7 +79,7 @@ async function polishWithFallback(
           baseUrl: fbBase, apiKey: fbKey, model: fbModel,
           messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
         });
-        const content = extractAssistantContent(res.json).trim();
+        const content = cleanModelOutput(extractAssistantContent(res.json));
         if (content) return content;
       } catch (e) {
         errors.push(`fallback: ${(e as Error).message?.slice(0, 120)}`);
