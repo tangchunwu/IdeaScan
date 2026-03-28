@@ -21,12 +21,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
         <GlassCard className="h-full overflow-hidden" padding="none">
           <div className="h-1 bg-gradient-to-r from-green-500/40 to-transparent" />
           <div className="p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-              </div>
-              <span className="text-green-500">核心投资亮点</span>
-            </h3>
+            <SectionHeading emoji="✅" title="核心投资亮点" className="mb-0" />
             <ul className="space-y-3">
               {ai.strengths?.map((item: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
