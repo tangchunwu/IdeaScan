@@ -212,11 +212,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Channels */}
-                                          <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-purple-500">📢</span>
-                                                        触达渠道
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 border-l-[3px] border-l-purple-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>📢</span>
+                                                         触达渠道
+                                                  </h5>
                                                  <div className="flex flex-wrap gap-2">
                                                         {currentPersona.channels.map((channel, i) => (
                                                                <Badge key={i} variant="outline" className="text-xs">
