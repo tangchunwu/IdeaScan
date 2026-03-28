@@ -590,7 +590,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     if (isRecording) {
       stopRecording();
       if (transcript.trim()) {
-        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
+        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined, activeSkill ? reportContextRef.current || undefined : undefined);
         setPendingImage(null);
         setPendingFile(null);
         setInput("");
