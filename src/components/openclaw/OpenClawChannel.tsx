@@ -842,7 +842,7 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               {QUICK_PROMPTS.map((qp) => (
                 <button
                   key={qp.label}
-                  onClick={() => handleQuickPrompt(qp.prompt)}
+                  onClick={() => handleQuickPrompt(qp.prompt, (qp as any).skillId)}
                   className={`group flex flex-col items-start gap-2 ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3.5'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
