@@ -673,6 +673,42 @@ export type Database = {
           },
         ]
       }
+      openclaw_pairing_codes: {
+        Row: {
+          backend: string | null
+          claimed_by: string | null
+          code: string
+          connection_id: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          machine_name: string | null
+          work_dir: string | null
+        }
+        Insert: {
+          backend?: string | null
+          claimed_by?: string | null
+          code: string
+          connection_id?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          machine_name?: string | null
+          work_dir?: string | null
+        }
+        Update: {
+          backend?: string | null
+          claimed_by?: string | null
+          code?: string
+          connection_id?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          machine_name?: string | null
+          work_dir?: string | null
+        }
+        Relationships: []
+      }
       openclaw_session_titles: {
         Row: {
           created_at: string
