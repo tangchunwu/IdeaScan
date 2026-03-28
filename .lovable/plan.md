@@ -1,38 +1,44 @@
 
 
-## 继续优化报告页 — 第二步
+## 添加滚动渐显效果
 
-在已有的「左侧色条标题 + 百分比角标」基础上，继续温和借鉴参考图风格，提升报告页各子组件的视觉层次和一致性。
-
----
-
-### 1. DataOverviewTab 内卡片标题统一使用 SectionHeading
-- 将「内容类型分布」「关键指标」「数据质量评分」「跨平台强刚需」「用户痛点聚类」「市场信号」等标题替换为 `SectionHeading` 组件
-- 统一 emoji + 色条风格，替代当前的 icon+文字标题
-
-### 2. MarketInsightsTab 标题统一
-- 将「目标用户画像」「情感分布」「正面评价要点」「负面评价要点」等标题替换为 `SectionHeading`
-- 保持 emoji 语义：🎯目标用户、💬情感分布、👍正面、👎负面
-
-### 3. AIAnalysisTab 标题统一
-- 「核心投资亮点」→ SectionHeading(✅)、「关键风险与致命伤」→ SectionHeading(⚠️)、「战略路线图」→ SectionHeading(🗺️)
-- 移除各卡片内部原有的 icon+text 标题，改为 SectionHeading 放在卡片内部或上方
-
-### 4. RadarDimensionSection 添加 SectionHeading
-- 在雷达图区域上方添加 `SectionHeading emoji="🕸️" title="维度评估"`
-- 统一和其他 section 的视觉节奏
-
-### 5. DemandDecisionCard 视觉微调
-- 内部统计数字区块加上轻微的左侧色条装饰（复用 border-l-[3px] 风格）
-- 「需求验证结论」标题改为 SectionHeading 风格
+创建一个通用的 `ScrollReveal` 组件，基于 IntersectionObserver，元素滚入视口时触发淡入+上滑动画。然后在报告页等关键页面包裹各 section 使用。
 
 ---
 
-### 涉及文件（5个）
+### 1. 新建 `ScrollReveal` 组件 (`src/components/shared/ScrollReveal.tsx`)
+- 使用 `IntersectionObserver`（threshold: 0.15）检测元素进入视口
+- 初始状态：`opacity: 0, translateY: 30px`
+- 进入视口后：过渡到 `opacity: 1, translateY: 0`，带 `600ms ease-out` 过渡
+- 支持 `delay` prop 实现交错动画（如列表中第2个延迟100ms、第3个200ms）
+- 支持 `direction` prop：`up`（默认）、`left`、`right` 方向滑入
+- 触发一次后不再重置（`once: true`）
 
-1. `src/components/report/DataOverviewTab.tsx` — 卡片标题替换为 SectionHeading
-2. `src/components/report/MarketInsightsTab.tsx` — 标题统一
-3. `src/components/report/AIAnalysisTab.tsx` — 标题统一
-4. `src/components/report/RadarDimensionSection.tsx` — 添加 SectionHeading
-5. `src/pages/Report.tsx` — RadarDimensionSection 上方加 SectionHeading
+```tsx
+// 使用方式
+<ScrollReveal>
+  <GlassCard>...</GlassCard>
+</ScrollReveal>
+
+<ScrollReveal delay={100} direction="left">
+  <SomeComponent />
+</ScrollReveal>
+```
+
+### 2. Report.tsx 集成
+- 用 `ScrollReveal` 包裹各主要 section（QuickInsights、ScoreHero、MultiPersona、Tabs 等）
+- 各 section 之间加递增 delay，形成自上而下逐个浮现的效果
+- 替换部分现有的 `animate-slide-up`（它是页面加载时立即播放的，不是滚动触发的）
+
+### 3. Discover 页面集成
+- 用户当前在 Discover 页面，给卡片列表的每个 item 包裹 `ScrollReveal` + 交错 delay
+- 统计区域、筛选器区域也加上滚动渐显
+
+---
+
+### 涉及文件（3个）
+
+1. `src/components/shared/ScrollReveal.tsx` — 新建通用滚动渐显组件
+2. `src/pages/Report.tsx` — 各 section 包裹 ScrollReveal
+3. `src/pages/Discover.tsx` — 卡片列表滚动渐显
 
