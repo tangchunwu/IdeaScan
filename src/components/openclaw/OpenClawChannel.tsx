@@ -20,6 +20,8 @@ import remarkGfm from "remark-gfm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getSkillById } from "@/lib/openclawSkills";
+import { SkillProgressPanel } from "./SkillProgressPanel";
 
 interface OpenClawChannelProps {
   className?: string;
@@ -462,6 +464,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashSelectedIdx, setSlashSelectedIdx] = useState(0);
 
+  // Active skill state (for prefill + progress tracking)
+  const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   const filteredCommands = SLASH_COMMANDS.filter(cmd =>
     cmd.name.startsWith(slashFilter.toLowerCase())
   );
@@ -558,10 +565,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     if (isRecording) {
       stopRecording();
       if (transcript.trim()) {
-        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined);
+        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
         setPendingImage(null);
         setPendingFile(null);
         setInput("");
+        setActiveSkill(null);
       }
       return;
     }
@@ -582,7 +590,6 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         return;
       }
       if (cmdName === '/clear') {
-        // Clear is handled by starting a new session with the same ID effect
         handleNewSession();
         setInput("");
         setShowSlashMenu(false);
@@ -601,48 +608,61 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         return;
       }
       if (cmdName === '/prd') {
-        setInput("");
         setShowSlashMenu(false);
-        const topic = cmdArgs || '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。';
-        sendMessage(topic, undefined, undefined, 'prd-generator');
+        if (cmdArgs) {
+          setInput("");
+          sendMessage(cmdArgs, undefined, undefined, 'prd-generator');
+        } else {
+          setActiveSkill('prd-generator');
+          setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
         return;
       }
       if (cmdName === '/competitive') {
-        setInput("");
         setShowSlashMenu(false);
-        const topic = cmdArgs || '请基于验证报告数据，进行系统化的竞品分析。';
-        sendMessage(topic, undefined, undefined, 'competitive-analysis');
+        if (cmdArgs) {
+          setInput("");
+          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis');
+        } else {
+          setActiveSkill('competitive-analysis');
+          setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
         return;
       }
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
-    sendMessage(msg, pendingImage || undefined, pendingFile || undefined);
+    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
     setInput("");
     setShowSlashMenu(false);
     setPendingImage(null);
     setPendingFile(null);
-  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages]);
+    setActiveSkill(null);
+  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages, activeSkill]);
 
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
-    // For client-only commands, fill and immediately execute
     if (cmd.clientOnly) {
-      setInput(cmd.name);
       setShowSlashMenu(false);
-      // Trigger execution on next tick
-      setTimeout(() => {
-        if (cmd.name === '/new') { handleNewSession(); setInput(''); toast.success('已开启新对话'); }
-        else if (cmd.name === '/clear') { handleNewSession(); setInput(''); toast.success('对话已清空'); }
-        else if (cmd.name === '/retry') {
-          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-          if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
-          else toast.error('没有可重试的消息');
-        }
-        else if (cmd.name === '/prd') { setInput(''); sendMessage('请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。', undefined, undefined, 'prd-generator'); }
-        else if (cmd.name === '/competitive') { setInput(''); sendMessage('请基于验证报告数据，进行系统化的竞品分析。', undefined, undefined, 'competitive-analysis'); }
-      }, 50);
+      if (cmd.name === '/new') { handleNewSession(); setInput(''); toast.success('已开启新对话'); }
+      else if (cmd.name === '/clear') { handleNewSession(); setInput(''); toast.success('对话已清空'); }
+      else if (cmd.name === '/retry') {
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
+        else toast.error('没有可重试的消息');
+      }
+      else if (cmd.name === '/prd') {
+        setActiveSkill('prd-generator');
+        setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+      else if (cmd.name === '/competitive') {
+        setActiveSkill('competitive-analysis');
+        setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     } else {
-      // For server commands, fill the input with the command and a space for args
       setInput(cmd.name + ' ');
       setShowSlashMenu(false);
     }
@@ -707,6 +727,15 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
 
   const handleQuickPrompt = (prompt: string, skillId?: string) => {
     if (sending) return;
+    if (skillId) {
+      const skill = getSkillById(skillId);
+      if (skill) {
+        setActiveSkill(skillId);
+        setInput(skill.inputPlaceholder);
+        setTimeout(() => inputRef.current?.focus(), 50);
+        return;
+      }
+    }
     sendMessage(prompt, undefined, undefined, skillId);
   };
 
@@ -998,6 +1027,19 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Skill progress panel */}
+      {activeSkill && sending && activeSkillDef && (
+        <SkillProgressPanel
+          skillName={activeSkillDef.name}
+          steps={activeSkillDef.steps}
+          streamingContent={streamingContent}
+          onStop={() => {
+            abort();
+            setActiveSkill(null);
+          }}
+        />
+      )}
+
       {/* Input area */}
       <div className={`${isMobile ? 'px-2.5 py-2.5 pb-[env(safe-area-inset-bottom,8px)]' : 'px-4 py-4'} border-t border-border/30 backdrop-blur-sm bg-background/80`}>
         {/* Hidden file inputs */}
@@ -1027,7 +1069,20 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           </div>
         )}
 
-        {/* Recording panel */}
+        {/* Skill hint banner */}
+        {activeSkill && !sending && activeSkillDef && (
+          <div className="mb-2.5 flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/20 bg-primary/5">
+            <Lightbulb className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs text-primary/80 flex-1">{activeSkillDef.inputHint}</span>
+            <button
+              onClick={() => { setActiveSkill(null); setInput(''); }}
+              className="p-1 rounded-md hover:bg-primary/10 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-primary/60" />
+            </button>
+          </div>
+        )}
+
         {isRecording && (
           <div className="mb-2.5 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5">
             <div className="relative">
@@ -1121,7 +1176,8 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
               </div>
             )}
             <Textarea
-              placeholder={isRecording ? "录音中…" : (isMobile ? "输入指令或 / 命令..." : "输入指令或 / 查看命令... (Shift+Enter 换行)")}
+              ref={inputRef}
+              placeholder={isRecording ? "录音中…" : (activeSkillDef ? activeSkillDef.inputPlaceholder : (isMobile ? "输入指令或 / 命令..." : "输入指令或 / 查看命令... (Shift+Enter 换行)"))}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}

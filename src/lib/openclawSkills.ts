@@ -1,5 +1,10 @@
 import type { OpenClawTaskType } from './buildOpenClawContext';
 
+export interface SkillStep {
+  label: string;
+  keywords: string[];
+}
+
 export interface OpenClawSkill {
   id: string;
   name: string;
@@ -8,6 +13,9 @@ export interface OpenClawSkill {
   systemPrompt: string;
   taskType: OpenClawTaskType;
   quickStart: string;
+  inputPlaceholder: string;
+  inputHint: string;
+  steps: SkillStep[];
 }
 
 export const OPENCLAW_SKILLS: Record<string, OpenClawSkill> = {
@@ -18,6 +26,14 @@ export const OPENCLAW_SKILLS: Record<string, OpenClawSkill> = {
     icon: 'FileText',
     taskType: 'prd',
     quickStart: '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。',
+    inputPlaceholder: '请帮我撰写 PRD，产品方向是：',
+    inputHint: '补充产品形态、核心功能、目标用户等信息后发送',
+    steps: [
+      { label: '信息确认', keywords: ['产品方向', '核心产品', '确认', '理解到'] },
+      { label: '需求梳理', keywords: ['需求分析', '功能需求', '用户故事', '痛点'] },
+      { label: '竞品对比', keywords: ['竞品', '差异化', '竞争', '对比'] },
+      { label: '文档生成', keywords: ['产品概述', '里程碑', '成功指标', '风险'] },
+    ],
     systemPrompt: `你是一位资深产品经理，专长于撰写专业的产品需求文档（PRD）。
 
 ## 工作流程
@@ -67,6 +83,15 @@ export const OPENCLAW_SKILLS: Record<string, OpenClawSkill> = {
     icon: 'Search',
     taskType: 'competitive_analysis',
     quickStart: '请基于验证报告数据，进行系统化的竞品分析。',
+    inputPlaceholder: '请分析以下竞品：',
+    inputHint: '输入要分析的竞品名称、产品方向或行业关键词',
+    steps: [
+      { label: '范围确认', keywords: ['竞品', '主要竞品', '识别到', '分析范围'] },
+      { label: '信息收集', keywords: ['融资', '定价策略', '商业模式', '用户评价'] },
+      { label: '框架分析', keywords: ['SWOT', '对比矩阵', '功能对比', '用户画像差异'] },
+      { label: '报告撰写', keywords: ['竞品概览', '差异化机会', '最佳实践', '进入策略'] },
+      { label: '行动建议', keywords: ['行动建议', '具体行动', '优先级', '实施难度'] },
+    ],
     systemPrompt: `你是一位资深市场分析师，专长于系统化竞品分析。
 
 ## 工作流程
