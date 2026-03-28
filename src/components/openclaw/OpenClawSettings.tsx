@@ -37,7 +37,7 @@ function useRelayOnlineStatus(connections: OpenClawConnection[]) {
 
 export function OpenClawSettings() {
   const { user } = useAuth();
-  const { connections, loading, addConnection, deleteConnection, setDefault, syncToOpenClaw, reload } = useOpenClawConnections(user?.id);
+  const { connections, loading, addConnection, updateConnection, deleteConnection, setDefault, syncToOpenClaw, reload } = useOpenClawConnections(user?.id);
   const onlineStatus = useRelayOnlineStatus(connections);
 
   // Auto-reload connections every 10s to refresh last_synced_at for relay connections
@@ -56,6 +56,8 @@ export function OpenClawSettings() {
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showPairing, setShowPairing] = useState(false);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
 
   const handleAdd = async () => {
     if (mode === 'direct' && !url.trim()) return;
@@ -196,7 +198,33 @@ export function OpenClawSettings() {
                         <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${onlineStatus[conn.id] ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
                       </span>
                     )}
-                    <span className="text-sm font-medium truncate">{conn.name}</span>
+                    {editingNameId === conn.id ? (
+                      <Input
+                        value={editingNameValue}
+                        onChange={e => setEditingNameValue(e.target.value)}
+                        onBlur={async () => {
+                          const trimmed = editingNameValue.trim();
+                          if (trimmed && trimmed !== conn.name) {
+                            await updateConnection(conn.id, { name: trimmed });
+                          }
+                          setEditingNameId(null);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingNameId(null);
+                        }}
+                        autoFocus
+                        className="h-6 text-sm font-medium w-32 px-1 py-0 rounded"
+                      />
+                    ) : (
+                      <span
+                        className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => { setEditingNameId(conn.id); setEditingNameValue(conn.name); }}
+                        title="点击修改名称"
+                      >
+                        {conn.name}
+                      </span>
+                    )}
                     {conn.is_default && <Badge variant="secondary" className="text-[9px]">默认</Badge>}
                     <Badge variant={conn.mode === 'relay' ? 'default' : 'outline'} className="text-[9px]">
                       {conn.mode === 'relay' ? '中继' : '直连'}
