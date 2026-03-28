@@ -198,14 +198,14 @@ export default function Discover() {
           {/* Tab 1: Market Monitor */}
           <TabsContent value="market" className="space-y-8 animate-fade-in">
             {/* Stats */}
-            <div className="mb-8">
+            <ScrollReveal>
               <DiscoverStats
                 totalTopics={stats?.totalTopics || 0}
                 avgHeatScore={stats?.avgHeatScore || 0}
                 topCategories={stats?.topCategories || []}
                 isLoading={statsLoading}
               />
-            </div>
+            </ScrollReveal>
 
             {/* Personalized Recommendations */}
             <PersonalizedSection />
