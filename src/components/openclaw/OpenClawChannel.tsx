@@ -27,6 +27,7 @@ interface OpenClawChannelProps {
   className?: string;
   initialMessage?: string;
   sessionId?: string;
+  validationId?: string;
   onNewSession?: () => void;
   historyToggle?: React.ReactNode;
 }
