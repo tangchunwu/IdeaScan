@@ -19,7 +19,6 @@ export function useOpenClawConnections(userId: string | undefined) {
   const [connections, setConnections] = useState<OpenClawConnection[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const initialLoadDone = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!userId) { setConnections([]); return; }
