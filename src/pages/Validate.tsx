@@ -330,7 +330,52 @@ const Validate = () => {
                       </p>
                     )}
                   </div>
+                  {idea.trim().length >= 5 && !stream.isValidating && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handlePolish}
+                      disabled={isPolishing}
+                      className="h-8 rounded-lg text-primary hover:text-primary hover:bg-primary/10 shrink-0"
+                    >
+                      {isPolishing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                      AI 润色
+                    </Button>
+                  )}
                 </div>
+
+                {/* AI Polish Preview */}
+                {polishedResult && (
+                  <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 animate-fade-in space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                      <Sparkles className="w-4 h-4" />
+                      AI 润色建议
+                    </div>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{polishedResult}</p>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setPolishedResult(null)}
+                      >
+                        <X className="w-3 h-3 mr-1" /> 放弃
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setIdea(polishedResult);
+                          setPolishedResult(null);
+                          toast({ title: "已采纳润色结果", description: "想法描述已更新" });
+                        }}
+                      >
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> 采纳
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Quick Examples */}
