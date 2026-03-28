@@ -42,7 +42,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
 
       {/* Target Audience + Keywords */}
       <GlassCard className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <h3 className="text-lg font-semibold text-foreground mb-4">目标用户画像</h3>
+        <SectionHeading emoji="🎯" title="目标用户画像" />
         <p className="text-muted-foreground leading-relaxed">{marketAnalysis.targetAudience}</p>
         {(marketAnalysis.keywords?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
