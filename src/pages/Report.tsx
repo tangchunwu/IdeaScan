@@ -460,6 +460,8 @@ const Report = () => {
             />
           </div>
 
+          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
+
           {/* Persona Card (full-width) */}
           <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
           <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
