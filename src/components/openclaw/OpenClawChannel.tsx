@@ -643,24 +643,26 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages, activeSkill]);
 
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
-    // For client-only commands, fill and immediately execute
     if (cmd.clientOnly) {
-      setInput(cmd.name);
       setShowSlashMenu(false);
-      // Trigger execution on next tick
-      setTimeout(() => {
-        if (cmd.name === '/new') { handleNewSession(); setInput(''); toast.success('已开启新对话'); }
-        else if (cmd.name === '/clear') { handleNewSession(); setInput(''); toast.success('对话已清空'); }
-        else if (cmd.name === '/retry') {
-          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-          if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
-          else toast.error('没有可重试的消息');
-        }
-        else if (cmd.name === '/prd') { setInput(''); sendMessage('请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。', undefined, undefined, 'prd-generator'); }
-        else if (cmd.name === '/competitive') { setInput(''); sendMessage('请基于验证报告数据，进行系统化的竞品分析。', undefined, undefined, 'competitive-analysis'); }
-      }, 50);
+      if (cmd.name === '/new') { handleNewSession(); setInput(''); toast.success('已开启新对话'); }
+      else if (cmd.name === '/clear') { handleNewSession(); setInput(''); toast.success('对话已清空'); }
+      else if (cmd.name === '/retry') {
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) { setInput(''); sendMessage(lastUserMsg.content); }
+        else toast.error('没有可重试的消息');
+      }
+      else if (cmd.name === '/prd') {
+        setActiveSkill('prd-generator');
+        setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+      else if (cmd.name === '/competitive') {
+        setActiveSkill('competitive-analysis');
+        setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     } else {
-      // For server commands, fill the input with the command and a space for args
       setInput(cmd.name + ' ');
       setShowSlashMenu(false);
     }
