@@ -565,10 +565,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
     if (isRecording) {
       stopRecording();
       if (transcript.trim()) {
-        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined);
+        sendMessage(transcript.trim(), pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
         setPendingImage(null);
         setPendingFile(null);
         setInput("");
+        setActiveSkill(null);
       }
       return;
     }
@@ -589,7 +590,6 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         return;
       }
       if (cmdName === '/clear') {
-        // Clear is handled by starting a new session with the same ID effect
         handleNewSession();
         setInput("");
         setShowSlashMenu(false);
@@ -608,28 +608,39 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         return;
       }
       if (cmdName === '/prd') {
-        setInput("");
         setShowSlashMenu(false);
-        const topic = cmdArgs || '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。';
-        sendMessage(topic, undefined, undefined, 'prd-generator');
+        if (cmdArgs) {
+          setInput("");
+          sendMessage(cmdArgs, undefined, undefined, 'prd-generator');
+        } else {
+          setActiveSkill('prd-generator');
+          setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
         return;
       }
       if (cmdName === '/competitive') {
-        setInput("");
         setShowSlashMenu(false);
-        const topic = cmdArgs || '请基于验证报告数据，进行系统化的竞品分析。';
-        sendMessage(topic, undefined, undefined, 'competitive-analysis');
+        if (cmdArgs) {
+          setInput("");
+          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis');
+        } else {
+          setActiveSkill('competitive-analysis');
+          setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
         return;
       }
     }
 
     // Otherwise send to server (including server-side slash commands like /model, /help, /system)
-    sendMessage(msg, pendingImage || undefined, pendingFile || undefined);
+    sendMessage(msg, pendingImage || undefined, pendingFile || undefined, activeSkill || undefined);
     setInput("");
     setShowSlashMenu(false);
     setPendingImage(null);
     setPendingFile(null);
-  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages]);
+    setActiveSkill(null);
+  }, [input, sending, pendingImage, pendingFile, isRecording, transcript, sendMessage, stopRecording, messages, activeSkill]);
 
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
     // For client-only commands, fill and immediately execute
