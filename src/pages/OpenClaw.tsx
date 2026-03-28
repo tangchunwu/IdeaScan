@@ -124,6 +124,7 @@ export default function OpenClawPage() {
                   <OpenClawChannel
                     initialMessage={initialMessage}
                     sessionId={sessionId}
+                    validationId={validationId}
                     onNewSession={handleNewSession}
                     historyToggle={
                       <Button
