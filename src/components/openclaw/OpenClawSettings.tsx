@@ -266,7 +266,7 @@ export function OpenClawSettings() {
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2 gap-1 text-muted-foreground hover:text-foreground w-full justify-start rounded-lg group">
                       <ChevronRight className="w-3 h-3 transition-transform group-data-[state=open]:rotate-90" />
-                      启动命令 & 连接信息
+                      断线重连命令
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-2 pt-1">
