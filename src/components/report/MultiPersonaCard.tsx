@@ -196,11 +196,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Behaviors */}
-                                          <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-blue-500">📱</span>
-                                                        行为特征
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 border-l-[3px] border-l-blue-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>📱</span>
+                                                         行为特征
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.behaviors.slice(0, 3).map((behavior, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
