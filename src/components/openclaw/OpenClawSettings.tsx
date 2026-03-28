@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { PairingDialog } from "./PairingDialog";
+import { SetupGuide } from "./SetupGuide";
 
 const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
 
