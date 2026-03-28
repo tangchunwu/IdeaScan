@@ -470,6 +470,30 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Validation report context cache for skills
+  const reportContextRef = useRef<string | null>(null);
+  const reportContextFetchedRef = useRef<string | null>(null); // tracks which validationId was fetched
+
+  // Fetch validation report context when we have a validationId
+  useEffect(() => {
+    if (!validationId || reportContextFetchedRef.current === validationId) return;
+    reportContextFetchedRef.current = validationId;
+    (async () => {
+      try {
+        const { getValidation } = await import('@/services/validationService');
+        const { useReportData } = await import('@/components/report/useReportData');
+        const { buildOpenClawContext } = await import('@/lib/buildOpenClawContext');
+        const fullData = await getValidation(validationId);
+        const reportData = useReportData(fullData);
+        if (reportData) {
+          reportContextRef.current = buildOpenClawContext(reportData);
+        }
+      } catch (e) {
+        console.warn('[OpenClaw] Failed to fetch validation report for skill context:', e);
+      }
+    })();
+  }, [validationId]);
+
   const filteredCommands = SLASH_COMMANDS.filter(cmd =>
     cmd.name.startsWith(slashFilter.toLowerCase())
   );

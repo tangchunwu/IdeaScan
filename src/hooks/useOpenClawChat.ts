@@ -185,6 +185,7 @@ export function useOpenClawChat(userId: string | undefined, sessionId: string, c
         const fullPrompt = getSkillSystemPrompt(skillId);
         if (fullPrompt) body.system_prompt = fullPrompt;
       }
+      if (reportContext) body.report_context = reportContext;
 
       const res = await fetch(url, {
         method: 'POST',
