@@ -31,18 +31,21 @@ const personaTypeConfig = {
               color: "bg-primary text-primary-foreground",
               icon: Star,
               description: "最有可能购买的目标群体",
+              weight: "50%",
        },
        secondary: {
               label: "潜在用户",
               color: "bg-secondary text-secondary-foreground",
               icon: Target,
               description: "可转化的次要目标群体",
+              weight: "30%",
        },
        tertiary: {
               label: "边缘用户",
               color: "bg-muted text-muted-foreground",
               icon: User,
               description: "需要更多教育的群体",
+              weight: "20%",
        },
 };
 
