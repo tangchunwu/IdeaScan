@@ -58,9 +58,7 @@ const DimensionItem = ({ d, i }: { d: { dimension: string; score: number; reason
 export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionSectionProps) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
-      <h3 className="font-semibold mb-2 flex items-center gap-2">
-        <Target className="w-5 h-5 text-primary" />需求验证雷达
-      </h3>
+      <SectionHeading emoji="🕸️" title="需求验证雷达" className="mb-0" />
       <div className="flex-1 min-h-[250px] w-full mt-4">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
