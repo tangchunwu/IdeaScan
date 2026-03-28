@@ -1069,7 +1069,20 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
           </div>
         )}
 
-        {/* Recording panel */}
+        {/* Skill hint banner */}
+        {activeSkill && !sending && activeSkillDef && (
+          <div className="mb-2.5 flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/20 bg-primary/5">
+            <Lightbulb className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs text-primary/80 flex-1">{activeSkillDef.inputHint}</span>
+            <button
+              onClick={() => { setActiveSkill(null); setInput(''); }}
+              className="p-1 rounded-md hover:bg-primary/10 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-primary/60" />
+            </button>
+          </div>
+        )}
+
         {isRecording && (
           <div className="mb-2.5 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5">
             <div className="relative">
