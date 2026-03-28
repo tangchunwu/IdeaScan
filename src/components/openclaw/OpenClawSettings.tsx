@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Trash2, Star, RefreshCw, Copy, Check, Circle, Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { PairingDialog } from "./PairingDialog";
+import { SetupGuide } from "./SetupGuide";
 
 const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds — bridge polls every 2s
 
@@ -179,7 +180,7 @@ export function OpenClawSettings() {
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
       ) : connections.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-4">尚未添加任何连接，点击上方"添加"按钮开始配置</p>
+        <SetupGuide onStartPairing={() => setShowPairing(true)} />
       ) : (
         <div className="space-y-2">
           {connections.map(conn => (
