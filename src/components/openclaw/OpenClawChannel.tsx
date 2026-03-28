@@ -464,6 +464,11 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashSelectedIdx, setSlashSelectedIdx] = useState(0);
 
+  // Active skill state (for prefill + progress tracking)
+  const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   const filteredCommands = SLASH_COMMANDS.filter(cmd =>
     cmd.name.startsWith(slashFilter.toLowerCase())
   );
