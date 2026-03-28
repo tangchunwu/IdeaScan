@@ -1,84 +1,108 @@
 
 
-# 完整集成原版 Skill 提示词
+# OpenClaw 三项优化：UI 精简 + 技能打磨 + 上下文管理
 
-## 现状差距
+## 问题分析
 
-对比 GitHub 原版 SKILL.md，当前实现大幅简化了 system prompt：
+### 1. UI 太杂乱
+空状态展示了 3 个分类 × 8 个技能卡片，视觉噪音大。用户打开页面看到一堆按钮，不知道从哪开始。
 
-| 技能 | 原版行数 | 当前 prompt | 遗漏的关键内容 |
-|------|---------|------------|--------------|
-| PRD Generator | ~678 行 | ~40 行 | 8步协作流程、模块反馈/review机制、Mermaid流程图生成、内容质量标准（500字+背景）、异常场景模板、PRD Review清单、多种工作流模式（新产品/迭代/快速） |
-| Competitive Analysis | ~194 行 | ~50 行 | 硬性门控（Step 1 必须确认才能继续）、单品拆解 vs 多品对比模式、快速/深度分析选择、3阶段信息收集流程、PEST/KANO/商业模式画布框架、行业适配指南、Mermaid图表规范、P0/P1/P2优先级建议 |
+### 2. 部分技能未打磨
+Growth Strategy / GTM Plan / Tech Architecture 三个新技能的 prompt 虽已完整，但缺乏门控确认机制（不像竞品分析有硬性 Step 1）。此外 `buildOpenClawContext.ts` 中的 `taskInstructions` 与 `openclawSkills.ts` 的 `systemPrompt` 存在重复——两套指令可能互相冲突。
 
-此外，Edge Function 中的 `SKILL_PROMPTS` 又进一步压缩到 2-3 句话，与前端 `openclawSkills.ts` 不同步。
+### 3. 上下文会爆炸
+当前逻辑有两个问题：
+- **首次发送**：system_prompt（500-700行）+ report_context（可能 3000+ 字）+ 20条历史 → 轻松超过 8K tokens 的 system prompt
+- **后续发送**：`activeSkill` 在首次发送后被清空，后续消息不再带 `system_prompt` 和 `report_context`，Edge Function 回退到默认 2 句话 prompt → **技能上下文丢失**
+- report_context 每次都完整发送，即使 Agent 已经看过
+
+---
 
 ## 方案
 
-### 改动 1：升级 `src/lib/openclawSkills.ts` 的 system prompt
+### 改动 1：简化空状态 UI
 
-将两个技能的 `systemPrompt` 替换为接近原版的完整版本，但做以下适配：
-- **去掉文件系统操作**（mkdir、touch、保存到文件等 Claude Code 特有操作）
-- **去掉 references/ 文件引用**（frameworks.md、diagrams.md 等本地文件读取）
-- **保留所有分析框架和模板**（PRD大纲、竞品对比矩阵、SWOT、KANO、PEST、商业模式画布）
-- **保留输出格式规范**（Markdown结构、Mermaid语法、表格模板）
-- **保留门控逻辑**（竞品分析 Step 1 必须确认后才能搜索）
-- **融合验证报告上下文**：在 prompt 开头说明用户已有 IdeaScan 数据，Agent 应自动引用
+**文件**：`src/components/openclaw/OpenClawChannel.tsx`
 
-**PRD Generator** 完整 prompt 将包含：
-1. 理解产品项目（6个澄清问题）
-2. 协作式信息收集（PRD大纲 checklist）
-3. 竞品研究模板
-4. Mermaid 功能流程图生成指令
-5. 模块反馈/review 模板（做得好/改进建议/思考问题）
-6. 内容生成规范（产品背景500字+、用户场景模板、异常场景表格）
-7. 最终文档结构（完整 PRD 模板）
-8. Review 清单（完整性/质量/可读性）
+将 3×8 技能网格替换为更简洁的设计：
+- 顶部保留 3-4 个最常用的快捷按钮（横向一排，带简短描述）：**写 PRD**、**竞品分析**、**增长策略**、**写小红书**
+- 下方添加一个"更多技能"展开按钮，点击后用 Collapsible 展示剩余技能
+- 移除分类标题的占位空间，整体高度缩减 ~50%
 
-**Competitive Analysis** 完整 prompt 将包含：
-1. 硬性门控 Step 1（分析模式/行业/分析对象/深度/聚焦维度 逐一确认）
-2. 单品拆解 vs 多品对比的确认模板
-3. 信息收集三阶段原则
-4. 快速/深度对比的框架表格（PEST、KANO、SWOT、商业模式画布）
-5. 报告撰写原则（数据说话、标注来源、未公开标注）
-6. Mermaid 可视化规范
-7. 行业适配指南表格
-8. P0/P1/P2 行动建议格式
+```text
+┌─────────────────────────────────┐
+│      🤖 AI Agent 已就绪         │
+│   选择快捷指令或直接下达任务      │
+│                                 │
+│  [写PRD] [竞品分析] [增长策略]   │  ← 主推 3 个
+│                                 │
+│  ▸ 更多技能                     │  ← 折叠
+│    [GTM] [架构] [小红书] [营销图] │
+└─────────────────────────────────┘
+```
 
-### 改动 2：同步 Edge Function 的 `SKILL_PROMPTS`
+### 改动 2：统一技能指令来源，去除 buildOpenClawContext 中的重复
 
-**文件** `supabase/functions/openclaw-chat/index.ts`
+**文件**：`src/lib/buildOpenClawContext.ts`
 
-当前 Edge Function 中硬编码了简化版 prompt。改为：
-- 保持 Edge Function 中的 prompt 作为 fallback（精简版）
-- 前端在发送消息时，将完整 system prompt 通过请求体传递给 Edge Function（新增 `system_prompt` 字段）
-- Edge Function 优先使用前端传来的 `system_prompt`，如无则用本地 fallback
+`buildOpenClawPrompt()` 中的 `taskInstructions` 与 `openclawSkills.ts` 的 `systemPrompt` 高度重复。改为：
+- `buildOpenClawContext()` 只负责序列化报告数据为 Markdown（保持不变）
+- `buildOpenClawPrompt()` 不再维护自己的指令模板，改为直接从 `openclawSkills.ts` 取 `quickStart` 作为用户消息
+- 避免两套指令打架
 
-这样前端 `openclawSkills.ts` 成为 prompt 的唯一维护点。
+### 改动 3：上下文分层管理（核心改动）
 
-### 改动 3：前端传递完整 system prompt
+**文件**：`supabase/functions/openclaw-chat/index.ts` + `src/hooks/useOpenClawChat.ts`
 
-**文件** `src/hooks/useOpenClawChat.ts`
+#### 3a. 持久化 session 上下文
 
-`sendMessage` 在有 `skillId` 时，从 `getSkillSystemPrompt(skillId)` 获取完整 prompt，通过请求体的 `system_prompt` 字段发送。
+在 Edge Function 中，将首次发送的 `system_prompt` 和 `report_context` 存入数据库（新增 `openclaw_sessions` 表或利用现有 session 记录），后续消息自动读取：
 
-### 改动 4：更新进度步骤关键词
+```sql
+-- 新增列或表存储 session 级别的上下文
+ALTER TABLE openclaw_sessions ADD COLUMN IF NOT EXISTS
+  system_prompt TEXT,
+  report_context_summary TEXT;  -- 存摘要而非全文
+```
 
-**文件** `src/lib/openclawSkills.ts`
+Edge Function 逻辑：
+1. 收到 `system_prompt` → 存入 session 记录
+2. 后续消息无 `system_prompt` → 从 session 记录读取
+3. 保证整个对话期间技能上下文不丢失
 
-根据完整 prompt 的实际输出内容，更新 `steps` 和 `keywords`：
+#### 3b. report_context 摘要化
 
-**PRD Generator**：
-- 信息确认 → 需求收集 → 竞品研究 → 流程图生成 → 模块Review → 文档生成
+完整的验证报告可能 3000-5000 字。改为：
+- 首次发送时，在 Edge Function 中将 `report_context` 压缩为关键摘要（~500字）：只保留综合得分、核心痛点、用户画像概要、竞品列表、关键市场信号
+- 存储摘要版本到 session，后续消息引用摘要
+- 前端 `buildOpenClawContext` 增加 `buildOpenClawContextSummary()` 方法，在前端侧完成压缩
 
-**Competitive Analysis**：
-- 范围确认 → 信息收集 → 框架分析 → 报告撰写 → 行动建议（不变，但 keywords 更精确）
+#### 3c. 历史消息窗口控制
+
+当前 Edge Function 加载 20 条历史。改为滑动窗口策略：
+- 默认加载最近 10 条（而非 20 条）
+- 如果有 system_prompt，计算 system_prompt 预估 token 数，动态调整历史条数（prompt 越长，历史越少）
+
+### 改动 4：为新技能添加门控确认
+
+**文件**：`src/lib/openclawSkills.ts`
+
+为 Growth Strategy / GTM Plan / Tech Architecture 的 prompt 开头添加与 Competitive Analysis 类似的门控规则：
+
+> ⚠️ 门控规则：Step 1 中的确认项必须全部完成后，才能进入后续分析阶段。
+
+当前这三个技能的 Step 1 虽然列了确认问题，但没有明确的"必须逐一确认后才继续"指令。补充后 Agent 会更严格地走流程。
+
+---
 
 ## 涉及文件
 
 | 文件 | 改动 |
 |------|------|
-| `src/lib/openclawSkills.ts` | 替换为完整版 system prompt，更新 steps/keywords |
-| `src/hooks/useOpenClawChat.ts` | 发送时附带完整 system_prompt |
-| `supabase/functions/openclaw-chat/index.ts` | 接收 `system_prompt` 字段，优先使用 |
+| `src/components/openclaw/OpenClawChannel.tsx` | 简化空状态 UI，折叠次要技能 |
+| `src/lib/buildOpenClawContext.ts` | 新增 `buildOpenClawContextSummary()`，去除重复指令 |
+| `src/lib/openclawSkills.ts` | 为 3 个新技能添加门控指令 |
+| `src/hooks/useOpenClawChat.ts` | 发送 report_context 摘要而非全文 |
+| `supabase/functions/openclaw-chat/index.ts` | 持久化 session 上下文，滑动窗口历史 |
+| 数据库迁移 | `openclaw_sessions` 表新增 `system_prompt` + `report_context_summary` 列 |
 
