@@ -444,6 +444,7 @@ const Report = () => {
           />
 
           {/* Elevator Pitch Hero (full-width) */}
+          <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
           <div className="mb-3 sm:mb-4 animate-slide-up">
             <ScoreHeroCard
               score={displayScore}
