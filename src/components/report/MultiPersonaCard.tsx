@@ -180,11 +180,11 @@ export const MultiPersonaCard = ({
                                           </div>
 
                                           {/* Goals */}
-                                          <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
-                                                 <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                                                        <span className="text-green-500">🎯</span>
-                                                        期望目标
-                                                 </h5>
+                                           <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 border-l-[3px] border-l-green-500">
+                                                  <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                                                         <span>🎯</span>
+                                                         期望目标
+                                                  </h5>
                                                  <ul className="space-y-2">
                                                         {currentPersona.goals.slice(0, 3).map((goal, i) => (
                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
