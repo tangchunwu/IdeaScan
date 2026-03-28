@@ -1,4 +1,4 @@
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, Cat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "./GlassCard";
 import { Link } from "react-router-dom";
