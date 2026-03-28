@@ -142,107 +142,65 @@ export function buildOpenClawContext(r: ReportDataResult): string {
 export type OpenClawTaskType = "xiaohongshu_publish" | "marketing_image" | "competitor_research" | "brainstorm" | "xiaohongshu" | "content_pipeline" | "prd" | "competitive_analysis" | "growth_strategy" | "gtm_plan" | "tech_architecture";
 
 /**
+ * Build a condensed summary (~500 words) of the report for follow-up messages.
+ * Avoids sending 3000+ words of context every time.
+ */
+export function buildOpenClawContextSummary(r: ReportDataResult): string {
+  const lines: string[] = [];
+  const { validation, aiAnalysis, dimensions, personaData, marketAnalysis, sentimentAnalysis, competitorRows, evidenceGrade, proofResult } = r;
+
+  lines.push(`# 验证报告摘要（精简版）`);
+  lines.push(`创意: ${validation.idea}`);
+  lines.push(`综合得分: ${validation.overall_score ?? "N/A"}/100 | 证据等级: ${evidenceGrade} | 商业可用性: ${proofResult.verdict}`);
+
+  if (dimensions.length) {
+    const topDims = dimensions.slice(0, 4);
+    lines.push(`维度: ${topDims.map(d => `${d.dimension}(${d.score})`).join(' | ')}`);
+  }
+
+  if (personaData) {
+    lines.push(`用户画像: ${personaData.name}, ${personaData.role}, ${personaData.age}岁`);
+    if (personaData.painPoints.length) lines.push(`核心痛点: ${personaData.painPoints.slice(0, 3).join('；')}`);
+  }
+
+  lines.push(`市场: ${marketAnalysis.targetAudience} | 规模${marketAnalysis.marketSize} | 竞争${marketAnalysis.competitionLevel} | 趋势${marketAnalysis.trendDirection}`);
+  lines.push(`情感: 正面${sentimentAnalysis.positive}% 中性${sentimentAnalysis.neutral}% 负面${sentimentAnalysis.negative}%`);
+
+  if (aiAnalysis.strengths.length) lines.push(`优势: ${aiAnalysis.strengths.slice(0, 3).join('；')}`);
+  if (aiAnalysis.weaknesses.length) lines.push(`劣势: ${aiAnalysis.weaknesses.slice(0, 3).join('；')}`);
+
+  if (competitorRows.length) {
+    const names = competitorRows.slice(0, 4).map((c: any) => c.title || '竞品').join('、');
+    lines.push(`主要竞品: ${names}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Build the initial prompt message that wraps the context.
- * Prompts explicitly instruct Agent to use its built-in tools.
+ * Now delegates to openclawSkills for task-specific instructions.
  */
 export function buildOpenClawPrompt(context: string, task: OpenClawTaskType = "xiaohongshu"): string {
-  const taskInstructions: Record<OpenClawTaskType, string> = {
-    xiaohongshu: `请基于以上验证报告数据，帮我撰写一篇适合在小红书发布的种草/测评文案。要求：
-1. 标题要有吸引力，带 emoji，15字以内
-2. 正文分段清晰，包含痛点引入、解决方案、使用体验、号召行动
-3. 文案风格贴合目标用户画像
-4. 结尾附上 5-8 个相关话题标签
-5. 可以参考样本笔记的爆款元素`,
+  // For skills managed by openclawSkills.ts, use their quickStart
+  try {
+    const { getSkillByTaskType } = require('./openclawSkills');
+    const skill = getSkillByTaskType(task);
+    if (skill) {
+      return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${skill.quickStart}`;
+    }
+  } catch { /* fallback below */ }
 
-    xiaohongshu_publish: `请基于以上验证报告数据，完成完整的小红书发布流程：
-1. 撰写一篇小红书种草文案（标题+正文+标签），标题带 emoji，15字以内
-2. 使用你的图片生成工具，为文案生成 1-3 张适合小红书的配图
-3. 使用你的小红书发布工具，将文案和配图发布到小红书
-每完成一步请告诉我进度。如果某个工具不可用，请告知并继续完成其余步骤。`,
-
-    marketing_image: `请基于以上验证报告数据，为我的产品生成营销素材：
-1. 分析目标用户画像和产品卖点，确定视觉风格方向
-2. 使用你的图片生成工具，生成 2-3 张适合小红书/朋友圈传播的营销配图
-3. 为每张图片配上简短的文案说明
-风格要求：现代简洁，符合目标受众审美。`,
-
-    competitor_research: `请基于以上验证报告数据，进行深度竞品调研：
-1. 使用你的搜索工具，联网搜索主要竞品的最新动态、定价策略和用户评价
-2. 分析竞品的共同特点和差距，找出差异化切入点
-3. 输出一份完整的竞品调研报告，包含定位建议和卖点提炼
-4. 请将调研报告保存到 workspace/competitor-report.md`,
-
-    brainstorm: `请基于以上验证报告数据，进行创意头脑风暴：
-1. 基于验证数据中的用户痛点和市场机会，提出 5 个产品变体方向
-2. 每个方向说明切入角度、目标人群、核心卖点和预估可行性
-3. 评估每个方向的市场潜力（大/中/小）
-4. 请将结果保存到 workspace/ideas.md`,
-
-    content_pipeline: `请基于以上内容信息，完成多平台内容生产流水线：
-
-## 第一步：联网调研
-使用你的搜索工具，围绕给定主题搜索最新资讯、热门观点和用户痛点，整理 3-5 个关键角度。
-
-## 第二步：生成长文主稿
-基于调研结果，撰写一篇 800-1200 字的深度长文，包含：引言、核心论点（2-3个）、案例/数据支撑、结论与行动号召。
-请严格遵循品牌 Voice 设定（语气、人设、关键词）。
-
-## 第三步：拆分为三个平台版本
-
-### 🔴 小红书版本
-- 标题：15字以内，带 emoji，吸引力强
-- 正文：300-500字，分段清晰，口语化，带个人体验感
-- 结尾：5-8 个话题标签
-- 保存到 workspace/draft-xiaohongshu.md
-
-### 🐦 Twitter/X 版本
-- 主推文：280字符以内，简洁有力
-- 补充 Thread（3-5条），每条独立成段
-- 保存到 workspace/draft-twitter.md
-
-### 📱 公众号版本
-- 标题：吸引点击，20字以内
-- 正文：800-1500字，结构化分段，专业深度
-- 结尾：引导关注 + 互动话题
-- 保存到 workspace/draft-wechat.md
-
-每完成一个平台版本，请告知进度。最后输出三个版本的摘要供审核。`,
-
-    prd: `请基于以上验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。
-请按以下流程进行：
-1. 先确认你从数据中理解到的核心产品方向
-2. 询问我关于产品形态、优先功能、技术栈偏好等关键问题
-3. 基于我的回答和验证数据，输出完整 PRD（含产品概述、用户画像、功能规格、竞品差异化、商业模式、里程碑等）
-请引用验证数据作为决策依据。`,
-
-    competitive_analysis: `请基于以上验证报告数据，进行系统化的竞品分析：
-1. 先列出从数据中识别到的竞品，确认分析范围
-2. 如有搜索工具，联网收集竞品最新动态、定价、用户评价
-3. 输出完整竞品分析报告：功能对比矩阵、SWOT 分析、差异化机会、定价策略建议
-4. 给出 3-5 条具体可执行的产品策略建议
-请引用验证数据中的痛点和市场信号作为分析基础。`,
-
-    growth_strategy: `请基于以上验证报告数据，制定用户增长策略：
-1. 诊断当前产品阶段，分析 AARRR 漏斗
-2. 评估各获客渠道的 CAC 和适配度
-3. 设计 3-5 个增长实验（含假设、指标、成功标准）
-4. 输出 90 天增长路线图
-请引用验证数据中的用户画像和市场信号。`,
-
-    gtm_plan: `请基于以上验证报告数据，制定 Go-to-Market 方案：
-1. 明确市场定位和价值主张
-2. 制定定价策略（对比竞品定价）
-3. 规划发布渠道和时间线（预热→发布→持续增长）
-4. 定义成功 KPI 和衡量方式
-请引用验证数据中的竞品信息和用户画像。`,
-
-    tech_architecture: `请基于以上验证报告数据和产品方向，设计技术架构方案：
-1. 梳理功能需求和非功能需求
-2. 推荐技术栈选型（含对比和理由）
-3. 设计系统架构图（Mermaid）和数据模型
-4. 给出 MVP 阶段部署方案和成本估算
-请基于产品方向推断技术需求。`,
+  // Fallback for non-skill tasks
+  const fallbackInstructions: Partial<Record<OpenClawTaskType, string>> = {
+    xiaohongshu: `请基于以上验证报告数据，帮我撰写一篇适合在小红书发布的种草/测评文案。`,
+    xiaohongshu_publish: `请基于以上验证报告数据，完成完整的小红书发布流程。`,
+    marketing_image: `请基于以上验证报告数据，为我的产品生成营销素材。`,
+    competitor_research: `请基于以上验证报告数据，进行深度竞品调研。`,
+    brainstorm: `请基于以上验证报告数据，进行创意头脑风暴。`,
+    content_pipeline: `请基于以上内容信息，完成多平台内容生产流水线。`,
   };
 
-  return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${taskInstructions[task]}`;
+  const instruction = fallbackInstructions[task] || '请基于以上数据进行分析。';
+  return `以下是我的创业想法的完整验证报告数据：\n\n${context}\n\n---\n\n${instruction}`;
 }

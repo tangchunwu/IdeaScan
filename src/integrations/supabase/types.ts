@@ -709,6 +709,36 @@ export type Database = {
         }
         Relationships: []
       }
+      openclaw_session_context: {
+        Row: {
+          created_at: string
+          id: string
+          report_context_summary: string | null
+          session_id: string
+          system_prompt: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_context_summary?: string | null
+          session_id: string
+          system_prompt?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_context_summary?: string | null
+          session_id?: string
+          system_prompt?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       openclaw_session_titles: {
         Row: {
           created_at: string

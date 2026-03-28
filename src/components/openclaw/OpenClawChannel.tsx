@@ -50,87 +50,62 @@ interface QuickPrompt {
   accent?: string; // tailwind color class for icon bg
 }
 
-interface SkillCategory {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  items: QuickPrompt[];
-}
+const PRIMARY_SKILLS: QuickPrompt[] = [
+  {
+    icon: FileText,
+    label: '写 PRD',
+    prompt: '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。',
+    skillId: 'prd-generator',
+    accent: 'from-blue-500/20 to-blue-500/5',
+  },
+  {
+    icon: Search,
+    label: '竞品分析',
+    prompt: '请基于验证报告数据，进行系统化的竞品分析。',
+    skillId: 'competitive-analysis',
+    accent: 'from-violet-500/20 to-violet-500/5',
+  },
+  {
+    icon: TrendingUp,
+    label: '增长策略',
+    prompt: '请基于验证报告数据，帮我制定用户增长策略。',
+    skillId: 'growth-strategy',
+    accent: 'from-emerald-500/20 to-emerald-500/5',
+  },
+];
 
-const SKILL_CATEGORIES: SkillCategory[] = [
+const SECONDARY_SKILLS: QuickPrompt[] = [
   {
-    id: 'product',
-    label: '产品定义',
-    icon: LayoutDashboard,
-    items: [
-      {
-        icon: FileText,
-        label: '写 PRD',
-        prompt: '请基于验证报告数据，帮我撰写一份完整的产品需求文档（PRD）。',
-        skillId: 'prd-generator',
-        accent: 'from-blue-500/20 to-blue-500/5',
-      },
-      {
-        icon: Search,
-        label: '竞品分析',
-        prompt: '请基于验证报告数据，进行系统化的竞品分析。',
-        skillId: 'competitive-analysis',
-        accent: 'from-violet-500/20 to-violet-500/5',
-      },
-      {
-        icon: Lightbulb,
-        label: '头脑风暴',
-        prompt: '请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。',
-        accent: 'from-yellow-500/20 to-yellow-500/5',
-      },
-    ],
+    icon: Rocket,
+    label: 'GTM 方案',
+    prompt: '请基于验证报告数据，帮我制定 Go-to-Market 方案。',
+    skillId: 'gtm-plan',
+    accent: 'from-orange-500/20 to-orange-500/5',
   },
   {
-    id: 'growth',
-    label: '增长与市场',
-    icon: BarChart3,
-    items: [
-      {
-        icon: TrendingUp,
-        label: '增长策略',
-        prompt: '请基于验证报告数据，帮我制定用户增长策略。',
-        skillId: 'growth-strategy',
-        accent: 'from-emerald-500/20 to-emerald-500/5',
-      },
-      {
-        icon: Rocket,
-        label: 'GTM 方案',
-        prompt: '请基于验证报告数据，帮我制定 Go-to-Market 方案。',
-        skillId: 'gtm-plan',
-        accent: 'from-orange-500/20 to-orange-500/5',
-      },
-    ],
+    icon: Cpu,
+    label: '技术架构',
+    prompt: '请基于验证报告数据，帮我设计技术架构方案。',
+    skillId: 'tech-architecture',
+    accent: 'from-cyan-500/20 to-cyan-500/5',
   },
   {
-    id: 'tech',
-    label: '技术与创作',
-    icon: Blocks,
-    items: [
-      {
-        icon: Cpu,
-        label: '技术架构',
-        prompt: '请基于验证报告数据，帮我设计技术架构方案。',
-        skillId: 'tech-architecture',
-        accent: 'from-cyan-500/20 to-cyan-500/5',
-      },
-      {
-        icon: Pencil,
-        label: '一键发小红书',
-        prompt: '请完成完整的小红书发布流程：1) 写一篇种草文案 2) 生成配图 3) 发布到小红书。请依次使用你的工具完成，每步告诉我进度。',
-        accent: 'from-rose-500/20 to-rose-500/5',
-      },
-      {
-        icon: Palette,
-        label: '生成营销图',
-        prompt: '请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。',
-        accent: 'from-pink-500/20 to-pink-500/5',
-      },
-    ],
+    icon: Pencil,
+    label: '写小红书',
+    prompt: '请完成完整的小红书发布流程：1) 写一篇种草文案 2) 生成配图 3) 发布到小红书。请依次使用你的工具完成，每步告诉我进度。',
+    accent: 'from-rose-500/20 to-rose-500/5',
+  },
+  {
+    icon: Lightbulb,
+    label: '头脑风暴',
+    prompt: '请头脑风暴 5 个产品变体方向，评估可行性，将结果保存为 workspace/ideas.md。',
+    accent: 'from-yellow-500/20 to-yellow-500/5',
+  },
+  {
+    icon: Palette,
+    label: '营销配图',
+    prompt: '请为我的产品生成一组适合小红书/朋友圈的营销配图，风格现代简洁。使用你的图片生成工具。',
+    accent: 'from-pink-500/20 to-pink-500/5',
   },
 ];
 
@@ -536,8 +511,9 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
   const activeSkillDef = activeSkill ? getSkillById(activeSkill) : undefined;
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Validation report context cache for skills
+  // Validation report context cache for skills (summary for follow-ups, full for first message)
   const reportContextRef = useRef<string | null>(null);
+  const reportContextSummaryRef = useRef<string | null>(null);
   const reportContextFetchedRef = useRef<string | null>(null); // tracks which validationId was fetched
 
   // Fetch validation report context when we have a validationId
@@ -548,11 +524,12 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
       try {
         const { getValidation } = await import('@/services/validationService');
         const { useReportData } = await import('@/components/report/useReportData');
-        const { buildOpenClawContext } = await import('@/lib/buildOpenClawContext');
+        const { buildOpenClawContext, buildOpenClawContextSummary } = await import('@/lib/buildOpenClawContext');
         const fullData = await getValidation(validationId);
         const reportData = useReportData(fullData);
         if (reportData) {
           reportContextRef.current = buildOpenClawContext(reportData);
+          reportContextSummaryRef.current = buildOpenClawContextSummary(reportData);
         }
       } catch (e) {
         console.warn('[OpenClaw] Failed to fetch validation report for skill context:', e);
@@ -965,46 +942,59 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         )}
 
         {!loading && messages.length === 0 && !streamingContent && !initialMessage && (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-center px-4">
+          <div className="flex flex-col items-center justify-center h-full gap-5 text-center px-4">
             <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-transparent flex items-center justify-center shadow-lg">
-                <Bot className="w-10 h-10 text-primary" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-transparent flex items-center justify-center shadow-lg">
+                <Bot className="w-8 h-8 text-primary" />
               </div>
               <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 to-transparent rounded-2xl blur-xl -z-10 animate-pulse" />
             </div>
             <div>
-              <p className="text-base font-medium text-foreground mb-1">AI Agent 已就绪</p>
-              <p className="text-sm text-muted-foreground/70">选择快捷指令或直接下达任务</p>
+              <p className="text-sm font-medium text-foreground mb-0.5">AI Agent 已就绪</p>
+              <p className="text-xs text-muted-foreground/70">选择快捷指令或直接下达任务</p>
             </div>
-            <div className={`mt-2 w-full ${isMobile ? 'max-w-sm' : 'max-w-lg'} space-y-4`}>
-              {SKILL_CATEGORIES.map((cat) => (
-                <div key={cat.id}>
-                  <div className="flex items-center gap-1.5 mb-2 px-1">
-                    <cat.icon className="w-3.5 h-3.5 text-muted-foreground/60" />
-                    <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/60">{cat.label}</span>
-                  </div>
-                  <div className={`grid ${isMobile ? 'grid-cols-2 gap-1.5' : `${cat.items.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}`}>
-                    {cat.items.map((qp) => (
-                      <button
-                        key={qp.label}
-                        onClick={() => handleQuickPrompt(qp.prompt, qp.skillId)}
-                        className={`group flex flex-col items-start gap-1.5 ${isMobile ? 'px-2.5 py-2' : 'px-3 py-3'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 text-left hover:shadow-md hover:-translate-y-0.5`}
-                      >
-                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${qp.accent || 'from-primary/20 to-primary/5'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                          <qp.icon className="w-3.5 h-3.5 text-foreground/70 group-hover:text-foreground transition-colors" />
-                        </div>
-                        <span className="text-[11px] font-medium text-foreground/80 group-hover:text-foreground transition-colors leading-tight">{qp.label}</span>
-                        {qp.skillId && (
-                          <span className="text-[9px] text-muted-foreground/50 flex items-center gap-0.5">
-                            <Sparkles className="w-2.5 h-2.5" /> Expert Skill
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+
+            {/* Primary skills */}
+            <div className={`w-full ${isMobile ? 'max-w-xs' : 'max-w-md'}`}>
+              <div className={`grid grid-cols-3 ${isMobile ? 'gap-1.5' : 'gap-2'}`}>
+                {PRIMARY_SKILLS.map((qp) => (
+                  <button
+                    key={qp.label}
+                    onClick={() => handleQuickPrompt(qp.prompt, qp.skillId)}
+                    className={`group flex flex-col items-center gap-1.5 ${isMobile ? 'px-2 py-2.5' : 'px-3 py-3'} rounded-xl border border-border/40 bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-primary/30 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${qp.accent || 'from-primary/20 to-primary/5'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                      <qp.icon className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
+                    </div>
+                    <span className="text-[11px] font-medium text-foreground/80 group-hover:text-foreground transition-colors">{qp.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* More skills - collapsible */}
+            <Collapsible className={`w-full ${isMobile ? 'max-w-xs' : 'max-w-md'}`}>
+              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors mx-auto group">
+                <ChevronRight className="w-3 h-3 transition-transform group-data-[state=open]:rotate-90" />
+                <span>更多技能</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className={`grid ${isMobile ? 'grid-cols-3 gap-1.5' : 'grid-cols-5 gap-1.5'}`}>
+                  {SECONDARY_SKILLS.map((qp) => (
+                    <button
+                      key={qp.label}
+                      onClick={() => handleQuickPrompt(qp.prompt, qp.skillId)}
+                      className={`group flex flex-col items-center gap-1 ${isMobile ? 'px-2 py-2' : 'px-2 py-2.5'} rounded-lg border border-border/30 bg-muted/10 hover:bg-muted/30 hover:border-primary/20 transition-all duration-200 text-center`}
+                    >
+                      <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${qp.accent || 'from-primary/15 to-primary/5'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                        <qp.icon className="w-3 h-3 text-foreground/60 group-hover:text-foreground/80 transition-colors" />
+                      </div>
+                      <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors leading-tight">{qp.label}</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
 
