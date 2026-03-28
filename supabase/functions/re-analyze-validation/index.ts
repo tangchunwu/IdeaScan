@@ -219,24 +219,53 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
     throw lastError || new Error("All LLM candidates failed");
   }
 
-  // Parse JSON from response
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    console.error("[Re-analyze] No JSON found in response:", content.slice(0, 200));
+  // Strip <think> blocks
+  content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/<think>[\s\S]*/gi, "").trim();
+
+  // Try to extract JSON - use a bracket-matching approach for robustness
+  let parsed: any = null;
+  
+  // First try: find ```json ... ``` fenced block
+  const fencedMatch = content.match(/```json\s*([\s\S]*?)```/);
+  if (fencedMatch) {
+    try { parsed = JSON.parse(fencedMatch[1].trim()); } catch (_) {}
+  }
+
+  // Second try: greedy match from first { to last }
+  if (!parsed) {
+    const firstBrace = content.indexOf("{");
+    const lastBrace = content.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try { parsed = JSON.parse(content.slice(firstBrace, lastBrace + 1)); } catch (_) {}
+    }
+  }
+
+  // Third try: find first balanced top-level {}
+  if (!parsed) {
+    const firstBrace = content.indexOf("{");
+    if (firstBrace !== -1) {
+      let depth = 0;
+      for (let i = firstBrace; i < content.length; i++) {
+        if (content[i] === "{") depth++;
+        else if (content[i] === "}") depth--;
+        if (depth === 0) {
+          try { parsed = JSON.parse(content.slice(firstBrace, i + 1)); } catch (_) {}
+          break;
+        }
+      }
+    }
+  }
+
+  if (!parsed) {
+    console.error("[Re-analyze] No valid JSON found in response:", content.slice(0, 500));
     throw new Error("Invalid AI response format");
   }
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      persona: needsPersona ? parsed.persona : undefined,
-      dimensions: needsDimensions ? parsed.dimensions : undefined,
-      aiAnalysis: needsAiAnalysis ? parsed.aiAnalysis : undefined,
-    };
-  } catch (e) {
-    console.error("[Re-analyze] JSON parse error:", e);
-    throw new Error("Failed to parse AI response");
-  }
+  return {
+    persona: needsPersona ? parsed.persona : undefined,
+    dimensions: needsDimensions ? parsed.dimensions : undefined,
+    aiAnalysis: needsAiAnalysis ? parsed.aiAnalysis : undefined,
+  };
 }
 
 serve(async (req) => {
