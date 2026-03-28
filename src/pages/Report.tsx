@@ -438,7 +438,7 @@ const Report = () => {
 
           {/* Quick Insights Cards */}
           <ScrollReveal>
-            <SectionHeading emoji="📊" title="快速洞察" subtitle="关键指标一览" />
+            <SectionHeading icon={BarChart3} title="快速洞察" subtitle="关键指标一览" />
             <QuickInsightsCards
               score={displayScore}
               competitionLevel={marketAnalysis.competitionLevel}
@@ -448,11 +448,9 @@ const Report = () => {
             />
           </ScrollReveal>
 
-          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
-
           {/* Elevator Pitch Hero (full-width) */}
-          <ScrollReveal delay={100}>
-            <SectionHeading emoji="🎯" title="综合评估" subtitle="AI 深度分析结果" />
+          <ScrollReveal delay={100} className="mt-10 sm:mt-14">
+            <SectionHeading icon={Target} title="综合评估" subtitle="AI 深度分析结果" />
             <div className="mb-3 sm:mb-4">
               <ScoreHeroCard
                 score={displayScore}
@@ -466,11 +464,9 @@ const Report = () => {
             </div>
           </ScrollReveal>
 
-          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
-
           {/* Persona Card (full-width) */}
-          <ScrollReveal delay={200}>
-            <SectionHeading emoji="👥" title="用户画像" subtitle="目标用户分层分析" />
+          <ScrollReveal delay={200} className="mt-10 sm:mt-14">
+            <SectionHeading icon={Users} title="用户画像" subtitle="目标用户分层分析" />
             <div className="mb-3 sm:mb-4">
               {personaData ? (
                 <PersonaCard persona={personaData} validationId={validation.id} />
