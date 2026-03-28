@@ -38,12 +38,7 @@ export function AIAnalysisTab({ data, aiAnalysis }: AIAnalysisTabProps) {
         <GlassCard className="h-full overflow-hidden" padding="none">
           <div className="h-1 bg-gradient-to-r from-red-500/40 to-transparent" />
           <div className="p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-              </div>
-              <span className="text-red-500">关键风险与致命伤</span>
-            </h3>
+            <SectionHeading emoji="⚠️" title="关键风险与致命伤" className="mb-0" />
             <ul className="space-y-3">
               {ai.weaknesses?.map((item: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 text-sm leading-relaxed">
