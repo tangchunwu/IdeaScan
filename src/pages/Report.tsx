@@ -484,10 +484,8 @@ const Report = () => {
             </div>
           </ScrollReveal>
 
-          <hr className="border-none border-t border-dashed border-border/40 my-6 sm:my-8" />
-
-          <ScrollReveal delay={300}>
-            <SectionHeading emoji="🕸️" title="维度评估" subtitle="多维度雷达分析" />
+          <ScrollReveal delay={300} className="mt-10 sm:mt-14">
+            <SectionHeading icon={Radar} title="维度评估" subtitle="多维度雷达分析" />
             <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
           </ScrollReveal>
 
