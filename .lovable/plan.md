@@ -1,66 +1,74 @@
 
 
-# 将 PRD 生成器 + 竞品分析技能集成到 OpenClaw，自动注入验证报告数据
+# 技能触发流程优化：输入引导 + 可视化进度 + 中断支持
 
-## 核心思路
+## 问题
 
-用户已经通过 IdeaScan 完成了需求验证（用户画像、市场分析、情感分析、竞品数据、痛点聚类等），这些数据应当自动作为 PRD 和竞品分析的**输入上下文**，避免 Agent 从零开始收集信息。
+1. **无输入引导**：点击"竞品分析"直接发送预设 prompt，用户没机会指定分析什么竞品
+2. **无可视化进度**：Agent 在后台工作时，用户只看到一个 spinner，不知道分析到哪一步了
+3. **无法中断**：虽然有 `abort` 按钮（StopCircle），但没有"保留部分结果"的能力，也不够明显
 
-## 改动概览
+## 方案
 
-### 1. 新建技能定义文件 `src/lib/openclawSkills.ts`
+### 改动 1：技能触发改为"预填输入框 + 引导提示"
 
-定义两个技能，每个包含：
-- `id`、`name`、`icon`、`description`
-- `systemPrompt`：从 GitHub SKILL.md 提炼，去掉 Claude Code 文件操作部分，保留分析框架和输出模板
-- `contextRequired: true`：标记需要注入验证报告数据
+**文件** `src/components/openclaw/OpenClawChannel.tsx`
 
-**PRD Generator** 的 system prompt 核心：交互式 PRD 编写流程（信息收集→竞品研究→流程图→模块 review→输出文档），但预填验证报告中的用户画像、痛点、市场分析、竞品数据。
+点击"写 PRD"或"竞品分析"不再直接 `sendMessage`，而是：
+- 将技能 quickStart prompt 预填到输入框
+- 在输入框上方显示一个技能引导条（skill banner），提示用户补充信息后再发送
+- 例如点击"竞品分析"后，输入框预填：`请分析以下竞品：`，光标定位在末尾，用户补充竞品名称后按发送
 
-**Competitive Analysis** 的 system prompt 核心：Step 1 范围确认→Step 2 信息收集→Step 3 分析框架（PEST/KANO/SWOT）→Step 4 报告撰写→Step 5 行动建议，但预填已有的竞品数据和市场信号。
-
-### 2. 更新快捷按钮 `OpenClawChannel.tsx`
-
-在 `QUICK_PROMPTS` 中新增两个技能入口：
-- **写 PRD** — 图标 `FileText`，发送时自动拼接验证报告上下文 + PRD 开场引导
-- **竞品分析** — 图标 `Search`，发送时自动拼接验证报告上下文 + 竞品分析引导
-
-需要新增 prop `reportContext?: string` 传入 `buildOpenClawContext` 的结果。如果当前页面没有关联的验证报告，则提示用户先选择一个报告。
-
-### 3. 更新 `useOpenClawChat.ts`
-
-`sendMessage` 新增可选参数 `skillId?: string`，在请求体中传递 `skill_id`。
-
-### 4. 更新 Edge Function `openclaw-chat/index.ts`
-
-- 接收 `skill_id` 字段
-- 当 `skill_id` 存在时，用对应技能的 system prompt 替换默认的 `你是用户的 AI Agent 助手`
-- 技能 prompt 中包含 `{{REPORT_CONTEXT}}` 占位符，由前端在 message 中自动拼接（与现有 `buildOpenClawPrompt` 模式一致）
-
-### 5. 连接报告数据
-
-在 `OpenClawChannel.tsx` 中，通过 URL 参数 `?validation_id=xxx` 或 OpenClaw 页面的 session 关联，加载对应的 `useReportData`，调用 `buildOpenClawContext` 生成上下文文本，在技能触发时自动拼接到用户消息中。
-
-## 数据流
-
-```text
-用户点击"写 PRD"
-  → buildOpenClawContext(reportData) 生成 Markdown 上下文
-  → 拼接技能引导 prompt：
-      "以下是我的产品验证数据：\n{context}\n---\n请基于以上数据开始 PRD 编写流程..."
-  → sendMessage(prompt, undefined, undefined, 'prd-generator')
-  → Edge Function 收到 skill_id='prd-generator'
-  → 注入 PRD 专家 system prompt
-  → Agent 已有完整数据，跳过大部分信息收集，直接开始结构化输出
+`handleQuickPrompt` 逻辑改为：
 ```
+// 对有 skillId 的技能，预填而非直接发送
+if (skillId) {
+  setActiveSkill(skillId);
+  setInput(placeholder); // "请分析以下竞品："
+  inputRef.focus();
+  return;
+}
+```
+
+新增状态 `activeSkill`，发送时自动带上 `skillId`。
+
+### 改动 2：新增技能进度面板组件
+
+**新文件** `src/components/openclaw/SkillProgressPanel.tsx`
+
+当 `activeSkill` 存在且 `sending` 为 true 时，在聊天区域显示一个步骤进度面板（复用 `ValidationProgress` 的视觉风格）：
+
+- PRD Generator 步骤：`信息确认 → 需求梳理 → 竞品对比 → 文档生成`
+- 竞品分析步骤：`范围确认 → 信息收集 → 框架分析 → 报告撰写 → 行动建议`
+
+进度通过解析 streaming 内容中的关键词/标记来推进（例如检测到"SWOT"出现就标记到"框架分析"阶段）。
+
+组件包含取消按钮，调用 `abort()` 中断。
+
+### 改动 3：技能定义新增步骤和输入引导
+
+**文件** `src/lib/openclawSkills.ts`
+
+每个技能新增：
+- `inputPlaceholder`：预填到输入框的引导文字
+- `inputHint`：引导条上的提示语（如"请输入要分析的竞品名称或产品方向"）
+- `steps`：分析步骤列表，用于进度面板
+- `stepKeywords`：每一步的关键词触发词，用于从 streaming 内容推断进度
+
+### 改动 4：中断增强
+
+**文件** `src/components/openclaw/OpenClawChannel.tsx`
+
+技能模式下发送中，在输入区域上方显示明显的中断条：
+- 显示当前步骤名
+- "停止并保留当前内容"按钮
+- 点击后调用 `abort()`，已接收的 streaming 内容保留为 assistant 消息
 
 ## 涉及文件
 
 | 文件 | 改动 |
 |------|------|
-| `src/lib/openclawSkills.ts` | **新建**，定义 PRD 和竞品分析的技能 prompt |
-| `src/components/openclaw/OpenClawChannel.tsx` | 新增两个快捷按钮，支持加载验证报告上下文 |
-| `src/hooks/useOpenClawChat.ts` | `sendMessage` 支持 `skillId` 参数 |
-| `supabase/functions/openclaw-chat/index.ts` | 接收 `skill_id`，注入对应 system prompt |
-| `src/lib/buildOpenClawContext.ts` | 新增 `prd` 和 `competitive_analysis` 两个 task type 的 prompt 模板 |
+| `src/lib/openclawSkills.ts` | 新增 `inputPlaceholder`、`inputHint`、`steps`、`stepKeywords` |
+| `src/components/openclaw/SkillProgressPanel.tsx` | **新建**，技能执行步骤进度面板 |
+| `src/components/openclaw/OpenClawChannel.tsx` | 技能触发改预填、新增 `activeSkill` 状态、集成进度面板和中断条 |
 
