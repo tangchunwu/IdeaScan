@@ -654,26 +654,23 @@ export function OpenClawChannel({ className, initialMessage, sessionId: external
         }
         return;
       }
-      if (cmdName === '/prd') {
+      // Generic skill slash commands
+      const SKILL_CMD_MAP: Record<string, string> = {
+        '/prd': 'prd-generator',
+        '/competitive': 'competitive-analysis',
+        '/growth': 'growth-strategy',
+        '/gtm': 'gtm-plan',
+        '/arch': 'tech-architecture',
+      };
+      const skillId = SKILL_CMD_MAP[cmdName];
+      if (skillId) {
         setShowSlashMenu(false);
         if (cmdArgs) {
           setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'prd-generator', reportContextRef.current || undefined);
+          sendMessage(cmdArgs, undefined, undefined, skillId, reportContextRef.current || undefined);
         } else {
-          setActiveSkill('prd-generator');
-          setInput(getSkillById('prd-generator')?.inputPlaceholder || '');
-          setTimeout(() => inputRef.current?.focus(), 50);
-        }
-        return;
-      }
-      if (cmdName === '/competitive') {
-        setShowSlashMenu(false);
-        if (cmdArgs) {
-          setInput("");
-          sendMessage(cmdArgs, undefined, undefined, 'competitive-analysis', reportContextRef.current || undefined);
-        } else {
-          setActiveSkill('competitive-analysis');
-          setInput(getSkillById('competitive-analysis')?.inputPlaceholder || '');
+          setActiveSkill(skillId);
+          setInput(getSkillById(skillId)?.inputPlaceholder || '');
           setTimeout(() => inputRef.current?.focus(), 50);
         }
         return;
