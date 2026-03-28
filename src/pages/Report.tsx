@@ -562,6 +562,7 @@ const Report = () => {
               </motion.div>
             </AnimatePresence>
           </Tabs>
+          </ScrollReveal>
 
           <DevPanel report={report} validationId={validation.id} />
         </div>
