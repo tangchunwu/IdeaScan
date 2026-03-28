@@ -29,6 +29,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
+import { ScrollReveal } from "@/components/shared/ScrollReveal";
 
 interface GalleryReport {
   id: string;

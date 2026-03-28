@@ -42,6 +42,7 @@ import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 import { ReportNotes } from "@/components/report/ReportNotes";
 import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
 import { SectionHeading } from "@/components/report/SectionHeading";
+import { ScrollReveal } from "@/components/shared/ScrollReveal";
 
 const Report = () => {
   const { id } = useParams<{ id: string }>();
