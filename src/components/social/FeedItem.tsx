@@ -1,5 +1,5 @@
-import { useState, forwardRef } from "react";
-import { Heart, MessageCircle, ChevronDown, ChevronUp, Send, Loader2 } from "lucide-react";
+import { useState, useMemo, forwardRef } from "react";
+import { Heart, MessageCircle, ChevronDown, ChevronUp, Send, Loader2, Brain } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { PersonaAvatar } from "./PersonaAvatar";
