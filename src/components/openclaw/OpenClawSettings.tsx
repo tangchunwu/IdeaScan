@@ -120,9 +120,14 @@ export function OpenClawSettings() {
           <h3 className="font-semibold text-sm text-foreground">OpenClaw 连接</h3>
           <p className="text-xs text-muted-foreground mt-0.5">连接你的 AI Agent 服务器</p>
         </div>
-        <Button size="sm" variant="outline" className="rounded-xl gap-1" onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-3 h-3" /> 添加
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="default" className="rounded-xl gap-1" onClick={() => setShowPairing(true)}>
+            <Link2 className="w-3 h-3" /> 配对
+          </Button>
+          <Button size="sm" variant="outline" className="rounded-xl gap-1" onClick={() => setShowForm(!showForm)}>
+            <Plus className="w-3 h-3" /> 手动添加
+          </Button>
+        </div>
       </div>
 
       {showForm && (
