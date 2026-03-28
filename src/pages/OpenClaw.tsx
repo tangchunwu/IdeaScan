@@ -51,6 +51,10 @@ export default function OpenClawPage() {
   useEffect(() => {
     const fromValidation = searchParams.get("from_validation");
     if (fromValidation) {
+      // Store validation ID for skill context injection (unless it's 'content_studio')
+      if (fromValidation !== "content_studio") {
+        setValidationId(fromValidation);
+      }
       const stored = sessionStorage.getItem("openclaw_initial_message");
       if (stored) {
         setInitialMessage(stored);
