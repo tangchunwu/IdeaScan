@@ -308,6 +308,12 @@ export function OpenClawSettings() {
           ))}
         </div>
       )}
+
+      <PairingDialog
+        open={showPairing}
+        onOpenChange={setShowPairing}
+        onPaired={() => reload()}
+      />
     </GlassCard>
   );
 }
