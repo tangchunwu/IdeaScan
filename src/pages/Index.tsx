@@ -67,6 +67,8 @@ const Index = () => {
     staleTime: 1000 * 60 * 10,
   });
 
+  useDocumentTitle("在写代码前，先验证你的创业想法");
+
   return (
     <PageBackground variant="vibrant">
       <Navbar />
