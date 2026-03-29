@@ -759,19 +759,6 @@
       @apply items-start;
     }
 
-    .hero-stage {
-      min-height: 26rem;
-    }
-
-    .hero-stage-grid,
-    .hero-stage-glow {
-      display: none;
-    }
-
-    .hero-stage-panel {
-      @apply inset-x-0 top-0;
-      transform: none;
-    }
   }
 }
 
