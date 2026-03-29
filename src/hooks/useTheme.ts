@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Skin = "ghibli" | "street" | "drift";
+export type Skin = "ghibli" | "street" | "drift" | "cotton";
 
 export interface SkinMeta {
   id: Skin;
@@ -32,6 +32,13 @@ export const SKINS: SkinMeta[] = [
     emoji: "🦦",
     description: "慢节奏漂流，自然宁静",
     colors: ["#6A9FB5", "#A8C4A0"],
+  },
+  {
+    id: "cotton",
+    name: "棉棉兔兔",
+    emoji: "🐰",
+    description: "柔软治愈，温柔陪伴",
+    colors: ["#D4A5C9", "#F2C4CE"],
   },
 ];
 

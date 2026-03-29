@@ -974,3 +974,158 @@
 [data-skin="drift"] .glass-card-elevated {
   border-radius: 0.75rem;
 }
+
+/* ========================================
+   皮肤系统：棉棉兔兔（治愈系）
+   ======================================== */
+
+[data-skin="cotton"] {
+  --background: 30 33% 96%;
+  --foreground: 300 10% 25%;
+
+  --card: 30 25% 98%;
+  --card-foreground: 300 10% 25%;
+
+  --popover: 30 25% 98%;
+  --popover-foreground: 300 10% 25%;
+
+  --primary: 310 35% 80%;
+  --primary-foreground: 300 15% 20%;
+
+  --secondary: 350 50% 85%;
+  --secondary-foreground: 300 15% 20%;
+
+  --muted: 30 20% 91%;
+  --muted-foreground: 300 8% 50%;
+
+  --accent: 26 40% 60%;
+  --accent-foreground: 30 33% 96%;
+
+  --destructive: 350 50% 70%;
+  --destructive-foreground: 30 33% 96%;
+
+  --border: 310 20% 88%;
+  --input: 310 15% 92%;
+  --ring: 310 35% 80%;
+
+  --radius: 999px;
+
+  --sky-blue: 310 35% 80%;
+  --forest-green: 350 50% 85%;
+  --sunset-orange: 26 40% 60%;
+  --cloud-white: 40 33% 96%;
+  --earth-brown: 26 40% 50%;
+
+  --glass-bg: 30 25% 98% / 0.8;
+  --glass-border: 310 35% 80% / 0.2;
+  --glass-shadow: 300 10% 25% / 0.06;
+
+  --sidebar-background: 30 33% 96%;
+  --sidebar-foreground: 300 10% 35%;
+  --sidebar-primary: 310 35% 80%;
+  --sidebar-primary-foreground: 300 15% 20%;
+  --sidebar-accent: 350 50% 85%;
+  --sidebar-accent-foreground: 300 15% 20%;
+  --sidebar-border: 310 20% 88%;
+  --sidebar-ring: 310 35% 80%;
+}
+
+[data-skin="cotton"] .dark {
+  --background: 300 15% 12%;
+  --foreground: 30 25% 92%;
+
+  --card: 300 12% 16%;
+  --card-foreground: 30 25% 92%;
+
+  --popover: 300 12% 16%;
+  --popover-foreground: 30 25% 92%;
+
+  --primary: 310 35% 72%;
+  --primary-foreground: 300 15% 10%;
+
+  --secondary: 350 40% 65%;
+  --secondary-foreground: 30 25% 92%;
+
+  --muted: 300 10% 20%;
+  --muted-foreground: 30 15% 60%;
+
+  --accent: 26 35% 50%;
+  --accent-foreground: 300 15% 10%;
+
+  --border: 300 10% 22%;
+  --input: 300 10% 20%;
+  --ring: 310 35% 72%;
+
+  --sky-blue: 310 35% 72%;
+  --forest-green: 350 40% 65%;
+  --sunset-orange: 26 35% 50%;
+  --cloud-white: 30 15% 88%;
+  --earth-brown: 26 30% 45%;
+
+  --glass-bg: 300 12% 16% / 0.85;
+  --glass-border: 310 35% 72% / 0.1;
+  --glass-shadow: 0 0% 0% / 0.3;
+
+  --sidebar-background: 300 15% 10%;
+  --sidebar-foreground: 30 25% 85%;
+  --sidebar-primary: 310 35% 72%;
+  --sidebar-primary-foreground: 300 15% 10%;
+  --sidebar-accent: 350 40% 65%;
+  --sidebar-accent-foreground: 30 25% 92%;
+  --sidebar-border: 300 10% 22%;
+  --sidebar-ring: 310 35% 72%;
+}
+
+/* Cotton skin: soft bouncy animations */
+[data-skin="cotton"] .paw-press:active {
+  animation: cotton-press 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cotton-press {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+[data-skin="cotton"] .switch-bounce [data-state] {
+  transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-skin="cotton"] .card-interactive:hover {
+  transform: translateY(-4px) scale(1.008);
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-skin="cotton"] body {
+  font-family: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="cotton"] h1,
+[data-skin="cotton"] h2,
+[data-skin="cotton"] h3 {
+  font-family: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+[data-skin="cotton"] .glass-card {
+  border-radius: 1.25rem;
+  border: 1px solid hsl(310 35% 80% / 0.15);
+}
+
+[data-skin="cotton"] .glass-card-elevated {
+  border-radius: 1.25rem;
+}
+
+/* Cotton skin: hide aggressive cat decorations */
+[data-skin="cotton"] .cat-paw-indicator::before,
+[data-skin="cotton"] .cat-paw-indicator::after {
+  background: hsl(310 35% 80%);
+}
+
+[data-skin="cotton"] .cat-paw-hover::after {
+  content: '🐰';
+}

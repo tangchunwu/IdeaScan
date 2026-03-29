@@ -32,7 +32,7 @@ export const Navbar = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const subtitleEmoji = skin === "street" ? "😎" : skin === "drift" ? "🦦" : "🐾";
+  const subtitleEmoji = skin === "street" ? "😎" : skin === "drift" ? "🦦" : skin === "cotton" ? "🐰" : "🐾";
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
