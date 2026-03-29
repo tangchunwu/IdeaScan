@@ -18,7 +18,10 @@ import {
   MessageCircle,
   Zap,
   ShieldAlert,
-  Target
+  Target,
+  Brain,
+  TrendingUp,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { captureEvent } from "@/lib/posthog";

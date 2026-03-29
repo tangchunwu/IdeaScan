@@ -11,19 +11,15 @@ import {
 } from "framer-motion";
 import {
   Sparkles,
-  TrendingUp,
-  Brain,
   Search,
   BarChart3,
-  MessageCircle,
+  Brain,
   ArrowRight,
-  ExternalLink,
   ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlassCard } from "@/components/shared/GlassCard";
-import { SocialProofCounter } from "@/components/social";
 import { captureEvent } from "@/lib/posthog";
 
 /* ── data ──────────────────────────────────── */
