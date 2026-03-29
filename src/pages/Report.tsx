@@ -281,7 +281,7 @@ const Report = () => {
         try {
           await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
           captureEvent('report_shared', { validation_id: id, method: 'native_share' });
-          toast({ title: "分享成功", description: "报告已分享" });
+          skinToast.success("报告已分享");
           return;
         } catch (err) { if ((err as Error).name !== "AbortError") console.warn("Web Share failed:", err); }
       }
