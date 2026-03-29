@@ -6,7 +6,7 @@ import { useSkinToast } from "@/hooks/useSkinToast";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
