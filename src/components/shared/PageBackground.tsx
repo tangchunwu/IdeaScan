@@ -91,6 +91,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
         <div className="relative z-10 page-enter">{children}</div>
       </div>
     );
+  }
 
   // Drift skin: river mist with floating elements
   if (skin === "drift") {
