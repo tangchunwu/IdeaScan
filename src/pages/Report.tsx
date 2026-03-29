@@ -288,11 +288,7 @@ const Report = () => {
       
       await navigator.clipboard.writeText(shareUrl);
       captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
-      toast({
-        title: "分享链接已复制",
-        description: shareUrl,
-        action: { label: "打开", onClick: () => window.open(shareUrl, "_blank") },
-      });
+      skinToast.success("分享链接已复制到剪贴板");
     } catch (e) {
       console.error("Share error:", e);
       toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
