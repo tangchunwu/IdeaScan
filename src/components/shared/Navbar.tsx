@@ -27,9 +27,12 @@ export const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isLoading } = useAuth();
   const { profile, isUploading, uploadAvatar } = useProfile();
+  const { skin } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const subtitleEmoji = skin === "street" ? "😎" : skin === "drift" ? "🦦" : "🐾";
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
