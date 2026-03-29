@@ -817,10 +817,22 @@
 
 [data-skin="street"] .glass-card {
   border-radius: 0.25rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
+}
+
+[data-skin="street"] .glass-card:hover {
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
 }
 
 [data-skin="street"] .glass-card-elevated {
   border-radius: 0.25rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.2);
 }
 
 [data-skin="street"] body {
