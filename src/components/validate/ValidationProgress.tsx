@@ -65,16 +65,9 @@ export const ValidationProgress = ({
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">处理进度</span>
-          <span className="font-mono text-primary font-medium">{Math.round(progress)}%</span>
+          <span className="font-mono text-primary font-medium number-highlight">{Math.round(progress)}%</span>
         </div>
-        <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-secondary rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-          </div>
-        </div>
+        <SkinProgress value={progress} className="h-3" />
       </div>
 
       {/* Steps Timeline */}

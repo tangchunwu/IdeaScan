@@ -1368,10 +1368,17 @@
 [data-skin="bamboo"] .glass-card {
   border-radius: 0.625rem;
   border: 1px solid hsl(145 28% 39% / 0.1);
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 16px, hsl(145 28% 39% / 0.02) 16px, hsl(145 28% 39% / 0.02) 17px);
 }
 
 [data-skin="bamboo"] .glass-card-elevated {
   border-radius: 0.625rem;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 16px, hsl(145 28% 39% / 0.03) 16px, hsl(145 28% 39% / 0.03) 17px);
+  box-shadow:
+    0 8px 24px hsl(var(--glass-shadow)),
+    0 2px 8px hsl(145 28% 39% / 0.06);
 }
 
 [data-skin="bamboo"] .cat-paw-indicator::before,

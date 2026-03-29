@@ -158,7 +158,75 @@ export const SkinEmptyState = ({
     );
   }
 
-  // Default (ghibli / street / drift) — original EmptyState
+  // Street: minimal, no emoji, sharp
+  if (skin === "street") {
+    return (
+      <GlassCard className={`text-center py-12 animate-slide-up ${className || ""}`}>
+        <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center border border-muted-foreground/20" style={{ borderRadius: "2px" }}>
+          <Icon className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wider">{title}</h3>
+        <p className="text-muted-foreground mb-6 max-w-xs mx-auto text-sm">{description}</p>
+        {(actionLabel && (actionLink || onAction)) && (
+          <Button asChild={!!actionLink} onClick={onAction} size="sm" className="px-6 h-9" style={{ borderRadius: "2px" }}>
+            {actionLink ? <Link to={actionLink}>{actionLabel}</Link> : actionLabel}
+          </Button>
+        )}
+      </GlassCard>
+    );
+  }
+
+  // Drift: otter floating illustration
+  if (skin === "drift") {
+    return (
+      <GlassCard className={`text-center py-16 animate-slide-up ${className || ""}`}>
+        <motion.div
+          className="mx-auto mb-6 relative w-24 h-24 flex items-center justify-center"
+          animate={{ y: [0, -6, 0], rotate: [0, 2, -2, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <svg width="80" height="80" viewBox="0 0 80 80" className="drop-shadow-sm">
+            {/* Water ripples */}
+            <ellipse cx="40" cy="65" rx="30" ry="4" fill="hsl(var(--primary) / 0.08)" />
+            <ellipse cx="40" cy="62" rx="24" ry="3" fill="hsl(var(--primary) / 0.05)" />
+            {/* Otter body */}
+            <motion.g
+              animate={{ rotate: [-1, 1, -1] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              style={{ transformOrigin: "40px 45px" }}
+            >
+              <ellipse cx="40" cy="45" rx="16" ry="12" fill="hsl(var(--accent) / 0.3)" />
+              {/* Otter head */}
+              <circle cx="40" cy="32" r="10" fill="hsl(var(--accent) / 0.35)" />
+              {/* Eyes */}
+              <circle cx="37" cy="31" r="1.5" fill="hsl(var(--foreground) / 0.5)" />
+              <circle cx="43" cy="31" r="1.5" fill="hsl(var(--foreground) / 0.5)" />
+              {/* Nose */}
+              <circle cx="40" cy="34" r="1" fill="hsl(var(--foreground) / 0.3)" />
+              {/* Paws holding icon */}
+              <circle cx="32" cy="42" r="3" fill="hsl(var(--accent) / 0.25)" />
+              <circle cx="48" cy="42" r="3" fill="hsl(var(--accent) / 0.25)" />
+            </motion.g>
+            {/* Icon in center */}
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center pt-4">
+            <Icon className="w-6 h-6 text-primary/60" />
+          </div>
+        </motion.div>
+
+        <h3 className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</h3>
+        <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">{description}</p>
+
+        {(actionLabel && (actionLink || onAction)) && (
+          <Button asChild={!!actionLink} onClick={onAction} size="lg" className="rounded-full px-8 h-12 shadow-lg shadow-primary/20">
+            {actionLink ? <Link to={actionLink}>{actionLabel}</Link> : actionLabel}
+          </Button>
+        )}
+      </GlassCard>
+    );
+  }
+
+  // Default (ghibli) — original EmptyState
   return (
     <GlassCard className={`text-center py-16 animate-slide-up bg-opacity-60 border-white/20 ${className || ""}`}>
       <motion.div
