@@ -226,7 +226,7 @@ const Report = () => {
     const rd = prepareExportData();
     if (!rd) { skinToast.error("报告数据未加载完成"); return; }
     const toastId = `pdf-export-${Date.now()}`;
-    toast({ title: "正在生成 PDF...", description: "渲染报告中，请稍候" });
+    skinToast.info("正在生成 PDF...");
     try {
       const pdfHtml = generatePDFHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
