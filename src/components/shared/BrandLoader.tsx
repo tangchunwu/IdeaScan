@@ -13,12 +13,14 @@ const skinTexts: Record<string, string> = {
        ghibli: "喵~ 加载中...",
        street: "加载中...",
        drift: "漂着呢，不急...",
+       cotton: "棉棉在泡茶，等一等～",
 };
 
 const skinEmojis: Record<string, string> = {
        ghibli: "🐾",
        street: "",
        drift: "🦦",
+       cotton: "🐰",
 };
 
 export const BrandLoader = ({ className, text, fullScreen = false }: BrandLoaderProps) => {

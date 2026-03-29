@@ -52,6 +52,47 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
     );
   }
 
+  // Cotton skin: soft lavender warmth
+  if (skin === "cotton") {
+    return (
+      <div
+        ref={ref}
+        className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
+      >
+        <div className="fixed inset-0 -z-10 bg-gradient-to-b from-background via-background to-secondary/8" />
+        {/* Lavender glow */}
+        <div className="fixed top-0 left-1/4 w-96 h-96 rounded-full blur-[100px] -z-10"
+          style={{ background: "hsl(310 35% 80% / 0.12)" }} />
+        <div className="fixed top-32 right-1/3 w-64 h-64 rounded-full blur-[80px] -z-10"
+          style={{ background: "hsl(350 50% 85% / 0.1)" }} />
+        <div className="fixed bottom-20 left-1/3 w-48 h-48 rounded-full blur-[60px] -z-10"
+          style={{ background: "hsl(26 40% 60% / 0.06)" }} />
+        {/* Soft floating cotton puffs */}
+        {showClouds && (
+          <div className="fixed inset-0 -z-5 pointer-events-none overflow-hidden">
+            {clouds.slice(0, 4).map((cloud) => (
+              <div
+                key={cloud.id}
+                className="absolute rounded-full blur-sm"
+                style={{
+                  width: cloud.width * 1.2,
+                  height: cloud.height * 1.2,
+                  top: cloud.top,
+                  left: cloud.left,
+                  opacity: cloud.opacity * 0.5,
+                  background: "hsl(310 35% 80% / 0.1)",
+                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.3}s cubic-bezier(0.34, 1.56, 0.64, 1) infinite`,
+                  animationDelay: cloud.delay,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <div className="relative z-10 page-enter">{children}</div>
+      </div>
+    );
+  }
+
   // Drift skin: river mist with floating elements
   if (skin === "drift") {
     return (
