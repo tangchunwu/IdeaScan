@@ -1270,6 +1270,32 @@
   100% { transform: scale(1); }
 }
 
+/* Bamboo button: bamboo-grain texture + pearl bounce on click */
+[data-skin="bamboo"] button[class*="bg-primary"] {
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 6px, hsl(0 0% 100% / 0.06) 6px, hsl(0 0% 100% / 0.06) 7px);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-skin="bamboo"] button[class*="bg-primary"]:active::after {
+  content: '●';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: hsl(var(--accent));
+  animation: bamboo-pearl-pop 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes bamboo-pearl-pop {
+  0% { bottom: -4px; opacity: 0; }
+  30% { bottom: 110%; opacity: 1; }
+  100% { bottom: 130%; opacity: 0; }
+}
+
 [data-skin="bamboo"] .switch-bounce [data-state] {
   transition: transform 280ms ease-out;
 }
