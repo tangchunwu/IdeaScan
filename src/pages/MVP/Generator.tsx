@@ -50,9 +50,9 @@ export default function MVPGenerator() {
                 mutationFn: (updates: Partial<MVPLandingPage>) => updateMVP(mvpPage!.id, updates),
                 onSuccess: (updatedPage) => {
                         queryClient.setQueryData(['mvp', validationId], updatedPage);
-                        toast({ title: "保存成功" });
+                        skinToast.success("保存成功");
                 },
-                onError: () => toast({ title: "保存失败", variant: "destructive" }),
+                onError: () => skinToast.error("保存失败"),
         });
 
 	const publishMutation = useMutation({
