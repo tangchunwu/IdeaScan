@@ -17,7 +17,7 @@ const STALE_TIME = 5 * 60 * 1000; // 5 min
 
 const AdminMonitorTab = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const queryClient = useQueryClient();
 
   // ── Data queries ──

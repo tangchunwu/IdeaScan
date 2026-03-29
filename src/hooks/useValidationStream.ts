@@ -26,7 +26,7 @@ export interface CompletionPreview {
 export function useValidationStream(validationSteps: ValidationStep[]) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const settings = useSettings();
   const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
   const { notify } = useBrowserNotification();

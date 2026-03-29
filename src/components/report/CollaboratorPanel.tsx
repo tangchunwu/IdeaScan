@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { Users, UserPlus, Loader2, X, Mail } from "lucide-react";
 
 interface Collaborator {

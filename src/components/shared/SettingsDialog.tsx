@@ -175,7 +175,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const activeFlowRef = useRef<string>('');
        const missingFlowStreakRef = useRef<{ flowId: string; count: number }>({ flowId: '', count: 0 });
        const manualConfirmArmedRef = useRef(false);
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
 
        // Local state for form to avoid rapid updates/re-renders on global store
        const [localSettings, setLocalSettings] = useState({

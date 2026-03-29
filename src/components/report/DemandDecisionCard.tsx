@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard } from "@/components/shared";
 import { ChevronDown, Quote } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 
 interface DemandDecisionCardProps {
   validation: { id: string; overall_score: number | null };

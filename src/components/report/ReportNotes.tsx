@@ -14,7 +14,7 @@ interface ReportNotesProps {
 
 export function ReportNotes({ validationId }: ReportNotesProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [content, setContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [loading, setLoading] = useState(true);

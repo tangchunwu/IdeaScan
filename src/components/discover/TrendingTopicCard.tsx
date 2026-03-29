@@ -35,7 +35,7 @@ interface TrendingTopicCardProps {
 }
 
 export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardProps>(function TrendingTopicCard({ topic, userInterest, onInterestChange, onValidate, isPersonalized, isAdmin, onDelete }, ref) {
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
