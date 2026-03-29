@@ -3,7 +3,7 @@ import { TrendingTopic, saveTopicInterest, removeTopicInterest, trackTopicClick 
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { useNavigate } from "react-router-dom";
 import {
   Flame,
