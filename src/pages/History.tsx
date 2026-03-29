@@ -35,7 +35,7 @@ import { captureEvent } from "@/lib/posthog";
 const History = () => {
   const { user, isLoading: authLoading } = useAuth();
   useDocumentTitle("历史记录");
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
