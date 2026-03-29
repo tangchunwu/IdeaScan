@@ -531,8 +531,6 @@
 
   .hero-stage-panel {
     @apply absolute inset-x-2 top-4 overflow-hidden rounded-[2rem];
-    transform: translateY(0);
-    animation: hero-panel-in 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
     background:
       linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.82));
     border-color: hsl(var(--border) / 0.45);
@@ -541,17 +539,7 @@
       inset 0 1px 0 hsl(0 0% 100% / 0.18);
   }
 
-  @keyframes hero-panel-in {
-    0% {
-      opacity: 0;
-      transform: translateY(28px) scale(0.98);
-    }
-
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
+  /* hero-panel-in replaced by framer-motion */
 
   .hero-stage-beam {
     position: absolute;
