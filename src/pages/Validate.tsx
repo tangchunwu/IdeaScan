@@ -178,7 +178,7 @@ const Validate = () => {
         setPolishedResult(data.polished);
       }
     } catch (e) {
-      toast({ title: "AI 润色失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
+      skinToast.error((e as Error).message || "AI 润色失败");
     } finally {
       setIsPolishing(false);
     }
