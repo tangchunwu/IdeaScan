@@ -141,7 +141,7 @@ const Report = () => {
       refetch();
     } catch (error) {
       console.error("Re-analyze error:", error);
-      toast({ title: "分析失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
+      skinToast.error((error as Error).message || "分析失败，请稍后重试");
     } finally {
       setIsReanalyzing(false);
     }
