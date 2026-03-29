@@ -19,8 +19,6 @@ import {
   Zap,
   ShieldAlert,
   Target,
-  Brain,
-  TrendingUp,
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,11 +51,6 @@ const features = [
   },
 ];
 
-const heroMetrics = [
-  { value: 4, suffix: "", label: "位 AI 辩手", icon: Brain },
-  { value: 12, suffix: "+", label: "中文情报源", icon: TrendingUp },
-  { value: 24, suffix: "h", label: "信号追踪", icon: MessageCircle },
-];
 
 const steps = [
   { step: "01", title: "描述你的想法", desc: "一句话说清楚你想做什么", icon: Sparkles },
@@ -93,9 +86,9 @@ const Index = () => {
             validationCount={validationCount ?? 0}
           />
 
-          {/* Social proof + metrics — scroll reveal */}
+          {/* Social proof — scroll reveal */}
           <ScrollReveal className="mb-24">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-6">
               <SocialProofCounter
                 count={validationCount ?? 0}
                 label="个创意已通过验证"
@@ -117,105 +110,6 @@ const Index = () => {
                 <ExternalLink className="w-4 h-4" />
                 <span>查看一份示例报告</span>
               </motion.a>
-            </div>
-          </ScrollReveal>
-
-          {/* Signal panel — scroll reveal */}
-          <ScrollReveal className="mb-24">
-            <GlassCard elevated className="max-w-3xl mx-auto overflow-hidden">
-              <div className="p-6 md:p-7">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.28em] text-primary/70 mb-2">
-                      Demand Signal Engine
-                    </div>
-                    <div className="text-2xl font-semibold text-foreground">
-                      创意情报面板
-                    </div>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
-                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <span>实时研判中</span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {[
-                    { label: "小红书痛点信号", value: 82, detail: "近 72 小时持续抬升" },
-                    { label: "竞品拥挤度", value: 41, detail: "还有切入空档" },
-                    { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
-                  ].map((item, i) => (
-                    <ScrollReveal key={item.label} delay={i * 120}>
-                      <div className="rounded-2xl border border-border/50 bg-background/40 p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-medium text-foreground">{item.label}</div>
-                          <div className="text-sm text-primary font-semibold">{item.value}%</div>
-                        </div>
-                        <div className="relative h-2 overflow-hidden rounded-full bg-muted/65">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
-                            style={{ width: `${item.value}%` }}
-                          />
-                        </div>
-                        <div className="mt-2 text-xs text-muted-foreground">{item.detail}</div>
-                      </div>
-                    </ScrollReveal>
-                  ))}
-                </div>
-
-                <div className="h-px my-6 bg-gradient-to-r from-transparent via-border to-transparent" />
-
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { sub: "当前判断", title: "倾向真实需求", desc: "痛点频率高于同类竞品密度" },
-                    { sub: "建议动作", title: "先做 MVP 验证", desc: "聚焦一个高频场景快速试水" },
-                  ].map((v) => (
-                    <ScrollReveal key={v.sub} delay={400}>
-                      <div className="rounded-2xl border border-border/50 bg-background/50 p-4">
-                        <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
-                          {v.sub}
-                        </div>
-                        <div className="text-lg font-semibold text-foreground mb-1">
-                          {v.title}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {v.desc}
-
-                        </div>
-                      </div>
-                    </ScrollReveal>
-                  ))}
-                </div>
-              </div>
-            </GlassCard>
-          </ScrollReveal>
-
-          {/* Metrics cards — scroll reveal */}
-          <ScrollReveal className="mb-24">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {heroMetrics.map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <ScrollReveal key={item.label} delay={i * 100}>
-                    <motion.div
-                      whileHover={{ y: -4, scale: 1.03 }}
-                      transition={{ type: "spring", stiffness: 200, damping: 18 }}
-                    >
-                      <GlassCard className="hero-metric-card" padding="sm">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-muted-foreground">
-                            {item.label}
-                          </span>
-                          <Icon className="w-4 h-4 text-primary" />
-                        </div>
-                        <div className="text-3xl md:text-4xl number-highlight text-foreground">
-                          {item.value}{item.suffix}
-                        </div>
-                      </GlassCard>
-                    </motion.div>
-                  </ScrollReveal>
-                );
-              })}
             </div>
           </ScrollReveal>
 
