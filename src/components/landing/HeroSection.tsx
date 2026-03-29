@@ -317,8 +317,8 @@ export function HeroSection({
 
             {/* proof block */}
             <motion.div className="hero-copy-item" variants={itemVariants} style={{ opacity: 1 }}>
-              <div className="hero-proof-block">
-                <div className="hero-proof-card">
+              <div className="hero-proof-block flex-row items-center gap-6">
+                <div className="hero-proof-card shrink-0">
                   <SocialProofCounter
                     count={validationCount}
                     label="个创意已通过验证"
