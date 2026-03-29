@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 interface CottonSwitchProps {
   checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
+  onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
   className?: string;
 }
