@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Cat } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 interface BrandLogoProps {
   className?: string;
