@@ -17,6 +17,8 @@ export const BrandLogo = ({
 }: BrandLogoProps) => {
   const { skin } = useTheme();
   const cornerClass = skin === "street" ? "rounded-md" : skin === "drift" ? "rounded-2xl" : "rounded-xl";
+
+  const sizeClasses = {
     sm: "h-6 text-lg",
     md: "h-8 text-xl",
     lg: "h-10 text-2xl",
@@ -37,8 +39,6 @@ export const BrandLogo = ({
         cornerClass,
         "bg-gradient-to-br from-primary to-secondary",
         size === "xl" ? "w-14 h-14" : size === "lg" ? "w-10 h-10" : size === "md" ? "w-8 h-8" : "w-6 h-6",
-        "group hover:shadow-primary/25 hover:scale-105"
-      )}>
         "group hover:shadow-primary/25 hover:scale-105"
       )}>
         {/* Glass shine effect */}
