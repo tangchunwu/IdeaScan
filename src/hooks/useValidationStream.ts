@@ -84,8 +84,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       navigate(`/report/${currentValidationId}`);
     } catch (e) {
-      skinToast.success(`取消失败: ${(e as Error).message,
-        variant: "destructive",}`);
+      skinToast.error(`取消失败: ${(e as Error).message}`);
     } finally {
       setIsCancelling(false);
       setIsValidating(false);

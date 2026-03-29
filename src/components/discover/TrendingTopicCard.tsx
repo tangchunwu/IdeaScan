@@ -89,8 +89,7 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
         skinToast.success("已收藏: 可在历史记录中查看");
       }
     } catch (error) {
-      skinToast.success(`操作失败: ${error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",}`);
+      skinToast.error(`操作失败: ${error instanceof Error ? error.message : "请稍后重试"}`);
     } finally {
       setIsSaving(false);
     }
