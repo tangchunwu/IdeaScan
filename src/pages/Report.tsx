@@ -291,7 +291,7 @@ const Report = () => {
       skinToast.success("分享链接已复制到剪贴板");
     } catch (e) {
       console.error("Share error:", e);
-      toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
+      skinToast.error("分享失败，请稍后重试");
     }
   };
 

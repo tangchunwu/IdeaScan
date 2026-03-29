@@ -128,7 +128,7 @@ const History = () => {
       skinToast.success(`已删除 ${selectedIds.size} 条记录`);
       setSelectedIds(new Set());
     } catch (error) {
-      toast({ title: "部分删除失败", description: "请刷新重试", variant: "destructive" });
+      skinToast.error("部分删除失败，请刷新重试");
     } finally {
       setIsBatchDeleting(false);
     }
