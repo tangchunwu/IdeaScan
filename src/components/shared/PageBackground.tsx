@@ -195,8 +195,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                 top: cloud.top,
                 left: cloud.left,
                 opacity: cloud.opacity,
-                animation: `float ${cloud.duration} ease-in-out infinite`,
-                animationDelay: cloud.delay,
+                animation: `float ${cloud.duration} ease-in-out ${cloud.delay} infinite`,
               }}
             />
           ))}
