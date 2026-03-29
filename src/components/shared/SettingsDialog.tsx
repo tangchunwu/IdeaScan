@@ -377,7 +377,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                              
                             skinToast.success(`导入成功: 配置已加载（备用模型 ${importedFallbacks.length} 条），请点击保存以应用更改`);
                      } catch (error) {
-                            skinToast.error(`导入失败: ${"配置文件格式无效"}`);
+                            skinToast.error("导入失败: 配置文件格式无效");
                      }
               };
               input.click();
