@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { generateMVP, updateMVP, publishMVP, MVPLandingPage } from "@/services/mvpService";
 import { ArrowLeft, Save, Globe, Eye, Code, Rocket } from "lucide-react";
 import { captureEvent } from "@/lib/posthog";
