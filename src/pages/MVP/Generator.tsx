@@ -17,7 +17,7 @@ export default function MVPGenerator() {
         useDocumentTitle("MVP 生成器");
         const { id: validationId } = useParams();
         const navigate = useNavigate();
-        const { toast } = useToast();
+        const skinToast = useSkinToast();
         const queryClient = useQueryClient();
         const [activeTab, setActiveTab] = useState("preview");
 
