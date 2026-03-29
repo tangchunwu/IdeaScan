@@ -49,7 +49,7 @@ import { ScrollReveal } from "@/components/shared/ScrollReveal";
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const location = useLocation();
   const [isReanalyzing, setIsReanalyzing] = useState(false);
