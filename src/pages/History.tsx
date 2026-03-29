@@ -105,7 +105,7 @@ const History = () => {
     try {
       await deleteMutation.mutateAsync(id);
       captureEvent('validation_deleted', { validation_id: id });
-      toast({ title: "删除成功", description: "验证记录已删除" });
+      skinToast.success("验证记录已删除");
       if (selectedIds.has(id)) {
         const next = new Set(selectedIds);
         next.delete(id);
