@@ -705,7 +705,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (!sessionSaved || cookieCount <= 0) {
                             setAuthStatus('pending');
                             if (!silent) {
-                                   skinToast.error(`登录状态异常: ${"检测到异常授权结果，请重新扫码确认登录"}`);
+                                   skinToast.error("登录状态异常: 检测到异常授权结果，请重新扫码确认登录");
                             }
                             return;
                      }
