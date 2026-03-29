@@ -12,15 +12,12 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
-  Users,
   Search,
   BarChart3,
   MessageCircle,
   Zap,
   ShieldAlert,
   Target,
-  Brain,
-  TrendingUp,
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
