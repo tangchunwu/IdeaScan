@@ -12,6 +12,7 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
+  Users,
   Search,
   BarChart3,
   MessageCircle,
