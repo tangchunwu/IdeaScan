@@ -33,7 +33,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 const Auth = () => {
   useDocumentTitle("登录 / 注册", { description: "登录或注册 IdeaScan，开始验证你的创业想法。" });
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
   const redirectTo = searchParams.get('redirect') || "/";
