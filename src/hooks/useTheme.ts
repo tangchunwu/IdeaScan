@@ -61,7 +61,7 @@ const applySkin = (skin: Skin) => {
 export const useTheme = create<ThemeState>()(
   persist(
     (set) => ({
-      skin: "ghibli",
+      skin: "drift",
       setSkin: (skin) => {
         applySkin(skin);
         set({ skin });
