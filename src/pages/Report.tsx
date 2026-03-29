@@ -133,7 +133,7 @@ const Report = () => {
       });
       if (error) throw error;
       if (result?.updated) {
-        toast({ title: "分析完成", description: `已更新: ${result.updatedFields?.join(", ") || "数据"}` });
+        skinToast.success(`已更新: ${result.updatedFields?.join(", ") || "数据"}`);
       } else {
         toast({ title: "数据已完整", description: result?.message || "无需重新分析" });
       }
