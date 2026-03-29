@@ -247,11 +247,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const handleSave = async () => {
                setIsSaving(true);
                updateSettings(localSettings);
-               toast({
-                      title: "配置已保存",
-                      description: "设置已保存到浏览器本地。",
-                      className: "bg-green-50 border-green-200 text-green-800"
-               });
+               skinToast.success("配置已保存: 设置已保存到浏览器本地。");
                setIsSaving(false);
                setOpen?.(false);
         };
@@ -261,17 +257,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                updateSettings(localSettings);
                try {
                       await syncToCloud();
-                      toast({
-                             title: "配置已保存到云端",
-                             description: "您的设置已加密保存，可跨设备使用。",
-                             className: "bg-green-50 border-green-200 text-green-800"
-                      });
+                      skinToast.success("配置已保存到云端: 您的设置已加密保存，可跨设备使用。");
                } catch (error) {
-                      toast({
-                             title: "云端同步失败",
-                             description: "配置已保存到本地，云端同步失败。",
-                             variant: "destructive"
-                      });
+                      skinToast.error("云端同步失败: 配置已保存到本地，云端同步失败。");
                }
                setIsSaving(false);
         };
@@ -279,16 +267,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const handleLoadFromCloud = async () => {
                try {
                       await syncFromCloud();
-                      toast({
-                             title: "已从云端恢复配置",
-                             description: "云端配置已加载到本地。",
-                             className: "bg-green-50 border-green-200 text-green-800"
-                      });
+                      skinToast.success("已从云端恢复配置: 云端配置已加载到本地。");
                } catch (error) {
-                      toast({
-                             title: "从云端恢复失败",
-                             variant: "destructive"
-                      });
+                      skinToast.error("从云端恢复失败");
                }
         };
 
@@ -317,10 +298,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             imageGenApiKey: '',
                             imageGenModel: 'dall-e-3',
                      });
-                     toast({
-                            title: "已重置",
-                            description: "配置已恢复默认值。",
-                     });
+                     skinToast.success(`已重置: ${"配置已恢复默认值。",}`);
               }
        };
 
@@ -346,11 +324,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
               
-              toast({
-                     title: "导出成功",
-                     description: "配置文件已下载到本地",
-                     className: "bg-green-50 border-green-200 text-green-800"
-              });
+              skinToast.success("导出成功: 配置文件已下载到本地");
        };
 
        // Import settings from JSON file
@@ -407,11 +381,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    className: "bg-green-50 border-green-200 text-green-800"
                             });
                      } catch (error) {
-                            toast({
-                                   variant: "destructive",
-                                   title: "导入失败",
-                                   description: "配置文件格式无效"
-                            });
+                            skinToast.error(`导入失败: ${"配置文件格式无效"}`);
                      }
               };
               input.click();
@@ -431,7 +401,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
        const handleVerifyLLM = async () => {
               if (!localSettings.llmApiKey || !localSettings.llmBaseUrl || !localSettings.llmModel) {
-                     toast({ variant: "destructive", title: "请完整填写主模型配置" });
+                     skinToast.error("请完整填写主模型配置");
                      return;
               }
               const result = await verifyLlmConfig({
@@ -441,11 +411,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               });
 
               if (!result.ok) {
-                     toast({
-                            variant: "destructive",
-                            title: "主模型验证失败",
-                            description: result.message
-                     });
+                     skinToast.error(`主模型验证失败: ${result.message}`);
               } else {
                      // Auto-save on success
                      updateSettings({
@@ -455,11 +421,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             llmModel: localSettings.llmModel,
                             llmFallbacks: localSettings.llmFallbacks
                      });
-                     toast({
-                            title: "主模型验证成功",
-                            description: "配置已自动保存",
-                            className: "bg-green-50 border-green-200 text-green-800"
-                     });
+                     skinToast.success("主模型验证成功: 配置已自动保存");
               }
        };
 
@@ -483,7 +445,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const handleVerifyAllFallbacks = async () => {
               const list = localSettings.llmFallbacks || [];
               if (list.length === 0) {
-                     toast({ title: "暂无备选模型" });
+                     skinToast.success("暂无备选模型");
                      return;
               }
               setIsVerifyingAllFallbacks(true);
@@ -510,7 +472,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
        const handleVerifyTikhub = async () => {
               if (!localSettings.tikhubToken) {
-                     toast({ variant: "destructive", title: "请先输入 TikHub Token" });
+                     skinToast.error("请先输入 TikHub Token");
                      return;
               }
               setIsVerifyingTikhub(true);
@@ -519,28 +481,21 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             body: { type: 'tikhub', apiKey: localSettings.tikhubToken }
                      });
                      if (error || !data?.valid) {
-                            toast({
-                                   variant: "destructive",
-                                   title: "TikHub 验证失败",
-                                   description: data?.message || error?.message || "连接失败，请检查 Token"
-                            });
+                            skinToast.error(`TikHub 验证失败: ${data?.message || error?.message || "连接失败，请检查 Token"}`);
                      } else {
                             updateSettings({ tikhubToken: localSettings.tikhubToken });
-                            toast({
-                                   title: "TikHub 验证成功",
-                                   description: data.message || "Token 有效，配置已自动保存",
-                                   className: "bg-green-50 border-green-200 text-green-800"
-                            });
+                            skinToast.success(`TikHub 验证成功: ${data.message || "Token 有效，配置已自动保存",
+                                   className: "bg-green-50 border-green-200 text-green-800"}`);
                      }
               } catch (e) {
-                     toast({ variant: "destructive", title: "验证请求失败" });
+                     skinToast.error("验证请求失败");
               }
               setIsVerifyingTikhub(false);
        };
 
        const handleVerifyImageGen = async () => {
        if (!localSettings.imageGenApiKey) {
-              toast({ variant: "destructive", title: "请输入 API Key" });
+              skinToast.error("请输入 API Key");
               return;
        }
        const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
@@ -553,11 +508,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        });
 
        if (error || !data.valid) {
-              toast({
-                     variant: "destructive",
-                     title: "验证失败",
-                     description: data?.message || error?.message || "连接失败，请检查配置"
-              });
+              skinToast.error(`验证失败: ${data?.message || error?.message || "连接失败，请检查配置"}`);
        } else {
               // Auto-save on success
               updateSettings({
@@ -565,17 +516,13 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      imageGenBaseUrl: localSettings.imageGenBaseUrl,
                      imageGenModel: localSettings.imageGenModel
               });
-              toast({
-                     title: "验证成功",
-                     description: "AI 绘图配置已自动保存",
-                     className: "bg-green-50 border-green-200 text-green-800"
-              });
+              skinToast.success("验证成功: AI 绘图配置已自动保存");
        }
   };
 
   const handleVerify = async (provider: string, apiKey: string) => {
        if (!apiKey) {
-              toast({ variant: "destructive", title: "请输入 API Key" });
+              skinToast.error("请输入 API Key");
               return;
        }
        const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
@@ -583,11 +530,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        });
 
        if (error || !data.valid) {
-              toast({
-                     variant: "destructive",
-                     title: "验证失败",
-                     description: data?.message || error?.message || "请检查 Key 是否正确"
-              });
+              skinToast.error(`验证失败: ${data?.message || error?.message || "请检查 Key 是否正确"}`);
        } else {
               // Auto-save on success
               const keyMap: Record<string, string> = {
@@ -624,11 +567,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               setCrawlerSessions(sessions as CrawlerSession[]);
        } catch (e) {
               if (!silent) {
-                     toast({
-                            variant: "destructive",
-                            title: "会话列表加载失败",
-                            description: (e as Error).message || "请稍后重试"
-                     });
+                     skinToast.error(`会话列表加载失败: ${(e as Error).message || "请稍后重试"}`);
               }
        } finally {
               setIsSessionsLoading(false);
@@ -651,11 +590,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      message: (e as Error).message || '检测失败',
               });
               if (!silent) {
-                     toast({
-                            variant: "destructive",
-                            title: "自爬服务检测失败",
-                            description: (e as Error).message || "请稍后重试"
-                     });
+                     skinToast.error(`自爬服务检测失败: ${(e as Error).message || "请稍后重试"}`);
               }
        } finally {
               setIsCrawlerHealthLoading(false);
@@ -664,7 +599,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
 
   const handleStartCrawlerAuth = async (platform: 'xiaohongshu' | 'douyin') => {
        if (!user) {
-              toast({ variant: "destructive", title: "请先登录后再扫码" });
+              skinToast.error("请先登录后再扫码");
               return;
        }
         if (!crawlerHealth?.healthy) {
@@ -730,11 +665,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      className: "bg-green-50 border-green-200 text-green-800"
               });
        } catch (e) {
-              toast({
-                     variant: "destructive",
-                     title: "扫码会话启动失败",
-                     description: (e as Error).message || "请稍后重试"
-              });
+              skinToast.error(`扫码会话启动失败: ${(e as Error).message || "请稍后重试"}`);
               if (!authFlowId) {
                      setAuthPlatform('');
               }
@@ -795,11 +726,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (!sessionSaved || cookieCount <= 0) {
                             setAuthStatus('pending');
                             if (!silent) {
-                                   toast({
-                                          variant: "destructive",
-                                          title: "登录状态异常",
-                                          description: "检测到异常授权结果，请重新扫码确认登录"
-                                   });
+                                   skinToast.error(`登录状态异常: ${"检测到异常授权结果，请重新扫码确认登录"}`);
                             }
                             return;
                      }
@@ -845,25 +772,14 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      manualConfirmArmedRef.current = false;
                      setAuthMessage(typeof data.message === 'string' ? data.message : "扫码会话已失效，请重新生成二维码");
                      if (!silent) {
-                            toast({
-                                   variant: "destructive",
-                                   title: "扫码会话已失效",
-                                   description: data.error || "请重新生成二维码",
-                            });
+                            skinToast.error(`扫码会话已失效: ${data.error || "请重新生成二维码",}`);
                      }
               } else if (!silent) {
-                     toast({
-                            title: "尚未完成扫码",
-                            description: "请扫码并在手机端确认登录",
-                     });
+                     skinToast.success(`尚未完成扫码: ${"请扫码并在手机端确认登录",}`);
               }
        } catch (e) {
               if (!silent) {
-                     toast({
-                            variant: "destructive",
-                            title: "状态检查失败",
-                            description: (e as Error).message || "请稍后重试"
-                     });
+                     skinToast.error(`状态检查失败: ${(e as Error).message || "请稍后重试"}`);
               }
        } finally {
               if (!silent) {
@@ -915,11 +831,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               });
               await fetchCrawlerSessions(true);
        } catch (e) {
-              toast({
-                     variant: "destructive",
-                     title: "吊销失败",
-                     description: (e as Error).message || "请稍后重试"
-              });
+              skinToast.error(`吊销失败: ${(e as Error).message || "请稍后重试"}`);
        } finally {
               setIsSessionsLoading(false);
        }

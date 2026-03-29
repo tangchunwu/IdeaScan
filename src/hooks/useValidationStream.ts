@@ -87,11 +87,8 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       navigate(`/report/${currentValidationId}`);
     } catch (e) {
-      toast({
-        title: "取消失败",
-        description: (e as Error).message,
-        variant: "destructive",
-      });
+      skinToast.success(`取消失败: ${(e as Error).message,
+        variant: "destructive",}`);
     } finally {
       setIsCancelling(false);
       setIsValidating(false);
@@ -226,7 +223,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           mode: validationMode,
         });
 
-        toast({ title: "验证失败", description: error, variant: "destructive" });
+        skinToast.error(`验证失败: ${error}`);
         setIsValidating(false);
         setProgress(0);
         setCurrentStep(0);

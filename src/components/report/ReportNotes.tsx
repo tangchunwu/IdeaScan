@@ -63,7 +63,7 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
       setTimeout(() => setJustSaved(false), 2000);
     } catch (e) {
       console.error("Save notes error:", e);
-      toast({ title: "保存失败", variant: "destructive" });
+      skinToast.error("保存失败");
     } finally {
       setSaving(false);
     }

@@ -71,7 +71,7 @@ const AdminMonitorTab = () => {
       if (context?.previous) {
         queryClient.setQueryData(["hunter-scheduler-config"], context.previous);
       }
-      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+      skinToast.error(`操作失败: ${e.message}`);
     },
   });
 
@@ -86,7 +86,7 @@ const AdminMonitorTab = () => {
       queryClient.invalidateQueries({ queryKey: ["hunter-admin-signals"] });
     },
     onError: (e: any) => {
-      toast({ title: "处理失败", description: e.message, variant: "destructive" });
+      skinToast.error(`处理失败: ${e.message}`);
     },
   });
 

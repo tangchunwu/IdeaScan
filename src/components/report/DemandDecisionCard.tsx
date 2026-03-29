@@ -152,8 +152,8 @@ export const DemandDecisionCard = ({
                       <button type="button" className="text-xs text-primary hover:underline" onClick={async () => {
                         const content = item.fullText || item.snippet || "";
                         if (!content) return;
-                        try { await navigator.clipboard.writeText(content); toast({ title: "已复制证据原文" }); }
-                        catch { toast({ title: "复制失败", description: "请手动复制", variant: "destructive" }); }
+                        try { await navigator.clipboard.writeText(content); skinToast.success("已复制证据原文"); }
+                        catch { skinToast.error("复制失败: 请手动复制"); }
                       }}>复制</button>
                     </div>
                   )}

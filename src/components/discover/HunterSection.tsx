@@ -217,13 +217,13 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
               try {
                      const keywordList = keywords.split(/[,，\n]/).map(k => k.trim()).filter(k => k);
                      await hunterService.createScanJob(keywordList.length > 0 ? keywordList : ["自定义监控"], undefined, description.trim());
-                     toast({ title: "任务已创建", description: "AI 将在后台开始深度调研" });
+                     skinToast.success("任务已创建: AI 将在后台开始深度调研");
                      setOpen(false);
                      setKeywords("");
                      setDescription("");
                      onCreated();
               } catch (e: any) {
-                     toast({ title: "创建失败", description: e.message, variant: "destructive" });
+                     skinToast.error(`创建失败: ${e.message}`);
               } finally {
                      setIsSubmitting(false);
               }
@@ -503,18 +503,18 @@ export const HunterSection = () => {
                      invalidateAll();
               },
               onError: (e: any) => {
-                     toast({ title: "操作失败", description: e.message, variant: "destructive" });
+                     skinToast.error(`操作失败: ${e.message}`);
               },
        });
 
        const deleteJobMutation = useMutation({
               mutationFn: (id: string) => hunterService.deleteScanJob(id),
               onSuccess: () => {
-                     toast({ title: "已删除" });
+                     skinToast.success("已删除");
                      invalidateAll();
               },
               onError: (e: any) => {
-                     toast({ title: "删除失败", description: e.message, variant: "destructive" });
+                     skinToast.error(`删除失败: ${e.message}`);
               },
        });
 
@@ -523,19 +523,19 @@ export const HunterSection = () => {
        const handleManualTrigger = async () => {
               setIsScanning(true);
               try {
-                     toast({ title: "🔍 正在深度探索全网趋势...", description: "AI 正在用深度推理模型分析全网热点和商机，预计 30-60 秒。" });
+                     skinToast.success("🔍 正在深度探索全网趋势...: AI 正在用深度推理模型分析全网热点和商机，预计 30-60 秒。");
                      const result = await hunterService.triggerHunterScan(undefined, "discover");
                      const count = result?.signals_inserted || 0;
                      if (count === 0 && result?.quota_exhausted) {
-                            toast({ title: "⚠️ 今日配额已用完", description: "每日最多采集 100 条信号，请明天再试。" });
+                            skinToast.success("⚠️ 今日配额已用完: 每日最多采集 100 条信号，请明天再试。");
                      } else if (count === 0) {
-                            toast({ title: "暂无新发现", description: "AI 未发现新的趋势信号，可稍后重试。" });
+                            skinToast.success("暂无新发现: AI 未发现新的趋势信号，可稍后重试。");
                      } else {
                             toast({ title: "✅ 探索完成", description: `发现 ${count} 条新趋势信号` });
                      }
                      invalidateAll();
               } catch (e: any) {
-                     toast({ title: "探索失败", description: e.message, variant: "destructive" });
+                     skinToast.error(`探索失败: ${e.message}`);
               } finally {
                      setIsScanning(false);
               }

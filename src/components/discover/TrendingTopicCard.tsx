@@ -53,7 +53,7 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
       toast({ title: "已删除", description: `「${topic.keyword}」已从热点中移除` });
       onDelete?.(topic.id);
     } catch (error) {
-      toast({ title: "删除失败", description: error instanceof Error ? error.message : "请稍后重试", variant: "destructive" });
+      skinToast.error(`删除失败: ${error instanceof Error ? error.message : "请稍后重试"}`);
     } finally {
       setIsDeleting(false);
     }
@@ -81,19 +81,16 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
         await removeTopicInterest(topic.id);
         setCurrentInterest(null);
         onInterestChange?.(topic.id, null);
-        toast({ title: "已取消收藏" });
+        skinToast.success("已取消收藏");
       } else {
         await saveTopicInterest(topic.id, 'saved');
         setCurrentInterest('saved');
         onInterestChange?.(topic.id, 'saved');
-        toast({ title: "已收藏", description: "可在历史记录中查看" });
+        skinToast.success("已收藏: 可在历史记录中查看");
       }
     } catch (error) {
-      toast({
-        title: "操作失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-      });
+      skinToast.success(`操作失败: ${error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",}`);
     } finally {
       setIsSaving(false);
     }

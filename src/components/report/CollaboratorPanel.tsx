@@ -59,12 +59,12 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
     const trimmed = email.trim().toLowerCase();
 
     if (!EMAIL_RE.test(trimmed)) {
-      toast({ title: "邮箱格式不正确", variant: "destructive" });
+      skinToast.error("邮箱格式不正确");
       return;
     }
     
     if (trimmed === user.email) {
-      toast({ title: "不能邀请自己", variant: "destructive" });
+      skinToast.error("不能邀请自己");
       return;
     }
 
@@ -81,7 +81,7 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
         } as any);
       if (error) {
         if (error.code === "23505") {
-          toast({ title: "该用户已被邀请", variant: "destructive" });
+          skinToast.error("该用户已被邀请");
         } else {
           throw error;
         }
@@ -92,7 +92,7 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
       }
     } catch (e) {
       console.error("Add collaborator error:", e);
-      toast({ title: "邀请失败", variant: "destructive" });
+      skinToast.error("邀请失败");
     } finally {
       setAdding(false);
     }
@@ -106,7 +106,7 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
         .eq("id", id);
       if (error) throw error;
       setCollaborators((prev) => prev.filter((c) => c.id !== id));
-      toast({ title: "已移除协作者" });
+      skinToast.success("已移除协作者");
     } catch (e) {
       console.error("Remove collaborator error:", e);
     }
