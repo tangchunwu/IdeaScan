@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
@@ -16,21 +17,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SettingsDialog } from "./SettingsDialog";
 
-const navItems = [
-  { path: "/validate", label: "创意验证", icon: Sparkles, requireAuth: true, tourId: "nav-validate" },
-  { path: "/discover", label: "热点雷达", icon: Radar, requireAuth: false, tourId: "nav-discover" },
-  { path: "/history", label: "历史记录", icon: History, requireAuth: true, tourId: "nav-history" },
-  { path: "/openclaw", label: "OpenClaw", icon: Cog, requireAuth: true, tourId: "nav-openclaw" },
-];
-
 export const Navbar = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const { user, signOut, isLoading } = useAuth();
   const { profile, isUploading, uploadAvatar } = useProfile();
   const { skin } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const navItems = [
+    { path: "/validate", label: t("nav.ideaValidation"), icon: Sparkles, requireAuth: true, tourId: "nav-validate" },
+    { path: "/discover", label: t("nav.hotRadar"), icon: Radar, requireAuth: false, tourId: "nav-discover" },
+    { path: "/history", label: t("nav.history"), icon: History, requireAuth: true, tourId: "nav-history" },
+    { path: "/openclaw", label: "OpenClaw", icon: Cog, requireAuth: true, tourId: "nav-openclaw" },
+  ];
 
   const subtitleEmoji = skin === "street" ? "😎" : skin === "drift" ? "🦦" : skin === "cotton" ? "🐰" : skin === "bamboo" ? "🐼" : "🐾";
 
@@ -52,7 +54,7 @@ export const Navbar = () => {
       return (
         <img
           src={profile.avatar_url}
-          alt="头像"
+          alt="Avatar"
           className={cn(sizeClass, "rounded-full object-cover")}
         />
       );
@@ -80,7 +82,7 @@ export const Navbar = () => {
                 IdeaScan
               </span>
               <span className="text-xs text-muted-foreground">
-                需求验证 {subtitleEmoji}
+                {t("nav.demandValidation")} {subtitleEmoji}
               </span>
             </div>
           </Link>
@@ -162,7 +164,7 @@ export const Navbar = () => {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer">
                         <Settings className="w-4 h-4 mr-2" />
-                        系统配置
+                        {t("nav.systemConfig")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -170,7 +172,7 @@ export const Navbar = () => {
                         className="text-destructive focus:text-destructive cursor-pointer"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
-                        退出登录
+                        {t("nav.logout")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -182,7 +184,7 @@ export const Navbar = () => {
                       className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                     >
                       <LogIn className="w-4 h-4 mr-2" />
-                      登录
+                      {t("nav.login")}
                     </Button>
                   </Link>
                 )}
@@ -234,7 +236,7 @@ export const Navbar = () => {
                 {user ? (
                   <div className="space-y-3">
                     <div className="px-4 py-2">
-                      <p className="text-sm text-muted-foreground">已登录</p>
+                      <p className="text-sm text-muted-foreground">{t("nav.loggedIn")}</p>
                       <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
                     </div>
                     <Button
@@ -246,7 +248,7 @@ export const Navbar = () => {
                       }}
                     >
                       <Settings className="w-4 h-4 mr-2" />
-                      系统配置
+                      {t("nav.systemConfig")}
                     </Button>
                     <Button
                       variant="outline"
@@ -257,14 +259,14 @@ export const Navbar = () => {
                       }}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
-                      退出登录
+                      {t("nav.logout")}
                     </Button>
                   </div>
                 ) : (
                   <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full rounded-xl">
                       <LogIn className="w-4 h-4 mr-2" />
-                      登录 / 注册
+                      {t("nav.loginRegister")}
                     </Button>
                   </Link>
                 )}
