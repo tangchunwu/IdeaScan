@@ -4,6 +4,8 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
+import { ScrollReveal } from "@/components/shared/ScrollReveal";
+import { SocialProofCounter } from "@/components/social";
 import { HotTrends } from "@/components/discover/HotTrends";
 import { TestimonialSection } from "@/components/landing/TestimonialSection";
 import { HeroSection } from "@/components/landing/HeroSection";
@@ -16,7 +18,10 @@ import {
   MessageCircle,
   Zap,
   ShieldAlert,
-  Target
+  Target,
+  Brain,
+  TrendingUp,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { captureEvent } from "@/lib/posthog";
@@ -46,6 +51,12 @@ const features = [
     description: "结合用户痛点频率与竞品密度，判断你的创意是真刚需还是自嗨伪需求。",
     gradient: "from-primary to-secondary",
   },
+];
+
+const heroMetrics = [
+  { value: 4, suffix: "", label: "位 AI 辩手", icon: Brain },
+  { value: 12, suffix: "+", label: "中文情报源", icon: TrendingUp },
+  { value: 24, suffix: "h", label: "信号追踪", icon: MessageCircle },
 ];
 
 const steps = [
@@ -81,6 +92,60 @@ const Index = () => {
             setHeroIdea={setHeroIdea}
             validationCount={validationCount ?? 0}
           />
+
+          {/* Social proof + metrics — scroll reveal */}
+          <ScrollReveal className="mb-24">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+              <div className="flex items-center gap-6">
+                <SocialProofCounter
+                  count={validationCount ?? 0}
+                  label="个创意已通过验证"
+                />
+                <motion.a
+                  href="https://ideascan.me/share/bb05ee712f6340cb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-sample-link"
+                  whileHover={{ y: -2, scale: 1.03 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                  onClick={() =>
+                    captureEvent("cta_clicked", {
+                      button: "hero_sample_report",
+                      page: "index",
+                    })
+                  }
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>查看一份示例报告</span>
+                </motion.a>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {heroMetrics.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <ScrollReveal key={item.label} delay={i * 100}>
+                    <motion.div
+                      whileHover={{ y: -4, scale: 1.03 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                    >
+                      <GlassCard className="hero-metric-card" padding="sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-muted-foreground">
+                            {item.label}
+                          </span>
+                          <Icon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="text-3xl md:text-4xl number-highlight text-foreground">
+                          {item.value}{item.suffix}
+                        </div>
+                      </GlassCard>
+                    </motion.div>
+                  </ScrollReveal>
+                );
+              })}
+            </div>
+          </ScrollReveal>
 
           {/* Features Grid - 功能层级清晰 */}
           <motion.section

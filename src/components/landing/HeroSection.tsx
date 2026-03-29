@@ -10,20 +10,15 @@ import {
   type Variants,
 } from "framer-motion";
 import {
-  Sparkles,
-  TrendingUp,
-  Brain,
   Search,
   BarChart3,
-  MessageCircle,
+  Brain,
   ArrowRight,
-  ExternalLink,
   ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlassCard } from "@/components/shared/GlassCard";
-import { SocialProofCounter } from "@/components/social";
 import { captureEvent } from "@/lib/posthog";
 
 /* ── data ──────────────────────────────────── */
@@ -39,11 +34,6 @@ const heroSignals = [
   { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
 ];
 
-const heroMetrics = [
-  { value: 4, suffix: "", label: "位 AI 辩手", icon: Brain },
-  { value: 12, suffix: "+", label: "中文情报源", icon: TrendingUp },
-  { value: 24, suffix: "h", label: "信号追踪", icon: MessageCircle },
-];
 
 /* ── spring config ─────────────────────────── */
 const spring = { type: "spring" as const, stiffness: 100, damping: 12 };
@@ -70,40 +60,6 @@ const panelVariants: Variants = {
   },
 };
 
-/* ── counter hook ──────────────────────────── */
-function AnimatedCounter({
-  value,
-  suffix = "",
-  reducedMotion = false,
-}: {
-  value: number;
-  suffix?: string;
-  reducedMotion?: boolean;
-}) {
-  const mv = useMotionValue(0);
-  const rounded = useTransform(mv, (v) => Math.round(v));
-  const [display, setDisplay] = useState(reducedMotion ? value : 0);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      setDisplay(value);
-      return;
-    }
-    const controls = animate(mv, value, {
-      duration: 1.2,
-      ease: "easeOut",
-      onUpdate: () => setDisplay(rounded.get()),
-    });
-    return controls.stop;
-  }, [value, reducedMotion, mv, rounded]);
-
-  return (
-    <span>
-      {display}
-      {suffix}
-    </span>
-  );
-}
 
 /* ── signal bar ────────────────────────────── */
 function SignalBar({
@@ -313,69 +269,6 @@ export function HeroSection({
                   </Button>
                 </motion.div>
               </motion.div>
-            </motion.div>
-
-            {/* proof block */}
-            <motion.div className="hero-copy-item" variants={itemVariants} style={{ opacity: 1 }}>
-              <div className="hero-proof-block flex-row items-center gap-6">
-                <div className="hero-proof-card shrink-0">
-                  <SocialProofCounter
-                    count={validationCount}
-                    label="个创意已通过验证"
-                  />
-                </div>
-                <motion.a
-                  href="https://ideascan.me/share/bb05ee712f6340cb"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hero-sample-link"
-                  whileHover={{ y: -2, scale: 1.03 }}
-                  transition={springFast}
-                  onClick={() =>
-                    captureEvent("cta_clicked", {
-                      button: "hero_sample_report",
-                      page: "index",
-                    })
-                  }
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>查看一份示例报告</span>
-                </motion.a>
-              </div>
-            </motion.div>
-
-            {/* metric cards */}
-            <motion.div
-              className="hero-copy-item hero-metrics-grid"
-              variants={itemVariants}
-              style={{ opacity: 1 }}
-            >
-              {heroMetrics.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <motion.div
-                    key={item.label}
-                    whileHover={{ y: -4, scale: 1.03 }}
-                    transition={springFast}
-                  >
-                    <GlassCard className="hero-metric-card" padding="sm">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-muted-foreground">
-                          {item.label}
-                        </span>
-                        <Icon className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="text-3xl md:text-4xl number-highlight text-foreground">
-                        <AnimatedCounter
-                          value={item.value}
-                          suffix={item.suffix}
-                          reducedMotion={reducedMotion}
-                        />
-                      </div>
-                    </GlassCard>
-                  </motion.div>
-                );
-              })}
             </motion.div>
           </motion.div>
 
