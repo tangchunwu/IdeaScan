@@ -173,7 +173,7 @@ const Report = () => {
       }
     } catch (error) {
       console.error("Recrawl error:", error);
-      toast({ title: "爬取失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
+      skinToast.error((error as Error).message || "爬取失败，请稍后重试");
     } finally {
       setIsRecrawling(false);
     }
