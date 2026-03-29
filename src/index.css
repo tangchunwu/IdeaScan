@@ -1169,11 +1169,27 @@
 [data-skin="cotton"] .glass-card {
   border-radius: 1.25rem;
   border: 1px solid hsl(310 35% 80% / 0.15);
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.2),
+    0 8px 24px hsl(310 35% 80% / 0.08);
 }
 
 [data-skin="cotton"] .glass-card-elevated {
   border-radius: 1.25rem;
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.25),
+    0 12px 32px hsl(310 35% 80% / 0.12);
 }
+
+[data-skin="cotton"] .number-highlight {
+  font-family: 'Quicksand', 'DM Sans', 'Nunito', sans-serif;
+  font-weight: 700;
+}
+
+/* Cotton auto spacing 1.2x for main containers */
+[data-skin="cotton"] main > .space-y-4 { gap: calc(1rem * 1.2); }
+[data-skin="cotton"] main > .space-y-6 { gap: calc(1.5rem * 1.2); }
+[data-skin="cotton"] main > .space-y-8 { gap: calc(2rem * 1.2); }
 
 /* Cotton skin: hide aggressive cat decorations */
 [data-skin="cotton"] .cat-paw-indicator::before,
