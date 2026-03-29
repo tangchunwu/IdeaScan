@@ -35,11 +35,6 @@ const heroSignals = [
   { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
 ];
 
-const heroMetrics = [
-  { value: 4, suffix: "", label: "位 AI 辩手", icon: Brain },
-  { value: 12, suffix: "+", label: "中文情报源", icon: TrendingUp },
-  { value: 24, suffix: "h", label: "信号追踪", icon: MessageCircle },
-];
 
 /* ── spring config ─────────────────────────── */
 const spring = { type: "spring" as const, stiffness: 100, damping: 12 };
