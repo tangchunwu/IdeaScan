@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { BrandLogo } from "./BrandLogo";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/useTheme";
 
 interface BrandLoaderProps {
        className?: string;
@@ -8,7 +9,22 @@ interface BrandLoaderProps {
        fullScreen?: boolean;
 }
 
-export const BrandLoader = ({ className, text = "喵~ 加载中...", fullScreen = false }: BrandLoaderProps) => {
+const skinTexts: Record<string, string> = {
+       ghibli: "喵~ 加载中...",
+       street: "加载中...",
+       drift: "漂着呢，不急...",
+};
+
+const skinEmojis: Record<string, string> = {
+       ghibli: "🐾",
+       street: "",
+       drift: "🦦",
+};
+
+export const BrandLoader = ({ className, text, fullScreen = false }: BrandLoaderProps) => {
+       const { skin } = useTheme();
+       const displayText = text || skinTexts[skin] || skinTexts.ghibli;
+       const emoji = skinEmojis[skin] ?? "🐾";
        const content = (
               <div className={cn("flex flex-col items-center justify-center gap-6", className)}>
                      <div className="relative">
