@@ -1,28 +1,24 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
-import { SocialProofCounter } from "@/components/social";
 import { HotTrends } from "@/components/discover/HotTrends";
 import { TestimonialSection } from "@/components/landing/TestimonialSection";
+import { HeroSection } from "@/components/landing/HeroSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
-  TrendingUp,
-  Brain,
   Users,
-  ArrowRight,
   Search,
   BarChart3,
   MessageCircle,
   Zap,
-  ExternalLink,
   ShieldAlert,
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { captureEvent } from "@/lib/posthog";
 
 const features = [
@@ -58,28 +54,8 @@ const steps = [
   { step: "03", title: "需求验证报告", desc: "获取残酷诚实的市场反馈", icon: Target },
 ];
 
-const heroHighlights = [
-  { icon: Search, label: "真实痛点抓取" },
-  { icon: BarChart3, label: "竞品拥挤度计算" },
-  { icon: Brain, label: "多角色 AI 对辩" },
-];
-
-const heroSignals = [
-  { label: "小红书痛点信号", value: 82, detail: "近 72 小时持续抬升" },
-  { label: "竞品拥挤度", value: 41, detail: "还有切入空档" },
-  { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
-];
-
-const heroMetrics = [
-  { value: "4", label: "位 AI 辩手", icon: Brain },
-  { value: "12+", label: "中文情报源", icon: TrendingUp },
-  { value: "24h", label: "信号追踪", icon: MessageCircle },
-];
-
 const Index = () => {
   const [heroIdea, setHeroIdea] = useState("");
-  const navigate = useNavigate();
-  useDocumentTitle("在写代码前，先验证你的创业想法");
   const { data: validationCount } = useQuery({
     queryKey: ['validation-count'],
     queryFn: async () => {
@@ -91,211 +67,30 @@ const Index = () => {
     staleTime: 1000 * 60 * 10,
   });
 
+  useDocumentTitle("在写代码前，先验证你的创业想法");
+
   return (
     <PageBackground variant="vibrant">
       <Navbar />
 
       <main className="pt-28 pb-20 px-4">
         <div className="max-w-6xl mx-auto">
-          {/* Hero Section - 用户第一认知焦点 */}
-          <section className="hero-shell mb-24 section-breathe">
-            <div className="hero-surface">
-              <div className="hero-grid">
-              <div className="hero-copy">
-                <div className="hero-copy-item">
-                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary shadow-lg shadow-primary/10">
-                    <ShieldAlert className="w-4 h-4" />
-                    <span className="text-sm font-medium">在写第一行代码前，先验证需求</span>
-                  </div>
-                </div>
-
-                <div className="hero-copy-item">
-                  <h1 className="hero-title text-4xl md:text-6xl lg:text-[5.3rem] font-bold text-foreground mb-6 tracking-tight">
-                    先判断这是不是
-                    <br className="hidden md:block" />
-                    <span className="text-gradient-animated">值得做的真需求</span>
-                  </h1>
-
-                  <p className="hero-description text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
-                    抓取
-                    <span className="font-semibold text-foreground"> 小红书真实用户痛点 </span>
-                    、全网竞品动态和趋势变化，再让
-                    <span className="font-semibold text-foreground"> 4 位 AI 专家交叉拷问 </span>
-                    你的商业想法。
-                  </p>
-                </div>
-
-                <div className="hero-copy-item flex flex-wrap gap-3">
-                  {heroHighlights.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.label} className="hero-highlight-pill">
-                        <Icon className="w-4 h-4 text-primary" />
-                        <span>{item.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="hero-copy-item max-w-2xl">
-                  <div className="hero-command-panel focus-indicator">
-                    <Input
-                      placeholder="一句话描述你的创业想法..."
-                      value={heroIdea}
-                      onChange={(e) => setHeroIdea(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && heroIdea.trim()) {
-                          captureEvent('cta_clicked', { button: 'hero_inline_input', page: 'index' });
-                          navigate(`/validate?idea=${encodeURIComponent(heroIdea.trim())}`);
-                        }
-                      }}
-                      className="hero-command-input input-cat-focus"
-                    />
-                    <Button
-                      size="lg"
-                      data-tour="validate"
-                      className="hero-command-button btn-ripple paw-press"
-                      onClick={() => {
-                        captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' });
-                        navigate(heroIdea.trim() ? `/validate?idea=${encodeURIComponent(heroIdea.trim())}` : '/validate');
-                      }}
-                    >
-                      立即验证
-                      <ArrowRight className="w-5 h-5 ml-1.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="hero-copy-item">
-                  <div className="hero-proof-block">
-                    <div className="hero-proof-card">
-                      <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
-                    </div>
-                    <a
-                      href="https://ideascan.me/share/bb05ee712f6340cb"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hero-sample-link"
-                      onClick={() => captureEvent('cta_clicked', { button: 'hero_sample_report', page: 'index' })}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>查看一份示例报告</span>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="hero-copy-item hero-metrics-grid">
-                  {heroMetrics.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <GlassCard
-                        key={item.label}
-                        className="hero-metric-card"
-                        padding="sm"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-muted-foreground">{item.label}</span>
-                          <Icon className="w-4 h-4 text-primary" />
-                        </div>
-                        <div className="text-3xl md:text-4xl number-highlight text-foreground">
-                          {item.value}
-                        </div>
-                      </GlassCard>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="hero-copy-item">
-                <div className="hero-stage" aria-hidden="true">
-                  <div className="hero-stage-grid" />
-                  <div className="hero-stage-glow hero-stage-glow-primary" />
-                  <div className="hero-stage-glow hero-stage-glow-secondary" />
-
-                  <GlassCard
-                    elevated
-                    padding="none"
-                    className="hero-stage-panel"
-                  >
-                    <div className="hero-stage-beam" />
-
-                    <div className="relative z-10 p-6 md:p-7">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <div className="text-xs uppercase tracking-[0.28em] text-primary/70 mb-2">
-                            Demand Signal Engine
-                          </div>
-                          <div className="text-2xl font-semibold text-foreground">
-                            创意情报面板
-                          </div>
-                        </div>
-                        <div className="hero-status-pill">
-                          <span className="hero-status-dot" />
-                          <span>实时研判中</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        {heroSignals.map((item) => (
-                          <div key={item.label} className="hero-signal-card">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-sm font-medium text-foreground">{item.label}</div>
-                              <div className="text-sm number-highlight text-primary">{item.value}%</div>
-                            </div>
-                            <div className="hero-signal-track">
-                              <div className="hero-signal-fill" style={{ width: `${item.value}%` }} />
-                            </div>
-                            <div className="mt-2 text-xs text-muted-foreground">{item.detail}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="hero-stage-divider" />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="hero-verdict-card">
-                          <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
-                            当前判断
-                          </div>
-                          <div className="text-lg font-semibold text-foreground mb-1">
-                            倾向真实需求
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            痛点频率高于同类竞品密度
-                          </div>
-                        </div>
-
-                        <div className="hero-verdict-card">
-                          <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
-                            建议动作
-                          </div>
-                          <div className="text-lg font-semibold text-foreground mb-1">
-                            先做 MVP 验证
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            聚焦一个高频场景快速试水
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </GlassCard>
-                </div>
-              </div>
-            </div>
-            </div>
-
-            <a
-              href="#landing-features"
-              className="hero-scroll-cue"
-              onClick={() => captureEvent('cta_clicked', { button: 'hero_scroll_cue', page: 'index' })}
-            >
-              <span>继续下滑看能力拆解</span>
-              <ArrowRight className="w-4 h-4" />
-            </a>
-          </section>
+          {/* Hero Section */}
+          <HeroSection
+            heroIdea={heroIdea}
+            setHeroIdea={setHeroIdea}
+            validationCount={validationCount ?? 0}
+          />
 
           {/* Features Grid - 功能层级清晰 */}
-          <section id="landing-features" className="mb-24 section-breathe">
+          <motion.section
+            id="landing-features"
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 不只是分析，是残酷诚实的验证
@@ -305,40 +100,50 @@ const Index = () => {
               </p>
             </div>
 
-            <div data-tour="features" className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-container">
-              {features.map((feature) => {
+            <div data-tour="features" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {features.map((feature, i) => {
                 const Icon = feature.icon;
                 return (
-                  <GlassCard
+                  <motion.div
                     key={feature.title}
-                    hover
-                    interactive
-                    className="group"
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ type: "spring", stiffness: 100, damping: 12, delay: i * 0.08 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
                   >
-                    <div className="flex items-start gap-5">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                        <Icon className="w-7 h-7 text-primary-foreground" />
+                    <GlassCard hover interactive className="group h-full">
+                      <div className="flex items-start gap-5">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                          <Icon className="w-7 h-7 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+                            {feature.title}
+                          </h3>
+                          <p className="text-muted-foreground leading-relaxed">
+                            {feature.description}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
-                          {feature.title}
-                        </h3>
-                        <p className="text-muted-foreground leading-relaxed">
-                          {feature.description}
-                        </p>
-                      </div>
-                    </div>
-                  </GlassCard>
+                    </GlassCard>
+                  </motion.div>
                 );
               })}
             </div>
-          </section>
+          </motion.section>
 
           {/* Testimonials - 信任建设 */}
           <TestimonialSection />
 
-          {/* How it works - 用户认知引导 */}
-          <section className="mb-24 section-breathe">
+          {/* How it works */}
+          <motion.section
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 3 分钟完成需求验证
@@ -348,34 +153,46 @@ const Index = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-container">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {steps.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <GlassCard
+                  <motion.div
                     key={item.step}
-                    className="text-center relative overflow-visible"
-                    elevated
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ type: "spring", stiffness: 100, damping: 12, delay: index * 0.1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
                   >
-                    {/* 连接线 */}
-                    {index < steps.length - 1 && (
-                      <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
-                    )}
-
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-ghibli-sunset text-accent-foreground text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/20 relative">
-                      <span className="relative z-10">{item.step}</span>
-                      <Icon className="absolute -bottom-2 -right-2 w-8 h-8 p-1.5 bg-background rounded-full text-accent shadow-lg" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-3">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.desc}</p>
-                  </GlassCard>
+                    <GlassCard
+                      className="text-center relative overflow-visible h-full"
+                      elevated
+                    >
+                      {index < steps.length - 1 && (
+                        <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
+                      )}
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-ghibli-sunset text-accent-foreground text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/20 relative">
+                        <span className="relative z-10">{item.step}</span>
+                        <Icon className="absolute -bottom-2 -right-2 w-8 h-8 p-1.5 bg-background rounded-full text-accent shadow-lg" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-foreground mb-3">{item.title}</h3>
+                      <p className="text-muted-foreground">{item.desc}</p>
+                    </GlassCard>
+                  </motion.div>
                 );
               })}
             </div>
-          </section>
+          </motion.section>
 
-          {/* Popular Validations - 解决冷启动 */}
-          <section className="mb-24 section-breathe">
+          {/* Popular Validations */}
+          <motion.section
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-10">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 本周热门趋势
@@ -387,37 +204,47 @@ const Index = () => {
             <div className="max-w-2xl mx-auto">
               <HotTrends limit={5} />
             </div>
-          </section>
+          </motion.section>
 
-          {/* CTA Section - 行动召唤 */}
-          <section className="text-center">
+          {/* CTA Section */}
+          <motion.section
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.96 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <GlassCard className="py-16 px-8 relative overflow-hidden" glow elevated>
-              {/* 装饰背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
-
               <div className="relative z-10">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 animate-float">
+                <motion.div
+                  className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20"
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
                   <MessageCircle className="w-8 h-8 text-primary-foreground" />
-                </div>
+                </motion.div>
                 <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                   别让"伪需求"浪费你的半年
                 </h2>
                 <p className="text-muted-foreground mb-10 max-w-lg mx-auto text-lg">
                   写代码之前，先用真实数据验证你的想法值不值得做
                 </p>
-                <Button
-                  asChild
-                  size="lg"
-                  className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-                >
-                  <Link to="/validate">
-                    开始验证
-                    <Sparkles className="w-5 h-5 ml-2" />
-                  </Link>
-                </Button>
+                <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
+                  <Button
+                    asChild
+                    size="lg"
+                    className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl transition-all duration-300"
+                  >
+                    <Link to="/validate">
+                      开始验证
+                      <Sparkles className="w-5 h-5 ml-2" />
+                    </Link>
+                  </Button>
+                </motion.div>
               </div>
             </GlassCard>
-          </section>
+          </motion.section>
         </div>
       </main>
       <footer className="border-t border-border/50 bg-card/30 backdrop-blur-sm pt-16 pb-8">
