@@ -22,7 +22,13 @@
     "compare": "Compare",
     "settings": "Settings",
     "login": "Login",
-    "logout": "Logout"
+    "logout": "Logout",
+    "ideaValidation": "Idea Validation",
+    "hotRadar": "Trend Radar",
+    "demandValidation": "Demand Validation",
+    "systemConfig": "System Config",
+    "loggedIn": "Logged in",
+    "loginRegister": "Login / Register"
   },
   "landing": {
     "pageTitle": "Validate your startup idea before writing code",

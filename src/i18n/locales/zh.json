@@ -22,7 +22,13 @@
     "compare": "对比",
     "settings": "设置",
     "login": "登录",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "ideaValidation": "创意验证",
+    "hotRadar": "热点雷达",
+    "demandValidation": "需求验证",
+    "systemConfig": "系统配置",
+    "loggedIn": "已登录",
+    "loginRegister": "登录 / 注册"
   },
   "landing": {
     "pageTitle": "在写代码前，先验证你的创业想法",
