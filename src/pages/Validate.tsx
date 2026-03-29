@@ -142,7 +142,7 @@ const Validate = () => {
       setAiTagSuggestions(suggestions);
       skinToast.success(`AI 推荐 ${suggestions.length} 个候选标签`);
     } catch (e) {
-      toast({ title: "关键词推荐失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
+      skinToast.error((e as Error).message || "关键词推荐失败");
     } finally {
       setIsSuggestingTags(false);
     }
