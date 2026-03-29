@@ -10,7 +10,6 @@ import {
   type Variants,
 } from "framer-motion";
 import {
-  Sparkles,
   Search,
   BarChart3,
   Brain,
