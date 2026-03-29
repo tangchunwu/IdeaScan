@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   motion,
   useReducedMotion,
@@ -14,13 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { captureEvent } from "@/lib/posthog";
-
-/* ── data ──────────────────────────────────── */
-const heroHighlights = [
-  { icon: Search, label: "真实痛点抓取" },
-  { icon: BarChart3, label: "竞品拥挤度计算" },
-  { icon: Brain, label: "多角色 AI 对辩" },
-];
 
 /* ── spring config ─────────────────────────── */
 const spring = { type: "spring" as const, stiffness: 100, damping: 12 };
@@ -51,6 +45,13 @@ export function HeroSection({
 }: HeroSectionProps) {
   const navigate = useNavigate();
   const reducedMotion = useReducedMotion() ?? false;
+  const { t } = useTranslation();
+
+  const heroHighlights = [
+    { icon: Search, label: t("landing.pill1") },
+    { icon: BarChart3, label: t("landing.pill2") },
+    { icon: Brain, label: t("landing.pill3") },
+  ];
 
   const goValidate = () => {
     captureEvent("cta_clicked", { button: "hero_validate", page: "index" });
@@ -64,7 +65,6 @@ export function HeroSection({
   return (
     <section className="hero-shell mb-24 section-breathe">
       <div className="hero-surface">
-        {/* ── centered single-column ─────────── */}
         <motion.div
           className="hero-copy text-center items-center mx-auto max-w-3xl"
           variants={containerVariants}
@@ -80,7 +80,7 @@ export function HeroSection({
             >
               <ShieldAlert className="w-4 h-4" />
               <span className="text-sm font-medium">
-                在写第一行代码前，先验证需求
+                {t("landing.badge")}
               </span>
             </motion.div>
           </motion.div>
@@ -88,19 +88,11 @@ export function HeroSection({
           {/* title */}
           <motion.div variants={itemVariants}>
             <h1 className="hero-title mx-auto text-4xl md:text-6xl lg:text-[5.3rem] font-bold text-foreground mb-6 tracking-tight">
-              先判断这是不是
-              <span className="text-gradient-animated">值得做的真需求</span>
+              {t("landing.heroTitle1")}
+              <span className="text-gradient-animated">{t("landing.heroTitle2")}</span>
             </h1>
             <p className="hero-description mx-auto text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
-              抓取
-              <span className="font-semibold text-foreground">
-                {" "}小红书真实用户痛点{" "}
-              </span>
-              、全网竞品动态和趋势变化，再让
-              <span className="font-semibold text-foreground">
-                {" "}4 位 AI 专家交叉拷问{" "}
-              </span>
-              你的商业想法。
+              {t("landing.heroDescPlain")}
             </p>
           </motion.div>
 
@@ -139,7 +131,7 @@ export function HeroSection({
               transition={springFast}
             >
               <Input
-                placeholder="一句话描述你的创业想法..."
+                placeholder={t("landing.inputPlaceholder")}
                 value={heroIdea}
                 onChange={(e) => setHeroIdea(e.target.value)}
                 onKeyDown={(e) => {
@@ -166,7 +158,7 @@ export function HeroSection({
                   className="hero-command-button btn-ripple paw-press"
                   onClick={goValidate}
                 >
-                  立即验证
+                  {t("landing.validateNow")}
                   <ArrowRight className="w-5 h-5 ml-1.5" />
                 </Button>
               </motion.div>
@@ -193,7 +185,7 @@ export function HeroSection({
           })
         }
       >
-        <span>继续下滑看能力拆解</span>
+        <span>{t("landing.scrollCue")}</span>
         <ArrowRight className="w-4 h-4" />
       </motion.a>
     </section>
