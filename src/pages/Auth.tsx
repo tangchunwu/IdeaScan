@@ -87,12 +87,12 @@ const Auth = () => {
       });
       if (error) throw error;
       captureEvent('login_success', { method: 'email' });
-      toast({ title: "登录成功", description: "欢迎回来！" });
+      skinToast.success("欢迎回来！");
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "登录失败";
       captureEvent('login_failed', { method: 'email', error: errorMessage.substring(0, 100) });
-      toast({ title: "登录失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
