@@ -93,6 +93,46 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
     );
   }
 
+  // Bamboo skin: bamboo paper warmth with green accents
+  if (skin === "bamboo") {
+    return (
+      <div
+        ref={ref}
+        className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
+      >
+        <div className="fixed inset-0 -z-10 bg-gradient-to-b from-background via-background to-primary/5" />
+        {/* Bamboo green glow */}
+        <div className="fixed top-0 right-1/4 w-80 h-80 rounded-full blur-[100px] -z-10"
+          style={{ background: "hsl(145 28% 39% / 0.08)" }} />
+        <div className="fixed bottom-32 left-1/4 w-64 h-64 rounded-full blur-[80px] -z-10"
+          style={{ background: "hsl(40 75% 60% / 0.06)" }} />
+        {/* Subtle bamboo leaf shapes */}
+        {showClouds && (
+          <div className="fixed inset-0 -z-5 pointer-events-none overflow-hidden">
+            {clouds.slice(0, 3).map((cloud) => (
+              <div
+                key={cloud.id}
+                className="absolute blur-sm"
+                style={{
+                  width: cloud.width * 0.5,
+                  height: cloud.height * 1.5,
+                  borderRadius: "40% 60% 60% 40% / 70% 30% 70% 30%",
+                  top: cloud.top,
+                  left: cloud.left,
+                  opacity: cloud.opacity * 0.35,
+                  background: "hsl(145 28% 39% / 0.1)",
+                  animation: `float ${cloud.duration} ease-out infinite`,
+                  animationDelay: cloud.delay,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <div className="relative z-10 page-enter">{children}</div>
+      </div>
+    );
+  }
+
   // Drift skin: river mist with floating elements
   if (skin === "drift") {
     return (
