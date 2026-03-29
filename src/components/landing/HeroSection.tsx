@@ -313,6 +313,7 @@ export function HeroSection({
                   </Button>
                 </motion.div>
               </motion.div>
+            </motion.div>
           </motion.div>
 
           {/* ── right: stage panel ─────────── */}
