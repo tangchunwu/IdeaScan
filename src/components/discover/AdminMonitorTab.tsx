@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { GlassCard, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { SkinSwitch as Switch } from "@/components/skin";
 import {
   RefreshCw, BarChart3, ChevronDown, ChevronUp, Clock,
