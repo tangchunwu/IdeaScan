@@ -980,11 +980,26 @@
 }
 
 [data-skin="drift"] .glass-card {
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: 0 8px 32px hsl(var(--glass-shadow));
 }
 
 [data-skin="drift"] .glass-card-elevated {
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+[data-skin="drift"] .number-highlight {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 700;
+}
+
+[data-skin="drift"] .cat-paw-hover::after {
+  content: '🦦';
 }
 
 /* ========================================
