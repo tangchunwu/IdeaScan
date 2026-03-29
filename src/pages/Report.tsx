@@ -211,7 +211,7 @@ const Report = () => {
 
   const handleExportHTML = () => {
     const rd = prepareExportData();
-    if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
+    if (!rd) { skinToast.error("报告数据未加载完成"); return; }
     try {
       const htmlContent = generateReportHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
