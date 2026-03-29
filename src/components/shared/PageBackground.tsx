@@ -158,8 +158,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                   left: cloud.left,
                   opacity: cloud.opacity * 0.6,
                   background: "hsl(140 25% 55% / 0.15)",
-                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`,
-                  animationDelay: cloud.delay,
+                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${cloud.delay} infinite`,
                 }}
               />
             ))}
