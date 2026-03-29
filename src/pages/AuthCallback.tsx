@@ -47,12 +47,7 @@ const AuthCallback = () => {
           refresh_token: data.session.refresh_token,
         });
 
-        toast({
-          title: data.is_new ? "注册成功" : "登录成功",
-          description: data.is_new
-            ? "欢迎加入 IdeaScan！"
-            : "欢迎回来！",
-        });
+        skinToast.success(data.is_new ? "欢迎加入 IdeaScan！" : "欢迎回来！");
 
         navigate(redirectTo, { replace: true });
       } catch (err) {

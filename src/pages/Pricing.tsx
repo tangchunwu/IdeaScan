@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { useSkinToast } from "@/hooks/useSkinToast";
 
 const Pricing = () => {
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
        useDocumentTitle("定价方案", { description: "IdeaScan 定价方案，免费体验 AI 需求验证。" });
        const plans = [
               {

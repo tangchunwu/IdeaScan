@@ -67,10 +67,7 @@ export default function MVPGenerator() {
 				slug: mvpPage?.slug,
 			});
 			
-			toast({
-				title: isPublished ? "发布成功" : "已下架",
-				description: isPublished ? "您的落地页现在可以公开访问了" : "落地页已转为私有"
-			});
+			skinToast.success(isPublished ? "落地页已发布" : "落地页已下架");
 		},
 	});
 

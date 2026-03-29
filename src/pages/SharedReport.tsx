@@ -59,9 +59,9 @@ const SharedReport = () => {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast({ title: "链接已复制" });
+      skinToast.success("链接已复制");
     } catch {
-      toast({ title: "复制失败", variant: "destructive" });
+      skinToast.error("复制失败");
     }
   };
 
