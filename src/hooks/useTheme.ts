@@ -40,6 +40,13 @@ export const SKINS: SkinMeta[] = [
     description: "柔软治愈，温柔陪伴",
     colors: ["#D4A5C9", "#F2C4CE"],
   },
+  {
+    id: "bamboo",
+    name: "竹竹熊猫",
+    emoji: "🐼",
+    description: "田野研究员，认真又呆萌",
+    colors: ["#4A7C59", "#F7F3E8"],
+  },
 ];
 
 interface ThemeState {

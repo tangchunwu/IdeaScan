@@ -1129,3 +1129,159 @@
 [data-skin="cotton"] .cat-paw-hover::after {
   content: '🐰';
 }
+
+/* ========================================
+   皮肤系统：竹竹熊猫（田野研究员）
+   ======================================== */
+
+[data-skin="bamboo"] {
+  --background: 45 35% 95%;
+  --foreground: 150 15% 18%;
+
+  --card: 45 30% 97%;
+  --card-foreground: 150 15% 18%;
+
+  --popover: 45 30% 97%;
+  --popover-foreground: 150 15% 18%;
+
+  --primary: 145 28% 39%;
+  --primary-foreground: 45 35% 95%;
+
+  --secondary: 30 35% 60%;
+  --secondary-foreground: 45 35% 95%;
+
+  --muted: 45 20% 90%;
+  --muted-foreground: 150 10% 42%;
+
+  --accent: 40 75% 60%;
+  --accent-foreground: 150 15% 15%;
+
+  --destructive: 30 40% 55%;
+  --destructive-foreground: 45 35% 95%;
+
+  --border: 145 15% 82%;
+  --input: 45 20% 90%;
+  --ring: 145 28% 39%;
+
+  --radius: 0.625rem;
+
+  --sky-blue: 145 28% 50%;
+  --forest-green: 145 28% 39%;
+  --sunset-orange: 40 75% 60%;
+  --cloud-white: 45 30% 96%;
+  --earth-brown: 30 35% 50%;
+
+  --glass-bg: 45 30% 97% / 0.8;
+  --glass-border: 145 28% 39% / 0.12;
+  --glass-shadow: 150 15% 18% / 0.06;
+
+  --sidebar-background: 45 35% 95%;
+  --sidebar-foreground: 150 15% 30%;
+  --sidebar-primary: 145 28% 39%;
+  --sidebar-primary-foreground: 45 35% 95%;
+  --sidebar-accent: 40 75% 60%;
+  --sidebar-accent-foreground: 150 15% 15%;
+  --sidebar-border: 145 15% 82%;
+  --sidebar-ring: 145 28% 39%;
+}
+
+[data-skin="bamboo"] .dark {
+  --background: 150 15% 11%;
+  --foreground: 45 25% 90%;
+
+  --card: 150 12% 15%;
+  --card-foreground: 45 25% 90%;
+
+  --popover: 150 12% 15%;
+  --popover-foreground: 45 25% 90%;
+
+  --primary: 145 30% 45%;
+  --primary-foreground: 150 15% 10%;
+
+  --secondary: 30 30% 50%;
+  --secondary-foreground: 45 25% 90%;
+
+  --muted: 150 10% 20%;
+  --muted-foreground: 45 15% 58%;
+
+  --accent: 40 70% 55%;
+  --accent-foreground: 150 15% 10%;
+
+  --border: 150 10% 22%;
+  --input: 150 10% 18%;
+  --ring: 145 30% 45%;
+
+  --sky-blue: 145 30% 45%;
+  --forest-green: 145 30% 40%;
+  --sunset-orange: 40 70% 55%;
+  --cloud-white: 45 15% 85%;
+  --earth-brown: 30 25% 42%;
+
+  --glass-bg: 150 12% 15% / 0.85;
+  --glass-border: 145 30% 45% / 0.1;
+  --glass-shadow: 0 0% 0% / 0.3;
+
+  --sidebar-background: 150 15% 9%;
+  --sidebar-foreground: 45 25% 85%;
+  --sidebar-primary: 145 30% 45%;
+  --sidebar-primary-foreground: 150 15% 10%;
+  --sidebar-accent: 40 70% 55%;
+  --sidebar-accent-foreground: 45 25% 90%;
+  --sidebar-border: 150 10% 22%;
+  --sidebar-ring: 145 30% 45%;
+}
+
+/* Bamboo skin: steady ease-out animations */
+[data-skin="bamboo"] .paw-press:active {
+  animation: bamboo-press 0.3s ease-out;
+}
+
+@keyframes bamboo-press {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+[data-skin="bamboo"] .switch-bounce [data-state] {
+  transition: transform 280ms ease-out;
+}
+
+[data-skin="bamboo"] .card-interactive:hover {
+  transform: translateY(-5px) scale(1.01);
+  transition-duration: 350ms;
+  transition-timing-function: ease-out;
+}
+
+[data-skin="bamboo"] body {
+  font-family: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+  line-height: 1.7;
+}
+
+[data-skin="bamboo"] h1,
+[data-skin="bamboo"] h2,
+[data-skin="bamboo"] h3 {
+  font-family: 'Noto Serif SC', 'Georgia', serif;
+  font-weight: 500;
+}
+
+[data-skin="bamboo"] .number-highlight {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+[data-skin="bamboo"] .glass-card {
+  border-radius: 0.625rem;
+  border: 1px solid hsl(145 28% 39% / 0.1);
+}
+
+[data-skin="bamboo"] .glass-card-elevated {
+  border-radius: 0.625rem;
+}
+
+[data-skin="bamboo"] .cat-paw-indicator::before,
+[data-skin="bamboo"] .cat-paw-indicator::after {
+  background: hsl(145 28% 39%);
+}
+
+[data-skin="bamboo"] .cat-paw-hover::after {
+  content: '🐼';
+}

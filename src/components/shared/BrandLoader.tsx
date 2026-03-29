@@ -14,6 +14,7 @@ const skinTexts: Record<string, string> = {
        street: "加载中...",
        drift: "漂着呢，不急...",
        cotton: "棉棉在泡茶，等一等～",
+       bamboo: "竹竹正在查阅文献...",
 };
 
 const skinEmojis: Record<string, string> = {
@@ -21,6 +22,7 @@ const skinEmojis: Record<string, string> = {
        street: "",
        drift: "🦦",
        cotton: "🐰",
+       bamboo: "🐼",
 };
 
 export const BrandLoader = ({ className, text, fullScreen = false }: BrandLoaderProps) => {
