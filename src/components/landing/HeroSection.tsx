@@ -61,40 +61,6 @@ const panelVariants: Variants = {
   },
 };
 
-/* ── counter hook ──────────────────────────── */
-function AnimatedCounter({
-  value,
-  suffix = "",
-  reducedMotion = false,
-}: {
-  value: number;
-  suffix?: string;
-  reducedMotion?: boolean;
-}) {
-  const mv = useMotionValue(0);
-  const rounded = useTransform(mv, (v) => Math.round(v));
-  const [display, setDisplay] = useState(reducedMotion ? value : 0);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      setDisplay(value);
-      return;
-    }
-    const controls = animate(mv, value, {
-      duration: 1.2,
-      ease: "easeOut",
-      onUpdate: () => setDisplay(rounded.get()),
-    });
-    return controls.stop;
-  }, [value, reducedMotion, mv, rounded]);
-
-  return (
-    <span>
-      {display}
-      {suffix}
-    </span>
-  );
-}
 
 /* ── signal bar ────────────────────────────── */
 function SignalBar({
