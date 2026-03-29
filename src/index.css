@@ -730,16 +730,6 @@
       @apply rounded-[1.75rem] px-0 py-3 md:px-4;
     }
 
-    .hero-stage {
-      min-height: 29rem;
-      margin-top: 1rem;
-    }
-
-    .hero-stage-panel {
-      inset-inline: 0;
-      top: 1rem;
-      transform: none;
-    }
   }
 
   @media (max-width: 768px) {
