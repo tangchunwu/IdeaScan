@@ -749,8 +749,8 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (!silent) {
                             skinToast.error(`扫码会话已失效: ${data.error || "请重新生成二维码"}`);
                      }
-              } else if (!silent) {
-                     skinToast.success(`尚未完成扫码: ${"请扫码并在手机端确认登录",}`);
+               } else if (!silent) {
+                      skinToast.info("尚未完成扫码: 请扫码并在手机端确认登录");
               }
        } catch (e) {
               if (!silent) {
