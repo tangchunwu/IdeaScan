@@ -23,7 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const SharedReport = () => {
   const { token } = useParams<{ token: string }>();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
