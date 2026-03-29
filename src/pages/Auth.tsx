@@ -128,7 +128,7 @@ const Auth = () => {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";
       captureEvent('signup_failed', { method: 'email', error: errorMessage.substring(0, 100) });
-      toast({ title: "注册失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
