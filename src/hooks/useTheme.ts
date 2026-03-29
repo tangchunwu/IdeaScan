@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Skin = "ghibli" | "street" | "drift" | "cotton";
+export type Skin = "ghibli" | "street" | "drift" | "cotton" | "bamboo";
 
 export interface SkinMeta {
   id: Skin;
