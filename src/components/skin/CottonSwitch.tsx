@@ -15,7 +15,7 @@ export const CottonSwitch = ({ checked, onCheckedChange, disabled, className }: 
       role="switch"
       aria-checked={checked}
       disabled={disabled}
-      onClick={() => onCheckedChange(!checked)}
+      onClick={() => onCheckedChange?.(!checked)}
       className={cn(
         "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         checked ? "bg-primary" : "bg-muted",
