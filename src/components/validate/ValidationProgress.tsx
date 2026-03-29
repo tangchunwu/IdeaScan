@@ -1,6 +1,7 @@
 import { Loader2, CheckCircle2, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/shared";
+import { SkinProgress } from "@/components/skin";
 import type { ValidationStep } from "@/hooks/useValidationStream";
 
 interface ValidationProgressProps {
