@@ -369,7 +369,7 @@ const Validate = () => {
                         onClick={() => {
                           setIdea(polishedResult);
                           setPolishedResult(null);
-                          toast({ title: "已采纳润色结果", description: "想法描述已更新" });
+                          skinToast.success("已采纳润色结果");
                         }}
                       >
                         <CheckCircle2 className="w-3 h-3 mr-1" /> 采纳
