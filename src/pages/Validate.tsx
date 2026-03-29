@@ -140,7 +140,7 @@ const Validate = () => {
       if (error) throw new Error(error.message || "关键词推荐失败");
       const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
       setAiTagSuggestions(suggestions);
-      toast({ title: "已生成关键词建议", description: `AI 推荐 ${suggestions.length} 个候选标签，请确认后使用` });
+      skinToast.success(`AI 推荐 ${suggestions.length} 个候选标签`);
     } catch (e) {
       toast({ title: "关键词推荐失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
     } finally {
