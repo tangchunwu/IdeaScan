@@ -55,24 +55,6 @@ const steps = [
   { step: "03", title: "需求验证报告", desc: "获取残酷诚实的市场反馈", icon: Target },
 ];
 
-const heroHighlights = [
-  { icon: Search, label: "真实痛点抓取" },
-  { icon: BarChart3, label: "竞品拥挤度计算" },
-  { icon: Brain, label: "多角色 AI 对辩" },
-];
-
-const heroSignals = [
-  { label: "小红书痛点信号", value: 82, detail: "近 72 小时持续抬升" },
-  { label: "竞品拥挤度", value: 41, detail: "还有切入空档" },
-  { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
-];
-
-const heroMetrics = [
-  { value: "4", label: "位 AI 辩手", icon: Brain },
-  { value: "12+", label: "中文情报源", icon: TrendingUp },
-  { value: "24h", label: "信号追踪", icon: MessageCircle },
-];
-
 const Index = () => {
   const [heroIdea, setHeroIdea] = useState("");
   const navigate = useNavigate();
