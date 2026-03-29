@@ -472,8 +472,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             skinToast.error(`TikHub 验证失败: ${data?.message || error?.message || "连接失败，请检查 Token"}`);
                      } else {
                             updateSettings({ tikhubToken: localSettings.tikhubToken });
-                            skinToast.success(`TikHub 验证成功: ${data.message || "Token 有效，配置已自动保存",
-                                   className: "bg-green-50 border-green-200 text-green-800"}`);
+                             skinToast.success(`TikHub 验证成功: ${data.message || "Token 有效，配置已自动保存"}`);
                      }
               } catch (e) {
                      skinToast.error("验证请求失败");
