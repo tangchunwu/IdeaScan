@@ -125,7 +125,7 @@ const History = () => {
     try {
       await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
       captureEvent('validation_batch_deleted', { count: selectedIds.size });
-      toast({ title: "批量删除成功", description: `已删除 ${selectedIds.size} 条记录` });
+      skinToast.success(`已删除 ${selectedIds.size} 条记录`);
       setSelectedIds(new Set());
     } catch (error) {
       toast({ title: "部分删除失败", description: "请刷新重试", variant: "destructive" });
