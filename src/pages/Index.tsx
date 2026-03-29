@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
+import { PageBackground, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { SocialProofCounter } from "@/components/social";
 import { HotTrends } from "@/components/discover/HotTrends";
