@@ -41,7 +41,7 @@ export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
   aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms,
 }: DemandDecisionCardProps) => {
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const score = displayScore;
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
   const animatedNotes = useCountUp(xiaohongshuData.totalNotes);

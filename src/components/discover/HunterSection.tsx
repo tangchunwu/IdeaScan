@@ -209,7 +209,7 @@ const CreateJobDialog = React.forwardRef<HTMLDivElement, { onCreated: () => void
        const [keywords, setKeywords] = useState("");
        const [description, setDescription] = useState("");
        const [isSubmitting, setIsSubmitting] = useState(false);
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
 
        const handleSubmit = async () => {
               if (!keywords.trim() && !description.trim()) return;
@@ -426,7 +426,7 @@ export const HunterSection = () => {
        const [sort, setSort] = useState<SortKey>("urgency");
        const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
        const [viewMode, setViewMode] = useState<"grid" | "grouped">("grid");
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
        const { isAdmin } = useAdminAuth();
        const queryClient = useQueryClient();
 

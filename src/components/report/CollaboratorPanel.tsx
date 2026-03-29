@@ -25,7 +25,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
