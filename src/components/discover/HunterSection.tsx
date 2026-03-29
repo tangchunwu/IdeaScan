@@ -499,7 +499,7 @@ export const HunterSection = () => {
               mutationFn: ({ id, status }: { id: string; status: "active" | "paused" }) =>
                      hunterService.toggleScanJob(id, status),
               onSuccess: (_data, { status }) => {
-                     toast({ title: status === "active" ? "已恢复运行" : "已暂停" });
+                     skinToast.success(status === "active" ? "已恢复运行" : "已暂停");
                      invalidateAll();
               },
               onError: (e: any) => {
@@ -531,7 +531,7 @@ export const HunterSection = () => {
                      } else if (count === 0) {
                             skinToast.success("暂无新发现: AI 未发现新的趋势信号，可稍后重试。");
                      } else {
-                            toast({ title: "✅ 探索完成", description: `发现 ${count} 条新趋势信号` });
+                            skinToast.success(`探索完成: 发现 ${count} 条新趋势信号`);
                      }
                      invalidateAll();
               } catch (e: any) {

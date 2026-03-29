@@ -375,11 +375,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                    return next;
                             });
                              
-                            toast({
-                                   title: "导入成功",
-                                   description: `配置已加载（备用模型 ${importedFallbacks.length} 条），请点击保存以应用更改`,
-                                   className: "bg-green-50 border-green-200 text-green-800"
-                            });
+                            skinToast.success(`导入成功: 配置已加载（备用模型 ${importedFallbacks.length} 条），请点击保存以应用更改`);
                      } catch (error) {
                             skinToast.error(`导入失败: ${"配置文件格式无效"}`);
                      }
@@ -428,18 +424,14 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
        const handleVerifyFallback = async (index: number) => {
               const item = localSettings.llmFallbacks?.[index];
               if (!item || !item.apiKey || !item.baseUrl || !item.model) {
-                     toast({ variant: "destructive", title: `备选 #${index + 1} 配置不完整` });
+                     skinToast.error(`备选 #${index + 1} 配置不完整`);
                      return;
               }
               setVerifyingFallbackIndex(index);
               const result = await verifyLlmConfig(item);
               setFallbackVerifyStatus(prev => ({ ...prev, [index]: result.ok ? "ok" : "fail" }));
               setVerifyingFallbackIndex(null);
-              toast({
-                     title: result.ok ? `备选 #${index + 1} 验证成功` : `备选 #${index + 1} 验证失败`,
-                     description: result.ok ? "该模型可用" : result.message,
-                     variant: result.ok ? "default" : "destructive"
-              });
+              result.ok ? skinToast.success(`备选 #${index + 1} 验证成功: 该模型可用`) : skinToast.error(`备选 #${index + 1} 验证失败: ${result.message}`);
        };
 
        const handleVerifyAllFallbacks = async () => {
@@ -461,11 +453,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (result.ok) okCount += 1;
               }
               setIsVerifyingAllFallbacks(false);
-              toast({
-                     title: "备选模型验证完成",
-                     description: `可用 ${okCount}/${list.length}`,
-                     variant: okCount > 0 ? "default" : "destructive"
-              });
+              okCount > 0 ? skinToast.success(`备选模型验证完成: 可用 ${okCount}/${list.length}`) : skinToast.error(`备选模型验证完成: 可用 ${okCount}/${list.length}`);
        };
 
        const [isVerifyingTikhub, setIsVerifyingTikhub] = useState(false);
@@ -544,11 +532,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      updateSettings({ [settingKey]: apiKey });
               }
 
-              toast({
-                     title: "验证成功",
-                     description: `${provider} 配置已自动保存`,
-                     className: "bg-green-50 border-green-200 text-green-800"
-              });
+              skinToast.success(`验证成功: ${provider} 配置已自动保存`);
        }
   };
 
@@ -659,11 +643,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      setAuthExpiresInSec(null);
                      setAuthExpiresAtMs(null);
               }
-              toast({
-                     title: "二维码已生成",
-                     description: `请用${platform === 'xiaohongshu' ? '小红书' : '抖音'}APP扫码登录`,
-                     className: "bg-green-50 border-green-200 text-green-800"
-              });
+              skinToast.success(`二维码已生成: 请用${platform === 'xiaohongshu' ? '小红书' : '抖音'}APP扫码登录`);
        } catch (e) {
               skinToast.error(`扫码会话启动失败: ${(e as Error).message || "请稍后重试"}`);
               if (!authFlowId) {
@@ -733,11 +713,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      if (prevStatus !== 'authorized') {
                             const requiredTotal = (metrics?.required_all?.length || 0) + ((metrics?.required_any?.length || 0) > 0 ? 1 : 0);
                             const requiredReady = (metrics?.required_all_present || 0) + (((metrics?.required_any?.length || 0) > 0 && metrics?.required_any_ok) ? 1 : 0);
-                            toast({
-                                   title: "登录成功",
-                                   description: `会话已保存（Cookie ${cookieCount} 个，关键 ${requiredReady}/${requiredTotal || 0}）`,
-                                   className: "bg-green-50 border-green-200 text-green-800"
-                            });
+                            skinToast.success(`登录成功: 会话已保存（Cookie ${cookieCount} 个，关键 ${requiredReady}/${requiredTotal || 0}）`);
                      }
                      setAuthFlowId('');
                      setAuthQrImage('');
@@ -824,11 +800,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               if (!(data as any)?.success) {
                      throw new Error((data as any)?.error || "吊销会话失败");
               }
-              toast({
-                     title: "会话已吊销",
-                     description: `${platform === 'xiaohongshu' ? '小红书' : '抖音'}会话已移除`,
-                     className: "bg-green-50 border-green-200 text-green-800"
-              });
+              skinToast.success(`会话已吊销: ${platform === 'xiaohongshu' ? '小红书' : '抖音'}会话已移除`);
               await fetchCrawlerSessions(true);
        } catch (e) {
               skinToast.error(`吊销失败: ${(e as Error).message || "请稍后重试"}`);

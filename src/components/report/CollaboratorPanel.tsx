@@ -86,7 +86,7 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
           throw error;
         }
       } else {
-        toast({ title: "邀请已发送", description: `已邀请 ${trimmed} 查看此报告` });
+        skinToast.success(`邀请已发送: 已邀请 ${trimmed} 查看此报告`);
         setEmail("");
         fetchCollaborators();
       }

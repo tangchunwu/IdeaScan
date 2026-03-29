@@ -50,7 +50,7 @@ export const TrendingTopicCard = forwardRef<HTMLDivElement, TrendingTopicCardPro
         .delete()
         .eq('id', topic.id);
       if (error) throw error;
-      toast({ title: "已删除", description: `「${topic.keyword}」已从热点中移除` });
+      skinToast.success(`已删除: 「${topic.keyword}」已从热点中移除`);
       onDelete?.(topic.id);
     } catch (error) {
       skinToast.error(`删除失败: ${error instanceof Error ? error.message : "请稍后重试"}`);
