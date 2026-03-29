@@ -1,81 +1,35 @@
 
 
-# 首屏动效升级计划
+# 首屏布局优化
 
-参照 ui-ux-pro-max-skill 的动效规范（spring-physics、stagger-sequence 30-50ms、exit-faster-than-enter、scale-feedback、hierarchy-motion），对首屏 Hero 进行系统性动效升级。
+## 问题分析
 
-## 当前状态
+从截图可以看到：
+1. **标题断行丑陋** — `max-width: 8.2em` 导致"先判断这是不是"后面"是"单独一行，"值得做的真需求"又断成两行
+2. **左栏内容堆叠过密** — badge、标题、描述、pills、输入框、proof、metrics 6层内容挤在一起，缺少呼吸感
+3. **左右比例失衡** — 左侧 1.05fr 太窄，右侧面板过宽
+4. **元素间层级不清** — 所有元素间距均匀，没有视觉分组
 
-已有基础的 CSS 动画：`hero-copy-in`（translateY stagger）、`hero-panel-in`、`hero-signal-shine`、`hero-grid-pan`、`hero-drift` 等。但都是纯 CSS keyframes，缺少：
-- 物理弹簧曲线（spring physics）
-- 交互式动效（hover scale feedback、input focus 动画）
-- 数字滚动（counter animation）
-- 信号条动态填充
-- 视差层次感
-- `prefers-reduced-motion` 适配
+## 修改方案
 
-## 实施方案
+### 1. `src/index.css` — 布局与间距修复
 
-### 1. 创建 `src/components/landing/HeroSection.tsx`（从 Index.tsx 抽取 hero）
+- `.hero-title`: `max-width` 从 `8.2em` 改为 `12em`，让标题自然断为两行：「先判断这是不是」+「值得做的真需求」
+- `.hero-grid`: 调整为 `lg:grid-cols-[1.15fr_0.85fr]`，左侧更宽
+- `.hero-copy`: 添加 `space-y` 或 `gap` 让子元素间距更均匀（约 `gap: 1.75rem`）
+- `.hero-surface`: 增加内边距 `py-8 lg:py-12` 让整体不贴边
 
-将 hero 区块提取为独立组件，使用 framer-motion 替换 CSS 动画：
+### 2. `src/components/landing/HeroSection.tsx` — 结构微调
 
-- **hero-copy stagger**: 用 `motion.div` + `staggerChildren: 0.1s` + `spring` 弹簧曲线（stiffness 100, damping 12），替代当前 CSS `hero-copy-in`
-- **hero-title 文字**: 逐字/逐行 spring 入场（`variants` 嵌套 stagger）
-- **hero-stage-panel**: `motion.div` 从 `y: 40, scale: 0.96, opacity: 0` 弹入，delay 0.3s，spring 曲线
-- **信号条填充动画**: 用 `motion.div` 的 `initial={{ width: 0 }}` → `animate={{ width: value + "%" }}`，配合 `useInView` 触发
-- **数字滚动**: heroMetrics 的数字用 `useMotionValue` + `useTransform` + `animate` 做计数器效果
-- **heroSignals 数值**: 百分比数字从 0 滚动到目标值
+- 标题文案改为更自然的断行：「先判断这是不是」一行 +「值得做的真需求」一行（去掉中间的 `<br>`，靠 max-width 自然断）
+- hero-copy 容器加 `flex flex-col gap-7` 替代目前无间距的纯堆叠
+- proof block 和 sample link 合并为一行（flex-row），减少纵向占用
+- metric cards 间距微调
 
-### 2. 增强交互式微动效
+### 涉及文件
 
-- **输入框 focus**: 命令面板在 focus 时 `scale: 1.02` + border glow 加强（framer-motion `whileFocus`）
-- **CTA 按钮**: `whileHover={{ scale: 1.05 }}` + `whileTap={{ scale: 0.97 }}`，spring 弹簧
-- **highlight pills**: hover 时 `y: -2` 微浮
-- **metric cards**: hover 时 `y: -4, scale: 1.02` 升起
-- **signal cards**: hover 时微微亮起（border opacity 变化）
-- **scroll cue**: 替换 CSS bob 为 framer-motion spring bounce
-
-### 3. 视差与层次（CSS + framer-motion）
-
-- **hero-stage glow blobs**: 给两个 glow 添加基于鼠标位置的微弱视差移动（`useMotionValue` 追踪鼠标 x/y，`useTransform` 映射为 translate），增强空间感
-- **hero-stage-grid**: 保持 CSS 平移但加上鼠标视差偏移
-
-### 4. `prefers-reduced-motion` 适配
-
-在组件层用 `useReducedMotion()` hook，当用户开启减弱动效时：
-- 所有 spring/stagger 变为 `duration: 0`
-- 数字直接显示最终值
-- 视差效果禁用
-
-### 5. 更新 `src/pages/Index.tsx`
-
-- 替换 hero 区块为 `<HeroSection />`，传入 `heroIdea`、`validationCount` 等 props
-- 下方 features/testimonials/steps/CTA 区块使用 `ScrollReveal` + framer-motion `whileInView` 增强
-
-### 6. CSS 清理
-
-- 保留 `.hero-*` CSS 结构类（布局/颜色/玻璃效果）
-- 移除被 framer-motion 替代的 `animation` 属性（`hero-copy-in`、`hero-panel-in` 的 CSS animation 声明）
-- 保留 `hero-signal-shine`、`hero-grid-pan`、`hero-dot-pulse` 等持续循环动画
-
-## 涉及文件
-
-| 操作 | 文件 |
+| 文件 | 改动 |
 |------|------|
-| 新建 | `src/components/landing/HeroSection.tsx` |
-| 修改 | `src/pages/Index.tsx`（hero 区块替换为组件引用） |
-| 修改 | `src/index.css`（移除被 framer-motion 替代的 CSS animation 声明） |
-
-## 遵循的 ui-ux-pro-max 规范
-
-- `spring-physics`: 弹簧曲线替代 cubic-bezier
-- `stagger-sequence`: 30-50ms 逐项入场
-- `duration-timing`: 微交互 150-300ms
-- `scale-feedback`: 按下 0.95-1.05
-- `exit-faster-than-enter`: 退出 60-70% 进入时长
-- `transform-performance`: 只动 transform/opacity
-- `reduced-motion`: 尊重系统偏好
-- `hierarchy-motion`: translate 方向表达层级
-- `no-blocking-animation`: 动画不阻塞交互
+| `src/index.css` | 调整 `.hero-title` max-width、`.hero-grid` 列比、`.hero-surface` padding、`.hero-copy` gap |
+| `src/components/landing/HeroSection.tsx` | hero-copy 加 gap class、proof block 改为横排、标题断行优化 |
 
