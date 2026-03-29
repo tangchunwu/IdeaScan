@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { useSettings } from "@/hooks/useSettings";
 import { useUserQuota } from "@/hooks/useUserQuota";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
@@ -26,7 +26,7 @@ export interface CompletionPreview {
 export function useValidationStream(validationSteps: ValidationStep[]) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const settings = useSettings();
   const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
   const { notify } = useBrowserNotification();
@@ -68,10 +68,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       if (error) throw new Error(error.message || "取消失败");
 
-      toast({
-        title: "已保留部分结果",
-        description: `基于已采集数据生成了降级报告（评分：${data.overallScore}分）`,
-      });
+      skinToast.success(`已保留部分结果: 基于已采集数据生成了降级报告（评分：${data.overallScore}分）`);
 
       await queryClient.prefetchQuery({
         queryKey: validationKeys.detail(currentValidationId),
@@ -87,11 +84,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       navigate(`/report/${currentValidationId}`);
     } catch (e) {
-      toast({
-        title: "取消失败",
-        description: (e as Error).message,
-        variant: "destructive",
-      });
+      skinToast.error(`取消失败: ${(e as Error).message}`);
     } finally {
       setIsCancelling(false);
       setIsValidating(false);
@@ -190,7 +183,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           mode: validationMode,
         });
 
-        toast({ title: "验证完成！", description: `评分：${result.overallScore}分` });
+        skinToast.success(`验证完成！评分：${result.overallScore}分`);
         notify("✅ IdeaScan 验证完成", {
           body: `你的创意验证评分：${result.overallScore}分，点击查看完整报告`,
           tag: `validation-${result.validationId}`,
@@ -226,7 +219,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           mode: validationMode,
         });
 
-        toast({ title: "验证失败", description: error, variant: "destructive" });
+        skinToast.error(`验证失败: ${error}`);
         setIsValidating(false);
         setProgress(0);
         setCurrentStep(0);

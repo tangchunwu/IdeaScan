@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { Sparkles, Mail, Lock, User, ArrowLeft, Loader2, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,7 +33,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 const Auth = () => {
   useDocumentTitle("登录 / 注册", { description: "登录或注册 IdeaScan，开始验证你的创业想法。" });
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
   const redirectTo = searchParams.get('redirect') || "/";
@@ -73,11 +73,7 @@ const Auth = () => {
       // 跨域限制时 fallback 到 window.open
       const w = window.open(authUrl, "_blank");
       if (!w) {
-        toast({
-          title: "请在已发布的域名上测试",
-          description: "Linux DO 登录需在 ideascan.lovable.app 上使用，预览环境不支持 OAuth 回调",
-          variant: "destructive",
-        });
+        skinToast.error("Linux DO 登录需在 ideascan.lovable.app 上使用");
       }
     }
   };
@@ -91,12 +87,12 @@ const Auth = () => {
       });
       if (error) throw error;
       captureEvent('login_success', { method: 'email' });
-      toast({ title: "登录成功", description: "欢迎回来！" });
+      skinToast.success("欢迎回来！");
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "登录失败";
       captureEvent('login_failed', { method: 'email', error: errorMessage.substring(0, 100) });
-      toast({ title: "登录失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -122,17 +118,17 @@ const Auth = () => {
           const { data: session } = await supabase.auth.getSession();
           if (session?.session?.user?.id) {
             await supabase.rpc("redeem_referral", { p_code: referralCode, p_user_id: session.session.user.id });
-            toast({ title: "🎉 注册成功", description: "邀请码已兑换，你获得了额外验证次数！" });
+            skinToast.success("邀请码已兑换，你获得了额外验证次数！");
           }
         } catch { /* silent - referral is bonus */ }
       } else {
-        toast({ title: "注册成功", description: "欢迎加入！" });
+        skinToast.success("欢迎加入！");
       }
       navigate(redirectTo);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "注册失败";
       captureEvent('signup_failed', { method: 'email', error: errorMessage.substring(0, 100) });
-      toast({ title: "注册失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

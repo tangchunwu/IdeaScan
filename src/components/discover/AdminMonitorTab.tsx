@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { GlassCard, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { SkinSwitch as Switch } from "@/components/skin";
 import {
   RefreshCw, BarChart3, ChevronDown, ChevronUp, Clock,
@@ -17,7 +17,7 @@ const STALE_TIME = 5 * 60 * 1000; // 5 min
 
 const AdminMonitorTab = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const queryClient = useQueryClient();
 
   // ── Data queries ──
@@ -65,28 +65,25 @@ const AdminMonitorTab = () => {
     },
     onSuccess: (_data, enabled) => {
       queryClient.invalidateQueries({ queryKey: ["hunter-scheduler-config"] });
-      toast({ title: enabled ? "✅ 24小时扫描已启动" : "⏸️ 24小时扫描已暂停" });
+      enabled ? skinToast.success("24小时扫描已启动") : skinToast.info("24小时扫描已暂停");
     },
     onError: (e: any, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["hunter-scheduler-config"], context.previous);
       }
-      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+      skinToast.error(`操作失败: ${e.message}`);
     },
   });
 
   const processMutation = useMutation({
     mutationFn: () => hunterService.triggerAIProcessor(),
     onSuccess: (result) => {
-      toast({
-        title: "✅ 处理完成",
-        description: `处理 ${result?.processed || 0} 条, 失败 ${result?.failed || 0}, 商机 ${result?.opportunities_upserted || 0}`,
-      });
+      skinToast.success(`处理完成: 处理 ${result?.processed || 0} 条, 失败 ${result?.failed || 0}, 商机 ${result?.opportunities_upserted || 0}`);
       queryClient.invalidateQueries({ queryKey: ["hunter-admin-stats"] });
       queryClient.invalidateQueries({ queryKey: ["hunter-admin-signals"] });
     },
     onError: (e: any) => {
-      toast({ title: "处理失败", description: e.message, variant: "destructive" });
+      skinToast.error(`处理失败: ${e.message}`);
     },
   });
 

@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { Users, UserPlus, Loader2, X, Mail } from "lucide-react";
 
 interface Collaborator {
@@ -25,7 +25,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -59,12 +59,12 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
     const trimmed = email.trim().toLowerCase();
 
     if (!EMAIL_RE.test(trimmed)) {
-      toast({ title: "邮箱格式不正确", variant: "destructive" });
+      skinToast.error("邮箱格式不正确");
       return;
     }
     
     if (trimmed === user.email) {
-      toast({ title: "不能邀请自己", variant: "destructive" });
+      skinToast.error("不能邀请自己");
       return;
     }
 
@@ -81,18 +81,18 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
         } as any);
       if (error) {
         if (error.code === "23505") {
-          toast({ title: "该用户已被邀请", variant: "destructive" });
+          skinToast.error("该用户已被邀请");
         } else {
           throw error;
         }
       } else {
-        toast({ title: "邀请已发送", description: `已邀请 ${trimmed} 查看此报告` });
+        skinToast.success(`邀请已发送: 已邀请 ${trimmed} 查看此报告`);
         setEmail("");
         fetchCollaborators();
       }
     } catch (e) {
       console.error("Add collaborator error:", e);
-      toast({ title: "邀请失败", variant: "destructive" });
+      skinToast.error("邀请失败");
     } finally {
       setAdding(false);
     }
@@ -106,7 +106,7 @@ export function CollaboratorPanel({ validationId }: CollaboratorPanelProps) {
         .eq("id", id);
       if (error) throw error;
       setCollaborators((prev) => prev.filter((c) => c.id !== id));
-      toast({ title: "已移除协作者" });
+      skinToast.success("已移除协作者");
     } catch (e) {
       console.error("Remove collaborator error:", e);
     }

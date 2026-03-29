@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { GlassCard } from "@/components/shared";
 import { ChevronDown, Quote } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 
 interface DemandDecisionCardProps {
   validation: { id: string; overall_score: number | null };
@@ -41,7 +41,7 @@ export const DemandDecisionCard = ({
   validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis,
   aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms,
 }: DemandDecisionCardProps) => {
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const score = displayScore;
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
   const animatedNotes = useCountUp(xiaohongshuData.totalNotes);
@@ -152,8 +152,8 @@ export const DemandDecisionCard = ({
                       <button type="button" className="text-xs text-primary hover:underline" onClick={async () => {
                         const content = item.fullText || item.snippet || "";
                         if (!content) return;
-                        try { await navigator.clipboard.writeText(content); toast({ title: "已复制证据原文" }); }
-                        catch { toast({ title: "复制失败", description: "请手动复制", variant: "destructive" }); }
+                        try { await navigator.clipboard.writeText(content); skinToast.success("已复制证据原文"); }
+                        catch { skinToast.error("复制失败: 请手动复制"); }
                       }}>复制</button>
                     </div>
                   )}

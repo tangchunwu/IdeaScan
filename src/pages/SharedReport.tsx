@@ -18,12 +18,12 @@ import { CompetitorTab } from "@/components/report/CompetitorTab";
 import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
 import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { motion, AnimatePresence } from "framer-motion";
 
 const SharedReport = () => {
   const { token } = useParams<{ token: string }>();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +59,9 @@ const SharedReport = () => {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast({ title: "链接已复制" });
+      skinToast.success("链接已复制");
     } catch {
-      toast({ title: "复制失败", variant: "destructive" });
+      skinToast.error("复制失败");
     }
   };
 

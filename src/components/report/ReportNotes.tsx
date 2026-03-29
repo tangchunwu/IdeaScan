@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StickyNote, Save, Loader2, Check, CloudOff, Eye, Pencil } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import ReactMarkdown from "react-markdown";
 
 interface ReportNotesProps {
@@ -14,7 +14,7 @@ interface ReportNotesProps {
 
 export function ReportNotes({ validationId }: ReportNotesProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [content, setContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -63,11 +63,11 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
       setTimeout(() => setJustSaved(false), 2000);
     } catch (e) {
       console.error("Save notes error:", e);
-      toast({ title: "保存失败", variant: "destructive" });
+      skinToast.error("保存失败");
     } finally {
       setSaving(false);
     }
-  }, [user, validationId, saving, toast]);
+  }, [user, validationId, saving, skinToast]);
 
   // Debounced auto-save
   useEffect(() => {

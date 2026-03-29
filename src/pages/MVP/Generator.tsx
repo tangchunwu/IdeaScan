@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { generateMVP, updateMVP, publishMVP, MVPLandingPage } from "@/services/mvpService";
 import { ArrowLeft, Save, Globe, Eye, Code, Rocket } from "lucide-react";
 import { captureEvent } from "@/lib/posthog";
@@ -17,7 +17,7 @@ export default function MVPGenerator() {
         useDocumentTitle("MVP 生成器");
         const { id: validationId } = useParams();
         const navigate = useNavigate();
-        const { toast } = useToast();
+        const skinToast = useSkinToast();
         const queryClient = useQueryClient();
         const [activeTab, setActiveTab] = useState("preview");
 
@@ -50,9 +50,9 @@ export default function MVPGenerator() {
                 mutationFn: (updates: Partial<MVPLandingPage>) => updateMVP(mvpPage!.id, updates),
                 onSuccess: (updatedPage) => {
                         queryClient.setQueryData(['mvp', validationId], updatedPage);
-                        toast({ title: "保存成功" });
+                        skinToast.success("保存成功");
                 },
-                onError: () => toast({ title: "保存失败", variant: "destructive" }),
+                onError: () => skinToast.error("保存失败"),
         });
 
 	const publishMutation = useMutation({
@@ -67,10 +67,7 @@ export default function MVPGenerator() {
 				slug: mvpPage?.slug,
 			});
 			
-			toast({
-				title: isPublished ? "发布成功" : "已下架",
-				description: isPublished ? "您的落地页现在可以公开访问了" : "落地页已转为私有"
-			});
+			skinToast.success(isPublished ? "落地页已发布" : "落地页已下架");
 		},
 	});
 

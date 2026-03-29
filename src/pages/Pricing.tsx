@@ -3,10 +3,10 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Zap, Shield, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 
 const Pricing = () => {
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
        useDocumentTitle("定价方案", { description: "IdeaScan 定价方案，免费体验 AI 需求验证。" });
        const plans = [
               {
@@ -127,7 +127,7 @@ const Pricing = () => {
                                                                                             ? 'bg-gradient-to-r from-primary to-secondary hover:opacity-90 hover:scale-[1.02]'
                                                                                             : 'hover:scale-[1.02]'
                                                                                      }`}
-                                                                              onClick={() => toast({ title: "即将推出 🚀", description: "该计划正在筹备中，敬请期待！" })}
+                                                                              onClick={() => skinToast.info("该计划正在筹备中，敬请期待！")}
                                                                        >
                                                                               {plan.cta}
                                                                        </Button>

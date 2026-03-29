@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandLoader } from "@/components/shared";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,12 +47,7 @@ const AuthCallback = () => {
           refresh_token: data.session.refresh_token,
         });
 
-        toast({
-          title: data.is_new ? "注册成功" : "登录成功",
-          description: data.is_new
-            ? "欢迎加入 IdeaScan！"
-            : "欢迎回来！",
-        });
+        skinToast.success(data.is_new ? "欢迎加入 IdeaScan！" : "欢迎回来！");
 
         navigate(redirectTo, { replace: true });
       } catch (err) {
