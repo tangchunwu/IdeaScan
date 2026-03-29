@@ -18,7 +18,7 @@ import { CompetitorTab } from "@/components/report/CompetitorTab";
 import { AIAnalysisTab } from "@/components/report/AIAnalysisTab";
 import { QuickInsightsCards } from "@/components/report/QuickInsightsCards";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { motion, AnimatePresence } from "framer-motion";
 
 const SharedReport = () => {
