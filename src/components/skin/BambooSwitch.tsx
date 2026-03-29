@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 interface BambooSwitchProps {
   checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
+  onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -15,7 +15,7 @@ export const BambooSwitch = ({ checked, onCheckedChange, disabled, className }: 
       role="switch"
       aria-checked={checked}
       disabled={disabled}
-      onClick={() => onCheckedChange(!checked)}
+      onClick={() => onCheckedChange?.(!checked)}
       className={cn(
         "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-lg transition-colors duration-280 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         checked ? "bg-primary" : "bg-muted",

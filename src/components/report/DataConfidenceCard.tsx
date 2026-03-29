@@ -1,6 +1,6 @@
 import { Shield, AlertTriangle, CheckCircle, Info, Database, TrendingUp, BarChart3 } from "lucide-react";
 import { GlassCard } from "@/components/shared";
-import { Progress } from "@/components/ui/progress";
+import { SkinProgress as Progress } from "@/components/skin";
 import { Badge } from "@/components/ui/badge";
 import {
        Tooltip,

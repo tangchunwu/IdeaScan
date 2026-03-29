@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
 import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database, Trash2, Check } from "lucide-react";
 import { ReferralCard } from "@/components/shared/ReferralCard";
-import { Switch } from "@/components/ui/switch";
+import { SkinSwitch as Switch } from "@/components/skin";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { invokeFunction } from "@/lib/invokeFunction";

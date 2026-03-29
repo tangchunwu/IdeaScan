@@ -6,7 +6,7 @@ import { ComponentPropsWithoutRef } from "react";
 
 interface SkinSwitchProps {
   checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
+  onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
   className?: string;
 }

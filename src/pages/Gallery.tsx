@@ -1,7 +1,8 @@
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { PageBackground, GlassCard, Navbar, EmptyState } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar } from "@/components/shared";
+import { SkinEmptyState as EmptyState } from "@/components/skin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

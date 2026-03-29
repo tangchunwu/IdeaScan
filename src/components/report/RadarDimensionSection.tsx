@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GlassCard } from "@/components/shared";
-import { Progress } from "@/components/ui/progress";
+import { SkinProgress as Progress } from "@/components/skin";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
   PolarRadiusAxis, Radar, Tooltip,
