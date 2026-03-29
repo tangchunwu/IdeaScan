@@ -83,7 +83,14 @@ const Index = () => {
           />
 
           {/* Features Grid - 功能层级清晰 */}
-          <section id="landing-features" className="mb-24 section-breathe">
+          <motion.section
+            id="landing-features"
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 不只是分析，是残酷诚实的验证
@@ -93,34 +100,38 @@ const Index = () => {
               </p>
             </div>
 
-            <div data-tour="features" className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-container">
-              {features.map((feature) => {
+            <div data-tour="features" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {features.map((feature, i) => {
                 const Icon = feature.icon;
                 return (
-                  <GlassCard
+                  <motion.div
                     key={feature.title}
-                    hover
-                    interactive
-                    className="group"
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ type: "spring", stiffness: 100, damping: 12, delay: i * 0.08 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
                   >
-                    <div className="flex items-start gap-5">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                        <Icon className="w-7 h-7 text-primary-foreground" />
+                    <GlassCard hover interactive className="group h-full">
+                      <div className="flex items-start gap-5">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                          <Icon className="w-7 h-7 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+                            {feature.title}
+                          </h3>
+                          <p className="text-muted-foreground leading-relaxed">
+                            {feature.description}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
-                          {feature.title}
-                        </h3>
-                        <p className="text-muted-foreground leading-relaxed">
-                          {feature.description}
-                        </p>
-                      </div>
-                    </div>
-                  </GlassCard>
+                    </GlassCard>
+                  </motion.div>
                 );
               })}
             </div>
-          </section>
+          </motion.section>
 
           {/* Testimonials - 信任建设 */}
           <TestimonialSection />
