@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -24,42 +25,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { captureEvent } from "@/lib/posthog";
 
-const features = [
-  {
-    icon: Search,
-    title: "小红书真实痛点挖掘",
-    description: "直接抓取小红书用户吐槽与需求，用真实声音验证市场是否存在，告别自嗨式创业。",
-    gradient: "from-primary to-ghibli-sky",
-  },
-  {
-    icon: BarChart3,
-    title: "全网竞品情报分析",
-    description: "聚合知乎、36氪、虎嗅等全网中文数据，量化分析竞争格局与市场拥挤度。",
-    gradient: "from-secondary to-ghibli-forest",
-  },
-  {
-    icon: Users,
-    title: "创投圈 AI 辩论",
-    description: "4位AI专家（犀利VC、杠精PM、Z世代用户、数据分析师）激烈辩论，全方位拷打你的想法。",
-    gradient: "from-accent to-ghibli-sunset",
-  },
-  {
-    icon: ShieldAlert,
-    title: "伪需求检测引擎",
-    description: "结合用户痛点频率与竞品密度，判断你的创意是真刚需还是自嗨伪需求。",
-    gradient: "from-primary to-secondary",
-  },
+const featureIcons = [Search, BarChart3, Users, ShieldAlert];
+const featureGradients = [
+  "from-primary to-ghibli-sky",
+  "from-secondary to-ghibli-forest",
+  "from-accent to-ghibli-sunset",
+  "from-primary to-secondary",
 ];
 
-
-const steps = [
-  { step: "01", title: "描述你的想法", desc: "一句话说清楚你想做什么", icon: Sparkles },
-  { step: "02", title: "AI 全网调研", desc: "抓取小红书痛点和竞品情报", icon: Zap },
-  { step: "03", title: "需求验证报告", desc: "获取残酷诚实的市场反馈", icon: Target },
-];
+const stepIcons = [Sparkles, Zap, Target];
 
 const Index = () => {
   const [heroIdea, setHeroIdea] = useState("");
+  const { t } = useTranslation();
+
   const { data: validationCount } = useQuery({
     queryKey: ['validation-count'],
     queryFn: async () => {
@@ -71,7 +50,20 @@ const Index = () => {
     staleTime: 1000 * 60 * 10,
   });
 
-  useDocumentTitle("在写代码前，先验证你的创业想法");
+  const features = [
+    { icon: featureIcons[0], title: t("landing.feature1Title"), description: t("landing.feature1Desc"), gradient: featureGradients[0] },
+    { icon: featureIcons[1], title: t("landing.feature2Title"), description: t("landing.feature2Desc"), gradient: featureGradients[1] },
+    { icon: featureIcons[2], title: t("landing.feature3Title"), description: t("landing.feature3Desc"), gradient: featureGradients[2] },
+    { icon: featureIcons[3], title: t("landing.feature4Title"), description: t("landing.feature4Desc"), gradient: featureGradients[3] },
+  ];
+
+  const steps = [
+    { step: "01", title: t("landing.step1Title"), desc: t("landing.step1Desc"), icon: stepIcons[0] },
+    { step: "02", title: t("landing.step2Title"), desc: t("landing.step2Desc"), icon: stepIcons[1] },
+    { step: "03", title: t("landing.step3Title"), desc: t("landing.step3Desc"), icon: stepIcons[2] },
+  ];
+
+  useDocumentTitle(t("landing.pageTitle"));
 
   return (
     <PageBackground variant="vibrant">
@@ -91,7 +83,7 @@ const Index = () => {
             <div className="flex flex-col md:flex-row items-center justify-center gap-6">
               <SocialProofCounter
                 count={validationCount ?? 0}
-                label="个创意已通过验证"
+                label={t("landing.socialProofLabel")}
               />
               <motion.a
                 href="https://ideascan.me/share/bb05ee712f6340cb"
@@ -108,12 +100,12 @@ const Index = () => {
                 }
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>查看一份示例报告</span>
+                <span>{t("landing.sampleReport")}</span>
               </motion.a>
             </div>
           </ScrollReveal>
 
-          {/* Features Grid - 功能层级清晰 */}
+          {/* Features Grid */}
           <motion.section
             id="landing-features"
             className="mb-24 section-breathe"
@@ -124,10 +116,10 @@ const Index = () => {
           >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                不只是分析，是残酷诚实的验证
+                {t("landing.featuresTitle")}
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto">
-                用真实数据和多元视角，帮你避开"自嗨式创业"的坑
+                {t("landing.featuresDesc")}
               </p>
             </div>
 
@@ -136,7 +128,7 @@ const Index = () => {
                 const Icon = feature.icon;
                 return (
                   <motion.div
-                    key={feature.title}
+                    key={i}
                     initial={{ opacity: 0, y: 24 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
@@ -164,7 +156,7 @@ const Index = () => {
             </div>
           </motion.section>
 
-          {/* Testimonials - 信任建设 */}
+          {/* Testimonials */}
           <TestimonialSection />
 
           {/* How it works */}
@@ -177,10 +169,10 @@ const Index = () => {
           >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                3 分钟完成需求验证
+                {t("landing.stepsTitle")}
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto">
-                比写 PRD 还快，比问朋友更靠谱
+                {t("landing.stepsDesc")}
               </p>
             </div>
 
@@ -216,7 +208,7 @@ const Index = () => {
             </div>
           </motion.section>
 
-          {/* Popular Validations */}
+          {/* Trending */}
           <motion.section
             className="mb-24 section-breathe"
             initial={{ opacity: 0, y: 40 }}
@@ -226,10 +218,10 @@ const Index = () => {
           >
             <div className="text-center mb-10">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                本周热门趋势
+                {t("landing.trendsTitle")}
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto">
-                发现正在爆发的市场机会，抢占先机
+                {t("landing.trendsDesc")}
               </p>
             </div>
             <div className="max-w-2xl mx-auto">
@@ -256,10 +248,10 @@ const Index = () => {
                   <MessageCircle className="w-8 h-8 text-primary-foreground" />
                 </motion.div>
                 <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-                  别让"伪需求"浪费你的半年
+                  {t("landing.ctaTitle")}
                 </h2>
                 <p className="text-muted-foreground mb-10 max-w-lg mx-auto text-lg">
-                  写代码之前，先用真实数据验证你的想法值不值得做
+                  {t("landing.ctaDesc")}
                 </p>
                 <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
                   <Button
@@ -268,7 +260,7 @@ const Index = () => {
                     className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl transition-all duration-300"
                   >
                     <Link to="/validate">
-                      开始验证
+                      {t("landing.ctaButton")}
                       <Sparkles className="w-5 h-5 ml-2" />
                     </Link>
                   </Button>
@@ -285,33 +277,33 @@ const Index = () => {
               <BrandLogo size="md" variant="full" theme="color" />
             </div>
             <p className="text-muted-foreground leading-relaxed max-w-sm">
-              抓取小红书用户痛点和全网竞品数据，让4位AI专家辩论你的想法。在写第一行代码前，验证你的创意是真刚需还是伪需求。
+              {t("landing.footerDesc")}
             </p>
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">产品</h4>
+            <h4 className="font-bold mb-6 text-foreground">{t("landing.footerProduct")}</h4>
             <ul className="space-y-4">
-              <li><Link to="/validate" className="text-muted-foreground hover:text-primary transition-colors">开始验证</Link></li>
-              <li><Link to="/discover" className="text-muted-foreground hover:text-primary transition-colors">发现机会</Link></li>
-              <li><Link to="/pricing" className="text-muted-foreground hover:text-primary transition-colors">定价方案</Link></li>
+              <li><Link to="/validate" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerStartValidation")}</Link></li>
+              <li><Link to="/discover" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerDiscover")}</Link></li>
+              <li><Link to="/pricing" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerPricing")}</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">支持</h4>
+            <h4 className="font-bold mb-6 text-foreground">{t("landing.footerSupport")}</h4>
             <ul className="space-y-4">
-              <li><Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors">常见问题</Link></li>
-              <li><Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">隐私政策</Link></li>
-              <li><Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">服务条款</Link></li>
+              <li><Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerFaq")}</Link></li>
+              <li><Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerPrivacy")}</Link></li>
+              <li><Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerTerms")}</Link></li>
             </ul>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 pt-8 border-t border-border/10 flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground">
           <div>© {new Date().getFullYear()} IdeaScan. All rights reserved.</div>
           <div className="flex gap-6 mt-4 md:mt-0">
-            <Link to="/privacy" className="hover:text-primary transition-colors">隐私政策</Link>
-            <Link to="/terms" className="hover:text-primary transition-colors">服务条款</Link>
+            <Link to="/privacy" className="hover:text-primary transition-colors">{t("landing.footerPrivacy")}</Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">{t("landing.footerTerms")}</Link>
           </div>
         </div>
       </footer>
