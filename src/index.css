@@ -731,3 +731,246 @@
 .toaster .toast[data-type="error"] {
   border-left: 4px solid hsl(var(--destructive)) !important;
 }
+
+/* ========================================
+   皮肤系统：阿橘街头风
+   ======================================== */
+
+[data-skin="street"],
+[data-skin="street"] .dark {
+  --background: 240 5% 11%;
+  --foreground: 37 20% 93%;
+
+  --card: 240 5% 15%;
+  --card-foreground: 37 20% 93%;
+
+  --popover: 240 5% 15%;
+  --popover-foreground: 37 20% 93%;
+
+  --primary: 22 78% 60%;
+  --primary-foreground: 240 5% 11%;
+
+  --secondary: 240 2% 35%;
+  --secondary-foreground: 37 20% 93%;
+
+  --muted: 240 4% 22%;
+  --muted-foreground: 240 2% 55%;
+
+  --accent: 43 90% 61%;
+  --accent-foreground: 240 5% 11%;
+
+  --destructive: 22 78% 50%;
+  --destructive-foreground: 37 20% 93%;
+
+  --border: 240 4% 22%;
+  --input: 240 4% 18%;
+  --ring: 22 78% 60%;
+
+  --radius: 0.25rem;
+
+  --sky-blue: 22 78% 60%;
+  --forest-green: 43 90% 61%;
+  --sunset-orange: 22 78% 60%;
+  --cloud-white: 37 20% 93%;
+  --earth-brown: 240 5% 25%;
+
+  --glass-bg: 240 5% 13% / 0.85;
+  --glass-border: 37 20% 93% / 0.08;
+  --glass-shadow: 0 0% 0% / 0.4;
+
+  --sidebar-background: 240 5% 9%;
+  --sidebar-foreground: 37 20% 85%;
+  --sidebar-primary: 22 78% 60%;
+  --sidebar-primary-foreground: 240 5% 11%;
+  --sidebar-accent: 43 90% 61%;
+  --sidebar-accent-foreground: 240 5% 11%;
+  --sidebar-border: 240 4% 22%;
+  --sidebar-ring: 22 78% 60%;
+}
+
+/* Street skin: override animations */
+[data-skin="street"] .paw-press:active {
+  animation: none;
+  transform: scale(0.97);
+  transition: transform 120ms ease-in-out;
+}
+
+[data-skin="street"] .switch-bounce [data-state] {
+  transition: transform 150ms ease-in-out;
+}
+
+[data-skin="street"] .cat-paw-indicator {
+  display: none;
+}
+
+[data-skin="street"] .cat-paw-hover::after {
+  display: none;
+}
+
+[data-skin="street"] .cloud-decoration {
+  display: none;
+}
+
+[data-skin="street"] .ghibli-gradient {
+  background: hsl(240 5% 11%);
+}
+
+[data-skin="street"] .glass-card {
+  border-radius: 0.25rem;
+}
+
+[data-skin="street"] .glass-card-elevated {
+  border-radius: 0.25rem;
+}
+
+[data-skin="street"] body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+[data-skin="street"] h1,
+[data-skin="street"] h2,
+[data-skin="street"] h3 {
+  font-family: 'Bebas Neue', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+[data-skin="street"] .number-highlight {
+  font-family: 'Space Mono', monospace;
+}
+
+/* ========================================
+   皮肤系统：漂漂水獭
+   ======================================== */
+
+[data-skin="drift"] {
+  --background: 200 22% 96%;
+  --foreground: 200 20% 20%;
+
+  --card: 180 15% 98%;
+  --card-foreground: 200 20% 20%;
+
+  --popover: 180 15% 98%;
+  --popover-foreground: 200 20% 20%;
+
+  --primary: 199 30% 51%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 140 25% 55%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 180 15% 90%;
+  --muted-foreground: 200 10% 45%;
+
+  --accent: 26 29% 49%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 50% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 180 15% 85%;
+  --input: 180 15% 90%;
+  --ring: 199 30% 51%;
+
+  --radius: 0.75rem;
+
+  --sky-blue: 199 35% 65%;
+  --forest-green: 140 25% 55%;
+  --sunset-orange: 26 29% 49%;
+  --cloud-white: 180 15% 97%;
+  --earth-brown: 26 29% 40%;
+
+  --glass-bg: 180 15% 98% / 0.75;
+  --glass-border: 180 15% 85% / 0.4;
+  --glass-shadow: 200 20% 20% / 0.08;
+
+  --sidebar-background: 200 22% 96%;
+  --sidebar-foreground: 200 20% 30%;
+  --sidebar-primary: 199 30% 51%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 140 25% 55%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 180 15% 85%;
+  --sidebar-ring: 199 30% 51%;
+}
+
+[data-skin="drift"] .dark {
+  --background: 200 20% 12%;
+  --foreground: 180 15% 90%;
+
+  --card: 200 18% 16%;
+  --card-foreground: 180 15% 90%;
+
+  --popover: 200 18% 16%;
+  --popover-foreground: 180 15% 90%;
+
+  --primary: 199 35% 55%;
+  --primary-foreground: 200 20% 10%;
+
+  --secondary: 140 25% 40%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 200 15% 20%;
+  --muted-foreground: 180 10% 60%;
+
+  --accent: 26 29% 45%;
+  --accent-foreground: 200 20% 10%;
+
+  --border: 200 15% 22%;
+  --input: 200 15% 20%;
+  --ring: 199 35% 55%;
+
+  --sky-blue: 199 35% 55%;
+  --forest-green: 140 25% 40%;
+  --sunset-orange: 26 29% 45%;
+  --cloud-white: 180 10% 85%;
+  --earth-brown: 26 25% 40%;
+
+  --glass-bg: 200 18% 16% / 0.8;
+  --glass-border: 0 0% 100% / 0.08;
+  --glass-shadow: 0 0% 0% / 0.3;
+
+  --sidebar-background: 200 20% 10%;
+  --sidebar-foreground: 180 15% 85%;
+  --sidebar-primary: 199 35% 55%;
+  --sidebar-primary-foreground: 200 20% 10%;
+  --sidebar-accent: 140 25% 40%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 200 15% 22%;
+  --sidebar-ring: 199 35% 55%;
+}
+
+/* Drift skin: slow, fluid animations */
+[data-skin="drift"] .paw-press:active {
+  animation: none;
+  transform: scale(0.99);
+  transition: transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-skin="drift"] .switch-bounce [data-state] {
+  transition: transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-skin="drift"] .card-interactive:hover {
+  transform: translateY(-3px) scale(1.005);
+  transition-duration: 500ms;
+}
+
+[data-skin="drift"] body {
+  font-family: 'Lora', Georgia, serif;
+  line-height: 1.8;
+}
+
+[data-skin="drift"] h1,
+[data-skin="drift"] h2,
+[data-skin="drift"] h3 {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 700;
+}
+
+[data-skin="drift"] .glass-card {
+  border-radius: 0.75rem;
+}
+
+[data-skin="drift"] .glass-card-elevated {
+  border-radius: 0.75rem;
+}

@@ -88,6 +88,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AnalyticsProvider>
       <AuthProvider>
+        <SkinInitializer />
         <SilentErrorBoundary name="TooltipProvider">
           <TooltipProvider>
             <SilentErrorBoundary name="Sonner">
