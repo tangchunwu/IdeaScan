@@ -1,7 +1,8 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { PageBackground, GlassCard, Navbar, EmptyState, ChartSkeleton } from "@/components/shared";
+import { PageBackground, GlassCard, Navbar, ChartSkeleton } from "@/components/shared";
+import { SkinEmptyState as EmptyState } from "@/components/skin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

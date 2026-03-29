@@ -3,7 +3,7 @@ import { GlassCard, LoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Switch } from "@/components/ui/switch";
+import { SkinSwitch as Switch } from "@/components/skin";
 import {
   RefreshCw, BarChart3, ChevronDown, ChevronUp, Clock,
 } from "lucide-react";

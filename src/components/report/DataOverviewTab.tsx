@@ -4,7 +4,7 @@ import {
 import { Heart, Bookmark, MessageCircle, Database } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { SkinProgress as Progress } from "@/components/skin";
 import { CustomTooltip } from "./CustomTooltip";
 import { TrendTimelineChart } from "./TrendTimelineChart";
 import { DemandDecisionCard } from "./DemandDecisionCard";

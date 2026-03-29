@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/shared/Navbar";
 import { PageBackground } from "@/components/shared/PageBackground";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { SkinEmptyState as EmptyState } from "@/components/skin";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { TrendingTopicCard } from "@/components/discover/TrendingTopicCard";
