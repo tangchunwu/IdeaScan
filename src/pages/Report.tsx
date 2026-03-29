@@ -218,8 +218,8 @@ const Report = () => {
       const dateStr = new Date().toISOString().split('T')[0];
       exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
       captureEvent('report_exported', { validation_id: id, format: 'html' });
-      toast({ title: "导出成功", description: "HTML 完整报告已下载，可离线查看" });
-    } catch { toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" }); }
+      skinToast.success("HTML 完整报告已下载");
+    } catch { skinToast.error("导出失败，请稍后重试"); }
   };
 
   const handleExportPdf = async () => {
