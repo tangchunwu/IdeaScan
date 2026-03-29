@@ -166,10 +166,7 @@ const Report = () => {
       });
       if (error) throw error;
       if (result?.success) {
-        toast({
-          title: "社交数据补充成功",
-          description: `来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`,
-        });
+        skinToast.success(`来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`);
         refetch();
       } else {
         toast({
