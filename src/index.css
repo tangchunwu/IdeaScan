@@ -398,7 +398,7 @@
   }
 
   .hero-surface {
-    @apply relative overflow-hidden rounded-[2rem] px-0 py-4 md:px-6 lg:px-8;
+    @apply relative overflow-hidden rounded-[2rem] px-0 py-6 md:px-6 md:py-8 lg:px-8 lg:py-12;
   }
 
   .hero-surface::before {
@@ -418,15 +418,15 @@
   }
 
   .hero-grid {
-    @apply relative z-10 grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:gap-12;
+    @apply relative z-10 grid items-center gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)] lg:gap-14;
   }
 
   .hero-copy {
-    @apply relative z-10;
+    @apply relative z-10 flex flex-col gap-7;
   }
 
   .hero-title {
-    max-width: 8.2em;
+    max-width: 12em;
     line-height: 1;
     letter-spacing: -0.045em;
   }

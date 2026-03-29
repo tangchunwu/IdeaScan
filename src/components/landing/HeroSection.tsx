@@ -229,7 +229,6 @@ export function HeroSection({
             <motion.div className="hero-copy-item" variants={itemVariants} style={{ opacity: 1 }}>
               <h1 className="hero-title text-4xl md:text-6xl lg:text-[5.3rem] font-bold text-foreground mb-6 tracking-tight">
                 先判断这是不是
-                <br className="hidden md:block" />
                 <span className="text-gradient-animated">值得做的真需求</span>
               </h1>
               <p className="hero-description text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
@@ -318,8 +317,8 @@ export function HeroSection({
 
             {/* proof block */}
             <motion.div className="hero-copy-item" variants={itemVariants} style={{ opacity: 1 }}>
-              <div className="hero-proof-block">
-                <div className="hero-proof-card">
+              <div className="hero-proof-block flex-row items-center gap-6">
+                <div className="hero-proof-card shrink-0">
                   <SocialProofCounter
                     count={validationCount}
                     label="个创意已通过验证"
