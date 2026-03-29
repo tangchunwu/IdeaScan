@@ -2,27 +2,24 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "@tanstack/react-query";
-import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo } from "@/components/shared";
-import { SocialProofCounter } from "@/components/social";
+import { motion } from "framer-motion";
+import { PageBackground, GlassCard, Navbar, OnboardingTour, BrandLogo, ScrollReveal } from "@/components/shared";
 import { HotTrends } from "@/components/discover/HotTrends";
 import { TestimonialSection } from "@/components/landing/TestimonialSection";
+import { HeroSection } from "@/components/landing/HeroSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles,
-  TrendingUp,
-  Brain,
   Users,
   ArrowRight,
   Search,
   BarChart3,
   MessageCircle,
   Zap,
-  ExternalLink,
   ShieldAlert,
   Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { captureEvent } from "@/lib/posthog";
 
 const features = [
