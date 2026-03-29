@@ -393,6 +393,274 @@
      呼吸感设计：间距与节奏
      ======================================== */
 
+  .hero-shell {
+    @apply relative;
+  }
+
+  .hero-grid {
+    @apply grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)];
+  }
+
+  .hero-copy {
+    @apply relative z-10;
+  }
+
+  .hero-copy-item {
+    opacity: 0;
+    animation: hero-copy-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .hero-copy-item:nth-child(1) { animation-delay: 0.05s; }
+  .hero-copy-item:nth-child(2) { animation-delay: 0.15s; }
+  .hero-copy-item:nth-child(3) { animation-delay: 0.25s; }
+  .hero-copy-item:nth-child(4) { animation-delay: 0.35s; }
+  .hero-copy-item:nth-child(5) { animation-delay: 0.45s; }
+  .hero-copy-item:nth-child(6) { animation-delay: 0.55s; }
+
+  @keyframes hero-copy-in {
+    0% {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .hero-highlight-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/50 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm;
+    box-shadow: 0 10px 24px hsl(var(--glass-shadow));
+  }
+
+  .hero-command-panel {
+    @apply flex flex-col gap-3 rounded-[1.75rem] border border-border/50 bg-background/60 p-3 backdrop-blur-xl md:flex-row;
+    box-shadow:
+      0 18px 48px hsl(var(--glass-shadow)),
+      inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  }
+
+  .hero-command-input {
+    @apply h-14 flex-1 rounded-2xl border-0 bg-transparent px-5 text-base md:text-lg shadow-none;
+  }
+
+  .hero-command-button {
+    @apply h-14 rounded-2xl px-8 text-base md:text-lg shadow-xl shadow-primary/25 transition-all duration-300;
+  }
+
+  .hero-proof-block {
+    @apply flex flex-col gap-4;
+  }
+
+  .hero-sample-link {
+    @apply inline-flex w-fit items-center gap-2 rounded-full border border-border/50 bg-background/50 px-4 py-2 text-sm text-muted-foreground transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:text-primary;
+  }
+
+  .hero-metrics-grid {
+    @apply grid gap-3 sm:grid-cols-3;
+  }
+
+  .hero-metric-card {
+    background:
+      linear-gradient(135deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.65));
+  }
+
+  .hero-stage {
+    position: relative;
+    min-height: 34rem;
+    isolation: isolate;
+  }
+
+  .hero-stage-grid {
+    position: absolute;
+    inset: 2rem 1rem;
+    border-radius: 2rem;
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.18) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.18) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(circle at center, black 42%, transparent 85%);
+    animation: hero-grid-pan 18s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes hero-grid-pan {
+    0% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(-14px, 12px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+
+  .hero-stage-glow {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(70px);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .hero-stage-glow-primary {
+    top: 2rem;
+    right: 0;
+    width: 15rem;
+    height: 15rem;
+    background: hsl(var(--primary) / 0.2);
+    animation: hero-drift 8s ease-in-out infinite;
+  }
+
+  .hero-stage-glow-secondary {
+    bottom: 2rem;
+    left: 1rem;
+    width: 13rem;
+    height: 13rem;
+    background: hsl(var(--accent) / 0.16);
+    animation: hero-drift 10s ease-in-out infinite reverse;
+  }
+
+  .hero-stage-panel {
+    @apply absolute inset-x-6 top-10 overflow-hidden;
+    transform: perspective(1200px) rotateY(-8deg) rotateX(5deg);
+    animation: hero-panel-in 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+  }
+
+  @keyframes hero-panel-in {
+    0% {
+      opacity: 0;
+      transform: perspective(1200px) rotateY(-12deg) rotateX(10deg) translateY(24px) scale(0.96);
+    }
+
+    100% {
+      opacity: 1;
+      transform: perspective(1200px) rotateY(-8deg) rotateX(5deg) translateY(0) scale(1);
+    }
+  }
+
+  .hero-stage-beam {
+    position: absolute;
+    inset: -20% auto 0 58%;
+    width: 38%;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.18), transparent);
+    transform: rotate(12deg);
+    filter: blur(10px);
+    animation: hero-beam-scan 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes hero-beam-scan {
+    0%, 100% { transform: translateY(-8%) rotate(12deg); opacity: 0.2; }
+    50% { transform: translateY(8%) rotate(12deg); opacity: 0.65; }
+  }
+
+  .hero-status-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary;
+  }
+
+  .hero-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    animation: hero-dot-pulse 2.2s ease-out infinite;
+  }
+
+  @keyframes hero-dot-pulse {
+    0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.35); }
+    70% { box-shadow: 0 0 0 10px hsl(var(--primary) / 0); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+  }
+
+  .hero-signal-card {
+    @apply rounded-2xl border border-border/50 bg-background/40 p-4;
+  }
+
+  .hero-signal-track {
+    @apply relative h-2 overflow-hidden rounded-full bg-muted/65;
+  }
+
+  .hero-signal-fill {
+    position: relative;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.22);
+  }
+
+  .hero-signal-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.5), transparent);
+    animation: hero-signal-shine 2.8s ease-in-out infinite;
+  }
+
+  @keyframes hero-signal-shine {
+    0% { transform: translateX(-100%); }
+    60%, 100% { transform: translateX(120%); }
+  }
+
+  .hero-stage-divider {
+    height: 1px;
+    margin: 1.5rem 0;
+    background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  }
+
+  .hero-verdict-card {
+    @apply rounded-2xl border border-border/50 bg-background/50 p-4;
+  }
+
+  .hero-float-card {
+    @apply absolute max-w-[15rem];
+    animation: hero-drift 7s ease-in-out infinite;
+  }
+
+  .hero-float-card-top {
+    top: 0.75rem;
+    right: -0.5rem;
+  }
+
+  .hero-float-card-bottom {
+    bottom: 2rem;
+    left: -0.25rem;
+    animation-delay: 1.4s;
+  }
+
+  .hero-float-icon {
+    @apply flex h-9 w-9 items-center justify-center rounded-xl;
+  }
+
+  .hero-orbit-chip {
+    @apply absolute inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/70 px-3 py-2 text-xs font-medium text-foreground/80 backdrop-blur-md;
+    box-shadow: 0 12px 30px hsl(var(--glass-shadow));
+    animation: hero-drift 9s ease-in-out infinite;
+  }
+
+  .hero-orbit-chip-left {
+    left: 2rem;
+    top: 2.5rem;
+  }
+
+  .hero-orbit-chip-right {
+    right: 1.5rem;
+    bottom: 0.75rem;
+    animation-delay: 0.8s;
+  }
+
+  @keyframes hero-drift {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -10px, 0); }
+  }
+
+  .hero-scroll-cue {
+    @apply mt-10 inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/40 px-4 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:text-primary;
+    animation: hero-scroll-bob 2.6s ease-in-out infinite;
+  }
+
+  @keyframes hero-scroll-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+
   /* 章节分隔 - 增加呼吸感 */
   .section-breathe {
     @apply py-16 md:py-24;
@@ -626,6 +894,86 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    .hero-stage {
+      min-height: 30rem;
+      margin-top: 1rem;
+    }
+
+    .hero-stage-panel {
+      inset-inline: 1rem;
+      top: 2.5rem;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-command-panel {
+      @apply rounded-[1.5rem] p-2.5;
+    }
+
+    .hero-command-input {
+      @apply h-[52px] px-4 text-base;
+    }
+
+    .hero-command-button {
+      @apply h-12 w-full justify-center rounded-xl;
+    }
+
+    .hero-proof-block {
+      @apply items-start;
+    }
+
+    .hero-stage {
+      min-height: 27rem;
+    }
+
+    .hero-stage-grid,
+    .hero-stage-glow,
+    .hero-orbit-chip {
+      display: none;
+    }
+
+    .hero-stage-panel {
+      @apply inset-x-0 top-0;
+      transform: none;
+    }
+
+    .hero-float-card-top {
+      top: auto;
+      bottom: 0.75rem;
+      right: 0.5rem;
+    }
+
+    .hero-float-card-bottom {
+      left: 0.5rem;
+      bottom: 8.25rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .hero-copy-item,
+  .hero-stage-panel,
+  .hero-float-card,
+  .hero-orbit-chip,
+  .hero-scroll-cue,
+  .text-gradient-animated {
+    animation: none !important;
   }
 }
 

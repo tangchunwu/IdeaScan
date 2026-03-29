@@ -58,6 +58,24 @@ const steps = [
   { step: "03", title: "需求验证报告", desc: "获取残酷诚实的市场反馈", icon: Target },
 ];
 
+const heroHighlights = [
+  { icon: Search, label: "真实痛点抓取" },
+  { icon: BarChart3, label: "竞品拥挤度计算" },
+  { icon: Brain, label: "多角色 AI 对辩" },
+];
+
+const heroSignals = [
+  { label: "小红书痛点信号", value: 82, detail: "近 72 小时持续抬升" },
+  { label: "竞品拥挤度", value: 41, detail: "还有切入空档" },
+  { label: "伪需求风险", value: 28, detail: "更像可验证机会" },
+];
+
+const heroMetrics = [
+  { value: "4", label: "位 AI 辩手", icon: Brain },
+  { value: "12+", label: "中文情报源", icon: TrendingUp },
+  { value: "24h", label: "信号追踪", icon: MessageCircle },
+];
+
 const Index = () => {
   const [heroIdea, setHeroIdea] = useState("");
   const navigate = useNavigate();
@@ -80,78 +98,236 @@ const Index = () => {
       <main className="pt-28 pb-20 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section - 用户第一认知焦点 */}
-          <section className="text-center mb-24 section-breathe">
-            <div className="animate-fade-in">
-              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary mb-8 shadow-lg shadow-primary/10">
-                <ShieldAlert className="w-4 h-4 animate-pulse-soft" />
-                <span className="text-sm font-medium">在写第一行代码前，先验证需求</span>
+          <section className="hero-shell mb-24 section-breathe">
+            <div className="hero-grid">
+              <div className="hero-copy">
+                <div className="hero-copy-item">
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary shadow-lg shadow-primary/10">
+                    <ShieldAlert className="w-4 h-4" />
+                    <span className="text-sm font-medium">在写第一行代码前，先验证需求</span>
+                  </div>
+                </div>
+
+                <div className="hero-copy-item">
+                  <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-[1.05] tracking-tight text-balance">
+                    用真实用户信号判断
+                    <span className="text-gradient-animated"> 你的创意值不值得做 </span>
+                  </h1>
+
+                  <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
+                    抓取
+                    <span className="font-semibold text-foreground"> 小红书真实用户痛点 </span>
+                    、全网竞品动态和趋势变化，再让
+                    <span className="font-semibold text-foreground"> 4 位 AI 专家交叉拷问 </span>
+                    你的商业想法。
+                  </p>
+                </div>
+
+                <div className="hero-copy-item flex flex-wrap gap-3">
+                  {heroHighlights.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label} className="hero-highlight-pill">
+                        <Icon className="w-4 h-4 text-primary" />
+                        <span>{item.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hero-copy-item max-w-2xl">
+                  <div className="hero-command-panel focus-indicator">
+                    <Input
+                      placeholder="一句话描述你的创业想法..."
+                      value={heroIdea}
+                      onChange={(e) => setHeroIdea(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && heroIdea.trim()) {
+                          captureEvent('cta_clicked', { button: 'hero_inline_input', page: 'index' });
+                          navigate(`/validate?idea=${encodeURIComponent(heroIdea.trim())}`);
+                        }
+                      }}
+                      className="hero-command-input input-cat-focus"
+                    />
+                    <Button
+                      size="lg"
+                      data-tour="validate"
+                      className="hero-command-button btn-ripple paw-press"
+                      onClick={() => {
+                        captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' });
+                        navigate(heroIdea.trim() ? `/validate?idea=${encodeURIComponent(heroIdea.trim())}` : '/validate');
+                      }}
+                    >
+                      立即验证
+                      <ArrowRight className="w-5 h-5 ml-1.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="hero-copy-item">
+                  <div className="hero-proof-block">
+                    <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
+                    <a
+                      href="https://ideascan.me/share/bb05ee712f6340cb"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hero-sample-link"
+                      onClick={() => captureEvent('cta_clicked', { button: 'hero_sample_report', page: 'index' })}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>查看一份示例报告</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="hero-copy-item hero-metrics-grid">
+                  {heroMetrics.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <GlassCard
+                        key={item.label}
+                        className="hero-metric-card"
+                        padding="sm"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-muted-foreground">{item.label}</span>
+                          <Icon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="text-3xl md:text-4xl number-highlight text-foreground">
+                          {item.value}
+                        </div>
+                      </GlassCard>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="hero-copy-item">
+                <div className="hero-stage" aria-hidden="true">
+                  <div className="hero-stage-grid" />
+                  <div className="hero-stage-glow hero-stage-glow-primary" />
+                  <div className="hero-stage-glow hero-stage-glow-secondary" />
+
+                  <GlassCard
+                    elevated
+                    padding="none"
+                    className="hero-stage-panel"
+                  >
+                    <div className="hero-stage-beam" />
+
+                    <div className="relative z-10 p-6 md:p-7">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.28em] text-primary/70 mb-2">
+                            Demand Signal Engine
+                          </div>
+                          <div className="text-2xl font-semibold text-foreground">
+                            创意情报面板
+                          </div>
+                        </div>
+                        <div className="hero-status-pill">
+                          <span className="hero-status-dot" />
+                          <span>实时研判中</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {heroSignals.map((item) => (
+                          <div key={item.label} className="hero-signal-card">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm font-medium text-foreground">{item.label}</div>
+                              <div className="text-sm number-highlight text-primary">{item.value}%</div>
+                            </div>
+                            <div className="hero-signal-track">
+                              <div className="hero-signal-fill" style={{ width: `${item.value}%` }} />
+                            </div>
+                            <div className="mt-2 text-xs text-muted-foreground">{item.detail}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="hero-stage-divider" />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="hero-verdict-card">
+                          <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
+                            当前判断
+                          </div>
+                          <div className="text-lg font-semibold text-foreground mb-1">
+                            倾向真实需求
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            痛点频率高于同类竞品密度
+                          </div>
+                        </div>
+
+                        <div className="hero-verdict-card">
+                          <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
+                            建议动作
+                          </div>
+                          <div className="text-lg font-semibold text-foreground mb-1">
+                            先做 MVP 验证
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            聚焦一个高频场景快速试水
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="hero-float-card hero-float-card-top" padding="sm">
+                    <div className="flex items-start gap-3">
+                      <div className="hero-float-icon bg-primary/15 text-primary">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
+                          趋势波峰
+                        </div>
+                        <div className="font-semibold text-foreground">需求讨论周增 34%</div>
+                      </div>
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="hero-float-card hero-float-card-bottom" padding="sm">
+                    <div className="flex items-start gap-3">
+                      <div className="hero-float-icon bg-secondary/15 text-secondary">
+                        <Brain className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
+                          AI 对辩
+                        </div>
+                        <div className="font-semibold text-foreground">3 个核心反对意见已暴露</div>
+                      </div>
+                    </div>
+                  </GlassCard>
+
+                  <div className="hero-orbit-chip hero-orbit-chip-left">
+                    <MessageCircle className="w-4 h-4 text-accent" />
+                    <span>真实吐槽样本</span>
+                  </div>
+                  <div className="hero-orbit-chip hero-orbit-chip-right">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span>机会窗口</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight animate-fade-in-up">
-              你的创意是
-              <span className="text-gradient-animated"> 真刚需 </span>
-              <br className="hidden sm:block" />
-              还是
-              <span className="text-gradient-animated"> 伪需求？ </span>
-            </h1>
-
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up leading-relaxed" style={{ animationDelay: "100ms" }}>
-              抓取
-              <span className="font-semibold text-foreground"> 小红书真实用户痛点 </span>
-              + 全网竞品数据，让
-              <span className="font-semibold text-foreground"> 4位AI专家激烈辩论 </span>
-              你的商业想法
-            </p>
-
-            {/* Inline Idea Input */}
-            <div className="max-w-xl mx-auto mb-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-              <div className="flex gap-3">
-                <Input
-                  placeholder="一句话描述你的创业想法..."
-                  value={heroIdea}
-                  onChange={(e) => setHeroIdea(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && heroIdea.trim()) {
-                      captureEvent('cta_clicked', { button: 'hero_inline_input', page: 'index' });
-                      navigate(`/validate?idea=${encodeURIComponent(heroIdea.trim())}`);
-                    }
-                  }}
-                  className="h-14 text-lg rounded-2xl border-border/40 bg-background/60 backdrop-blur-sm shadow-inner px-6 placeholder:text-muted-foreground/50"
-                />
-                <Button
-                  size="lg"
-                  data-tour="validate"
-                  className="h-14 px-8 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 text-lg shrink-0"
-                  onClick={() => {
-                    captureEvent('cta_clicked', { button: 'hero_validate', page: 'index' });
-                    navigate(heroIdea.trim() ? `/validate?idea=${encodeURIComponent(heroIdea.trim())}` : '/validate');
-                  }}
-                >
-                  验证
-                  <ArrowRight className="w-5 h-5 ml-1" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Sample Report + Social Proof */}
-            <div className="flex flex-col items-center gap-4 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-              <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
-              <a
-                href="https://ideascan.me/share/bb05ee712f6340cb"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
-                onClick={() => captureEvent('cta_clicked', { button: 'hero_sample_report', page: 'index' })}
-              >
-                👀 查看一份示例报告
-              </a>
-            </div>
-
+            <a
+              href="#landing-features"
+              className="hero-scroll-cue"
+              onClick={() => captureEvent('cta_clicked', { button: 'hero_scroll_cue', page: 'index' })}
+            >
+              <span>继续下滑看能力拆解</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
           </section>
 
           {/* Features Grid - 功能层级清晰 */}
-          <section className="mb-24 section-breathe">
+          <section id="landing-features" className="mb-24 section-breathe">
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 不只是分析，是残酷诚实的验证
