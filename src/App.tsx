@@ -10,6 +10,7 @@ import { Suspense, lazy } from "react";
 import { Navigate } from "react-router-dom";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
 import { AnalyticsProvider, usePageView } from "@/lib/posthog";
+import { useTheme } from "@/hooks/useTheme";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
