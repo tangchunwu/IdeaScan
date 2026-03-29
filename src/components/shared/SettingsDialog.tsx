@@ -8,7 +8,7 @@ import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2,
 import { ReferralCard } from "@/components/shared/ReferralCard";
 import { SkinSwitch as Switch } from "@/components/skin";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
