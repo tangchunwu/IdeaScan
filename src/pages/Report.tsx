@@ -135,7 +135,7 @@ const Report = () => {
       if (result?.updated) {
         skinToast.success(`已更新: ${result.updatedFields?.join(", ") || "数据"}`);
       } else {
-        toast({ title: "数据已完整", description: result?.message || "无需重新分析" });
+        skinToast.info(result?.message || "数据已完整，无需重新分析");
       }
       // Always refetch to ensure UI shows latest data from DB
       refetch();
