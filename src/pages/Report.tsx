@@ -233,7 +233,7 @@ const Report = () => {
       const dateStr = new Date().toISOString().split('T')[0];
       await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
       captureEvent('report_exported', { validation_id: id, format: 'pdf' });
-      toast({ title: "导出成功", description: "多页 PDF 报告已下载" });
+      skinToast.success("多页 PDF 报告已下载");
     } catch (error) {
       console.error("PDF export error:", error);
       toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" });
