@@ -15,7 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Validation } from "@/services/validationService";
 import { useValidations, useDeleteValidation } from "@/hooks/useValidation";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import {
   Search,
   Calendar,
