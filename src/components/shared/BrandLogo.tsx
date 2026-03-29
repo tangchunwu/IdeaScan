@@ -15,7 +15,8 @@ export const BrandLogo = ({
   variant = "full",
   theme = "color"
 }: BrandLogoProps) => {
-  const sizeClasses = {
+  const { skin } = useTheme();
+  const cornerClass = skin === "street" ? "rounded-md" : skin === "drift" ? "rounded-2xl" : "rounded-xl";
     sm: "h-6 text-lg",
     md: "h-8 text-xl",
     lg: "h-10 text-2xl",
