@@ -93,6 +93,60 @@ const Index = () => {
             validationCount={validationCount ?? 0}
           />
 
+          {/* Social proof + metrics — scroll reveal */}
+          <ScrollReveal className="mb-24">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+              <div className="flex items-center gap-6">
+                <SocialProofCounter
+                  count={validationCount ?? 0}
+                  label="个创意已通过验证"
+                />
+                <motion.a
+                  href="https://ideascan.me/share/bb05ee712f6340cb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-sample-link"
+                  whileHover={{ y: -2, scale: 1.03 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                  onClick={() =>
+                    captureEvent("cta_clicked", {
+                      button: "hero_sample_report",
+                      page: "index",
+                    })
+                  }
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>查看一份示例报告</span>
+                </motion.a>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {heroMetrics.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <ScrollReveal key={item.label} delay={i * 100}>
+                    <motion.div
+                      whileHover={{ y: -4, scale: 1.03 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                    >
+                      <GlassCard className="hero-metric-card" padding="sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-muted-foreground">
+                            {item.label}
+                          </span>
+                          <Icon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="text-3xl md:text-4xl number-highlight text-foreground">
+                          {item.value}{item.suffix}
+                        </div>
+                      </GlassCard>
+                    </motion.div>
+                  </ScrollReveal>
+                );
+              })}
+            </div>
+          </ScrollReveal>
+
           {/* Features Grid - 功能层级清晰 */}
           <motion.section
             id="landing-features"
