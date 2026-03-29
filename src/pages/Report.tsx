@@ -169,11 +169,7 @@ const Report = () => {
         skinToast.success(`来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`);
         refetch();
       } else {
-        toast({
-          title: "未获取到数据",
-          description: result?.message || "请在设置中配置 TikHub Token 后重试",
-          variant: "destructive",
-        });
+        skinToast.error(result?.message || "请在设置中配置 TikHub Token 后重试");
       }
     } catch (error) {
       console.error("Recrawl error:", error);
