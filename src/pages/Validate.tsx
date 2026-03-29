@@ -195,10 +195,7 @@ const Validate = () => {
     if (ideaParam && !idea) {
       setIdea(decodeURIComponent(ideaParam));
       if (autoParam === 'true' && user && !stream.isValidating) {
-        toast({
-          title: "正在启动验证...",
-          description: resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求",
-        });
+        skinToast.info(resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求");
         setTimeout(() => {
           handleValidate();
         }, 500);
