@@ -113,7 +113,7 @@ const History = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "删除失败";
-      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setDeletingId(null);
     }
