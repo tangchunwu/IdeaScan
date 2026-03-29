@@ -298,7 +298,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             imageGenApiKey: '',
                             imageGenModel: 'dall-e-3',
                      });
-                     skinToast.success(`已重置: ${"配置已恢复默认值。",}`);
+                     skinToast.success("已重置: 配置已恢复默认值。");
               }
        };
 
