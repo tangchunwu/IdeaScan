@@ -44,6 +44,12 @@ const queryClient = new QueryClient({
   },
 });
 
+const SkinInitializer = () => {
+  // Just accessing the store triggers rehydration & applySkin
+  useTheme();
+  return null;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
