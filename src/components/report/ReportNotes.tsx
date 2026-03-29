@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StickyNote, Save, Loader2, Check, CloudOff, Eye, Pencil } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import ReactMarkdown from "react-markdown";
 
 interface ReportNotesProps {
