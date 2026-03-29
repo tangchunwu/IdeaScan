@@ -992,6 +992,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      </DialogHeader>
                      <div className="grid gap-6 py-4">
 
+                            {/* 皮肤切换 */}
+                            <SkinSelector />
+
                             {/* Built-in config notice for non-admin users */}
                             {!isAdmin && (
                                    <div className="rounded-lg bg-muted/50 border p-3 space-y-1">
