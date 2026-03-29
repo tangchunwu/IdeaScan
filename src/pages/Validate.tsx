@@ -214,12 +214,8 @@ const Validate = () => {
     }
     // Allow validation if: user has own TikHub token OR has free quota remaining
     if (!stream.hasOwnTikhub && !quota.canValidate) {
-      toast({
-        title: "免费次数已用完",
-        description: `本月 ${quota.freeTotal} 次免费验证已用完。请在设置中配置个人 TikHub Token 获取无限次验证。`,
-        variant: "destructive",
-        action: { label: "去配置", onClick: () => setShowSettingsFromQuota(true) },
-      });
+      skinToast.error(`本月 ${quota.freeTotal} 次免费验证已用完，请配置个人 TikHub Token`);
+      setShowSettingsFromQuota(true);
       return;
     }
 
