@@ -80,7 +80,7 @@ export const Navbar = () => {
                 IdeaScan
               </span>
               <span className="text-xs text-muted-foreground">
-                需求验证 🐾
+                需求验证 {subtitleEmoji}
               </span>
             </div>
           </Link>

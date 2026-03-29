@@ -93,7 +93,7 @@ export const BrandLoader = ({ className, text, fullScreen = false }: BrandLoader
                                            }}
                                     />
                              </div>
-                             <span className="text-xs text-muted-foreground">🐾</span>
+                             {emoji && <span className="text-xs text-muted-foreground">{emoji}</span>}
                      </div>
               </div>
        );
