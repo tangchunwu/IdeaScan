@@ -127,7 +127,7 @@ const Pricing = () => {
                                                                                             ? 'bg-gradient-to-r from-primary to-secondary hover:opacity-90 hover:scale-[1.02]'
                                                                                             : 'hover:scale-[1.02]'
                                                                                      }`}
-                                                                              onClick={() => toast({ title: "即将推出 🚀", description: "该计划正在筹备中，敬请期待！" })}
+                                                                              onClick={() => skinToast.info("该计划正在筹备中，敬请期待！")}
                                                                        >
                                                                               {plan.cta}
                                                                        </Button>
