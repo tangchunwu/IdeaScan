@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { useSettings } from "@/hooks/useSettings";
 import { useUserQuota } from "@/hooks/useUserQuota";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
