@@ -236,7 +236,7 @@ const Report = () => {
       skinToast.success("多页 PDF 报告已下载");
     } catch (error) {
       console.error("PDF export error:", error);
-      toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" });
+      skinToast.error("PDF 导出失败，请稍后重试");
     }
   };
 
