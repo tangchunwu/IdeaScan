@@ -73,11 +73,7 @@ const Auth = () => {
       // 跨域限制时 fallback 到 window.open
       const w = window.open(authUrl, "_blank");
       if (!w) {
-        toast({
-          title: "请在已发布的域名上测试",
-          description: "Linux DO 登录需在 ideascan.lovable.app 上使用，预览环境不支持 OAuth 回调",
-          variant: "destructive",
-        });
+        skinToast.error("Linux DO 登录需在 ideascan.lovable.app 上使用");
       }
     }
   };
