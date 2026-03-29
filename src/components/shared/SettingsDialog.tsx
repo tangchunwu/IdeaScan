@@ -747,7 +747,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                      manualConfirmArmedRef.current = false;
                      setAuthMessage(typeof data.message === 'string' ? data.message : "扫码会话已失效，请重新生成二维码");
                      if (!silent) {
-                            skinToast.error(`扫码会话已失效: ${data.error || "请重新生成二维码",}`);
+                            skinToast.error(`扫码会话已失效: ${data.error || "请重新生成二维码"}`);
                      }
               } else if (!silent) {
                      skinToast.success(`尚未完成扫码: ${"请扫码并在手机端确认登录",}`);
