@@ -190,18 +190,15 @@ const Index = () => {
             </GlassCard>
           </ScrollReveal>
 
-681          {/* Metrics cards — scroll reveal */}
+          {/* Metrics cards — scroll reveal */}
           <ScrollReveal className="mb-24">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {heroMetrics.map((item, i) => {
-at                const Icon
-
- = item.icon;
+                const Icon = item.icon;
                 return (
-                  <ScrollReveal key={item.label	} delay={i * 100}>
+                  <ScrollReveal key={item.label} delay={i * 100}>
                     <motion.div
-                      whileHover={{ y
-: -4, scale: 1.03 }}
+                      whileHover={{ y: -4, scale: 1.03 }}
                       transition={{ type: "spring", stiffness: 200, damping: 18 }}
                     >
                       <GlassCard className="hero-metric-card" padding="sm">
