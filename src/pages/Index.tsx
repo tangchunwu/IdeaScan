@@ -99,7 +99,8 @@ const Index = () => {
         <div className="max-w-6xl mx-auto">
           {/* Hero Section - 用户第一认知焦点 */}
           <section className="hero-shell mb-24 section-breathe">
-            <div className="hero-grid">
+            <div className="hero-surface">
+              <div className="hero-grid">
               <div className="hero-copy">
                 <div className="hero-copy-item">
                   <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary shadow-lg shadow-primary/10">
@@ -109,12 +110,13 @@ const Index = () => {
                 </div>
 
                 <div className="hero-copy-item">
-                  <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-[1.05] tracking-tight text-balance">
-                    用真实用户信号判断
-                    <span className="text-gradient-animated"> 你的创意值不值得做 </span>
+                  <h1 className="hero-title text-4xl md:text-6xl lg:text-[5.3rem] font-bold text-foreground mb-6 tracking-tight">
+                    先判断这是不是
+                    <br className="hidden md:block" />
+                    <span className="text-gradient-animated">值得做的真需求</span>
                   </h1>
 
-                  <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
+                  <p className="hero-description text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
                     抓取
                     <span className="font-semibold text-foreground"> 小红书真实用户痛点 </span>
                     、全网竞品动态和趋势变化，再让
@@ -166,7 +168,9 @@ const Index = () => {
 
                 <div className="hero-copy-item">
                   <div className="hero-proof-block">
-                    <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
+                    <div className="hero-proof-card">
+                      <SocialProofCounter count={validationCount ?? 0} label="个创意已通过验证" />
+                    </div>
                     <a
                       href="https://ideascan.me/share/bb05ee712f6340cb"
                       target="_blank"
@@ -275,45 +279,9 @@ const Index = () => {
                       </div>
                     </div>
                   </GlassCard>
-
-                  <GlassCard className="hero-float-card hero-float-card-top" padding="sm">
-                    <div className="flex items-start gap-3">
-                      <div className="hero-float-icon bg-primary/15 text-primary">
-                        <TrendingUp className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                          趋势波峰
-                        </div>
-                        <div className="font-semibold text-foreground">需求讨论周增 34%</div>
-                      </div>
-                    </div>
-                  </GlassCard>
-
-                  <GlassCard className="hero-float-card hero-float-card-bottom" padding="sm">
-                    <div className="flex items-start gap-3">
-                      <div className="hero-float-icon bg-secondary/15 text-secondary">
-                        <Brain className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                          AI 对辩
-                        </div>
-                        <div className="font-semibold text-foreground">3 个核心反对意见已暴露</div>
-                      </div>
-                    </div>
-                  </GlassCard>
-
-                  <div className="hero-orbit-chip hero-orbit-chip-left">
-                    <MessageCircle className="w-4 h-4 text-accent" />
-                    <span>真实吐槽样本</span>
-                  </div>
-                  <div className="hero-orbit-chip hero-orbit-chip-right">
-                    <Target className="w-4 h-4 text-primary" />
-                    <span>机会窗口</span>
-                  </div>
                 </div>
               </div>
+            </div>
             </div>
 
             <a

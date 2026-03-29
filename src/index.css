@@ -397,12 +397,42 @@
     @apply relative;
   }
 
+  .hero-surface {
+    @apply relative overflow-hidden rounded-[2rem] px-0 py-4 md:px-6 lg:px-8;
+  }
+
+  .hero-surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 18% 20%, hsl(var(--primary) / 0.07), transparent 30%),
+      radial-gradient(circle at 78% 30%, hsl(var(--accent) / 0.06), transparent 28%),
+      linear-gradient(135deg, hsl(var(--card) / 0.36), hsl(var(--card) / 0.12));
+    border: 1px solid hsl(var(--border) / 0.4);
+    box-shadow:
+      0 20px 60px hsl(var(--glass-shadow) / 0.12),
+      inset 0 1px 0 hsl(0 0% 100% / 0.2);
+    pointer-events: none;
+  }
+
   .hero-grid {
-    @apply grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)];
+    @apply relative z-10 grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:gap-12;
   }
 
   .hero-copy {
     @apply relative z-10;
+  }
+
+  .hero-title {
+    max-width: 8.2em;
+    line-height: 1;
+    letter-spacing: -0.045em;
+  }
+
+  .hero-description {
+    max-width: 36rem;
   }
 
   .hero-copy-item {
@@ -430,14 +460,14 @@
   }
 
   .hero-highlight-pill {
-    @apply inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/50 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm;
-    box-shadow: 0 10px 24px hsl(var(--glass-shadow));
+    @apply inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/65 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm;
+    box-shadow: 0 6px 18px hsl(var(--glass-shadow) / 0.12);
   }
 
   .hero-command-panel {
-    @apply flex flex-col gap-3 rounded-[1.75rem] border border-border/50 bg-background/60 p-3 backdrop-blur-xl md:flex-row;
+    @apply flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-background/75 p-3 backdrop-blur-xl md:flex-row;
     box-shadow:
-      0 18px 48px hsl(var(--glass-shadow)),
+      0 14px 40px hsl(var(--glass-shadow) / 0.12),
       inset 0 1px 0 hsl(0 0% 100% / 0.2);
   }
 
@@ -451,6 +481,10 @@
 
   .hero-proof-block {
     @apply flex flex-col gap-4;
+  }
+
+  .hero-proof-card {
+    max-width: 42rem;
   }
 
   .hero-sample-link {
@@ -468,20 +502,20 @@
 
   .hero-stage {
     position: relative;
-    min-height: 34rem;
+    min-height: 32rem;
     isolation: isolate;
   }
 
   .hero-stage-grid {
     position: absolute;
-    inset: 2rem 1rem;
+    inset: 1.5rem 1rem 0.5rem;
     border-radius: 2rem;
     background-image:
-      linear-gradient(hsl(var(--border) / 0.18) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.18) 1px, transparent 1px);
-    background-size: 32px 32px;
-    mask-image: radial-gradient(circle at center, black 42%, transparent 85%);
-    animation: hero-grid-pan 18s linear infinite;
+      linear-gradient(hsl(var(--border) / 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.12) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(180deg, black 20%, transparent 100%);
+    animation: hero-grid-pan 24s linear infinite;
     pointer-events: none;
   }
 
@@ -494,61 +528,67 @@
   .hero-stage-glow {
     position: absolute;
     border-radius: 9999px;
-    filter: blur(70px);
-    opacity: 0.5;
+    filter: blur(56px);
+    opacity: 0.28;
     pointer-events: none;
   }
 
   .hero-stage-glow-primary {
-    top: 2rem;
-    right: 0;
-    width: 15rem;
-    height: 15rem;
-    background: hsl(var(--primary) / 0.2);
-    animation: hero-drift 8s ease-in-out infinite;
+    top: 2.5rem;
+    right: 1rem;
+    width: 11rem;
+    height: 11rem;
+    background: hsl(var(--primary) / 0.18);
+    animation: hero-drift 10s ease-in-out infinite;
   }
 
   .hero-stage-glow-secondary {
-    bottom: 2rem;
-    left: 1rem;
-    width: 13rem;
-    height: 13rem;
-    background: hsl(var(--accent) / 0.16);
-    animation: hero-drift 10s ease-in-out infinite reverse;
+    bottom: 3rem;
+    left: 1.5rem;
+    width: 10rem;
+    height: 10rem;
+    background: hsl(var(--accent) / 0.12);
+    animation: hero-drift 12s ease-in-out infinite reverse;
   }
 
   .hero-stage-panel {
-    @apply absolute inset-x-6 top-10 overflow-hidden;
-    transform: perspective(1200px) rotateY(-8deg) rotateX(5deg);
+    @apply absolute inset-x-2 top-4 overflow-hidden rounded-[2rem];
+    transform: translateY(0);
     animation: hero-panel-in 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.82));
+    border-color: hsl(var(--border) / 0.45);
+    box-shadow:
+      0 24px 50px hsl(var(--glass-shadow) / 0.12),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
   }
 
   @keyframes hero-panel-in {
     0% {
       opacity: 0;
-      transform: perspective(1200px) rotateY(-12deg) rotateX(10deg) translateY(24px) scale(0.96);
+      transform: translateY(28px) scale(0.98);
     }
 
     100% {
       opacity: 1;
-      transform: perspective(1200px) rotateY(-8deg) rotateX(5deg) translateY(0) scale(1);
+      transform: translateY(0) scale(1);
     }
   }
 
   .hero-stage-beam {
     position: absolute;
-    inset: -20% auto 0 58%;
-    width: 38%;
-    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.18), transparent);
-    transform: rotate(12deg);
-    filter: blur(10px);
-    animation: hero-beam-scan 6s ease-in-out infinite;
+    inset: 0 auto 0 52%;
+    width: 26%;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.08), transparent);
+    transform: rotate(8deg);
+    filter: blur(18px);
+    animation: hero-beam-scan 8s ease-in-out infinite;
     pointer-events: none;
   }
 
   @keyframes hero-beam-scan {
-    0%, 100% { transform: translateY(-8%) rotate(12deg); opacity: 0.2; }
-    50% { transform: translateY(8%) rotate(12deg); opacity: 0.65; }
+    0%, 100% { transform: translateY(-4%) rotate(8deg); opacity: 0.12; }
+    50% { transform: translateY(4%) rotate(8deg); opacity: 0.3; }
   }
 
   .hero-status-pill {
@@ -609,50 +649,13 @@
     @apply rounded-2xl border border-border/50 bg-background/50 p-4;
   }
 
-  .hero-float-card {
-    @apply absolute max-w-[15rem];
-    animation: hero-drift 7s ease-in-out infinite;
-  }
-
-  .hero-float-card-top {
-    top: 0.75rem;
-    right: -0.5rem;
-  }
-
-  .hero-float-card-bottom {
-    bottom: 2rem;
-    left: -0.25rem;
-    animation-delay: 1.4s;
-  }
-
-  .hero-float-icon {
-    @apply flex h-9 w-9 items-center justify-center rounded-xl;
-  }
-
-  .hero-orbit-chip {
-    @apply absolute inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/70 px-3 py-2 text-xs font-medium text-foreground/80 backdrop-blur-md;
-    box-shadow: 0 12px 30px hsl(var(--glass-shadow));
-    animation: hero-drift 9s ease-in-out infinite;
-  }
-
-  .hero-orbit-chip-left {
-    left: 2rem;
-    top: 2.5rem;
-  }
-
-  .hero-orbit-chip-right {
-    right: 1.5rem;
-    bottom: 0.75rem;
-    animation-delay: 0.8s;
-  }
-
   @keyframes hero-drift {
     0%, 100% { transform: translate3d(0, 0, 0); }
-    50% { transform: translate3d(0, -10px, 0); }
+    50% { transform: translate3d(0, -6px, 0); }
   }
 
   .hero-scroll-cue {
-    @apply mt-10 inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/40 px-4 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:text-primary;
+    @apply mt-8 inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:text-primary;
     animation: hero-scroll-bob 2.6s ease-in-out infinite;
   }
 
@@ -897,19 +900,33 @@
   }
 
   @media (max-width: 1024px) {
+    .hero-surface {
+      @apply rounded-[1.75rem] px-0 py-3 md:px-4;
+    }
+
     .hero-stage {
-      min-height: 30rem;
+      min-height: 29rem;
       margin-top: 1rem;
     }
 
     .hero-stage-panel {
-      inset-inline: 1rem;
-      top: 2.5rem;
+      inset-inline: 0;
+      top: 1rem;
       transform: none;
     }
   }
 
   @media (max-width: 768px) {
+    .hero-title {
+      max-width: 10.5em;
+      font-size: clamp(2.85rem, 13vw, 4.4rem);
+      line-height: 1.04;
+    }
+
+    .hero-description {
+      max-width: 100%;
+    }
+
     .hero-command-panel {
       @apply rounded-[1.5rem] p-2.5;
     }
@@ -927,29 +944,17 @@
     }
 
     .hero-stage {
-      min-height: 27rem;
+      min-height: 26rem;
     }
 
     .hero-stage-grid,
-    .hero-stage-glow,
-    .hero-orbit-chip {
+    .hero-stage-glow {
       display: none;
     }
 
     .hero-stage-panel {
       @apply inset-x-0 top-0;
       transform: none;
-    }
-
-    .hero-float-card-top {
-      top: auto;
-      bottom: 0.75rem;
-      right: 0.5rem;
-    }
-
-    .hero-float-card-bottom {
-      left: 0.5rem;
-      bottom: 8.25rem;
     }
   }
 }
@@ -969,8 +974,6 @@
 
   .hero-copy-item,
   .hero-stage-panel,
-  .hero-float-card,
-  .hero-orbit-chip,
   .hero-scroll-cue,
   .text-gradient-animated {
     animation: none !important;
