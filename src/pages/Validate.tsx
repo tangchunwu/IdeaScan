@@ -122,7 +122,7 @@ const Validate = () => {
 
   const handleSuggestTags = async () => {
     if (!idea.trim()) {
-      toast({ title: "请先填写想法描述", description: "输入你的需求后再让 AI 推荐关键词", variant: "destructive" });
+      skinToast.error("请先填写想法描述");
       return;
     }
     captureEvent('keyword_suggest_started', { idea_length: idea.trim().length });
