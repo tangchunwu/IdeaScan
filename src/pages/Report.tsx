@@ -17,7 +17,7 @@ import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { VCFeed } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
