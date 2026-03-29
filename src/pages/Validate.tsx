@@ -208,7 +208,7 @@ const Validate = () => {
   const handleValidate = () => {
     if (!idea.trim()) return;
     if (!user) {
-      toast({ title: "请先登录", description: "需要登录才能进行验证", variant: "destructive" });
+      skinToast.error("请先登录才能进行验证");
       navigate("/auth?redirect=/validate");
       return;
     }
