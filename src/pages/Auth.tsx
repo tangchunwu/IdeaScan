@@ -122,7 +122,7 @@ const Auth = () => {
           }
         } catch { /* silent - referral is bonus */ }
       } else {
-        toast({ title: "注册成功", description: "欢迎加入！" });
+        skinToast.success("欢迎加入！");
       }
       navigate(redirectTo);
     } catch (error: unknown) {
