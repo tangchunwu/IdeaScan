@@ -136,8 +136,14 @@ const Index = () => {
           {/* Testimonials - 信任建设 */}
           <TestimonialSection />
 
-          {/* How it works - 用户认知引导 */}
-          <section className="mb-24 section-breathe">
+          {/* How it works */}
+          <motion.section
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-14">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 3 分钟完成需求验证
@@ -147,34 +153,46 @@ const Index = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-container">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {steps.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <GlassCard
+                  <motion.div
                     key={item.step}
-                    className="text-center relative overflow-visible"
-                    elevated
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ type: "spring", stiffness: 100, damping: 12, delay: index * 0.1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
                   >
-                    {/* 连接线 */}
-                    {index < steps.length - 1 && (
-                      <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
-                    )}
-
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-ghibli-sunset text-accent-foreground text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/20 relative">
-                      <span className="relative z-10">{item.step}</span>
-                      <Icon className="absolute -bottom-2 -right-2 w-8 h-8 p-1.5 bg-background rounded-full text-accent shadow-lg" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-3">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.desc}</p>
-                  </GlassCard>
+                    <GlassCard
+                      className="text-center relative overflow-visible h-full"
+                      elevated
+                    >
+                      {index < steps.length - 1 && (
+                        <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
+                      )}
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-ghibli-sunset text-accent-foreground text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-xl shadow-accent/20 relative">
+                        <span className="relative z-10">{item.step}</span>
+                        <Icon className="absolute -bottom-2 -right-2 w-8 h-8 p-1.5 bg-background rounded-full text-accent shadow-lg" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-foreground mb-3">{item.title}</h3>
+                      <p className="text-muted-foreground">{item.desc}</p>
+                    </GlassCard>
+                  </motion.div>
                 );
               })}
             </div>
-          </section>
+          </motion.section>
 
-          {/* Popular Validations - 解决冷启动 */}
-          <section className="mb-24 section-breathe">
+          {/* Popular Validations */}
+          <motion.section
+            className="mb-24 section-breathe"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <div className="text-center mb-10">
               <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                 本周热门趋势
@@ -186,37 +204,47 @@ const Index = () => {
             <div className="max-w-2xl mx-auto">
               <HotTrends limit={5} />
             </div>
-          </section>
+          </motion.section>
 
-          {/* CTA Section - 行动召唤 */}
-          <section className="text-center">
+          {/* CTA Section */}
+          <motion.section
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.96 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ type: "spring", stiffness: 80, damping: 14 }}
+          >
             <GlassCard className="py-16 px-8 relative overflow-hidden" glow elevated>
-              {/* 装饰背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
-
               <div className="relative z-10">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 animate-float">
+                <motion.div
+                  className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20"
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
                   <MessageCircle className="w-8 h-8 text-primary-foreground" />
-                </div>
+                </motion.div>
                 <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
                   别让"伪需求"浪费你的半年
                 </h2>
                 <p className="text-muted-foreground mb-10 max-w-lg mx-auto text-lg">
                   写代码之前，先用真实数据验证你的想法值不值得做
                 </p>
-                <Button
-                  asChild
-                  size="lg"
-                  className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-                >
-                  <Link to="/validate">
-                    开始验证
-                    <Sparkles className="w-5 h-5 ml-2" />
-                  </Link>
-                </Button>
+                <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
+                  <Button
+                    asChild
+                    size="lg"
+                    className="text-lg px-12 py-7 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl transition-all duration-300"
+                  >
+                    <Link to="/validate">
+                      开始验证
+                      <Sparkles className="w-5 h-5 ml-2" />
+                    </Link>
+                  </Button>
+                </motion.div>
               </div>
             </GlassCard>
-          </section>
+          </motion.section>
         </div>
       </main>
       <footer className="border-t border-border/50 bg-card/30 backdrop-blur-sm pt-16 pb-8">
