@@ -622,13 +622,9 @@
 
   .hero-scroll-cue {
     @apply mt-8 inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:text-primary;
-    animation: hero-scroll-bob 2.6s ease-in-out infinite;
   }
 
-  @keyframes hero-scroll-bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(6px); }
-  }
+  /* hero-scroll-bob replaced by framer-motion */
 
   /* 章节分隔 - 增加呼吸感 */
   .section-breathe {
