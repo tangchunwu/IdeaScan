@@ -200,7 +200,7 @@ const Validate = () => {
           handleValidate();
         }, 500);
       } else {
-        toast({ title: "已填充热点关键词", description: `"${ideaParam}" - 来自热点雷达` });
+        skinToast.info(`"${ideaParam}" - 来自热点雷达`);
       }
     }
   }, [searchParams, user]);
