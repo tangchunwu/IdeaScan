@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -26,9 +27,12 @@ export const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isLoading } = useAuth();
   const { profile, isUploading, uploadAvatar } = useProfile();
+  const { skin } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const subtitleEmoji = skin === "street" ? "😎" : skin === "drift" ? "🦦" : "🐾";
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -76,7 +80,7 @@ export const Navbar = () => {
                 IdeaScan
               </span>
               <span className="text-xs text-muted-foreground">
-                需求验证 🐾
+                需求验证 {subtitleEmoji}
               </span>
             </div>
           </Link>

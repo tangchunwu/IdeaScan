@@ -10,6 +10,7 @@ import { Suspense, lazy } from "react";
 import { Navigate } from "react-router-dom";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
 import { AnalyticsProvider, usePageView } from "@/lib/posthog";
+import { useTheme } from "@/hooks/useTheme";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -42,6 +43,12 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const SkinInitializer = () => {
+  // Just accessing the store triggers rehydration & applySkin
+  useTheme();
+  return null;
+};
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -81,6 +88,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AnalyticsProvider>
       <AuthProvider>
+        <SkinInitializer />
         <SilentErrorBoundary name="TooltipProvider">
           <TooltipProvider>
             <SilentErrorBoundary name="Sonner">

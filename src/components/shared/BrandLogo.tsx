@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Cat } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 interface BrandLogoProps {
   className?: string;
@@ -14,6 +15,9 @@ export const BrandLogo = ({
   variant = "full",
   theme = "color"
 }: BrandLogoProps) => {
+  const { skin } = useTheme();
+  const cornerClass = skin === "street" ? "rounded-md" : skin === "drift" ? "rounded-2xl" : "rounded-xl";
+
   const sizeClasses = {
     sm: "h-6 text-lg",
     md: "h-8 text-xl",
@@ -31,7 +35,9 @@ export const BrandLogo = ({
   return (
     <div className={cn("flex items-center gap-2 font-bold tracking-tight select-none", sizeClasses[size], className)}>
       <div className={cn(
-        "relative flex items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-lg overflow-hidden transition-all duration-300",
+        "relative flex items-center justify-center shadow-lg overflow-hidden transition-all duration-300",
+        cornerClass,
+        "bg-gradient-to-br from-primary to-secondary",
         size === "xl" ? "w-14 h-14" : size === "lg" ? "w-10 h-10" : size === "md" ? "w-8 h-8" : "w-6 h-6",
         "group hover:shadow-primary/25 hover:scale-105"
       )}>

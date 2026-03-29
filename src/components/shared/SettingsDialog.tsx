@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/useSettings";
-import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database, Trash2 } from "lucide-react";
+import { Settings, Eye, Save, RotateCcw, ExternalLink, Cloud, CloudOff, Loader2, Download, Upload, Database, Trash2, Check } from "lucide-react";
 import { ReferralCard } from "@/components/shared/ReferralCard";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +14,43 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { ExportDataButton } from "./ExportDataButton";
 import { ImportDataButton } from "./ImportDataButton";
+import { useTheme, SKINS, type Skin } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
+
+const SkinSelector = () => {
+  const { skin, setSkin } = useTheme();
+  return (
+    <div className="space-y-3">
+      <h4 className="font-medium flex items-center gap-2">🎨 皮肤主题</h4>
+      <div className="grid grid-cols-3 gap-2">
+        {SKINS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSkin(s.id)}
+            className={cn(
+              "relative flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all duration-200 text-center",
+              skin === s.id
+                ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                : "border-border hover:border-primary/40 hover:bg-muted/50"
+            )}
+          >
+            {skin === s.id && (
+              <div className="absolute top-1 right-1">
+                <Check className="w-3 h-3 text-primary" />
+              </div>
+            )}
+            <div className="flex gap-1">
+              <div className="w-4 h-4 rounded-full border border-border/50" style={{ background: s.colors[0] }} />
+              <div className="w-4 h-4 rounded-full border border-border/50" style={{ background: s.colors[1] }} />
+            </div>
+            <span className="text-xs font-medium">{s.emoji} {s.name}</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">{s.description}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 const PROVIDERS = {
        openai: {
               name: "OpenAI",
@@ -991,6 +1028,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             )}
                      </DialogHeader>
                      <div className="grid gap-6 py-4">
+
+                            {/* 皮肤切换 */}
+                            <SkinSelector />
 
                             {/* Built-in config notice for non-admin users */}
                             {!isAdmin && (

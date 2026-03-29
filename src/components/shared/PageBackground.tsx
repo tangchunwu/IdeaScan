@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, forwardRef } from "react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/useTheme";
 
 interface PageBackgroundProps {
   children: ReactNode;
@@ -31,7 +32,66 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
   short = false,
 }, ref) => {
   const clouds = useMemo(() => generateClouds(6), []);
+  const { skin } = useTheme();
 
+  // Street skin: pure dark bg with orange glow
+  if (skin === "street") {
+    return (
+      <div
+        ref={ref}
+        className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
+      >
+        <div className="fixed inset-0 -z-10 bg-background" />
+        {/* Orange street lamp glow */}
+        <div className="fixed top-0 left-1/3 w-80 h-80 rounded-full blur-[120px] -z-10"
+          style={{ background: "hsl(22 78% 60% / 0.08)" }} />
+        <div className="fixed top-40 right-1/4 w-48 h-48 rounded-full blur-[80px] -z-10"
+          style={{ background: "hsl(43 90% 61% / 0.04)" }} />
+        <div className="relative z-10 page-enter">{children}</div>
+      </div>
+    );
+  }
+
+  // Drift skin: river mist with floating elements
+  if (skin === "drift") {
+    return (
+      <div
+        ref={ref}
+        className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
+      >
+        <div className="fixed inset-0 -z-10 bg-gradient-to-b from-background via-background to-primary/5" />
+        {/* River mist blobs */}
+        <div className="fixed top-0 left-1/4 w-96 h-96 rounded-full blur-3xl -z-10"
+          style={{ background: "hsl(199 30% 51% / 0.12)" }} />
+        <div className="fixed bottom-20 right-1/3 w-64 h-64 rounded-full blur-3xl -z-10"
+          style={{ background: "hsl(140 25% 55% / 0.08)" }} />
+        {/* Subtle floating lily pads */}
+        {showClouds && (
+          <div className="fixed inset-0 -z-5 pointer-events-none overflow-hidden">
+            {clouds.slice(0, 3).map((cloud) => (
+              <div
+                key={cloud.id}
+                className="absolute rounded-full blur-sm"
+                style={{
+                  width: cloud.width * 0.7,
+                  height: cloud.height * 0.7,
+                  top: cloud.top,
+                  left: cloud.left,
+                  opacity: cloud.opacity * 0.6,
+                  background: "hsl(140 25% 55% / 0.15)",
+                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`,
+                  animationDelay: cloud.delay,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <div className="relative z-10 page-enter">{children}</div>
+      </div>
+    );
+  }
+
+  // Default ghibli skin
   const gradientClass = {
     default: "ghibli-gradient",
     subtle: "bg-gradient-to-b from-background via-background to-muted/30",
@@ -43,10 +103,8 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
       ref={ref}
       className={cn("relative overflow-hidden", short ? "min-h-[calc(100vh-80px)]" : "min-h-screen", className)}
     >
-      {/* 宫崎骏风格渐变背景 */}
       <div className={cn("fixed inset-0 -z-10", gradientClass)} />
 
-      {/* 装饰性云朵 - 增加层次感 */}
       {showClouds && (
         <div className="fixed inset-0 -z-5 pointer-events-none overflow-hidden">
           {clouds.map((cloud) => (
@@ -67,17 +125,11 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
         </div>
       )}
 
-      {/* 底部渐变 - 模拟地面 */}
       <div className="fixed bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-ghibli-forest/10 to-transparent -z-10" />
-
-      {/* 顶部柔和光晕 */}
       <div className="fixed top-0 left-1/4 w-96 h-96 bg-ghibli-sky/20 rounded-full blur-3xl -z-10" />
       <div className="fixed top-20 right-1/4 w-64 h-64 bg-ghibli-sunset/10 rounded-full blur-3xl -z-10" />
 
-      {/* 内容 */}
-      <div className="relative z-10 page-enter">
-        {children}
-      </div>
+      <div className="relative z-10 page-enter">{children}</div>
     </div>
   );
 });
