@@ -67,7 +67,7 @@ export function ReportNotes({ validationId }: ReportNotesProps) {
     } finally {
       setSaving(false);
     }
-  }, [user, validationId, saving, toast]);
+  }, [user, validationId, saving, skinToast]);
 
   // Debounced auto-save
   useEffect(() => {
