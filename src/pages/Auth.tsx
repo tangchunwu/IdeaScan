@@ -118,7 +118,7 @@ const Auth = () => {
           const { data: session } = await supabase.auth.getSession();
           if (session?.session?.user?.id) {
             await supabase.rpc("redeem_referral", { p_code: referralCode, p_user_id: session.session.user.id });
-            toast({ title: "🎉 注册成功", description: "邀请码已兑换，你获得了额外验证次数！" });
+            skinToast.success("邀请码已兑换，你获得了额外验证次数！");
           }
         } catch { /* silent - referral is bonus */ }
       } else {
