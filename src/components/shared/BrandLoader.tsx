@@ -77,7 +77,7 @@ export const BrandLoader = ({ className, text, fullScreen = false }: BrandLoader
                                    transition={{ delay: 0.2 }}
                                    className="text-lg font-medium text-foreground/80 tracking-wide"
                             >
-                                   {text}
+                                   {displayText}
                             </motion.span>
 
                              {/* Cat paw progress bar */}
