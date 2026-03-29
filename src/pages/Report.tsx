@@ -17,7 +17,7 @@ import { useValidation } from "@/hooks/useValidation";
 import { exportToHTML, exportToMultiPagePdf } from "@/lib/export";
 import { generateReportHTML, ReportData } from "@/lib/reportGenerator";
 import { generatePDFHTML } from "@/lib/pdfGenerator";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { VCFeed } from "@/components/social";
 import { PersonaCard } from "@/components/dashboard/PersonaCard";
 import { useSettings } from "@/hooks/useSettings";
@@ -49,7 +49,7 @@ import { ScrollReveal } from "@/components/shared/ScrollReveal";
 const Report = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const { data, isLoading: loading, error: queryError, refetch } = useValidation(id);
   const location = useLocation();
   const [isReanalyzing, setIsReanalyzing] = useState(false);
@@ -133,15 +133,15 @@ const Report = () => {
       });
       if (error) throw error;
       if (result?.updated) {
-        toast({ title: "分析完成", description: `已更新: ${result.updatedFields?.join(", ") || "数据"}` });
+        skinToast.success(`已更新: ${result.updatedFields?.join(", ") || "数据"}`);
       } else {
-        toast({ title: "数据已完整", description: result?.message || "无需重新分析" });
+        skinToast.info(result?.message || "数据已完整，无需重新分析");
       }
       // Always refetch to ensure UI shows latest data from DB
       refetch();
     } catch (error) {
       console.error("Re-analyze error:", error);
-      toast({ title: "分析失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
+      skinToast.error((error as Error).message || "分析失败，请稍后重试");
     } finally {
       setIsReanalyzing(false);
     }
@@ -166,21 +166,14 @@ const Report = () => {
       });
       if (error) throw error;
       if (result?.success) {
-        toast({
-          title: "社交数据补充成功",
-          description: `来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`,
-        });
+        skinToast.success(`来源: ${result.source}, 获取 ${result.stats?.sampleNotesCount || 0} 条帖子, ${result.stats?.sampleCommentsCount || 0} 条评论`);
         refetch();
       } else {
-        toast({
-          title: "未获取到数据",
-          description: result?.message || "请在设置中配置 TikHub Token 后重试",
-          variant: "destructive",
-        });
+        skinToast.error(result?.message || "请在设置中配置 TikHub Token 后重试");
       }
     } catch (error) {
       console.error("Recrawl error:", error);
-      toast({ title: "爬取失败", description: (error as Error).message || "请稍后重试", variant: "destructive" });
+      skinToast.error((error as Error).message || "爬取失败，请稍后重试");
     } finally {
       setIsRecrawling(false);
     }
@@ -218,32 +211,32 @@ const Report = () => {
 
   const handleExportHTML = () => {
     const rd = prepareExportData();
-    if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
+    if (!rd) { skinToast.error("报告数据未加载完成"); return; }
     try {
       const htmlContent = generateReportHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       exportToHTML(htmlContent, `需求验证报告_${ideaSlice}_${dateStr}`);
       captureEvent('report_exported', { validation_id: id, format: 'html' });
-      toast({ title: "导出成功", description: "HTML 完整报告已下载，可离线查看" });
-    } catch { toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" }); }
+      skinToast.success("HTML 完整报告已下载");
+    } catch { skinToast.error("导出失败，请稍后重试"); }
   };
 
   const handleExportPdf = async () => {
     const rd = prepareExportData();
-    if (!rd) { toast({ title: "导出失败", description: "报告数据未加载完成", variant: "destructive" }); return; }
+    if (!rd) { skinToast.error("报告数据未加载完成"); return; }
     const toastId = `pdf-export-${Date.now()}`;
-    toast({ title: "正在生成 PDF...", description: "渲染报告中，请稍候" });
+    skinToast.info("正在生成 PDF...");
     try {
       const pdfHtml = generatePDFHTML(rd);
       const ideaSlice = rd.idea.slice(0, 10).replace(/[/\\?%*:|"<>]/g, '');
       const dateStr = new Date().toISOString().split('T')[0];
       await exportToMultiPagePdf(pdfHtml, `需求验证报告_${ideaSlice}_${dateStr}`);
       captureEvent('report_exported', { validation_id: id, format: 'pdf' });
-      toast({ title: "导出成功", description: "多页 PDF 报告已下载" });
+      skinToast.success("多页 PDF 报告已下载");
     } catch (error) {
       console.error("PDF export error:", error);
-      toast({ title: "导出失败", description: "请稍后重试", variant: "destructive" });
+      skinToast.error("PDF 导出失败，请稍后重试");
     }
   };
 
@@ -288,21 +281,17 @@ const Report = () => {
         try {
           await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
           captureEvent('report_shared', { validation_id: id, method: 'native_share' });
-          toast({ title: "分享成功", description: "报告已分享" });
+          skinToast.success("报告已分享");
           return;
         } catch (err) { if ((err as Error).name !== "AbortError") console.warn("Web Share failed:", err); }
       }
       
       await navigator.clipboard.writeText(shareUrl);
       captureEvent('report_shared', { validation_id: id, method: 'clipboard' });
-      toast({
-        title: "分享链接已复制",
-        description: shareUrl,
-        action: { label: "打开", onClick: () => window.open(shareUrl, "_blank") },
-      });
+      skinToast.success("分享链接已复制到剪贴板");
     } catch (e) {
       console.error("Share error:", e);
-      toast({ title: "分享失败", description: "请稍后重试", variant: "destructive" });
+      skinToast.error("分享失败，请稍后重试");
     }
   };
 

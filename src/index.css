@@ -817,10 +817,22 @@
 
 [data-skin="street"] .glass-card {
   border-radius: 0.25rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
+}
+
+[data-skin="street"] .glass-card:hover {
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
 }
 
 [data-skin="street"] .glass-card-elevated {
   border-radius: 0.25rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.2);
 }
 
 [data-skin="street"] body {
@@ -968,11 +980,26 @@
 }
 
 [data-skin="drift"] .glass-card {
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: 0 8px 32px hsl(var(--glass-shadow));
 }
 
 [data-skin="drift"] .glass-card-elevated {
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+[data-skin="drift"] .number-highlight {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 700;
+}
+
+[data-skin="drift"] .cat-paw-hover::after {
+  content: '🦦';
 }
 
 /* ========================================
@@ -1142,11 +1169,27 @@
 [data-skin="cotton"] .glass-card {
   border-radius: 1.25rem;
   border: 1px solid hsl(310 35% 80% / 0.15);
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.2),
+    0 8px 24px hsl(310 35% 80% / 0.08);
 }
 
 [data-skin="cotton"] .glass-card-elevated {
   border-radius: 1.25rem;
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.25),
+    0 12px 32px hsl(310 35% 80% / 0.12);
 }
+
+[data-skin="cotton"] .number-highlight {
+  font-family: 'Quicksand', 'DM Sans', 'Nunito', sans-serif;
+  font-weight: 700;
+}
+
+/* Cotton auto spacing 1.2x for main containers */
+[data-skin="cotton"] main > .space-y-4 { gap: calc(1rem * 1.2); }
+[data-skin="cotton"] main > .space-y-6 { gap: calc(1.5rem * 1.2); }
+[data-skin="cotton"] main > .space-y-8 { gap: calc(2rem * 1.2); }
 
 /* Cotton skin: hide aggressive cat decorations */
 [data-skin="cotton"] .cat-paw-indicator::before,
@@ -1325,10 +1368,17 @@
 [data-skin="bamboo"] .glass-card {
   border-radius: 0.625rem;
   border: 1px solid hsl(145 28% 39% / 0.1);
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 16px, hsl(145 28% 39% / 0.02) 16px, hsl(145 28% 39% / 0.02) 17px);
 }
 
 [data-skin="bamboo"] .glass-card-elevated {
   border-radius: 0.625rem;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 16px, hsl(145 28% 39% / 0.03) 16px, hsl(145 28% 39% / 0.03) 17px);
+  box-shadow:
+    0 8px 24px hsl(var(--glass-shadow)),
+    0 2px 8px hsl(145 28% 39% / 0.06);
 }
 
 [data-skin="bamboo"] .cat-paw-indicator::before,

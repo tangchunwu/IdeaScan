@@ -15,7 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Validation } from "@/services/validationService";
 import { useValidations, useDeleteValidation } from "@/hooks/useValidation";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import {
   Search,
   Calendar,
@@ -35,7 +35,7 @@ import { captureEvent } from "@/lib/posthog";
 const History = () => {
   const { user, isLoading: authLoading } = useAuth();
   useDocumentTitle("历史记录");
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
@@ -105,7 +105,7 @@ const History = () => {
     try {
       await deleteMutation.mutateAsync(id);
       captureEvent('validation_deleted', { validation_id: id });
-      toast({ title: "删除成功", description: "验证记录已删除" });
+      skinToast.success("验证记录已删除");
       if (selectedIds.has(id)) {
         const next = new Set(selectedIds);
         next.delete(id);
@@ -113,7 +113,7 @@ const History = () => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "删除失败";
-      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
+      skinToast.error(errorMessage);
     } finally {
       setDeletingId(null);
     }
@@ -125,10 +125,10 @@ const History = () => {
     try {
       await Promise.all(Array.from(selectedIds).map(id => deleteMutation.mutateAsync(id)));
       captureEvent('validation_batch_deleted', { count: selectedIds.size });
-      toast({ title: "批量删除成功", description: `已删除 ${selectedIds.size} 条记录` });
+      skinToast.success(`已删除 ${selectedIds.size} 条记录`);
       setSelectedIds(new Set());
     } catch (error) {
-      toast({ title: "部分删除失败", description: "请刷新重试", variant: "destructive" });
+      skinToast.error("部分删除失败，请刷新重试");
     } finally {
       setIsBatchDeleting(false);
     }

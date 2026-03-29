@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { useUserQuota } from "@/hooks/useUserQuota";
 import { captureEvent } from "@/lib/posthog";
 import { invokeFunction } from "@/lib/invokeFunction";
@@ -48,7 +48,7 @@ const Validate = () => {
   const [searchParams] = useSearchParams();
   useDocumentTitle("验证我的想法", { description: "一句话描述你的创业想法，AI 自动抓取社媒数据和竞品情报，3分钟生成需求验证报告。" });
   const { user, isLoading: authLoading } = useAuth();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const settings = useSettings();
   const quota = useUserQuota();
 
@@ -122,7 +122,7 @@ const Validate = () => {
 
   const handleSuggestTags = async () => {
     if (!idea.trim()) {
-      toast({ title: "请先填写想法描述", description: "输入你的需求后再让 AI 推荐关键词", variant: "destructive" });
+      skinToast.error("请先填写想法描述");
       return;
     }
     captureEvent('keyword_suggest_started', { idea_length: idea.trim().length });
@@ -140,9 +140,9 @@ const Validate = () => {
       if (error) throw new Error(error.message || "关键词推荐失败");
       const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
       setAiTagSuggestions(suggestions);
-      toast({ title: "已生成关键词建议", description: `AI 推荐 ${suggestions.length} 个候选标签，请确认后使用` });
+      skinToast.success(`AI 推荐 ${suggestions.length} 个候选标签`);
     } catch (e) {
-      toast({ title: "关键词推荐失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
+      skinToast.error((e as Error).message || "关键词推荐失败");
     } finally {
       setIsSuggestingTags(false);
     }
@@ -178,7 +178,7 @@ const Validate = () => {
         setPolishedResult(data.polished);
       }
     } catch (e) {
-      toast({ title: "AI 润色失败", description: (e as Error).message || "请稍后再试", variant: "destructive" });
+      skinToast.error((e as Error).message || "AI 润色失败");
     } finally {
       setIsPolishing(false);
     }
@@ -195,15 +195,12 @@ const Validate = () => {
     if (ideaParam && !idea) {
       setIdea(decodeURIComponent(ideaParam));
       if (autoParam === 'true' && user && !stream.isValidating) {
-        toast({
-          title: "正在启动验证...",
-          description: resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求",
-        });
+        skinToast.info(resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求");
         setTimeout(() => {
           handleValidate();
         }, 500);
       } else {
-        toast({ title: "已填充热点关键词", description: `"${ideaParam}" - 来自热点雷达` });
+        skinToast.info(`"${ideaParam}" - 来自热点雷达`);
       }
     }
   }, [searchParams, user]);
@@ -211,18 +208,14 @@ const Validate = () => {
   const handleValidate = () => {
     if (!idea.trim()) return;
     if (!user) {
-      toast({ title: "请先登录", description: "需要登录才能进行验证", variant: "destructive" });
+      skinToast.error("请先登录才能进行验证");
       navigate("/auth?redirect=/validate");
       return;
     }
     // Allow validation if: user has own TikHub token OR has free quota remaining
     if (!stream.hasOwnTikhub && !quota.canValidate) {
-      toast({
-        title: "免费次数已用完",
-        description: `本月 ${quota.freeTotal} 次免费验证已用完。请在设置中配置个人 TikHub Token 获取无限次验证。`,
-        variant: "destructive",
-        action: { label: "去配置", onClick: () => setShowSettingsFromQuota(true) },
-      });
+      skinToast.error(`本月 ${quota.freeTotal} 次免费验证已用完，请配置个人 TikHub Token`);
+      setShowSettingsFromQuota(true);
       return;
     }
 
@@ -376,7 +369,7 @@ const Validate = () => {
                         onClick={() => {
                           setIdea(polishedResult);
                           setPolishedResult(null);
-                          toast({ title: "已采纳润色结果", description: "想法描述已更新" });
+                          skinToast.success("已采纳润色结果");
                         }}
                       >
                         <CheckCircle2 className="w-3 h-3 mr-1" /> 采纳
