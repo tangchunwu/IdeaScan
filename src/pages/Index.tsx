@@ -51,11 +51,6 @@ const features = [
   },
 ];
 
-const heroMetrics = [
-  { value: 4, suffix: "", label: "位 AI 辩手", icon: Brain },
-  { value: 12, suffix: "+", label: "中文情报源", icon: TrendingUp },
-  { value: 24, suffix: "h", label: "信号追踪", icon: MessageCircle },
-];
 
 const steps = [
   { step: "01", title: "描述你的想法", desc: "一句话说清楚你想做什么", icon: Sparkles },
