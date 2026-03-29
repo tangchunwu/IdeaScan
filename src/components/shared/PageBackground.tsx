@@ -81,8 +81,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                   left: cloud.left,
                   opacity: cloud.opacity * 0.5,
                   background: "hsl(310 35% 80% / 0.1)",
-                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.3}s cubic-bezier(0.34, 1.56, 0.64, 1) infinite`,
-                  animationDelay: cloud.delay,
+                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.3}s cubic-bezier(0.34, 1.56, 0.64, 1) ${cloud.delay} infinite`,
                 }}
               />
             ))}
@@ -121,8 +120,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                   left: cloud.left,
                   opacity: cloud.opacity * 0.35,
                   background: "hsl(145 28% 39% / 0.1)",
-                  animation: `float ${cloud.duration} ease-out infinite`,
-                  animationDelay: cloud.delay,
+                  animation: `float ${cloud.duration} ease-out ${cloud.delay} infinite`,
                 }}
               />
             ))}
@@ -160,8 +158,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                   left: cloud.left,
                   opacity: cloud.opacity * 0.6,
                   background: "hsl(140 25% 55% / 0.15)",
-                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`,
-                  animationDelay: cloud.delay,
+                  animation: `float ${Number(cloud.duration.replace('s', '')) * 1.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${cloud.delay} infinite`,
                 }}
               />
             ))}
@@ -198,8 +195,7 @@ export const PageBackground = forwardRef<HTMLDivElement, PageBackgroundProps>(({
                 top: cloud.top,
                 left: cloud.left,
                 opacity: cloud.opacity,
-                animation: `float ${cloud.duration} ease-in-out infinite`,
-                animationDelay: cloud.delay,
+                animation: `float ${cloud.duration} ease-in-out ${cloud.delay} infinite`,
               }}
             />
           ))}
