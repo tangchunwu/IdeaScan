@@ -232,6 +232,7 @@ serve(async (req) => {
     const apiKey = (Deno.env.get("PERPLEXITY_API_KEY") ?? "").trim();
     if (!apiKey) {
       throw new Error("PERPLEXITY_API_KEY not configured");
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
