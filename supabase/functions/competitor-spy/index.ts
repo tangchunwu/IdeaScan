@@ -27,14 +27,17 @@ serve(async (req) => {
                         throw new Error("Missing competitorName");
                 }
 
-                // 1. API Configuration
-                const tavilyKey = Deno.env.get("TAVILY_API_KEY");
-                const aiKey = Deno.env.get("DEEPSEEK_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-                const aiUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-                const aiModel = Deno.env.get("LLM_MODEL") || "deepseek/deepseek-chat";
+                // 1. API Configuration via pool
+                const searchPool = await resolvePool("search_api");
+                const tavilyKey = searchPool.find(p => p.model === "tavily")?.api_key || Deno.env.get("TAVILY_API_KEY");
+                const llmPool = await resolvePool("llm");
+                const firstLlm = llmPool[0];
+                const aiKey = firstLlm?.api_key;
+                const aiUrl = firstLlm?.base_url || "https://ai.gateway.lovable.dev/v1";
+                const aiModel = firstLlm?.model || "google/gemini-3-flash-preview";
 
                 if (!tavilyKey || !aiKey) {
-                        throw new Error("Missing API Keys (TAVILY_API_KEY or DEEPSEEK_API_KEY)");
+                        throw new Error("Missing API Keys (search_api pool or llm pool)");
                 }
 
                 // 2. Search for Pricing Info (Tavily)

@@ -466,16 +466,19 @@ Deno.serve(async (req) => {
     const { categories, maxPerCategory = 2, includeDynamicKeywords = true } = body;
 
     if (!tikhubToken) {
-      // TikHub 不可用时，使用 Perplexity 作为回退
-      const perplexityBaseUrl = Deno.env.get("PERPLEXITY_BASE_URL");
-      const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+      // TikHub 不可用时，使用搜索 LLM 池作为回退
+      const searchPool = await resolvePool("search_llm");
+      const searchProvider = searchPool[0];
 
-      if (!perplexityBaseUrl || !perplexityApiKey) {
+      if (!searchProvider) {
         return new Response(
-          JSON.stringify({ success: true, added: 0, message: "Neither TikHub nor Perplexity available; skipped scanning" }),
+          JSON.stringify({ success: true, added: 0, message: "Neither TikHub nor search LLM available; skipped scanning" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      const perplexityBaseUrl = searchProvider.base_url;
+      const perplexityApiKey = searchProvider.api_key;
 
       console.log("[Scan] TikHub unavailable, using Perplexity fallback");
 
