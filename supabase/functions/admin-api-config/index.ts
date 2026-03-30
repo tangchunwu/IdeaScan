@@ -203,10 +203,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // POST
-    if (req.method === "POST") {
-      const body = await req.json();
-
       // Test connectivity for a specific provider
       if (action === "test") {
         const { provider } = body;
