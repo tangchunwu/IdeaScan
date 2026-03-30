@@ -301,8 +301,8 @@ const ModelManager = () => {
             <div className="flex items-center gap-2 text-sm">
               {fallbackConfig?.has_value ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  <span className="text-green-600">已就绪（自动配置，只读）</span>
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                  <span className="text-primary">已就绪（自动配置，只读）</span>
                 </>
               ) : (
                 <>
