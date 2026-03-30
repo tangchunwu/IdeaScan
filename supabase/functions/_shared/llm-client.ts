@@ -77,7 +77,7 @@ function shouldTryNextEndpoint(status: number, contentType: string, bodyText: st
   const body = safeLower(bodyText).slice(0, 120);
   if (ct.includes("text/html")) return true;
   if (body.startsWith("<!doctype") || body.startsWith("<html")) return true;
-  if ([301, 302, 307, 308, 403, 404, 405, 429].includes(status)) return true;
+  if ([301, 302, 307, 308, 401, 403, 404, 405, 429].includes(status)) return true;
   if (status >= 500) return true;
   return false;
 }
@@ -141,6 +141,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
     }
   }
 
+  console.log(`[llm-client] All endpoints failed: ${errors.join(" | ")}`);
   throw new Error(`llm_all_endpoints_failed:${errors.join(" | ").slice(0, 1200)}`);
 }
 
