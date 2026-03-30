@@ -151,11 +151,11 @@ ${signalSummaries}
 
 只返回 JSON 数组，不要其他文字。`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch(`${clusterBaseUrl}/chat/completions`, {
     method: "POST",
-    headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+    headers: { "Authorization": `Bearer ${clusterApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: clusterModel,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     }),
