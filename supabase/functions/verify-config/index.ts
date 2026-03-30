@@ -195,9 +195,15 @@ serve(async (req) => {
         } else if (msg.includes("Unexpected token '<'") || msg.includes("invalid_json_response") || msg.includes("text/html")) {
           message = "LLM endpoint returned non-JSON payload (likely HTML challenge or wrong route).";
         } else if (msg.includes("llm_all_endpoints_failed")) {
-          // Extract per-endpoint details for better diagnostics
-          const details = msg.replace("llm_all_endpoints_failed:", "").slice(0, 300);
-          message = `LLM endpoint unreachable on expected OpenAI routes. Details: ${details}`;
+          const details = msg.replace("llm_all_endpoints_failed:", "");
+          // Check for specific error patterns within the combined error details
+          if (details.includes("rate_limit") || details.includes("http_429") || details.includes("usage limit")) {
+            message = "LLM API 额度已用尽 (429 Rate Limit)，请检查你的 MiniMax/LLM 账户余额或等待限流重置。";
+          } else if (details.includes("http_401") || details.includes("authorized_error") || details.includes("authentication")) {
+            message = "LLM API Key 认证失败 (401)，请检查 API Key 是否正确。";
+          } else {
+            message = `LLM endpoint unreachable. Details: ${details.slice(0, 300)}`;
+          }
         } else if (msg.includes("no_json_object_in_content") || msg.includes("json_schema_too_empty")) {
           message = "LLM responded but not in required JSON format for analysis.";
         } else {
