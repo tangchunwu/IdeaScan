@@ -163,7 +163,7 @@ ${signalSummaries}
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Lovable AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
+    throw new Error(`AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
   }
 
   const data = await response.json();
