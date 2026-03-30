@@ -118,7 +118,8 @@ async function searchWithPerplexity(
   apiKey: string,
   options: { isDescription?: boolean; model?: string; isDiscovery?: boolean } = {}
 ): Promise<{ signals: MarketSignal[]; citations: string[] }> {
-  const { isDescription = false, model = "sonar", isDiscovery = false } = options;
+  const defaultModel = Deno.env.get("PERPLEXITY_MODEL") || "sonar";
+  const { isDescription = false, model = defaultModel, isDiscovery = false } = options;
 
   const prompt = isDiscovery ? buildTrendDiscoveryPrompt() : buildSemanticPrompt(input, isDescription);
   const systemContent = isDiscovery
