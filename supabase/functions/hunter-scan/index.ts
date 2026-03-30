@@ -228,8 +228,10 @@ serve(async (req) => {
   }
 
   try {
-    const baseUrl = Deno.env.get("PERPLEXITY_BASE_URL");
-    const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
+    const { resolveConfigs: rc } = await import("../_shared/config-resolver.ts");
+    const resolved = await rc(["PERPLEXITY_BASE_URL", "PERPLEXITY_API_KEY", "PERPLEXITY_MODEL"]);
+    const baseUrl = resolved["PERPLEXITY_BASE_URL"];
+    const apiKey = resolved["PERPLEXITY_API_KEY"];
     if (!baseUrl || !apiKey) {
       throw new Error("PERPLEXITY_BASE_URL or PERPLEXITY_API_KEY not configured");
     }

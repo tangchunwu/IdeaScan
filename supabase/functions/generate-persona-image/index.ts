@@ -105,10 +105,12 @@ serve(async (req) => {
       }
     }
 
-    // Always use system image generation configuration
-    const imageGenApiKey = Deno.env.get("IMAGE_GEN_API_KEY");
-    const imageGenBaseUrl = Deno.env.get("IMAGE_GEN_BASE_URL");
-    const imageGenModel = Deno.env.get("IMAGE_GEN_MODEL") || "dall-e-3";
+    // Always use system image generation configuration (admin DB > env)
+    const { resolveConfigs: rc } = await import("../_shared/config-resolver.ts");
+    const resolved = await rc(["IMAGE_GEN_API_KEY", "IMAGE_GEN_BASE_URL", "IMAGE_GEN_MODEL"]);
+    const imageGenApiKey = resolved["IMAGE_GEN_API_KEY"];
+    const imageGenBaseUrl = resolved["IMAGE_GEN_BASE_URL"];
+    const imageGenModel = resolved["IMAGE_GEN_MODEL"] || "dall-e-3";
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
     // 决定使用哪个 API - 优先使用系统配置的 Image Gen API

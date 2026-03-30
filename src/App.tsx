@@ -29,6 +29,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
+const ModelManager = lazy(() => import("./pages/Admin/ModelManager"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
 const GalleryRedirect = () => <Navigate to="/discover?tab=gallery" replace />;
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
@@ -74,6 +75,7 @@ const AnimatedRoutes = () => {
         <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
         <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
         <Route path="/admin/feedback" element={<PageTransition><FeedbackDashboard /></PageTransition>} />
+        <Route path="/admin/models" element={<PageTransition><ModelManager /></PageTransition>} />
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
         <Route path="/gallery" element={<PageTransition><GalleryRedirect /></PageTransition>} />
         <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />

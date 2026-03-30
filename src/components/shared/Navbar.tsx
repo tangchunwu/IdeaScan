@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2 } from "lucide-react";
+import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar, Cog, Camera, Loader2, ServerCog } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
 import { useState, useRef } from "react";
@@ -22,6 +23,7 @@ export const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut, isLoading } = useAuth();
   const { profile, isUploading, uploadAvatar } = useProfile();
+  const { isAdmin } = useAdminAuth();
   const { skin } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -166,6 +168,14 @@ export const Navbar = () => {
                         <Settings className="w-4 h-4 mr-2" />
                         {t("nav.systemConfig")}
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link to="/admin/models">
+                            <ServerCog className="w-4 h-4 mr-2" />
+                            API 配置
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={signOut}
