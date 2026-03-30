@@ -282,8 +282,8 @@ serve(async (req) => {
         .limit(200);
 
       if (highSignals && highSignals.length >= 3) {
-        console.log(`[Processor] Clustering ${highSignals.length} high-score signals with Lovable AI`);
-        const clusters = await clusterSignalsWithAI(highSignals, lovableApiKey);
+        console.log(`[Processor] Clustering ${highSignals.length} high-score signals with ${llmModel}`);
+        const clusters = await clusterSignalsWithAI(highSignals, llmApiKey, llmBaseUrl, llmModel);
         console.log(`[Processor] AI returned ${clusters.length} opportunity clusters`);
 
         for (const cluster of clusters) {
