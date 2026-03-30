@@ -42,7 +42,7 @@ function stripSystemPrompt(persona: any): any {
   return safe;
 }
 
-function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): LLMCandidate[] {
+async function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): Promise<LLMCandidate[]> {
   const candidates: LLMCandidate[] = [];
   
   if (config?.llmApiKey) {
@@ -54,23 +54,11 @@ function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; 
     });
   }
 
-  const envKey = Deno.env.get("LLM_API_KEY");
-  const envBase = Deno.env.get("LLM_BASE_URL");
-  if (envKey && envBase) {
-    const envModel = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
-    if (envKey !== config?.llmApiKey || envBase !== config?.llmBaseUrl) {
-      candidates.push({ baseUrl: envBase, apiKey: envKey, model: envModel, label: "server" });
+  const pool = await resolvePool("llm");
+  for (const p of pool) {
+    if (p.api_key !== config?.llmApiKey) {
+      candidates.push({ baseUrl: p.base_url, apiKey: p.api_key, model: p.model, label: p.label });
     }
-  }
-
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (lovableKey) {
-    candidates.push({
-      baseUrl: "https://ai.gateway.lovable.dev/v1",
-      apiKey: lovableKey,
-      model: "google/gemini-3-flash-preview",
-      label: "lovable",
-    });
   }
 
   return candidates;
