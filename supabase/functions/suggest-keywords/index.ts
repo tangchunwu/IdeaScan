@@ -10,6 +10,7 @@ import {
 } from "../_shared/validation.ts";
 import { expandKeywords } from "../_shared/keyword-expander.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
