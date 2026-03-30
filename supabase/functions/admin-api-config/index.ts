@@ -284,13 +284,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ error: "Unknown action" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: "Unknown action" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     const status = err.message === "Unauthorized" ? 401 : err.message === "Forbidden" ? 403 : 500;
