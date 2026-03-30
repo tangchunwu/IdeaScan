@@ -104,12 +104,17 @@ const ModelManager = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) navigate("/");
+    if (!authLoading && !isAdmin) {
+      setLoading(false);
+      navigate("/");
+    }
   }, [isAdmin, authLoading, navigate]);
 
   const fetchData = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("admin-api-config", { method: "GET" });
+      const { data, error } = await supabase.functions.invoke("admin-api-config", {
+        body: { action: "list" },
+      });
       if (error) throw error;
       setProviders(data.groups || {});
       setEnvStatus(data.envStatus || {});
