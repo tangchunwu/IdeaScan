@@ -195,7 +195,9 @@ serve(async (req) => {
         } else if (msg.includes("Unexpected token '<'") || msg.includes("invalid_json_response") || msg.includes("text/html")) {
           message = "LLM endpoint returned non-JSON payload (likely HTML challenge or wrong route).";
         } else if (msg.includes("llm_all_endpoints_failed")) {
-          message = "LLM endpoint unreachable on expected OpenAI routes (/chat/completions or /v1/chat/completions).";
+          // Extract per-endpoint details for better diagnostics
+          const details = msg.replace("llm_all_endpoints_failed:", "").slice(0, 300);
+          message = `LLM endpoint unreachable on expected OpenAI routes. Details: ${details}`;
         } else if (msg.includes("no_json_object_in_content") || msg.includes("json_schema_too_empty")) {
           message = "LLM responded but not in required JSON format for analysis.";
         } else {
