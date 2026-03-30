@@ -175,8 +175,7 @@ const ModelManager = () => {
   if (!isAdmin) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageBackground />
+    <PageBackground>
       <Navbar />
       <main className="pt-28 pb-16 px-4 max-w-4xl mx-auto">
         <div className="mb-8">
