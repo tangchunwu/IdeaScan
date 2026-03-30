@@ -1,21 +1,22 @@
-import { ReactNode } from "react";
-import { useAdminGate } from "@/hooks/useAdminGate";
+import { ReactNode, useState, useCallback } from "react";
 import { BrandLoader } from "@/components/shared";
 import AdminLogin from "@/pages/Admin/AdminLogin";
+
+const STORAGE_KEY = "admin_gate_token";
 
 interface AdminGateProps {
   children: ReactNode;
 }
 
 const AdminGate = ({ children }: AdminGateProps) => {
-  const { isUnlocked, isChecking } = useAdminGate();
+  const [isUnlocked, setIsUnlocked] = useState(() => !!sessionStorage.getItem(STORAGE_KEY));
 
-  if (isChecking) {
-    return <BrandLoader fullScreen text="验证中..." />;
-  }
+  const handleSuccess = useCallback(() => {
+    setIsUnlocked(true);
+  }, []);
 
   if (!isUnlocked) {
-    return <AdminLogin />;
+    return <AdminLogin onSuccess={handleSuccess} />;
   }
 
   return <>{children}</>;

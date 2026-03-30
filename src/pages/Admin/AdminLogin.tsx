@@ -5,7 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Lock, Shield, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
-const AdminLogin = () => {
+interface AdminLoginProps {
+  onSuccess: () => void;
+}
+
+const AdminLogin = ({ onSuccess }: AdminLoginProps) => {
   const { verify } = useAdminGate();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +25,9 @@ const AdminLogin = () => {
     const result = await verify(password);
     setLoading(false);
 
-    if (!result.ok) {
+    if (result.ok) {
+      onSuccess();
+    } else {
       setError(result.error || "验证失败");
     }
   };
