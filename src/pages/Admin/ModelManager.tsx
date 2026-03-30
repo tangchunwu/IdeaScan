@@ -242,9 +242,9 @@ const ModelManager = () => {
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke("admin-api-config?action=test", {
-        method: "POST",
+      const { data, error } = await supabase.functions.invoke("admin-api-config", {
         body: {
+          action: "test",
           provider: {
             config_group: groupId,
             base_url: p.base_url,
