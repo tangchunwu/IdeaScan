@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Navbar } from "@/components/shared/Navbar";
@@ -10,68 +10,85 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Brain, Search, Image, Globe, Shield, Loader2, CheckCircle2, XCircle, Eye, EyeOff, Save } from "lucide-react";
+import {
+  Brain, Search, Image, Globe, Shield, Loader2, CheckCircle2, XCircle,
+  Eye, EyeOff, Save, Plus, Trash2, GripVertical, ArrowUp, ArrowDown,
+  Zap,
+} from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
-interface ConfigItem {
-  config_key: string;
+interface ProviderRow {
+  id: string;
   config_group: string;
-  display_value: string;
-  has_value: boolean;
-  source: string;
-  updated_at: string | null;
+  priority: number;
+  label: string;
+  base_url: string;
+  api_key: string;
+  api_key_display?: string;
+  model: string;
+  enabled: boolean;
+  updated_at: string;
+  // UI state
+  _dirty?: boolean;
+  _testResult?: { success: boolean; message: string; latencyMs?: number };
+  _testing?: boolean;
+  _saving?: boolean;
 }
 
-interface ConfigGroup {
+interface GroupDef {
   id: string;
-  label: string;
+  title: string;
   icon: React.ElementType;
   description: string;
-  keys: { key: string; label: string; isSecret: boolean }[];
+  fields: { key: keyof ProviderRow; label: string; isSecret?: boolean; placeholder?: string }[];
 }
 
-const CONFIG_GROUPS: ConfigGroup[] = [
+const GROUPS: GroupDef[] = [
   {
     id: "llm",
-    label: "🧠 主 LLM",
+    title: "🧠 主 LLM 池",
     icon: Brain,
-    description: "验证 / 分析 / 润色 / 信号处理",
-    keys: [
-      { key: "LLM_BASE_URL", label: "Base URL", isSecret: false },
-      { key: "LLM_API_KEY", label: "API Key", isSecret: true },
-      { key: "LLM_MODEL", label: "Model", isSecret: false },
+    description: "验证 / 分析 / 润色 / 信号处理 — 按优先级顺序回退",
+    fields: [
+      { key: "label", label: "标签", placeholder: "如：MiniMax-主力" },
+      { key: "base_url", label: "Base URL", placeholder: "https://api.example.com" },
+      { key: "api_key", label: "API Key", isSecret: true, placeholder: "sk-..." },
+      { key: "model", label: "Model", placeholder: "如：gemini-3-pro-preview" },
     ],
   },
   {
     id: "search_llm",
-    label: "🔍 搜索 LLM",
+    title: "🔍 搜索 LLM 池",
     icon: Search,
-    description: "Perplexity / 狩猎雷达 / 趋势发现",
-    keys: [
-      { key: "PERPLEXITY_BASE_URL", label: "Base URL", isSecret: false },
-      { key: "PERPLEXITY_API_KEY", label: "API Key", isSecret: true },
-      { key: "PERPLEXITY_MODEL", label: "Model", isSecret: false },
+    description: "狩猎雷达 / 趋势发现（Perplexity 等）",
+    fields: [
+      { key: "label", label: "标签", placeholder: "如：Perplexity-主力" },
+      { key: "base_url", label: "Base URL", placeholder: "https://api.perplexity.ai" },
+      { key: "api_key", label: "API Key", isSecret: true },
+      { key: "model", label: "Model", placeholder: "如：sonar" },
     ],
   },
   {
     id: "image",
-    label: "🎨 图片生成",
+    title: "🎨 图片生成池",
     icon: Image,
     description: "AI 绘图模型配置",
-    keys: [
-      { key: "IMAGE_GEN_BASE_URL", label: "Base URL", isSecret: false },
-      { key: "IMAGE_GEN_API_KEY", label: "API Key", isSecret: true },
-      { key: "IMAGE_GEN_MODEL", label: "Model", isSecret: false },
+    fields: [
+      { key: "label", label: "标签", placeholder: "如：DALL-E" },
+      { key: "base_url", label: "Base URL" },
+      { key: "api_key", label: "API Key", isSecret: true },
+      { key: "model", label: "Model", placeholder: "如：dall-e-3" },
     ],
   },
   {
     id: "search_api",
-    label: "🌐 搜索引擎",
+    title: "🌐 搜索引擎池",
     icon: Globe,
     description: "网页搜索 API Keys（Tavily / Bocha / You）",
-    keys: [
-      { key: "TAVILY_API_KEY", label: "Tavily API Key", isSecret: true },
-      { key: "BOCHA_API_KEY", label: "Bocha API Key", isSecret: true },
-      { key: "YOU_API_KEY", label: "You API Key", isSecret: true },
+    fields: [
+      { key: "label", label: "标签", placeholder: "如：Tavily" },
+      { key: "api_key", label: "API Key", isSecret: true },
+      { key: "model", label: "引擎类型", placeholder: "tavily / bocha / you" },
     ],
   },
 ];
@@ -79,99 +96,175 @@ const CONFIG_GROUPS: ConfigGroup[] = [
 const ModelManager = () => {
   const { isAdmin, isLoading: authLoading } = useAdminAuth();
   const navigate = useNavigate();
-  const [configs, setConfigs] = useState<ConfigItem[]>([]);
-  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [providers, setProviders] = useState<Record<string, ProviderRow[]>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [envStatus, setEnvStatus] = useState<Record<string, boolean>>({});
+  const [lovableReady, setLovableReady] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [testing, setTesting] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      navigate("/");
-    }
+    if (!authLoading && !isAdmin) navigate("/");
   }, [isAdmin, authLoading, navigate]);
 
-  useEffect(() => {
-    if (isAdmin) fetchConfigs();
-  }, [isAdmin]);
-
-  const fetchConfigs = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("admin-api-config", {
-        method: "GET",
-      });
+      const { data, error } = await supabase.functions.invoke("admin-api-config", { method: "GET" });
       if (error) throw error;
-      setConfigs(data.configs || []);
-      // Initialize edit values with display values for non-secret fields
-      const initial: Record<string, string> = {};
-      for (const c of data.configs || []) {
-        if (c.config_group !== "fallback") {
-          initial[c.config_key] = c.display_value || "";
-        }
-      }
-      setEditValues(initial);
+      setProviders(data.groups || {});
+      setEnvStatus(data.envStatus || {});
+      setLovableReady(data.lovableReady || false);
     } catch (e: any) {
       toast.error("加载配置失败: " + (e.message || "未知错误"));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) fetchData();
+  }, [isAdmin, fetchData]);
+
+  const updateProvider = (groupId: string, idx: number, field: string, value: any) => {
+    setProviders((prev) => {
+      const list = [...(prev[groupId] || [])];
+      list[idx] = { ...list[idx], [field]: value, _dirty: true };
+      return { ...prev, [groupId]: list };
+    });
   };
 
-  const handleSave = async (groupId: string) => {
-    const group = CONFIG_GROUPS.find((g) => g.id === groupId);
-    if (!group) return;
-
-    setSaving(groupId);
-    try {
-      const items = group.keys.map((k) => ({
-        config_key: k.key,
-        config_value: editValues[k.key] || "",
+  const addProvider = (groupId: string) => {
+    setProviders((prev) => {
+      const list = [...(prev[groupId] || [])];
+      const maxPriority = list.length > 0 ? Math.max(...list.map((p) => p.priority)) + 1 : 0;
+      list.push({
+        id: `new-${Date.now()}`,
         config_group: groupId,
-      }));
+        priority: maxPriority,
+        label: "",
+        base_url: "",
+        api_key: "",
+        model: "",
+        enabled: true,
+        updated_at: "",
+        _dirty: true,
+      });
+      return { ...prev, [groupId]: list };
+    });
+  };
 
+  const removeProvider = async (groupId: string, idx: number) => {
+    const list = providers[groupId] || [];
+    const p = list[idx];
+    if (p.id && !p.id.startsWith("new-")) {
+      try {
+        await supabase.functions.invoke("admin-api-config?action=delete", {
+          method: "POST",
+          body: { id: p.id },
+        });
+        toast.success("已删除");
+      } catch (e: any) {
+        toast.error("删除失败: " + e.message);
+        return;
+      }
+    }
+    setProviders((prev) => ({
+      ...prev,
+      [groupId]: list.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const movePriority = (groupId: string, idx: number, dir: -1 | 1) => {
+    setProviders((prev) => {
+      const list = [...(prev[groupId] || [])];
+      const targetIdx = idx + dir;
+      if (targetIdx < 0 || targetIdx >= list.length) return prev;
+      // Swap priorities
+      const tmpPriority = list[idx].priority;
+      list[idx] = { ...list[idx], priority: list[targetIdx].priority, _dirty: true };
+      list[targetIdx] = { ...list[targetIdx], priority: tmpPriority, _dirty: true };
+      // Re-sort
+      list.sort((a, b) => a.priority - b.priority);
+      return { ...prev, [groupId]: list };
+    });
+  };
+
+  const saveProvider = async (groupId: string, idx: number) => {
+    const p = providers[groupId]?.[idx];
+    if (!p) return;
+
+    setProviders((prev) => {
+      const list = [...(prev[groupId] || [])];
+      list[idx] = { ...list[idx], _saving: true };
+      return { ...prev, [groupId]: list };
+    });
+
+    try {
+      const payload = {
+        id: p.id,
+        config_group: groupId,
+        priority: p.priority,
+        label: p.label,
+        base_url: p.base_url,
+        api_key: p.api_key,
+        model: p.model,
+        enabled: p.enabled,
+      };
       const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
         method: "POST",
-        body: { configs: items },
+        body: { provider: payload },
       });
       if (error) throw error;
-      toast.success("配置已保存");
-      await fetchConfigs();
+      toast.success("已保存");
+      await fetchData();
     } catch (e: any) {
-      toast.error("保存失败: " + (e.message || "未知错误"));
+      toast.error("保存失败: " + e.message);
     } finally {
-      setSaving(null);
+      setProviders((prev) => {
+        const list = [...(prev[groupId] || [])];
+        if (list[idx]) list[idx] = { ...list[idx], _saving: false, _dirty: false };
+        return { ...prev, [groupId]: list };
+      });
     }
   };
 
-  const handleTest = async (groupId: string) => {
-    setTesting(groupId);
-    setTestResults((prev) => ({ ...prev, [groupId]: undefined as any }));
+  const testProvider = async (groupId: string, idx: number) => {
+    const p = providers[groupId]?.[idx];
+    if (!p) return;
+
+    setProviders((prev) => {
+      const list = [...(prev[groupId] || [])];
+      list[idx] = { ...list[idx], _testing: true, _testResult: undefined };
+      return { ...prev, [groupId]: list };
+    });
+
     try {
       const { data, error } = await supabase.functions.invoke("admin-api-config?action=test", {
         method: "POST",
-        body: { group: groupId },
+        body: {
+          provider: {
+            config_group: groupId,
+            base_url: p.base_url,
+            api_key: p.api_key.startsWith("****") ? "" : p.api_key,
+            model: p.model,
+          },
+        },
       });
       if (error) throw error;
-      setTestResults((prev) => ({ ...prev, [groupId]: data }));
+      setProviders((prev) => {
+        const list = [...(prev[groupId] || [])];
+        list[idx] = { ...list[idx], _testResult: data, _testing: false };
+        return { ...prev, [groupId]: list };
+      });
     } catch (e: any) {
-      setTestResults((prev) => ({
-        ...prev,
-        [groupId]: { success: false, message: e.message || "测试失败" },
-      }));
-    } finally {
-      setTesting(null);
+      setProviders((prev) => {
+        const list = [...(prev[groupId] || [])];
+        list[idx] = { ...list[idx], _testResult: { success: false, message: e.message }, _testing: false };
+        return { ...prev, [groupId]: list };
+      });
     }
   };
 
-  const getConfigItem = (key: string) => configs.find((c) => c.config_key === key);
-  const fallbackConfig = configs.find((c) => c.config_key === "LOVABLE_API_KEY");
-
-  if (authLoading || loading) {
-    return <BrandLoader fullScreen text="加载管理面板..." />;
-  }
-
+  if (authLoading || loading) return <BrandLoader fullScreen text="加载管理面板..." />;
   if (!isAdmin) return null;
 
   return (
@@ -180,126 +273,189 @@ const ModelManager = () => {
       <main className="pt-28 pb-16 px-4 max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground">API 配置中心</h1>
-          <p className="text-muted-foreground mt-1">集中管理所有外部 API 的连接配置</p>
+          <p className="text-muted-foreground mt-1">
+            每组支持多个提供商，按优先级顺序回退 — 第一个失败自动切换下一个
+          </p>
         </div>
 
         <div className="space-y-6">
-          {CONFIG_GROUPS.map((group) => {
+          {GROUPS.map((group) => {
             const Icon = group.icon;
-            const result = testResults[group.id];
+            const list = providers[group.id] || [];
+
             return (
               <GlassCard key={group.id} padding="lg" className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Icon className="w-5 h-5 text-primary" />
                     <div>
-                      <h2 className="font-semibold text-foreground">{group.label}</h2>
+                      <h2 className="font-semibold text-foreground">{group.title}</h2>
                       <p className="text-xs text-muted-foreground">{group.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {group.keys.some((k) => getConfigItem(k.key)?.has_value) && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        {getConfigItem(group.keys[0].key)?.source === "database" ? "数据库" : "环境变量"}
+                    {list.length === 0 && envStatus[group.id] && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        环境变量回退
                       </span>
                     )}
+                    <span className="text-xs text-muted-foreground">
+                      {list.length} 个提供商
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {group.keys.map((k) => {
-                    const item = getConfigItem(k.key);
-                    const isVisible = showSecrets[k.key];
-                    return (
-                      <div key={k.key} className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{k.label}</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type={k.isSecret && !isVisible ? "password" : "text"}
-                            value={editValues[k.key] || ""}
-                            onChange={(e) =>
-                              setEditValues((prev) => ({ ...prev, [k.key]: e.target.value }))
-                            }
-                            placeholder={item?.has_value ? "已配置（留空保持不变）" : "未配置"}
-                            className="font-mono text-sm"
-                          />
-                          {k.isSecret && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                setShowSecrets((prev) => ({ ...prev, [k.key]: !prev[k.key] }))
-                              }
-                              className="shrink-0"
-                            >
-                              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </Button>
+                {/* Provider list */}
+                <div className="space-y-4">
+                  {list.map((p, idx) => (
+                    <div
+                      key={p.id}
+                      className="border border-border/50 rounded-xl p-4 space-y-3 bg-background/50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs font-mono text-muted-foreground">#{idx + 1}</span>
+                          <span className="text-sm font-medium text-foreground">
+                            {p.label || `提供商 ${idx + 1}`}
+                          </span>
+                          {p._testResult && (
+                            <span className={`text-xs ${p._testResult.success ? "text-primary" : "text-destructive"}`}>
+                              {p._testResult.latencyMs ? `${p._testResult.latencyMs}ms` : ""}
+                            </span>
                           )}
                         </div>
+                        <div className="flex items-center gap-1">
+                          <Switch
+                            checked={p.enabled}
+                            onCheckedChange={(v) => updateProvider(group.id, idx, "enabled", v)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={idx === 0}
+                            onClick={() => movePriority(group.id, idx, -1)}
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={idx === list.length - 1}
+                            onClick={() => movePriority(group.id, idx, 1)}
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeProvider(group.id, idx)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    );
-                  })}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.fields.map((f) => {
+                          const fieldKey = `${p.id}-${String(f.key)}`;
+                          const isVisible = showSecrets[fieldKey];
+                          const displayVal = f.isSecret && p.api_key_display && !p._dirty
+                            ? p.api_key_display
+                            : (p[f.key] as string) || "";
+
+                          return (
+                            <div key={String(f.key)} className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                              <div className="flex gap-1">
+                                <Input
+                                  type={f.isSecret && !isVisible ? "password" : "text"}
+                                  value={displayVal}
+                                  onChange={(e) => updateProvider(group.id, idx, String(f.key), e.target.value)}
+                                  placeholder={f.placeholder}
+                                  className="font-mono text-xs h-9"
+                                />
+                                {f.isSecret && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0 h-9 w-9"
+                                    onClick={() => setShowSecrets((s) => ({ ...s, [fieldKey]: !s[fieldKey] }))}
+                                  >
+                                    {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {p._testResult && (
+                        <div
+                          className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg ${
+                            p._testResult.success
+                              ? "bg-primary/10 text-primary"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {p._testResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                          <span>{p._testResult.message}</span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={p._testing}
+                          onClick={() => testProvider(group.id, idx)}
+                        >
+                          {p._testing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+                          测试
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={p._saving}
+                          onClick={() => saveProvider(group.id, idx)}
+                        >
+                          {p._saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                          保存
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
-                {result && (
-                  <div
-                    className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
-                      result.success
-                        ? "bg-primary/10 text-primary"
-                        : "bg-destructive/10 text-destructive"
-                    }`}
-                  >
-                    {result.success ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : (
-                      <XCircle className="w-4 h-4" />
-                    )}
-                    <span>{result.message}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleTest(group.id)}
-                    disabled={testing === group.id}
-                  >
-                    {testing === group.id ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                    )}
-                    测试连通性
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => handleSave(group.id)}
-                    disabled={saving === group.id}
-                  >
-                    {saving === group.id ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-1" />
-                    )}
-                    保存
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-dashed"
+                  onClick={() => addProvider(group.id)}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  添加提供商
+                </Button>
               </GlassCard>
             );
           })}
 
-          {/* Fallback section */}
+          {/* Lovable AI fallback */}
           <GlassCard padding="lg" className="space-y-3">
             <div className="flex items-center gap-3">
               <Shield className="w-5 h-5 text-primary" />
               <div>
                 <h2 className="font-semibold text-foreground">🛡️ 兜底（Lovable AI）</h2>
-                <p className="text-xs text-muted-foreground">主 LLM 不可用时的自动回退</p>
+                <p className="text-xs text-muted-foreground">所有池为空或全部失败时的最终回退</p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              {fallbackConfig?.has_value ? (
+              {lovableReady ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                   <span className="text-primary">已就绪（自动配置，只读）</span>

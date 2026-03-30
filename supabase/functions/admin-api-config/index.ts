@@ -11,103 +11,66 @@ function maskValue(value: string): string {
   return "****" + value.slice(-4);
 }
 
+async function verifyAdmin(req: Request) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) throw new Error("Unauthorized");
+
+  const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error } = await userClient.auth.getUser();
+  if (error || !user) throw new Error("Unauthorized");
+
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+  if (!isAdmin) throw new Error("Forbidden");
+
+  return { user, adminClient };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Admin check
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: isAdmin } = await adminClient.rpc("has_role", {
-      _user_id: user.id,
-      _role: "admin",
-    });
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    const { user, adminClient } = await verifyAdmin(req);
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // GET - read all configs (masked)
+    // GET — list all providers per group
     if (req.method === "GET") {
       const { data, error } = await adminClient
         .from("admin_api_configs")
         .select("*")
-        .order("config_group");
+        .order("config_group")
+        .order("priority");
 
       if (error) throw error;
 
-      // Define all config keys with their groups
-      const allKeys = [
-        { key: "LLM_BASE_URL", group: "llm", isSecret: false },
-        { key: "LLM_API_KEY", group: "llm", isSecret: true },
-        { key: "LLM_MODEL", group: "llm", isSecret: false },
-        { key: "PERPLEXITY_BASE_URL", group: "search_llm", isSecret: false },
-        { key: "PERPLEXITY_API_KEY", group: "search_llm", isSecret: true },
-        { key: "PERPLEXITY_MODEL", group: "search_llm", isSecret: false },
-        { key: "IMAGE_GEN_BASE_URL", group: "image", isSecret: false },
-        { key: "IMAGE_GEN_API_KEY", group: "image", isSecret: true },
-        { key: "IMAGE_GEN_MODEL", group: "image", isSecret: false },
-        { key: "TAVILY_API_KEY", group: "search_api", isSecret: true },
-        { key: "BOCHA_API_KEY", group: "search_api", isSecret: true },
-        { key: "YOU_API_KEY", group: "search_api", isSecret: true },
-      ];
+      // Group by config_group
+      const groups: Record<string, any[]> = {};
+      for (const row of (data || [])) {
+        if (!groups[row.config_group]) groups[row.config_group] = [];
+        groups[row.config_group].push({
+          ...row,
+          api_key_display: row.api_key ? maskValue(row.api_key) : "",
+        });
+      }
 
-      const dbMap = new Map(data?.map((d: any) => [d.config_key, d]) || []);
+      // Check env fallbacks for groups with no DB entries
+      const envStatus: Record<string, boolean> = {
+        llm: !!(Deno.env.get("LLM_API_KEY") && Deno.env.get("LLM_BASE_URL")),
+        search_llm: !!(Deno.env.get("PERPLEXITY_API_KEY") && Deno.env.get("PERPLEXITY_BASE_URL")),
+        image: !!(Deno.env.get("IMAGE_GEN_API_KEY") && Deno.env.get("IMAGE_GEN_BASE_URL")),
+        search_api: !!(Deno.env.get("TAVILY_API_KEY") || Deno.env.get("BOCHA_API_KEY") || Deno.env.get("YOU_API_KEY")),
+      };
 
-      const configs = allKeys.map((k) => {
-        const dbRow = dbMap.get(k.key) as any;
-        const rawValue = dbRow?.config_value || Deno.env.get(k.key) || "";
-        return {
-          config_key: k.key,
-          config_group: k.group,
-          display_value: k.isSecret && rawValue ? maskValue(rawValue) : rawValue,
-          has_value: !!rawValue,
-          source: dbRow?.config_value ? "database" : rawValue ? "env" : "none",
-          updated_at: dbRow?.updated_at || null,
-        };
-      });
+      const lovableReady = !!Deno.env.get("LOVABLE_API_KEY");
 
-      // Lovable AI status
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      configs.push({
-        config_key: "LOVABLE_API_KEY",
-        config_group: "fallback",
-        display_value: lovableKey ? "已配置" : "未配置",
-        has_value: !!lovableKey,
-        source: "env",
-        updated_at: null,
-      });
-
-      return new Response(JSON.stringify({ configs }), {
+      return new Response(JSON.stringify({ groups, envStatus, lovableReady }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -116,146 +79,139 @@ Deno.serve(async (req) => {
     if (req.method === "POST") {
       const body = await req.json();
 
-      // Test connectivity
+      // Test connectivity for a specific provider
       if (action === "test") {
-        const { group } = body;
-        const result = await testConnectivity(adminClient, group);
+        const { provider } = body;
+        const result = await testProvider(provider);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Save configs
-      const { configs } = body;
-      if (!Array.isArray(configs)) {
-        return new Response(JSON.stringify({ error: "Invalid payload" }), {
-          status: 400,
+      // Save a provider (upsert)
+      if (action === "save") {
+        const { provider } = body;
+        if (!provider || !provider.config_group) {
+          return new Response(JSON.stringify({ error: "Invalid provider" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const record = {
+          config_group: provider.config_group,
+          priority: provider.priority ?? 0,
+          label: provider.label || "",
+          base_url: provider.base_url || "",
+          api_key: provider.api_key || "",
+          model: provider.model || "",
+          enabled: provider.enabled !== false,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        };
+
+        if (provider.id && !provider.id.startsWith("new-")) {
+          // Update existing — skip api_key if masked
+          const updateRecord: any = { ...record };
+          if (provider.api_key && provider.api_key.startsWith("****")) {
+            delete updateRecord.api_key;
+          }
+          const { error } = await adminClient
+            .from("admin_api_configs")
+            .update(updateRecord)
+            .eq("id", provider.id);
+          if (error) throw error;
+        } else {
+          // Insert new
+          const { error } = await adminClient
+            .from("admin_api_configs")
+            .insert(record);
+          if (error) throw error;
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const allowedKeys = new Set([
-        "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL",
-        "PERPLEXITY_BASE_URL", "PERPLEXITY_API_KEY", "PERPLEXITY_MODEL",
-        "IMAGE_GEN_BASE_URL", "IMAGE_GEN_API_KEY", "IMAGE_GEN_MODEL",
-        "TAVILY_API_KEY", "BOCHA_API_KEY", "YOU_API_KEY",
-      ]);
-
-      for (const item of configs) {
-        if (!allowedKeys.has(item.config_key)) continue;
-        // Skip masked values (user didn't change)
-        if (item.config_value && item.config_value.startsWith("****")) continue;
-
+      // Delete a provider
+      if (action === "delete") {
+        const { id } = body;
+        if (!id) {
+          return new Response(JSON.stringify({ error: "Missing id" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         const { error } = await adminClient
           .from("admin_api_configs")
-          .upsert(
-            {
-              config_key: item.config_key,
-              config_value: item.config_value || "",
-              config_group: item.config_group,
-              updated_at: new Date().toISOString(),
-              updated_by: user.id,
-            },
-            { onConflict: "config_key" }
-          );
-
-        if (error) {
-          console.error(`Failed to upsert ${item.config_key}:`, error);
-          throw error;
-        }
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Unknown action" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("[admin-api-config] Error:", err);
+    const status = err.message === "Unauthorized" ? 401 : err.message === "Forbidden" ? 403 : 500;
     return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
 
-async function testConnectivity(
-  client: any,
-  group: string
-): Promise<{ success: boolean; message: string }> {
+async function testProvider(provider: any): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+  const start = Date.now();
   try {
-    // Resolve values from DB first, then env
-    const getVal = async (key: string) => {
-      const { data } = await client
-        .from("admin_api_configs")
-        .select("config_value")
-        .eq("config_key", key)
-        .maybeSingle();
-      return data?.config_value || Deno.env.get(key) || "";
-    };
+    const { config_group, base_url, api_key, model } = provider;
 
-    if (group === "llm") {
-      const baseUrl = await getVal("LLM_BASE_URL");
-      const apiKey = await getVal("LLM_API_KEY");
-      const model = await getVal("LLM_MODEL");
-      if (!baseUrl || !apiKey) return { success: false, message: "Base URL 或 API Key 未配置" };
-
-      const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: model || "gpt-3.5-turbo", messages: [{ role: "user", content: "hi" }], max_tokens: 5 }),
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}: ${await resp.text().catch(() => "")}` };
-      return { success: true, message: "连通正常 ✅" };
+    if (config_group === "search_api") {
+      if (!api_key) return { success: false, message: "API Key 未填写" };
+      return { success: true, message: `${model || "search"} Key 已配置 ✅`, latencyMs: Date.now() - start };
     }
 
-    if (group === "search_llm") {
-      const baseUrl = await getVal("PERPLEXITY_BASE_URL");
-      const apiKey = await getVal("PERPLEXITY_API_KEY");
-      if (!baseUrl || !apiKey) return { success: false, message: "Base URL 或 API Key 未配置" };
+    if (!base_url || !api_key) return { success: false, message: "Base URL 或 API Key 未填写" };
 
-      const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    if (config_group === "llm" || config_group === "search_llm") {
+      const cleanUrl = base_url.replace(/\/$/, "");
+      const endpoint = config_group === "search_llm"
+        ? `${cleanUrl}/chat/completions`
+        : `${cleanUrl}/v1/chat/completions`;
+
+      const resp = await fetch(endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: await getVal("PERPLEXITY_MODEL") || "sonar", messages: [{ role: "user", content: "test" }], max_tokens: 5 }),
+        headers: { Authorization: `Bearer ${api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: model || "gpt-3.5-turbo",
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 5,
+        }),
         signal: AbortSignal.timeout(15000),
       });
-      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}` };
-      return { success: true, message: "连通正常 ✅" };
+      const latencyMs = Date.now() - start;
+      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}`, latencyMs };
+      return { success: true, message: `连通正常 ✅ (${latencyMs}ms)`, latencyMs };
     }
 
-    if (group === "image") {
-      const baseUrl = await getVal("IMAGE_GEN_BASE_URL");
-      const apiKey = await getVal("IMAGE_GEN_API_KEY");
-      if (!baseUrl || !apiKey) return { success: false, message: "Base URL 或 API Key 未配置" };
-      // Just validate the endpoint responds
-      const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
+    if (config_group === "image") {
+      const resp = await fetch(`${base_url.replace(/\/$/, "")}/v1/models`, {
+        headers: { Authorization: `Bearer ${api_key}` },
         signal: AbortSignal.timeout(10000),
       });
-      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}` };
-      return { success: true, message: "连通正常 ✅" };
-    }
-
-    if (group === "search_api") {
-      const results: string[] = [];
-      const tavily = await getVal("TAVILY_API_KEY");
-      const bocha = await getVal("BOCHA_API_KEY");
-      const you = await getVal("YOU_API_KEY");
-      if (tavily) results.push("Tavily ✅");
-      if (bocha) results.push("Bocha ✅");
-      if (you) results.push("You ✅");
-      if (results.length === 0) return { success: false, message: "无搜索引擎 API Key 配置" };
-      return { success: true, message: results.join(", ") };
+      const latencyMs = Date.now() - start;
+      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}`, latencyMs };
+      return { success: true, message: `连通正常 ✅ (${latencyMs}ms)`, latencyMs };
     }
 
     return { success: false, message: "未知配置组" };
   } catch (e) {
-    return { success: false, message: `测试失败: ${e.message}` };
+    return { success: false, message: `测试失败: ${e.message}`, latencyMs: Date.now() - start };
   }
 }
