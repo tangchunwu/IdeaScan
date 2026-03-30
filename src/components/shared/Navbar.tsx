@@ -5,6 +5,7 @@ import { Sparkles, History, Home, LogIn, LogOut, User, Menu, X, Settings, Radar,
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "./BrandLogo";
 import { useState, useRef } from "react";
