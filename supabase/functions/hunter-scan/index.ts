@@ -118,7 +118,8 @@ async function searchWithPerplexity(
   apiKey: string,
   options: { isDescription?: boolean; model?: string; isDiscovery?: boolean } = {}
 ): Promise<{ signals: MarketSignal[]; citations: string[] }> {
-  const { isDescription = false, model = "sonar", isDiscovery = false } = options;
+  const defaultModel = Deno.env.get("PERPLEXITY_MODEL") || "sonar";
+  const { isDescription = false, model = defaultModel, isDiscovery = false } = options;
 
   const prompt = isDiscovery ? buildTrendDiscoveryPrompt() : buildSemanticPrompt(input, isDescription);
   const systemContent = isDiscovery
@@ -287,10 +288,9 @@ serve(async (req) => {
 
       // If still no keywords (or explicit discover mode), do trend discovery
       if (isDiscoverMode || keywords.length === 0) {
-        console.log(`[hunter-scan] 🔍 Trend discovery mode — using sonar`);
+        console.log(`[hunter-scan] 🔍 Trend discovery mode — using ${Deno.env.get("PERPLEXITY_MODEL") || "sonar"}`);
         try {
           const { signals } = await searchWithPerplexity("", baseUrl, apiKey, {
-            model: "sonar",
             isDiscovery: true,
           });
           console.log(`[hunter-scan] Trend discovery got ${signals.length} signals`);
