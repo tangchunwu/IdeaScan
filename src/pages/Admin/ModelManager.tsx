@@ -214,9 +214,8 @@ const ModelManager = () => {
         model: p.model,
         enabled: p.enabled,
       };
-      const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
-        method: "POST",
-        body: { provider: payload },
+      const { error } = await supabase.functions.invoke("admin-api-config", {
+        body: { action: "save", provider: payload },
       });
       if (error) throw error;
       toast.success("已保存，配置已同步生效 ✅");
