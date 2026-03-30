@@ -16,27 +16,42 @@ export type Database = {
     Tables: {
       admin_api_configs: {
         Row: {
+          api_key: string
+          base_url: string
           config_group: string
-          config_key: string
-          config_value: string
+          created_at: string
+          enabled: boolean
           id: string
-          updated_at: string | null
+          label: string
+          model: string
+          priority: number
+          updated_at: string
           updated_by: string | null
         }
         Insert: {
+          api_key?: string
+          base_url?: string
           config_group?: string
-          config_key: string
-          config_value?: string
+          created_at?: string
+          enabled?: boolean
           id?: string
-          updated_at?: string | null
+          label?: string
+          model?: string
+          priority?: number
+          updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          api_key?: string
+          base_url?: string
           config_group?: string
-          config_key?: string
-          config_value?: string
+          created_at?: string
+          enabled?: boolean
           id?: string
-          updated_at?: string | null
+          label?: string
+          model?: string
+          priority?: number
+          updated_at?: string
           updated_by?: string | null
         }
         Relationships: []

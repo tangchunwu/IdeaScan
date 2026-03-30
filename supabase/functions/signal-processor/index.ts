@@ -206,11 +206,13 @@ serve(async (req) => {
     );
 
     // Use admin-configured or env LLM for scoring and clustering, fallback to Lovable AI
-    const { resolveConfigs } = await import("../_shared/config-resolver.ts");
-    const resolved = await resolveConfigs(["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]);
-    const llmBaseUrl = (resolved["LLM_BASE_URL"] || "https://ai.gateway.lovable.dev/v1").replace(/\/+$/, "");
-    const llmApiKey = resolved["LLM_API_KEY"] || Deno.env.get("LOVABLE_API_KEY") || "";
-    const llmModel = resolved["LLM_MODEL"] || "google/gemini-2.5-flash-lite";
+    const { resolvePool } = await import("../_shared/config-resolver.ts");
+    const llmPool = await resolvePool("llm");
+    if (llmPool.length === 0) throw new Error("No LLM providers configured");
+    const primaryLlm = llmPool[0];
+    const llmBaseUrl = primaryLlm.base_url.replace(/\/+$/, "");
+    const llmApiKey = primaryLlm.api_key;
+    const llmModel = primaryLlm.model;
     if (!llmApiKey) throw new Error("No LLM API key configured (LLM_API_KEY or LOVABLE_API_KEY)");
 
     const scoreApiKey = llmApiKey;
