@@ -100,7 +100,7 @@ ${signal.content.slice(0, 1500)}
   }, { maxRetries: 3, baseDelayMs: 2000 });
 }
 
-// ── Step 2: Semantic clustering via Lovable AI ──
+// ── Step 2: Semantic clustering via LLM ──
 
 interface ClusteredOpportunity {
   title: string;
@@ -115,7 +115,9 @@ interface ClusteredOpportunity {
 
 async function clusterSignalsWithAI(
   signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>,
-  lovableApiKey: string
+  clusterApiKey: string,
+  clusterBaseUrl: string,
+  clusterModel: string
 ): Promise<ClusteredOpportunity[]> {
   return withRetry(async () => {
   // Build a compact summary of signals for the AI
@@ -149,11 +151,11 @@ ${signalSummaries}
 
 只返回 JSON 数组，不要其他文字。`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch(`${clusterBaseUrl}/chat/completions`, {
     method: "POST",
-    headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+    headers: { "Authorization": `Bearer ${clusterApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: clusterModel,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     }),
@@ -161,7 +163,7 @@ ${signalSummaries}
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Lovable AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
+    throw new Error(`AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
   }
 
   const data = await response.json();
@@ -203,13 +205,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Use Lovable AI for both scoring and clustering
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
+    // Use user-configured LLM for scoring and clustering, fallback to Lovable AI
+    const llmBaseUrl = (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/+$/, "");
+    const llmApiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    const llmModel = Deno.env.get("LLM_MODEL") || "google/gemini-2.5-flash-lite";
+    if (!llmApiKey) throw new Error("No LLM API key configured (LLM_API_KEY or LOVABLE_API_KEY)");
 
-    const scoreApiKey = lovableApiKey;
-    const scoreBaseUrl = "https://ai.gateway.lovable.dev/v1";
-    const scoreModel = "google/gemini-2.5-flash-lite";
+    const scoreApiKey = llmApiKey;
+    const scoreBaseUrl = llmBaseUrl;
+    const scoreModel = llmModel;
 
     // lovableApiKey is already defined above and used for both scoring and clustering
 
@@ -278,8 +282,8 @@ serve(async (req) => {
         .limit(200);
 
       if (highSignals && highSignals.length >= 3) {
-        console.log(`[Processor] Clustering ${highSignals.length} high-score signals with Lovable AI`);
-        const clusters = await clusterSignalsWithAI(highSignals, lovableApiKey);
+        console.log(`[Processor] Clustering ${highSignals.length} high-score signals with ${llmModel}`);
+        const clusters = await clusterSignalsWithAI(highSignals, llmApiKey, llmBaseUrl, llmModel);
         console.log(`[Processor] AI returned ${clusters.length} opportunity clusters`);
 
         for (const cluster of clusters) {
