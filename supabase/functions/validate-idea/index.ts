@@ -47,6 +47,7 @@ import {
   mergeSearchResults,
   type LLMConfig 
 } from "../_shared/competitor-extractor.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
