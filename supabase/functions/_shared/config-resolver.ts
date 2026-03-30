@@ -12,7 +12,7 @@ export interface ProviderConfig {
 
 // Cache: group -> { providers, expiry }
 const cache = new Map<string, { providers: ProviderConfig[]; expiry: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 1 * 60 * 1000;
 
 function getServiceClient() {
   return createClient(

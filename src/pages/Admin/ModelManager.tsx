@@ -381,6 +381,11 @@ const ModelManager = () => {
                           <span className="text-sm font-medium text-foreground">
                             {p.label || `提供商 ${idx + 1}`}
                           </span>
+                          {p._source === "env" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                              环境变量
+                            </span>
+                          )}
                           {p._testResult && (
                             <span className={`text-xs ${p._testResult.success ? "text-primary" : "text-destructive"}`}>
                               {p._testResult.latencyMs ? `${p._testResult.latencyMs}ms` : ""}
