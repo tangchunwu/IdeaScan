@@ -205,13 +205,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Use Lovable AI for both scoring and clustering
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
+    // Use user-configured LLM for scoring and clustering, fallback to Lovable AI
+    const llmBaseUrl = (Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/+$/, "");
+    const llmApiKey = Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    const llmModel = Deno.env.get("LLM_MODEL") || "google/gemini-2.5-flash-lite";
+    if (!llmApiKey) throw new Error("No LLM API key configured (LLM_API_KEY or LOVABLE_API_KEY)");
 
-    const scoreApiKey = lovableApiKey;
-    const scoreBaseUrl = "https://ai.gateway.lovable.dev/v1";
-    const scoreModel = "google/gemini-2.5-flash-lite";
+    const scoreApiKey = llmApiKey;
+    const scoreBaseUrl = llmBaseUrl;
+    const scoreModel = llmModel;
 
     // lovableApiKey is already defined above and used for both scoring and clustering
 
