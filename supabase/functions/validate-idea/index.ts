@@ -80,13 +80,22 @@ function resolveSearchKeys(config?: RequestConfig) {
   };
 }
 
-function resolveLLMRuntime(config?: RequestConfig) {
-  const apiKey = config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
-  const baseUrl = (config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1")
-    .replace(/\/$/, "")
-    .replace(/\/chat\/completions$/, "");
-  const model = config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
-  return { apiKey, baseUrl, model };
+let _cachedLlmPool: { base_url: string; api_key: string; model: string }[] | null = null;
+
+async function resolveLLMRuntime(config?: RequestConfig) {
+  if (config?.llmApiKey) {
+    const baseUrl = (config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1")
+      .replace(/\/$/, "").replace(/\/chat\/completions$/, "");
+    return { apiKey: config.llmApiKey, baseUrl, model: config.llmModel || "google/gemini-3-flash-preview" };
+  }
+  if (!_cachedLlmPool) {
+    _cachedLlmPool = await resolvePool("llm");
+  }
+  const first = _cachedLlmPool[0];
+  if (first) {
+    return { apiKey: first.api_key, baseUrl: first.base_url.replace(/\/$/, "").replace(/\/chat\/completions$/, ""), model: first.model };
+  }
+  return { apiKey: "", baseUrl: "https://ai.gateway.lovable.dev/v1", model: "google/gemini-3-flash-preview" };
 }
 
 function countEnabledSearchProviders(keys: { tavily?: string; bocha?: string; you?: string }) {
