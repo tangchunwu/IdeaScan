@@ -580,7 +580,7 @@ async function analyzeWithAI(
   dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
-  const llmRuntime = resolveLLMRuntime(config);
+  const llmRuntime = await resolveLLMRuntime(config);
   const apiKey = llmRuntime.apiKey;
   const baseUrl = llmRuntime.baseUrl;
   const model = llmRuntime.model;
