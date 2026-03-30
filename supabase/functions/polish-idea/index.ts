@@ -88,37 +88,21 @@ async function polishWithFallback(
     }
   }
 
-  // 3) System-level LLM env vars
-  const sysBase = normalizeLlmBaseUrl(Deno.env.get("LLM_BASE_URL"));
-  const sysKey = (Deno.env.get("LLM_API_KEY") || "").trim();
-  const sysModel = (Deno.env.get("LLM_MODEL") || "").trim();
-  if (sysBase && sysKey && sysModel) {
+  // 3) Pool-based fallback (DB configs + env vars + Lovable AI)
+  const pool = await resolvePool("llm");
+  for (const provider of pool) {
+    if (provider.api_key === config?.llmApiKey) continue; // skip duplicate
     try {
       const res = await requestChatCompletion({
-        baseUrl: sysBase, apiKey: sysKey, model: sysModel,
+        baseUrl: normalizeLlmBaseUrl(provider.base_url) || provider.base_url,
+        apiKey: provider.api_key,
+        model: provider.model,
         messages, temperature: 0.7, maxTokens: 500, timeoutMs: 20000,
       });
       const content = cleanModelOutput(extractAssistantContent(res.json));
       if (content) return content;
     } catch (e) {
-      errors.push(`sys_llm: ${(e as Error).message?.slice(0, 120)}`);
-    }
-  }
-
-  // 4) Lovable AI gateway as final fallback
-  const lovableKey = (Deno.env.get("LOVABLE_API_KEY") || "").trim();
-  if (lovableKey) {
-    try {
-      const res = await requestChatCompletion({
-        baseUrl: "https://ai.gateway.lovable.dev/v1",
-        apiKey: lovableKey,
-        model: "google/gemini-3-flash-preview",
-        messages, temperature: 0.7, maxTokens: 500, timeoutMs: 25000,
-      });
-      const content = cleanModelOutput(extractAssistantContent(res.json));
-      if (content) return content;
-    } catch (e) {
-      errors.push(`lovable_ai: ${(e as Error).message?.slice(0, 120)}`);
+      errors.push(`${provider.label}: ${(e as Error).message?.slice(0, 120)}`);
     }
   }
 

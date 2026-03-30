@@ -249,7 +249,7 @@ serve(async (req) => {
       : "";
 
     const reportContext = buildReportContext(report, persona);
-    const candidates = buildLLMCandidates(config);
+    const candidates = await buildLLMCandidates(config);
     if (candidates.length === 0) throw new Error("No LLM provider available");
 
     const sanitizedIdea = sanitizeForPrompt(validation?.idea || '未知');

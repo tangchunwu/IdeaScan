@@ -72,11 +72,13 @@ interface RequestConfig {
   mode?: 'quick' | 'deep';
 }
 
-function resolveSearchKeys(config?: RequestConfig) {
+async function resolveSearchKeys(config?: RequestConfig) {
+  const pool = await resolvePool("search_api");
+  const fromPool = (label: string) => pool.find(p => p.model === label || p.label.toLowerCase().includes(label))?.api_key || "";
   return {
-    tavily: config?.searchKeys?.tavily || Deno.env.get("TAVILY_API_KEY") || "",
-    bocha: config?.searchKeys?.bocha || Deno.env.get("BOCHA_API_KEY") || "",
-    you: config?.searchKeys?.you || Deno.env.get("YOU_API_KEY") || "",
+    tavily: config?.searchKeys?.tavily || fromPool("tavily") || Deno.env.get("TAVILY_API_KEY") || "",
+    bocha: config?.searchKeys?.bocha || fromPool("bocha") || Deno.env.get("BOCHA_API_KEY") || "",
+    you: config?.searchKeys?.you || fromPool("you") || Deno.env.get("YOU_API_KEY") || "",
   };
 }
 

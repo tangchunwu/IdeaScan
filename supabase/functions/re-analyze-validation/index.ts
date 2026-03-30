@@ -147,16 +147,10 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
 `;
   }
 
-  // Resolve LLM config with priority: custom > system env > Lovable AI
+  // Resolve LLM config with priority: custom > pool (DB + env + Lovable)
   const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
   const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl && !frontendUrlIsDefault;
 
-  const envKey = Deno.env.get("LLM_API_KEY");
-  const envBase = Deno.env.get("LLM_BASE_URL");
-  const envModel = Deno.env.get("LLM_MODEL");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-  // Build ordered list of LLM candidates to try
   type LLMCandidate = { baseUrl: string; apiKey: string; model: string };
   const candidates: LLMCandidate[] = [];
 
@@ -167,19 +161,12 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
       model: config!.llmModel || "gpt-4o-mini",
     });
   }
-  if (envKey && envBase) {
-    candidates.push({
-      baseUrl: normalizeLlmBaseUrl(envBase),
-      apiKey: envKey,
-      model: envModel || "google/gemini-3-flash-preview",
-    });
-  }
-  if (LOVABLE_API_KEY) {
-    candidates.push({
-      baseUrl: "https://ai.gateway.lovable.dev/v1",
-      apiKey: LOVABLE_API_KEY,
-      model: "google/gemini-2.5-flash",
-    });
+
+  const pool = await resolvePool("llm");
+  for (const p of pool) {
+    if (p.api_key !== config?.llmApiKey) {
+      candidates.push({ baseUrl: normalizeLlmBaseUrl(p.base_url) || p.base_url, apiKey: p.api_key, model: p.model });
+    }
   }
 
   if (candidates.length === 0) {

@@ -328,7 +328,7 @@ serve(async (req) => {
       } : undefined,
     };
 
-    const candidates = buildLLMCandidates(config);
+    const candidates = await buildLLMCandidates(config);
     if (candidates.length === 0) throw new Error("No LLM provider available");
 
     console.log(`Generating comments for ${personas.length} personas with ${candidates.length} LLM candidates...`);
