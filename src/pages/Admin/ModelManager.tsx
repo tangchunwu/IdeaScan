@@ -333,6 +333,12 @@ const ModelManager = () => {
             每组支持多个提供商，按优先级顺序回退 — 第一个失败自动切换下一个
           </p>
         </div>
+        {hasEnvEntries && (
+          <Button variant="outline" size="sm" onClick={importAllEnv}>
+            <Save className="w-4 h-4 mr-1" />
+            一键导入全部环境变量到数据库
+          </Button>
+        )}
 
         <div className="space-y-6">
           {GROUPS.map((group) => {
