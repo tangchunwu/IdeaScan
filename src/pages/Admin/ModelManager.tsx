@@ -163,9 +163,8 @@ const ModelManager = () => {
     const p = list[idx];
     if (p.id && !p.id.startsWith("new-")) {
       try {
-        await supabase.functions.invoke("admin-api-config?action=delete", {
-          method: "POST",
-          body: { id: p.id },
+        await supabase.functions.invoke("admin-api-config", {
+          body: { action: "delete", id: p.id },
         });
         toast.success("已删除");
       } catch (e: any) {
