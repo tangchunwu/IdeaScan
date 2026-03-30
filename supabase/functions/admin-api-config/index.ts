@@ -152,11 +152,13 @@ Deno.serve(async (req) => {
 
   try {
     const { user, adminClient } = await verifyAdmin(req);
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
 
-    // GET — list all providers per group
-    if (req.method === "GET") {
+    // Parse body - all requests come as POST from supabase.functions.invoke
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const action = body.action || new URL(req.url).searchParams.get("action") || (req.method === "GET" ? "list" : null);
+
+    // LIST — list all providers per group
+    if (action === "list" || req.method === "GET") {
       const { data, error } = await adminClient
         .from("admin_api_configs")
         .select("*")
