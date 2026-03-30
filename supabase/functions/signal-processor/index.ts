@@ -115,7 +115,9 @@ interface ClusteredOpportunity {
 
 async function clusterSignalsWithAI(
   signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>,
-  lovableApiKey: string
+  clusterApiKey: string,
+  clusterBaseUrl: string,
+  clusterModel: string
 ): Promise<ClusteredOpportunity[]> {
   return withRetry(async () => {
   // Build a compact summary of signals for the AI
