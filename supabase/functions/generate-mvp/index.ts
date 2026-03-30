@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -210,10 +211,12 @@ serve(async (req) => {
 
                 const idea = validation?.idea || 'Your Product';
 
-                // AI Configuration
-                const apiKey = Deno.env.get("LOVABLE_API_KEY") || Deno.env.get("DEEPSEEK_API_KEY") || Deno.env.get("OPENAI_API_KEY");
-                const baseUrl = Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1";
-                const model = Deno.env.get("LLM_MODEL") || "deepseek/deepseek-chat";
+                // AI Configuration via pool
+                const llmPool = await resolvePool("llm");
+                const firstLlm = llmPool[0];
+                const apiKey = firstLlm?.api_key;
+                const baseUrl = firstLlm?.base_url || "https://ai.gateway.lovable.dev/v1";
+                const model = firstLlm?.model || "google/gemini-3-flash-preview";
 
                 let generatedContent: MvpContent;
 

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -448,14 +449,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const baseUrl = Deno.env.get("PERPLEXITY_BASE_URL");
-    const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
-    if (!baseUrl || !apiKey) {
+    const searchPool = await resolvePool("search_llm");
+    const searchProvider = searchPool[0];
+    if (!searchProvider) {
       return new Response(
-        JSON.stringify({ success: false, error: "PERPLEXITY_BASE_URL or PERPLEXITY_API_KEY not configured" }),
+        JSON.stringify({ success: false, error: "No search LLM provider configured (search_llm pool empty)" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const baseUrl = searchProvider.base_url;
+    const apiKey = searchProvider.api_key;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,

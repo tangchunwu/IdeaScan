@@ -10,6 +10,7 @@ import {
 } from "../_shared/validation.ts";
 import { expandKeywords } from "../_shared/keyword-expander.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,10 +120,23 @@ serve(async (req) => {
     const effectiveApiKey = frontendUrlIsDefault ? undefined : config.llmApiKey;
     const effectiveModel = frontendUrlIsDefault ? undefined : config.llmModel;
 
+    // Use pool-based resolution for LLM config
+    let resolvedApiKey = effectiveApiKey;
+    let resolvedBaseUrl = effectiveBaseUrl;
+    let resolvedModel = effectiveModel;
+    if (!resolvedApiKey) {
+      const pool = await resolvePool("llm");
+      if (pool.length > 0) {
+        resolvedApiKey = pool[0].api_key;
+        resolvedBaseUrl = resolvedBaseUrl || pool[0].base_url;
+        resolvedModel = resolvedModel || pool[0].model;
+      }
+    }
+
     const expanded = await expandKeywords(idea, tags, {
-      apiKey: effectiveApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-      baseUrl: effectiveBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1",
-      model: effectiveModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+      apiKey: resolvedApiKey || "",
+      baseUrl: resolvedBaseUrl || "https://ai.gateway.lovable.dev/v1",
+      model: resolvedModel || "google/gemini-3-flash-preview",
     });
 
     const suggestions = buildSuggestions(expanded.expanded);

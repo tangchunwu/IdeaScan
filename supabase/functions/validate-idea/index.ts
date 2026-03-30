@@ -47,6 +47,7 @@ import {
   mergeSearchResults,
   type LLMConfig 
 } from "../_shared/competitor-extractor.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,21 +72,32 @@ interface RequestConfig {
   mode?: 'quick' | 'deep';
 }
 
-function resolveSearchKeys(config?: RequestConfig) {
+async function resolveSearchKeys(config?: RequestConfig) {
+  const pool = await resolvePool("search_api");
+  const fromPool = (label: string) => pool.find(p => p.model === label || p.label.toLowerCase().includes(label))?.api_key || "";
   return {
-    tavily: config?.searchKeys?.tavily || Deno.env.get("TAVILY_API_KEY") || "",
-    bocha: config?.searchKeys?.bocha || Deno.env.get("BOCHA_API_KEY") || "",
-    you: config?.searchKeys?.you || Deno.env.get("YOU_API_KEY") || "",
+    tavily: config?.searchKeys?.tavily || fromPool("tavily") || Deno.env.get("TAVILY_API_KEY") || "",
+    bocha: config?.searchKeys?.bocha || fromPool("bocha") || Deno.env.get("BOCHA_API_KEY") || "",
+    you: config?.searchKeys?.you || fromPool("you") || Deno.env.get("YOU_API_KEY") || "",
   };
 }
 
-function resolveLLMRuntime(config?: RequestConfig) {
-  const apiKey = config?.llmApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
-  const baseUrl = (config?.llmBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1")
-    .replace(/\/$/, "")
-    .replace(/\/chat\/completions$/, "");
-  const model = config?.llmModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
-  return { apiKey, baseUrl, model };
+let _cachedLlmPool: { base_url: string; api_key: string; model: string }[] | null = null;
+
+async function resolveLLMRuntime(config?: RequestConfig) {
+  if (config?.llmApiKey) {
+    const baseUrl = (config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1")
+      .replace(/\/$/, "").replace(/\/chat\/completions$/, "");
+    return { apiKey: config.llmApiKey, baseUrl, model: config.llmModel || "google/gemini-3-flash-preview" };
+  }
+  if (!_cachedLlmPool) {
+    _cachedLlmPool = await resolvePool("llm");
+  }
+  const first = _cachedLlmPool[0];
+  if (first) {
+    return { apiKey: first.api_key, baseUrl: first.base_url.replace(/\/$/, "").replace(/\/chat\/completions$/, ""), model: first.model };
+  }
+  return { apiKey: "", baseUrl: "https://ai.gateway.lovable.dev/v1", model: "google/gemini-3-flash-preview" };
 }
 
 function countEnabledSearchProviders(keys: { tavily?: string; bocha?: string; you?: string }) {
@@ -535,7 +547,7 @@ function createLightweightDataSummary(
 }
 
 async function extractKeywords(idea: string, tags: string[], config?: RequestConfig): Promise<KeywordExtractionResult> {
-  const llmRuntime = resolveLLMRuntime(config);
+  const llmRuntime = await resolveLLMRuntime(config);
   const apiKey = llmRuntime.apiKey;
   const baseUrl = llmRuntime.baseUrl;
   const model = llmRuntime.model;
@@ -568,7 +580,7 @@ async function analyzeWithAI(
   dataSummary: DataSummary | null,
   config?: RequestConfig
 ): Promise<AIResult> {
-  const llmRuntime = resolveLLMRuntime(config);
+  const llmRuntime = await resolveLLMRuntime(config);
   const apiKey = llmRuntime.apiKey;
   const baseUrl = llmRuntime.baseUrl;
   const model = llmRuntime.model;
@@ -1105,7 +1117,7 @@ serve(async (req) => {
     // 2.5 Search competitors with enhanced pipeline
     let competitorData: SearchResult[] = [];
     let extractedCompetitors: any[] = [];
-    const searchKeys = resolveSearchKeys(config);
+    const searchKeys = await resolveSearchKeys(config);
     const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
     if (hasAnySearchKey) {
@@ -1156,10 +1168,11 @@ serve(async (req) => {
       });
 
       // 竞品名称提取
+      const llmRuntime = await resolveLLMRuntime(config);
       const llmConfig: LLMConfig = {
-        apiKey: resolveLLMRuntime(config).apiKey,
-        baseUrl: resolveLLMRuntime(config).baseUrl,
-        model: resolveLLMRuntime(config).model
+        apiKey: llmRuntime.apiKey,
+        baseUrl: llmRuntime.baseUrl,
+        model: llmRuntime.model
       };
 
       if (llmConfig.apiKey) {
@@ -1194,10 +1207,11 @@ serve(async (req) => {
     // 2.7 Enhanced Data Summarization with tiered approach
     console.log("Summarizing raw data with tiered approach...");
     
+    const summaryRuntime = await resolveLLMRuntime(config);
     const summaryConfig: SummaryConfig = {
-      apiKey: resolveLLMRuntime(config).apiKey,
-      baseUrl: resolveLLMRuntime(config).baseUrl,
-      model: resolveLLMRuntime(config).model
+      apiKey: summaryRuntime.apiKey,
+      baseUrl: summaryRuntime.baseUrl,
+      model: summaryRuntime.model
     };
 
     let socialSummaries: string[] = [];
@@ -1254,10 +1268,11 @@ serve(async (req) => {
     // Only run full legacy summarization in deep mode to control LLM cost.
     let dataSummary: DataSummary;
     if (mode === "deep") {
+      const deepRuntime = await resolveLLMRuntime(config);
       dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-        apiKey: resolveLLMRuntime(config).apiKey,
-        baseUrl: resolveLLMRuntime(config).baseUrl,
-        model: resolveLLMRuntime(config).model,
+        apiKey: deepRuntime.apiKey,
+        baseUrl: deepRuntime.baseUrl,
+        model: deepRuntime.model,
         mode: config?.mode
       });
     } else {
