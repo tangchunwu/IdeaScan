@@ -6,6 +6,7 @@ import {
   extractAssistantContent,
   normalizeLlmBaseUrl,
 } from "../_shared/llm-client.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
