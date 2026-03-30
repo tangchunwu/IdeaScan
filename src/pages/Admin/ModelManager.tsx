@@ -161,7 +161,7 @@ const ModelManager = () => {
   const removeProvider = async (groupId: string, idx: number) => {
     const list = providers[groupId] || [];
     const p = list[idx];
-    if (p.id && !p.id.startsWith("new-")) {
+    if (p.id && !p.id.startsWith("new-") && !p.id.startsWith("env-")) {
       try {
         await supabase.functions.invoke("admin-api-config", {
           body: { action: "delete", id: p.id },
