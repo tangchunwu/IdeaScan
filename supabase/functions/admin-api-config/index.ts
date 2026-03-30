@@ -308,7 +308,9 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     if (!base_url || !api_key) return { success: false, message: "Base URL 或 API Key 未填写" };
 
     if (config_group === "llm" || config_group === "search_llm") {
-      const cleanUrl = base_url.replace(/\/$/, "");
+      let cleanUrl = base_url.replace(/\/$/, "");
+      // Strip trailing /chat/completions or /v1/chat/completions if user pasted the full endpoint
+      cleanUrl = cleanUrl.replace(/\/v1\/chat\/completions$/i, "").replace(/\/chat\/completions$/i, "");
       const endpoint = config_group === "search_llm"
         ? `${cleanUrl}/chat/completions`
         : `${cleanUrl}/v1/chat/completions`;
