@@ -1268,10 +1268,11 @@ serve(async (req) => {
     // Only run full legacy summarization in deep mode to control LLM cost.
     let dataSummary: DataSummary;
     if (mode === "deep") {
+      const deepRuntime = await resolveLLMRuntime(config);
       dataSummary = await summarizeRawData(idea, xiaohongshuData, competitorData, {
-        apiKey: resolveLLMRuntime(config).apiKey,
-        baseUrl: resolveLLMRuntime(config).baseUrl,
-        model: resolveLLMRuntime(config).model,
+        apiKey: deepRuntime.apiKey,
+        baseUrl: deepRuntime.baseUrl,
+        model: deepRuntime.model,
         mode: config?.mode
       });
     } else {
