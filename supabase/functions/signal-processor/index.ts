@@ -100,7 +100,7 @@ ${signal.content.slice(0, 1500)}
   }, { maxRetries: 3, baseDelayMs: 2000 });
 }
 
-// ── Step 2: Semantic clustering via Lovable AI ──
+// ── Step 2: Semantic clustering via LLM ──
 
 interface ClusteredOpportunity {
   title: string;
