@@ -75,8 +75,8 @@ const AnimatedRoutes = () => {
         <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
         <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
         <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
-        <Route path="/admin/feedback" element={<PageTransition><FeedbackDashboard /></PageTransition>} />
-        <Route path="/admin/models" element={<PageTransition><ModelManager /></PageTransition>} />
+        <Route path="/admin/feedback" element={<PageTransition><AdminGate><FeedbackDashboard /></AdminGate></PageTransition>} />
+        <Route path="/admin/models" element={<PageTransition><AdminGate><ModelManager /></AdminGate></PageTransition>} />
         <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
         <Route path="/gallery" element={<PageTransition><GalleryRedirect /></PageTransition>} />
         <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />
