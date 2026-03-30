@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
