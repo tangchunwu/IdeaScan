@@ -314,7 +314,7 @@ const ModelManager = () => {
           </GlassCard>
         </div>
       </main>
-    </div>
+    </PageBackground>
   );
 };
 
