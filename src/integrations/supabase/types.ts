@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_api_configs: {
+        Row: {
+          config_group: string
+          config_key: string
+          config_value: string
+          id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          config_group?: string
+          config_key: string
+          config_value?: string
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          config_group?: string
+          config_key?: string
+          config_value?: string
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       comment_likes: {
         Row: {
           comment_id: string
