@@ -231,8 +231,7 @@ serve(async (req) => {
     const baseUrl = (Deno.env.get("PERPLEXITY_BASE_URL") ?? "").trim().replace(/\/+$/, "") || "https://api.perplexity.ai";
     const apiKey = (Deno.env.get("PERPLEXITY_API_KEY") ?? "").trim();
     if (!apiKey) {
-      throw new Error("PERPLEXITY_BASE_URL or PERPLEXITY_API_KEY not configured");
-    }
+      throw new Error("PERPLEXITY_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
