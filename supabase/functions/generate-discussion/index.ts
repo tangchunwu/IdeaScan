@@ -82,10 +82,9 @@ function stripSystemPrompt(persona: Persona): SafePersona {
   return safe;
 }
 
-function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): LLMCandidate[] {
+async function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): Promise<LLMCandidate[]> {
   const candidates: LLMCandidate[] = [];
   
-  // 1. User custom config (if provided) - skip default api.openai.com URLs
   const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
   if (config?.llmApiKey && !frontendUrlIsDefault) {
     candidates.push({
@@ -96,31 +95,11 @@ function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; 
     });
   }
 
-  // 2. Server-configured LLM (env vars)
-  const envKey = Deno.env.get("LLM_API_KEY");
-  const envBase = Deno.env.get("LLM_BASE_URL");
-  if (envKey && envBase) {
-    const envModel = Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview";
-    // Avoid duplicate if same as custom
-    if (envKey !== config?.llmApiKey || envBase !== config?.llmBaseUrl) {
-      candidates.push({
-        baseUrl: envBase,
-        apiKey: envKey,
-        model: envModel,
-        label: "server",
-      });
+  const pool = await resolvePool("llm");
+  for (const p of pool) {
+    if (p.api_key !== config?.llmApiKey) {
+      candidates.push({ baseUrl: p.base_url, apiKey: p.api_key, model: p.model, label: p.label });
     }
-  }
-
-  // 3. Lovable AI fallback (always available)
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (lovableKey) {
-    candidates.push({
-      baseUrl: "https://ai.gateway.lovable.dev/v1",
-      apiKey: lovableKey,
-      model: "google/gemini-3-flash-preview",
-      label: "lovable",
-    });
   }
 
   return candidates;
