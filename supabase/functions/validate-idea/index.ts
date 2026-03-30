@@ -1117,7 +1117,7 @@ serve(async (req) => {
     // 2.5 Search competitors with enhanced pipeline
     let competitorData: SearchResult[] = [];
     let extractedCompetitors: any[] = [];
-    const searchKeys = resolveSearchKeys(config);
+    const searchKeys = await resolveSearchKeys(config);
     const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 
     if (hasAnySearchKey) {
