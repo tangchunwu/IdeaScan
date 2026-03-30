@@ -28,6 +28,7 @@ interface ProviderRow {
   model: string;
   enabled: boolean;
   updated_at: string;
+  _source?: string; // "env" for env-var entries
   // UI state
   _dirty?: boolean;
   _testResult?: { success: boolean; message: string; latencyMs?: number };
