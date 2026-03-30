@@ -168,6 +168,14 @@ export const Navbar = () => {
                         <Settings className="w-4 h-4 mr-2" />
                         {t("nav.systemConfig")}
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link to="/admin/models">
+                            <ServerCog className="w-4 h-4 mr-2" />
+                            API 配置
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={signOut}
