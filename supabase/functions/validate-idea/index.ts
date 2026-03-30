@@ -1168,10 +1168,11 @@ serve(async (req) => {
       });
 
       // 竞品名称提取
+      const llmRuntime = await resolveLLMRuntime(config);
       const llmConfig: LLMConfig = {
-        apiKey: resolveLLMRuntime(config).apiKey,
-        baseUrl: resolveLLMRuntime(config).baseUrl,
-        model: resolveLLMRuntime(config).model
+        apiKey: llmRuntime.apiKey,
+        baseUrl: llmRuntime.baseUrl,
+        model: llmRuntime.model
       };
 
       if (llmConfig.apiKey) {
