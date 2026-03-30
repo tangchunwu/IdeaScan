@@ -44,6 +44,13 @@ export function buildChatCompletionEndpoints(baseUrl: string): string[] {
     if (value && !endpoints.includes(value)) endpoints.push(value);
   };
 
+  // If URL contains /anthropic, the user likely meant the Anthropic-compat endpoint.
+  // Auto-derive the OpenAI-compat endpoint by replacing /anthropic with /v1.
+  if (/\/anthropic(\/|$)/i.test(path)) {
+    const openaiBase = normalized.replace(/\/anthropic(\/.*)?$/i, "/v1");
+    push(`${openaiBase}/chat/completions`);
+  }
+
   push(`${normalized}/chat/completions`);
 
   // If user entered host root, many OpenAI-compatible providers require `/v1`.
