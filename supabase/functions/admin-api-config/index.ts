@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { clearConfigCache } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,120 @@ async function verifyAdmin(req: Request) {
   return { user, adminClient };
 }
 
+/** Build virtual entries from env vars for groups with no DB records */
+function buildEnvEntries(group: string): any[] {
+  const entries: any[] = [];
+  const ts = new Date().toISOString();
+
+  if (group === "llm") {
+    const key = Deno.env.get("LLM_API_KEY");
+    const url = Deno.env.get("LLM_BASE_URL");
+    if (key && url) {
+      entries.push({
+        id: `env-llm-${Date.now()}`,
+        config_group: "llm",
+        priority: 0,
+        label: "环境变量 LLM",
+        base_url: url,
+        api_key: key,
+        api_key_display: maskValue(key),
+        model: Deno.env.get("LLM_MODEL") || "",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+  } else if (group === "search_llm") {
+    const key = Deno.env.get("PERPLEXITY_API_KEY");
+    const url = Deno.env.get("PERPLEXITY_BASE_URL");
+    if (key && url) {
+      entries.push({
+        id: `env-perplexity-${Date.now()}`,
+        config_group: "search_llm",
+        priority: 0,
+        label: "环境变量 Perplexity",
+        base_url: url,
+        api_key: key,
+        api_key_display: maskValue(key),
+        model: Deno.env.get("PERPLEXITY_MODEL") || "sonar",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+  } else if (group === "image") {
+    const key = Deno.env.get("IMAGE_GEN_API_KEY");
+    const url = Deno.env.get("IMAGE_GEN_BASE_URL");
+    if (key && url) {
+      entries.push({
+        id: `env-image-${Date.now()}`,
+        config_group: "image",
+        priority: 0,
+        label: "环境变量 Image",
+        base_url: url,
+        api_key: key,
+        api_key_display: maskValue(key),
+        model: Deno.env.get("IMAGE_GEN_MODEL") || "dall-e-3",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+  } else if (group === "search_api") {
+    let p = 0;
+    const tavily = Deno.env.get("TAVILY_API_KEY");
+    if (tavily) {
+      entries.push({
+        id: `env-tavily-${Date.now()}`,
+        config_group: "search_api",
+        priority: p++,
+        label: "Tavily",
+        base_url: "",
+        api_key: tavily,
+        api_key_display: maskValue(tavily),
+        model: "tavily",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+    const bocha = Deno.env.get("BOCHA_API_KEY");
+    if (bocha) {
+      entries.push({
+        id: `env-bocha-${Date.now()}`,
+        config_group: "search_api",
+        priority: p++,
+        label: "Bocha",
+        base_url: "",
+        api_key: bocha,
+        api_key_display: maskValue(bocha),
+        model: "bocha",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+    const you = Deno.env.get("YOU_API_KEY");
+    if (you) {
+      entries.push({
+        id: `env-you-${Date.now()}`,
+        config_group: "search_api",
+        priority: p++,
+        label: "You",
+        base_url: "",
+        api_key: you,
+        api_key_display: maskValue(you),
+        model: "you",
+        enabled: true,
+        updated_at: ts,
+        _source: "env",
+      });
+    }
+  }
+
+  return entries;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -58,6 +173,17 @@ Deno.serve(async (req) => {
           ...row,
           api_key_display: row.api_key ? maskValue(row.api_key) : "",
         });
+      }
+
+      // For groups with NO DB entries, inject env-var virtual entries
+      const allGroupIds = ["llm", "search_llm", "image", "search_api"];
+      for (const gid of allGroupIds) {
+        if (!groups[gid] || groups[gid].length === 0) {
+          const envEntries = buildEnvEntries(gid);
+          if (envEntries.length > 0) {
+            groups[gid] = envEntries;
+          }
+        }
       }
 
       // Check env fallbacks for groups with no DB entries
@@ -109,7 +235,10 @@ Deno.serve(async (req) => {
           updated_by: user.id,
         };
 
-        if (provider.id && !provider.id.startsWith("new-")) {
+        // Treat env-* IDs as new entries
+        const isNew = !provider.id || provider.id.startsWith("new-") || provider.id.startsWith("env-");
+
+        if (!isNew) {
           // Update existing — skip api_key if masked
           const updateRecord: any = { ...record };
           if (provider.api_key && provider.api_key.startsWith("****")) {
@@ -127,6 +256,9 @@ Deno.serve(async (req) => {
             .insert(record);
           if (error) throw error;
         }
+
+        // Clear config cache so changes take effect immediately
+        clearConfigCache();
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -146,6 +278,9 @@ Deno.serve(async (req) => {
           .delete()
           .eq("id", id);
         if (error) throw error;
+
+        clearConfigCache();
+
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

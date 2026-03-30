@@ -28,6 +28,7 @@ interface ProviderRow {
   model: string;
   enabled: boolean;
   updated_at: string;
+  _source?: string; // "env" for env-var entries
   // UI state
   _dirty?: boolean;
   _testResult?: { success: boolean; message: string; latencyMs?: number };
@@ -214,7 +215,7 @@ const ModelManager = () => {
         body: { provider: payload },
       });
       if (error) throw error;
-      toast.success("已保存");
+      toast.success("已保存，配置已同步生效 ✅");
       await fetchData();
     } catch (e: any) {
       toast.error("保存失败: " + e.message);
@@ -264,6 +265,61 @@ const ModelManager = () => {
     }
   };
 
+  // Timeout protection: if auth takes too long, stop loading
+  useEffect(() => {
+    if (authLoading) {
+      const timer = setTimeout(() => {
+        if (authLoading) {
+          setLoading(false);
+        }
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
+
+  // Import all env entries to DB
+  const importAllEnv = async () => {
+    const envEntries: { groupId: string; provider: ProviderRow }[] = [];
+    for (const [groupId, list] of Object.entries(providers)) {
+      for (const p of list) {
+        if (p._source === "env") {
+          envEntries.push({ groupId, provider: p });
+        }
+      }
+    }
+    if (envEntries.length === 0) {
+      toast.info("没有需要导入的环境变量配置");
+      return;
+    }
+    let successCount = 0;
+    for (const { provider } of envEntries) {
+      try {
+        const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
+          method: "POST",
+          body: {
+            provider: {
+              id: provider.id,
+              config_group: provider.config_group,
+              priority: provider.priority,
+              label: provider.label,
+              base_url: provider.base_url,
+              api_key: provider.api_key,
+              model: provider.model,
+              enabled: provider.enabled,
+            },
+          },
+        });
+        if (!error) successCount++;
+      } catch {}
+    }
+    toast.success(`已导入 ${successCount}/${envEntries.length} 个配置到数据库`);
+    await fetchData();
+  };
+
+  const hasEnvEntries = Object.values(providers).some((list) =>
+    list.some((p) => p._source === "env")
+  );
+
   if (authLoading || loading) return <BrandLoader fullScreen text="加载管理面板..." />;
   if (!isAdmin) return null;
 
@@ -277,6 +333,12 @@ const ModelManager = () => {
             每组支持多个提供商，按优先级顺序回退 — 第一个失败自动切换下一个
           </p>
         </div>
+        {hasEnvEntries && (
+          <Button variant="outline" size="sm" onClick={importAllEnv}>
+            <Save className="w-4 h-4 mr-1" />
+            一键导入全部环境变量到数据库
+          </Button>
+        )}
 
         <div className="space-y-6">
           {GROUPS.map((group) => {
@@ -319,6 +381,11 @@ const ModelManager = () => {
                           <span className="text-sm font-medium text-foreground">
                             {p.label || `提供商 ${idx + 1}`}
                           </span>
+                          {p._source === "env" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                              环境变量
+                            </span>
+                          )}
                           {p._testResult && (
                             <span className={`text-xs ${p._testResult.success ? "text-primary" : "text-destructive"}`}>
                               {p._testResult.latencyMs ? `${p._testResult.latencyMs}ms` : ""}
