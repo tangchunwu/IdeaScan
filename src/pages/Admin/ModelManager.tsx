@@ -215,7 +215,7 @@ const ModelManager = () => {
         body: { provider: payload },
       });
       if (error) throw error;
-      toast.success("已保存");
+      toast.success("已保存，配置已同步生效 ✅");
       await fetchData();
     } catch (e: any) {
       toast.error("保存失败: " + e.message);
