@@ -29,6 +29,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeedbackDashboard = lazy(() => import("./pages/Admin/FeedbackDashboard"));
+const ModelManager = lazy(() => import("./pages/Admin/ModelManager"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
 const GalleryRedirect = () => <Navigate to="/discover?tab=gallery" replace />;
 const OpenClaw = lazy(() => import("./pages/OpenClaw"));
