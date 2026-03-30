@@ -23,6 +23,7 @@ export const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut, isLoading } = useAuth();
   const { profile, isUploading, uploadAvatar } = useProfile();
+  const { isAdmin } = useAdminAuth();
   const { skin } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
