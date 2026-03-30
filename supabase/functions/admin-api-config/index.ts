@@ -177,13 +177,18 @@ Deno.serve(async (req) => {
         });
       }
 
-      // For groups with NO DB entries, inject env-var virtual entries
+      // Always append env-var virtual entries (after DB entries) so they stay visible
       const allGroupIds = ["llm", "search_llm", "image", "search_api"];
       for (const gid of allGroupIds) {
-        if (!groups[gid] || groups[gid].length === 0) {
-          const envEntries = buildEnvEntries(gid);
-          if (envEntries.length > 0) {
-            groups[gid] = envEntries;
+        const envEntries = buildEnvEntries(gid);
+        if (envEntries.length > 0) {
+          if (!groups[gid]) groups[gid] = [];
+          // Avoid duplicating: only add env entries whose label+base_url aren't already in DB
+          const existing = new Set(groups[gid].map((r: any) => `${r.label}||${r.base_url}`));
+          for (const e of envEntries) {
+            if (!existing.has(`${e.label}||${e.base_url}`)) {
+              groups[gid].push(e);
+            }
           }
         }
       }
