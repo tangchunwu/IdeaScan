@@ -96,6 +96,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
   if (endpoints.length === 0) {
     throw new Error("invalid_llm_base_url");
   }
+  console.log(`[llm-client] Trying ${endpoints.length} endpoints for base=${req.baseUrl}: ${endpoints.join(", ")}`);
   const timeoutMsPerEndpoint = Math.max(6000, Math.floor(timeoutMsTotal / Math.max(1, endpoints.length)));
 
   const errors: string[] = [];
