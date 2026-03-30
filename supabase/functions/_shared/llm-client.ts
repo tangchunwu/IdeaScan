@@ -141,6 +141,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
     }
   }
 
+  console.error(`[llm-client] All endpoints failed: ${errors.join(" | ")}`);
   throw new Error(`llm_all_endpoints_failed:${errors.join(" | ").slice(0, 1200)}`);
 }
 
