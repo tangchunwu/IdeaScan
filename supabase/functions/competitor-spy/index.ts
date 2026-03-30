@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
