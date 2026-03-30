@@ -104,12 +104,17 @@ const ModelManager = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) navigate("/");
+    if (!authLoading && !isAdmin) {
+      setLoading(false);
+      navigate("/");
+    }
   }, [isAdmin, authLoading, navigate]);
 
   const fetchData = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("admin-api-config", { method: "GET" });
+      const { data, error } = await supabase.functions.invoke("admin-api-config", {
+        body: { action: "list" },
+      });
       if (error) throw error;
       setProviders(data.groups || {});
       setEnvStatus(data.envStatus || {});
@@ -156,11 +161,10 @@ const ModelManager = () => {
   const removeProvider = async (groupId: string, idx: number) => {
     const list = providers[groupId] || [];
     const p = list[idx];
-    if (p.id && !p.id.startsWith("new-")) {
+    if (p.id && !p.id.startsWith("new-") && !p.id.startsWith("env-")) {
       try {
-        await supabase.functions.invoke("admin-api-config?action=delete", {
-          method: "POST",
-          body: { id: p.id },
+        await supabase.functions.invoke("admin-api-config", {
+          body: { action: "delete", id: p.id },
         });
         toast.success("已删除");
       } catch (e: any) {
@@ -210,9 +214,8 @@ const ModelManager = () => {
         model: p.model,
         enabled: p.enabled,
       };
-      const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
-        method: "POST",
-        body: { provider: payload },
+      const { error } = await supabase.functions.invoke("admin-api-config", {
+        body: { action: "save", provider: payload },
       });
       if (error) throw error;
       toast.success("已保存，配置已同步生效 ✅");
@@ -239,9 +242,9 @@ const ModelManager = () => {
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke("admin-api-config?action=test", {
-        method: "POST",
+      const { data, error } = await supabase.functions.invoke("admin-api-config", {
         body: {
+          action: "test",
           provider: {
             config_group: groupId,
             base_url: p.base_url,
@@ -294,9 +297,9 @@ const ModelManager = () => {
     let successCount = 0;
     for (const { provider } of envEntries) {
       try {
-        const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
-          method: "POST",
+        const { error } = await supabase.functions.invoke("admin-api-config", {
           body: {
+            action: "save",
             provider: {
               id: provider.id,
               config_group: provider.config_group,

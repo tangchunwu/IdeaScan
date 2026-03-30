@@ -152,11 +152,13 @@ Deno.serve(async (req) => {
 
   try {
     const { user, adminClient } = await verifyAdmin(req);
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
 
-    // GET — list all providers per group
-    if (req.method === "GET") {
+    // Parse body - all requests come as POST from supabase.functions.invoke
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const action = body.action || new URL(req.url).searchParams.get("action") || (req.method === "GET" ? "list" : null);
+
+    // LIST — list all providers per group
+    if (action === "list" || req.method === "GET") {
       const { data, error } = await adminClient
         .from("admin_api_configs")
         .select("*")
@@ -200,10 +202,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // POST
-    if (req.method === "POST") {
-      const body = await req.json();
 
       // Test connectivity for a specific provider
       if (action === "test") {
@@ -286,13 +284,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ error: "Unknown action" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: "Unknown action" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     const status = err.message === "Unauthorized" ? 401 : err.message === "Forbidden" ? 403 : 500;
