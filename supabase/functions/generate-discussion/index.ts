@@ -11,6 +11,7 @@ import {
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
 import { requestChatCompletion, extractAssistantContent } from "../_shared/llm-client.ts";
+import { resolvePool } from "../_shared/config-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
