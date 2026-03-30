@@ -1207,10 +1207,11 @@ serve(async (req) => {
     // 2.7 Enhanced Data Summarization with tiered approach
     console.log("Summarizing raw data with tiered approach...");
     
+    const summaryRuntime = await resolveLLMRuntime(config);
     const summaryConfig: SummaryConfig = {
-      apiKey: resolveLLMRuntime(config).apiKey,
-      baseUrl: resolveLLMRuntime(config).baseUrl,
-      model: resolveLLMRuntime(config).model
+      apiKey: summaryRuntime.apiKey,
+      baseUrl: summaryRuntime.baseUrl,
+      model: summaryRuntime.model
     };
 
     let socialSummaries: string[] = [];
