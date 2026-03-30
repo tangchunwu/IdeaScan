@@ -45,10 +45,16 @@ export function buildChatCompletionEndpoints(baseUrl: string): string[] {
   };
 
   // If URL contains /anthropic, the user likely meant the Anthropic-compat endpoint.
-  // Auto-derive the OpenAI-compat endpoint by replacing /anthropic with /v1.
+  // Auto-derive the OpenAI-compat endpoint by trying multiple common patterns.
   if (/\/anthropic(\/|$)/i.test(path)) {
+    // Most proxies (OneAPI / NewAPI) expose OpenAI at /v1
     const openaiBase = normalized.replace(/\/anthropic(\/.*)?$/i, "/v1");
     push(`${openaiBase}/chat/completions`);
+    // Some proxies nest it under the anthropic path with /v1
+    push(`${normalized}/v1/chat/completions`);
+    // Root-level fallback (no prefix)
+    push(`${parsed.origin}/chat/completions`);
+    push(`${parsed.origin}/v1/chat/completions`);
   }
 
   push(`${normalized}/chat/completions`);
@@ -90,6 +96,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
   if (endpoints.length === 0) {
     throw new Error("invalid_llm_base_url");
   }
+  console.log(`[llm-client] Trying ${endpoints.length} endpoints for base=${req.baseUrl}: ${endpoints.join(", ")}`);
   const timeoutMsPerEndpoint = Math.max(6000, Math.floor(timeoutMsTotal / Math.max(1, endpoints.length)));
 
   const errors: string[] = [];
