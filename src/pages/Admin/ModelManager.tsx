@@ -297,9 +297,9 @@ const ModelManager = () => {
     let successCount = 0;
     for (const { provider } of envEntries) {
       try {
-        const { error } = await supabase.functions.invoke("admin-api-config?action=save", {
-          method: "POST",
+        const { error } = await supabase.functions.invoke("admin-api-config", {
           body: {
+            action: "save",
             provider: {
               id: provider.id,
               config_group: provider.config_group,
