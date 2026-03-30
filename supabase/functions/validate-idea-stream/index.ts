@@ -616,10 +616,12 @@ function resolveLLMRuntimes(config?: RequestConfig) {
   const effectiveApiKey = frontendUrlIsDefault ? undefined : config?.llmApiKey;
   const effectiveModel = frontendUrlIsDefault ? undefined : config?.llmModel;
 
+  const { resolveConfigs: rc } = await import("../_shared/config-resolver.ts");
+  const resolved = await rc(["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]);
   const primary: LLMRuntime = {
-    apiKey: effectiveApiKey || Deno.env.get("LLM_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "",
-    baseUrl: normalizeLLMBaseUrl(effectiveBaseUrl || Deno.env.get("LLM_BASE_URL") || "https://ai.gateway.lovable.dev/v1"),
-    model: effectiveModel || Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+    apiKey: effectiveApiKey || resolved["LLM_API_KEY"] || Deno.env.get("LOVABLE_API_KEY") || "",
+    baseUrl: normalizeLLMBaseUrl(effectiveBaseUrl || resolved["LLM_BASE_URL"] || "https://ai.gateway.lovable.dev/v1"),
+    model: effectiveModel || resolved["LLM_MODEL"] || "google/gemini-3-flash-preview",
   };
 
   // Always include Lovable AI as the final safety-net fallback
