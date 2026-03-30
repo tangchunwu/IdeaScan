@@ -1,115 +1,54 @@
 
 
-# 管理员 API 配置中心
+# 修复管理面板三个问题
 
-## 背景
+## 问题分析
 
-系统有 **5 组外部 API** 分散在 Edge Functions 中通过 `Deno.env.get()` 读取，管理员无法通过 UI 统一查看和修改：
+1. **加载卡住** — `supabase.functions.invoke` 的 GET 请求实际返回了 `{"groups":{}}` (200)，但页面可能因为 `authLoading` 状态延迟导致 BrandLoader 停留过久。需要增加超时保护。
 
-| 组 | 用途 | 密钥 |
-|---|---|---|
-| 主 LLM | 验证/分析/润色/信号处理 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` |
-| 搜索 LLM | 狩猎雷达/趋势发现 | `PERPLEXITY_BASE_URL`, `PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL` |
-| 图片生成 | AI 绘图 | `IMAGE_GEN_BASE_URL`, `IMAGE_GEN_API_KEY`, `IMAGE_GEN_MODEL` |
-| 搜索引擎 | 网页搜索（Tavily/Bocha/You） | `TAVILY_API_KEY`, `BOCHA_API_KEY`, `YOU_API_KEY` |
-| 兜底 | Lovable AI | `LOVABLE_API_KEY`（自动，只读） |
+2. **已配置的模型未显示** — GET 返回 `groups: {}` 因为 DB 表是空的。虽然环境变量里已配置了 LLM/Perplexity/Image/Search 等密钥，但 UI 不展示它们。需要在 GET 返回时将环境变量中已有的配置作为"虚拟条目"返回，供管理员确认并一键导入。
 
-目前只能通过后台密钥手动设置，没有管理 UI。
+3. **保存后同步到系统** — `config-resolver.ts` 有 5 分钟缓存，保存后不会立即生效。需要添加缓存清除机制。
 
 ## 方案
 
-### 1. 新建数据库表 `admin_api_configs`
+### 1. 修复加载状态
 
-存储所有外部 API 配置，edge functions 优先从此表读取，fallback 到环境变量。
+在 `ModelManager.tsx` 中：
+- 给 auth 检查加 timeout，超过 5 秒自动跳出 loading
+- 确保 `fetchData` 的 error 路径也能 `setLoading(false)`
 
-```sql
-CREATE TABLE public.admin_api_configs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  config_key TEXT UNIQUE NOT NULL,   -- e.g. 'LLM_BASE_URL'
-  config_value TEXT NOT NULL DEFAULT '',
-  config_group TEXT NOT NULL DEFAULT 'llm', -- llm | search_llm | image | search_api
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES auth.users(id)
-);
-ALTER TABLE public.admin_api_configs ENABLE ROW LEVEL SECURITY;
--- 仅 admin 可读写
-CREATE POLICY "admin_read" ON public.admin_api_configs FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "admin_write" ON public.admin_api_configs FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-```
+### 2. Edge Function GET 返回环境变量预填条目
 
-### 2. 新建 Edge Function `admin-api-config`
+修改 `admin-api-config/index.ts` 的 GET 处理：
+- 当某个 group 在 DB 中没有记录时，读取对应环境变量，构造"虚拟条目"（带 `_source: "env"` 标记）返回给前端
+- 前端显示这些条目，带"来自环境变量"标签
+- 管理员可以直接点"保存"将其持久化到 DB
 
-- **GET**: 读取所有配置，API Key 值掩码返回（`sk-****xxxx`）
-- **POST**: 保存配置（验证调用者是 admin）
-- **POST /test**: 对指定组进行连通性测试（复用 `verify-config` 逻辑）
-- 安全：通过 `has_role` RPC 验证 admin 身份
+具体映射：
+- `llm` 组 → `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`
+- `search_llm` 组 → `PERPLEXITY_BASE_URL`, `PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL`
+- `image` 组 → `IMAGE_GEN_BASE_URL`, `IMAGE_GEN_API_KEY`, `IMAGE_GEN_MODEL`
+- `search_api` 组 → 分别为 `TAVILY_API_KEY`, `BOCHA_API_KEY`, `YOU_API_KEY` 各生成一条
 
-### 3. 新建共享模块 `_shared/config-resolver.ts`
+### 3. 保存后清除缓存
 
-提供 `resolveConfig(key: string)` 函数：
-1. 先从 `admin_api_configs` 表查询
-2. 若无记录则 fallback 到 `Deno.env.get(key)`
-3. 带 5 分钟内存缓存避免每次查表
+修改 `admin-api-config/index.ts` 的 save/delete 处理：
+- 保存或删除成功后，调用 `clearConfigCache()` 清除 `config-resolver` 的内存缓存
+- 由于 Edge Functions 实例可能多个，将缓存 TTL 从 5 分钟降至 1 分钟
 
-### 4. 更新所有 Edge Functions 使用 config-resolver
+### 4. 前端 UI 增强
 
-涉及的函数：
-- `validate-idea-stream` — 主 LLM + 搜索引擎
-- `signal-processor` — 主 LLM
-- `hunter-scan` — Perplexity
-- `polish-idea` — 主 LLM
-- `suggest-keywords` — 主 LLM
-- `verify-config` — 验证连通性
-- `generate-persona-image` — 图片生成
-- 其他使用 `LLM_*` 环境变量的函数
+在 `ModelManager.tsx` 中：
+- 环境变量来源的条目显示"环境变量"小标签
+- 添加"一键导入全部"按钮，批量将环境变量条目保存到 DB
+- 保存成功后显示"配置已生效"提示
 
-每个函数将 `Deno.env.get("LLM_API_KEY")` 替换为 `await resolveConfig("LLM_API_KEY")`。
+## 涉及文件
 
-### 5. 新建管理页面 `src/pages/Admin/ModelManager.tsx`
-
-分 4 个卡片组，每组包含 Base URL / API Key / Model 输入框 + 测试按钮 + 保存按钮：
-
-```text
-┌─────────────────────────────────┐
-│ 🧠 主 LLM（验证/分析/润色）      │
-│  Base URL: [_______________]    │
-│  API Key:  [****xxxx      ]    │
-│  Model:    [_______________]    │
-│  [测试连通性]  [保存]            │
-├─────────────────────────────────┤
-│ 🔍 搜索 LLM（Perplexity）       │
-│  ...同上...                     │
-├─────────────────────────────────┤
-│ 🎨 图片生成                     │
-│  ...同上...                     │
-├─────────────────────────────────┤
-│ 🌐 搜索引擎 API Keys            │
-│  Tavily:  [****xxxx]           │
-│  Bocha:   [****xxxx]           │
-│  You:     [****xxxx]           │
-│  [保存]                         │
-├─────────────────────────────────┤
-│ 🛡️ 兜底（Lovable AI）           │
-│  状态: ✅ 已就绪（只读）          │
-└─────────────────────────────────┘
-```
-
-- 使用 `useAdminAuth` 鉴权，非管理员重定向首页
-- API Key 掩码显示，点击编辑时可输入新值
-- 保存后自动刷新，测试按钮实时反馈连通状态
-
-### 6. 注册路由
-
-- `src/App.tsx`: 添加 `/admin/models` 路由
-- `src/components/shared/Navbar.tsx`: 管理员菜单添加"API 配置"入口
-
-## 安全设计
-
-- 数据库 RLS 仅 admin 可读写
-- Edge Function 内用 `has_role` 二次验证
-- API Key 在数据库中明文存储（因为 edge function 需要读取原始值），但通过 RLS 限制只有 admin 能访问
-- 前端展示全部掩码，仅编辑时可输入
+| 文件 | 变更 |
+|------|------|
+| `supabase/functions/admin-api-config/index.ts` | GET 返回 env 虚拟条目；save 后清缓存 |
+| `supabase/functions/_shared/config-resolver.ts` | 缓存 TTL 降至 1 分钟 |
+| `src/pages/Admin/ModelManager.tsx` | 加载超时保护；env 来源标签；一键导入按钮 |
 
