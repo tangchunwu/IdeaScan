@@ -50,6 +50,21 @@ export async function resolvePool(group: string): Promise<ProviderConfig[]> {
         priority: d.priority,
         enabled: d.enabled,
       }));
+      // Always append Lovable AI as final fallback for llm and image groups
+      if (group === "llm" || group === "image") {
+        const lovable = Deno.env.get("LOVABLE_API_KEY");
+        if (lovable && !providers.some((p: ProviderConfig) => p.id.startsWith("env-lovable"))) {
+          providers.push({
+            id: group === "llm" ? "env-lovable" : "env-lovable-img",
+            base_url: "https://ai.gateway.lovable.dev/v1",
+            api_key: lovable,
+            model: group === "llm" ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash-image",
+            label: "Lovable AI (兜底)",
+            priority: 999,
+            enabled: true,
+          });
+        }
+      }
       cache.set(group, { providers, expiry: Date.now() + CACHE_TTL_MS });
       return providers;
     }
