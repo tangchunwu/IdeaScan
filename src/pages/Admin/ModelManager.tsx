@@ -178,19 +178,52 @@ const ModelManager = () => {
     }));
   };
 
-  const movePriority = (groupId: string, idx: number, dir: -1 | 1) => {
-    setProviders((prev) => {
-      const list = [...(prev[groupId] || [])];
-      const targetIdx = idx + dir;
-      if (targetIdx < 0 || targetIdx >= list.length) return prev;
-      // Swap priorities
-      const tmpPriority = list[idx].priority;
-      list[idx] = { ...list[idx], priority: list[targetIdx].priority, _dirty: true };
-      list[targetIdx] = { ...list[targetIdx], priority: tmpPriority, _dirty: true };
-      // Re-sort
-      list.sort((a, b) => a.priority - b.priority);
-      return { ...prev, [groupId]: list };
-    });
+  const movePriority = async (groupId: string, idx: number, dir: -1 | 1) => {
+    const list = [...(providers[groupId] || [])];
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    // Swap priorities
+    const tmpPriority = list[idx].priority;
+    list[idx] = { ...list[idx], priority: list[targetIdx].priority, _dirty: true };
+    list[targetIdx] = { ...list[targetIdx], priority: tmpPriority, _dirty: true };
+    list.sort((a, b) => a.priority - b.priority);
+    setProviders((prev) => ({ ...prev, [groupId]: list }));
+
+    // Auto-save both affected items to persist the change
+    const toSave = [list[idx], list[targetIdx]].filter(
+      (p) => p.id && !p.id.startsWith("env-")
+    );
+    for (const p of toSave) {
+      try {
+        await supabase.functions.invoke("admin-api-config", {
+          body: {
+            action: "save",
+            provider: {
+              id: p.id,
+              config_group: groupId,
+              priority: p.priority,
+              label: p.label,
+              base_url: p.base_url,
+              api_key: p.api_key,
+              model: p.model,
+              enabled: p.enabled,
+            },
+          },
+        });
+      } catch {}
+    }
+
+    // Check if any env entry needs importing first
+    const envItems = [list[idx], list[targetIdx]].filter(
+      (p) => p._source === "env" || p.id?.startsWith("env-")
+    );
+    if (envItems.length > 0) {
+      toast.info("环境变量条目需先「保存」导入数据库后才能持久化优先级");
+    } else if (toSave.length > 0) {
+      toast.success("优先级已更新");
+      await fetchData();
+    }
   };
 
   const saveProvider = async (groupId: string, idx: number) => {
