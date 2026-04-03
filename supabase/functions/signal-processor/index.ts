@@ -233,8 +233,10 @@ serve(async (req) => {
     if (llmPool.length === 0) throw new Error("No LLM providers configured");
     console.log(`[Processor] LLM pool: ${llmPool.map(p => p.label).join(" → ")}`);
 
-    let batchSize = 50;
-    try { const body = await req.json(); batchSize = body.batchSize || 50; } catch { /* default */ }
+    let batchSize = 8;
+    try { const body = await req.json(); batchSize = body.batchSize || 8; } catch { /* default */ }
+    // Reset dead providers cache for each invocation
+    deadProviders.clear();
 
     // ═══ Phase A: Score unprocessed signals ═══
     const { data: unprocessed, error: fetchError } = await supabase
