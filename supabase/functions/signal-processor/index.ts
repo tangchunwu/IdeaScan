@@ -44,7 +44,8 @@ async function callWithPool<T>(
 
   for (let i = 0; i < alive.length; i++) {
     const provider = alive[i];
-    const providerBaseUrl = provider.base_url.replace(/\/+$/, "");
+    // Normalize: strip trailing slash and /chat/completions if present (users often paste full endpoint)
+    const providerBaseUrl = provider.base_url.replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
     try {
       return await fn(provider.api_key, providerBaseUrl, provider.model);
     } catch (e) {
