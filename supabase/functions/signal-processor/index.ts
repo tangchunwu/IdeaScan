@@ -22,6 +22,13 @@ interface AIAnalysisResult {
   pain_level: string;
 }
 
+interface LLMProvider {
+  base_url: string;
+  api_key: string;
+  model: string;
+  label: string;
+}
+
 // ── Retry helper with exponential backoff ──
 
 async function withRetry<T>(
@@ -49,6 +56,25 @@ async function withRetry<T>(
     }
   }
   throw lastError!;
+}
+
+// ── Pool-aware call: try each provider in order ──
+
+async function callWithPool<T>(
+  pool: LLMProvider[],
+  fn: (apiKey: string, baseUrl: string, model: string) => Promise<T>
+): Promise<T> {
+  let lastError: Error | undefined;
+  for (const provider of pool) {
+    try {
+      const baseUrl = provider.base_url.replace(/\/+$/, "");
+      return await fn(provider.api_key, baseUrl, provider.model);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[Pool] Provider "${provider.label}" failed: ${lastError.message.slice(0, 120)}, trying next...`);
+    }
+  }
+  throw lastError || new Error("All providers in pool failed");
 }
 
 // ── Step 1: Score individual unprocessed signals ──
@@ -97,7 +123,7 @@ ${signal.content.slice(0, 1500)}
       topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
       pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
     };
-  }, { maxRetries: 3, baseDelayMs: 2000 });
+  }, { maxRetries: 2, baseDelayMs: 2000 });
 }
 
 // ── Step 2: Semantic clustering via LLM ──
@@ -111,6 +137,13 @@ interface ClusteredOpportunity {
   avg_score: number;
   urgency_score: number;
   top_sources: string[];
+}
+
+function buildClusterCall(
+  signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>
+) {
+  return (apiKey: string, baseUrl: string, model: string) =>
+    clusterSignalsWithAI(signals, apiKey, baseUrl, model);
 }
 
 async function clusterSignalsWithAI(
@@ -205,21 +238,11 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Use admin-configured or env LLM for scoring and clustering, fallback to Lovable AI
+    // Load the full LLM pool (includes all configured providers + Lovable AI fallback)
     const { resolvePool } = await import("../_shared/config-resolver.ts");
     const llmPool = await resolvePool("llm");
     if (llmPool.length === 0) throw new Error("No LLM providers configured");
-    const primaryLlm = llmPool[0];
-    const llmBaseUrl = primaryLlm.base_url.replace(/\/+$/, "");
-    const llmApiKey = primaryLlm.api_key;
-    const llmModel = primaryLlm.model;
-    if (!llmApiKey) throw new Error("No LLM API key configured (LLM_API_KEY or LOVABLE_API_KEY)");
-
-    const scoreApiKey = llmApiKey;
-    const scoreBaseUrl = llmBaseUrl;
-    const scoreModel = llmModel;
-
-    // lovableApiKey is already defined above and used for both scoring and clustering
+    console.log(`[Processor] LLM pool: ${llmPool.map(p => p.label).join(" → ")}`);
 
     let batchSize = 50;
     try { const body = await req.json(); batchSize = body.batchSize || 50; } catch { /* default */ }
@@ -240,14 +263,17 @@ serve(async (req) => {
     let consecutiveFails = 0;
 
     for (const signal of (unprocessed as RawSignal[]) || []) {
-      // Stop early if too many consecutive failures (even after retries)
-      if (consecutiveFails >= 3) {
-        console.log(`[Processor] Stopping early: ${consecutiveFails} consecutive failures after retries.`);
+      // Stop early if too many consecutive failures (even after retries across all providers)
+      if (consecutiveFails >= 5) {
+        console.log(`[Processor] Stopping early: ${consecutiveFails} consecutive failures after pool exhaustion.`);
         break;
       }
 
       try {
-        const analysis = await scoreSignal(signal, scoreApiKey, scoreBaseUrl, scoreModel);
+        // Try each provider in the pool until one succeeds
+        const analysis = await callWithPool(llmPool, (apiKey, baseUrl, model) =>
+          scoreSignal(signal, apiKey, baseUrl, model)
+        );
         const { error: updateError } = await supabase
           .from("raw_market_signals")
           .update({
@@ -262,11 +288,11 @@ serve(async (req) => {
         if (updateError) { failCount++; } else { successCount++; }
         consecutiveFails = 0;
       } catch (e) {
-        console.error(`[Processor] Score error ${signal.id} (after retries):`, e);
+        console.error(`[Processor] Score error ${signal.id} (all providers exhausted):`, e);
         failCount++;
         consecutiveFails++;
       }
-      // Base delay between signals (retries have their own backoff)
+      // Base delay between signals
       await new Promise(r => setTimeout(r, 800));
     }
 
@@ -286,8 +312,9 @@ serve(async (req) => {
         .limit(200);
 
       if (highSignals && highSignals.length >= 3) {
-        console.log(`[Processor] Clustering ${highSignals.length} high-score signals with ${llmModel}`);
-        const clusters = await clusterSignalsWithAI(highSignals, llmApiKey, llmBaseUrl, llmModel);
+        console.log(`[Processor] Clustering ${highSignals.length} high-score signals via pool`);
+        // Try clustering with each provider in the pool
+        const clusters = await callWithPool(llmPool, buildClusterCall(highSignals));
         console.log(`[Processor] AI returned ${clusters.length} opportunity clusters`);
 
         for (const cluster of clusters) {
