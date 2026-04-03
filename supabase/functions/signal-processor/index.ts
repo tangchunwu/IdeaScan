@@ -36,10 +36,11 @@ async function callWithPool<T>(
   fn: (apiKey: string, baseUrl: string, model: string) => Promise<T>
 ): Promise<T> {
   let lastError: Error | undefined;
-  for (const provider of pool) {
+  for (let i = 0; i < pool.length; i++) {
+    const provider = pool[i];
+    const providerBaseUrl = provider.base_url.replace(/\/+$/, "");
     try {
-      const baseUrl = provider.base_url.replace(/\/+$/, "");
-      return await fn(provider.api_key, baseUrl, provider.model);
+      return await fn(provider.api_key, providerBaseUrl, provider.model);
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
       const msg = lastError.message;
@@ -47,11 +48,11 @@ async function callWithPool<T>(
       const is5xx = /5\d{2}/.test(msg);
 
       // For 429/5xx on the LAST provider, do one retry with backoff
-      if ((is429 || is5xx) && pool.indexOf(provider) === pool.length - 1) {
+      if ((is429 || is5xx) && i === pool.length - 1) {
         console.warn(`[Pool] Last provider "${provider.label}" got ${is429 ? "429" : "5xx"}, retrying once...`);
-        await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+        await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
         try {
-          return await fn(provider.api_key, baseUrl, provider.model);
+          return await fn(provider.api_key, providerBaseUrl, provider.model);
         } catch (e2) {
           lastError = e2 instanceof Error ? e2 : new Error(String(e2));
         }
