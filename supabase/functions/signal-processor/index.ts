@@ -29,15 +29,21 @@ interface LLMProvider {
   label: string;
 }
 
-// ── Pool-aware call: try each provider in order, no retries on non-transient errors ──
+// ── Pool-aware call with dead-provider cache ──
+
+const deadProviders = new Set<string>(); // cache providers that fail with non-transient errors
 
 async function callWithPool<T>(
   pool: LLMProvider[],
   fn: (apiKey: string, baseUrl: string, model: string) => Promise<T>
 ): Promise<T> {
   let lastError: Error | undefined;
-  for (let i = 0; i < pool.length; i++) {
-    const provider = pool[i];
+  // Filter to only alive providers (but always keep last one as ultimate fallback)
+  const alive = pool.filter((p, i) => i === pool.length - 1 || !deadProviders.has(p.label));
+  if (alive.length === 0) throw new Error("All providers marked dead");
+
+  for (let i = 0; i < alive.length; i++) {
+    const provider = alive[i];
     const providerBaseUrl = provider.base_url.replace(/\/+$/, "");
     try {
       return await fn(provider.api_key, providerBaseUrl, provider.model);
@@ -46,9 +52,15 @@ async function callWithPool<T>(
       const msg = lastError.message;
       const is429 = msg.includes("429");
       const is5xx = /5\d{2}/.test(msg);
+      const isNonTransient = msg.includes("404") || msg.includes("non-JSON") || msg.includes("HTML");
 
-      // For 429/5xx on the LAST provider, do one retry with backoff
-      if ((is429 || is5xx) && i === pool.length - 1) {
+      // Mark non-transient failures so we skip this provider for the rest of the batch
+      if (isNonTransient) {
+        deadProviders.add(provider.label);
+      }
+
+      // For 429/5xx on the LAST alive provider, do one retry with backoff
+      if ((is429 || is5xx) && i === alive.length - 1) {
         console.warn(`[Pool] Last provider "${provider.label}" got ${is429 ? "429" : "5xx"}, retrying once...`);
         await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
         try {
@@ -221,8 +233,10 @@ serve(async (req) => {
     if (llmPool.length === 0) throw new Error("No LLM providers configured");
     console.log(`[Processor] LLM pool: ${llmPool.map(p => p.label).join(" → ")}`);
 
-    let batchSize = 50;
-    try { const body = await req.json(); batchSize = body.batchSize || 50; } catch { /* default */ }
+    let batchSize = 8;
+    try { const body = await req.json(); batchSize = body.batchSize || 8; } catch { /* default */ }
+    // Reset dead providers cache for each invocation
+    deadProviders.clear();
 
     // ═══ Phase A: Score unprocessed signals ═══
     const { data: unprocessed, error: fetchError } = await supabase
