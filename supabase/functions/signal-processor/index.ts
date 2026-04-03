@@ -29,36 +29,7 @@ interface LLMProvider {
   label: string;
 }
 
-// ── Retry helper with exponential backoff ──
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  opts: { maxRetries?: number; baseDelayMs?: number; retryOn429?: boolean } = {}
-): Promise<T> {
-  const { maxRetries = 3, baseDelayMs = 2000, retryOn429 = true } = opts;
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
-      const is429 = lastError.message.includes("429");
-      const is5xx = /5\d{2}/.test(lastError.message);
-
-      if (attempt < maxRetries && (retryOn429 && is429 || is5xx)) {
-        const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
-        console.warn(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed (${is429 ? "429" : "5xx"}), waiting ${Math.round(delay)}ms`);
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      throw lastError;
-    }
-  }
-  throw lastError!;
-}
-
-// ── Pool-aware call: try each provider in order ──
+// ── Pool-aware call: try each provider in order, no retries on non-transient errors ──
 
 async function callWithPool<T>(
   pool: LLMProvider[],
@@ -71,17 +42,31 @@ async function callWithPool<T>(
       return await fn(provider.api_key, baseUrl, provider.model);
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
-      console.warn(`[Pool] Provider "${provider.label}" failed: ${lastError.message.slice(0, 120)}, trying next...`);
+      const msg = lastError.message;
+      const is429 = msg.includes("429");
+      const is5xx = /5\d{2}/.test(msg);
+
+      // For 429/5xx on the LAST provider, do one retry with backoff
+      if ((is429 || is5xx) && pool.indexOf(provider) === pool.length - 1) {
+        console.warn(`[Pool] Last provider "${provider.label}" got ${is429 ? "429" : "5xx"}, retrying once...`);
+        await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+        try {
+          return await fn(provider.api_key, baseUrl, provider.model);
+        } catch (e2) {
+          lastError = e2 instanceof Error ? e2 : new Error(String(e2));
+        }
+      }
+
+      console.warn(`[Pool] Provider "${provider.label}" failed: ${msg.slice(0, 120)}, trying next...`);
     }
   }
   throw lastError || new Error("All providers in pool failed");
 }
 
-// ── Step 1: Score individual unprocessed signals ──
+// ── Step 1: Score individual signal (single attempt, no internal retry) ──
 
 async function scoreSignal(signal: RawSignal, apiKey: string, baseUrl: string, model: string): Promise<AIAnalysisResult> {
-  return withRetry(async () => {
-    const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
+  const prompt = `你是一个专业的市场调研分析师。分析以下用户评论/帖子，判断其是否隐含一个**未被满足的需求**或**商业机会**。
 
 用户内容:
 """
@@ -99,31 +84,30 @@ ${signal.content.slice(0, 1500)}
   "pain_level": "<mild|moderate|severe|critical>"
 }`;
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
-    });
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
+  });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
-    }
-    const rawText = await response.text();
-    let data: any;
-    try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
-    const content = data.choices[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("AI did not return valid JSON");
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
+  }
+  const rawText = await response.text();
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
+  const content = data.choices[0]?.message?.content || "";
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("AI did not return valid JSON");
 
-    const result = JSON.parse(jsonMatch[0]);
-    return {
-      sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
-      opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
-      topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
-      pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
-    };
-  }, { maxRetries: 2, baseDelayMs: 2000 });
+  const result = JSON.parse(jsonMatch[0]);
+  return {
+    sentiment_score: Math.max(-1, Math.min(1, result.sentiment_score || 0)),
+    opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
+    topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
+    pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
+  };
 }
 
 // ── Step 2: Semantic clustering via LLM ──
@@ -139,21 +123,12 @@ interface ClusteredOpportunity {
   top_sources: string[];
 }
 
-function buildClusterCall(
-  signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>
-) {
-  return (apiKey: string, baseUrl: string, model: string) =>
-    clusterSignalsWithAI(signals, apiKey, baseUrl, model);
-}
-
 async function clusterSignalsWithAI(
   signals: Array<{ id: string; content: string; opportunity_score: number; source_url: string | null; topic_tags: string[] | null }>,
   clusterApiKey: string,
   clusterBaseUrl: string,
   clusterModel: string
 ): Promise<ClusteredOpportunity[]> {
-  return withRetry(async () => {
-  // Build a compact summary of signals for the AI
   const signalSummaries = signals.slice(0, 80).map((s, i) => 
     `[${i}] (score:${s.opportunity_score}) ${s.content.slice(0, 200)}`
   ).join("\n");
@@ -199,7 +174,9 @@ ${signalSummaries}
     throw new Error(`AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
   }
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data: any;
+  try { data = JSON.parse(rawText); } catch { throw new Error(`AI clustering non-JSON: ${rawText.slice(0, 200)}`); }
   const content = data.choices?.[0]?.message?.content || "";
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) throw new Error("AI clustering did not return valid JSON array");
@@ -222,7 +199,6 @@ ${signalSummaries}
       top_sources: [...new Set(matchedSignals.map(s => s.source_url).filter(Boolean))].slice(0, 5) as string[],
     };
   }).filter((c: ClusteredOpportunity) => c.signal_ids.length >= 2);
-  }, { maxRetries: 2, baseDelayMs: 3000 });
 }
 
 // ── Main handler ──
@@ -263,14 +239,12 @@ serve(async (req) => {
     let consecutiveFails = 0;
 
     for (const signal of (unprocessed as RawSignal[]) || []) {
-      // Stop early if too many consecutive failures (even after retries across all providers)
       if (consecutiveFails >= 5) {
-        console.log(`[Processor] Stopping early: ${consecutiveFails} consecutive failures after pool exhaustion.`);
+        console.log(`[Processor] Stopping early: ${consecutiveFails} consecutive failures.`);
         break;
       }
 
       try {
-        // Try each provider in the pool until one succeeds
         const analysis = await callWithPool(llmPool, (apiKey, baseUrl, model) =>
           scoreSignal(signal, apiKey, baseUrl, model)
         );
@@ -292,8 +266,8 @@ serve(async (req) => {
         failCount++;
         consecutiveFails++;
       }
-      // Base delay between signals
-      await new Promise(r => setTimeout(r, 800));
+      // Brief delay between signals
+      await new Promise(r => setTimeout(r, 300));
     }
 
     console.log(`[Processor] Scoring done: ${successCount} ok, ${failCount} failed`);
@@ -313,8 +287,9 @@ serve(async (req) => {
 
       if (highSignals && highSignals.length >= 3) {
         console.log(`[Processor] Clustering ${highSignals.length} high-score signals via pool`);
-        // Try clustering with each provider in the pool
-        const clusters = await callWithPool(llmPool, buildClusterCall(highSignals));
+        const clusters = await callWithPool(llmPool, (apiKey, baseUrl, model) =>
+          clusterSignalsWithAI(highSignals, apiKey, baseUrl, model)
+        );
         console.log(`[Processor] AI returned ${clusters.length} opportunity clusters`);
 
         for (const cluster of clusters) {
