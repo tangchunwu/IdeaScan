@@ -572,7 +572,7 @@ export const HunterSection = () => {
                                    <TabsTrigger value="dashboard" className="gap-2"><Radar className="w-4 h-4" /> 商机发现</TabsTrigger>
                                    <TabsTrigger value="jobs" className="gap-2"><Filter className="w-4 h-4" /> 监控任务</TabsTrigger>
                                    {isAdmin && (
-                                          <TabsTrigger value="monitor" className="gap-2"><BarChart3 className="w-4 h-4" /> 📊 数据监控</TabsTrigger>
+                                          <TabsTrigger value="monitor" className="gap-2"><BarChart3 className="w-4 h-4" /> 数据监控</TabsTrigger>
                                    )}
                             </TabsList>
 
