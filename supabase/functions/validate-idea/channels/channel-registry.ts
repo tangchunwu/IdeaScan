@@ -17,6 +17,10 @@ import type {
 } from './types.ts';
 import { XiaohongshuAdapter } from './xiaohongshu-adapter.ts';
 import { DouyinAdapter } from './douyin-adapter.ts';
+import { TikTokAdapter } from './tiktok-adapter.ts';
+import { InstagramAdapter } from './instagram-adapter.ts';
+import { YouTubeAdapter } from './youtube-adapter.ts';
+import { RedditAdapter } from './reddit-adapter.ts';
 
 // ============ Channel Registry ============
 
@@ -28,6 +32,10 @@ class ChannelRegistry {
     // Register built-in adapters
     this.registerAdapter(new XiaohongshuAdapter());
     this.registerAdapter(new DouyinAdapter());
+    this.registerAdapter(new TikTokAdapter());
+    this.registerAdapter(new InstagramAdapter());
+    this.registerAdapter(new YouTubeAdapter());
+    this.registerAdapter(new RedditAdapter());
     
     // Future adapters will be registered here:
     // this.registerAdapter(new WeiboAdapter());

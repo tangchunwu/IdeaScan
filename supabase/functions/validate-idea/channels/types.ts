@@ -78,6 +78,8 @@ export interface ChannelCrawlResult {
     crawl_time_ms: number;
     api_calls: number;
     rate_limited: boolean;
+    failed_calls?: number;
+    retries?: number;
   };
 }
 
@@ -99,7 +101,7 @@ export interface ChannelStats {
 
 // ============ Channel Configuration ============
 
-export type ChannelType = 'xiaohongshu' | 'douyin' | 'weibo' | 'bilibili';
+export type ChannelType = 'xiaohongshu' | 'douyin' | 'tiktok' | 'instagram' | 'youtube' | 'reddit' | 'weibo' | 'bilibili';
 
 export interface ChannelConfig {
   /** Authentication token for the API */

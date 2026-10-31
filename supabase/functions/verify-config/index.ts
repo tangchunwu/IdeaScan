@@ -8,6 +8,7 @@ import {
 } from "../_shared/validation.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
+import { multiChannelOrchestrator } from "../validate-idea/channels/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,6 +237,49 @@ serve(async (req) => {
         message = "Connection failed. Please check your network and try again.";
       }
     } else if (type === 'tikhub') {
+      const requestedPlatforms = Array.isArray(body.platforms)
+        ? body.platforms.filter((item: unknown): item is string => typeof item === 'string' && ['tiktok', 'instagram', 'youtube', 'reddit'].includes(item)).slice(0, 4)
+        : [];
+      if (requestedPlatforms.length > 0) {
+        const userInfoRes = await fetch('https://api.tikhub.io/api/v1/tikhub/user/get_user_info', {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!userInfoRes.ok) {
+          await userInfoRes.text();
+          return new Response(JSON.stringify({ valid: false, message: `TikHub Token 验证失败 (${userInfoRes.status})`, platforms: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const platforms = [];
+        for (const platform of requestedPlatforms) {
+          const startedAt = Date.now();
+          try {
+            const result = await multiChannelOrchestrator.crawlChannel(platform as any, 'test', {
+              auth_token: apiKey,
+              mode: 'quick',
+              max_posts: 1,
+              max_comments_per_post: 1,
+            });
+            platforms.push({
+              platform,
+              valid: result.success,
+              status: result.success ? 200 : 502,
+              message: result.success ? `搜索成功，返回 ${result.posts.length} 条帖子` : (result.error || '平台搜索失败'),
+              latencyMs: Date.now() - startedAt,
+              apiCalls: result.metadata?.api_calls || 0,
+            });
+          } catch (platformError) {
+            platforms.push({
+              platform,
+              valid: false,
+              status: platformError instanceof TikHubError ? platformError.status : 0,
+              message: platformError instanceof Error ? platformError.message : '平台诊断失败',
+              latencyMs: Date.now() - startedAt,
+              apiCalls: 0,
+            });
+          }
+        }
+        return new Response(JSON.stringify({ valid: platforms.every((item) => item.valid), message: '海外平台诊断完成', platforms }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       try {
         
         // Step 1: Validate token via user info endpoint

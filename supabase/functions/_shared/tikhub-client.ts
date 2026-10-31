@@ -44,6 +44,72 @@ export interface DouyinSearchPage {
   };
 }
 
+export interface TikHubPage<T = any> {
+  items: T[];
+  posts: T[];
+  comments: T[];
+  hasMore: boolean;
+  continuationToken: string;
+  after: string;
+  offset?: number;
+}
+
+export interface TikTokSearchOptions {
+  offset?: number;
+  count?: number;
+  sortType?: number;
+  publishTime?: number;
+  region?: string;
+}
+
+export interface TikTokCommentsOptions {
+  cursor?: number;
+  count?: number;
+}
+
+export interface InstagramSearchOptions {
+  mode?: "general" | "reels";
+  paginationToken?: string;
+}
+
+export interface InstagramCommentsOptions {
+  sortBy?: string;
+  paginationToken?: string;
+}
+
+export interface YouTubeSearchOptions {
+  continuationToken?: string;
+  uploadDate?: string;
+  type?: string;
+  duration?: string;
+  features?: string;
+  sortBy?: string;
+}
+
+export interface YouTubeCommentsOptions {
+  languageCode?: string;
+  countryCode?: string;
+  sortBy?: string;
+  continuationToken?: string;
+  needFormat?: boolean;
+}
+
+export interface RedditSearchOptions {
+  language?: string;
+  searchType?: string;
+  sort?: string;
+  timeRange?: string;
+  safeSearch?: string;
+  allowNsfw?: string;
+  after?: string;
+}
+
+export interface RedditCommentsOptions {
+  language?: string;
+  sortType?: string;
+  after?: string;
+}
+
 const BASE_URL = "https://api.tikhub.io";
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_MAX_RETRIES = 1;
@@ -67,7 +133,7 @@ function isTruthyMore(value: unknown): boolean {
 
 function unwrapPayload(body: any): Record<string, any> {
   let payload = asRecord(body);
-  for (let depth = 0; depth < 3 && payload.data && typeof payload.data === "object"; depth++) {
+  for (let depth = 0; depth < 3 && payload.data && typeof payload.data === "object" && !Array.isArray(payload.data); depth++) {
     if (["items", "comments", "aweme_list", "pagination"].some((key) => key in payload)) break;
     payload = asRecord(payload.data);
   }
@@ -98,6 +164,49 @@ function retryAfterMs(response: Response, fallback: number): number {
 
 function continuationChanged(previous: Record<string, unknown>, next: Record<string, unknown>): boolean {
   return ["cursor", "index", "pageArea"].some((key) => String(previous[key] ?? "") !== String(next[key] ?? ""));
+}
+
+function findArrayResult(value: unknown, keys: string[], depth = 0): { found: boolean; value: any[] } {
+  if (depth > 4 || value === null || value === undefined) return { found: false, value: [] };
+  if (Array.isArray(value)) return { found: true, value };
+  if (typeof value !== "object") return { found: false, value: [] };
+  const record = asRecord(value);
+  for (const key of keys) {
+    if (Array.isArray(record[key])) return { found: true, value: record[key] };
+  }
+  for (const key of ["data", "payload", "result", "results"]) {
+    if (record[key] !== undefined) {
+      const nested = findArrayResult(record[key], keys, depth + 1);
+      if (nested.found) return nested;
+    }
+  }
+  return { found: false, value: [] };
+}
+
+function findFirstValue(value: unknown, keys: string[], depth = 0): unknown {
+  if (depth > 4 || value === null || typeof value !== "object") return undefined;
+  const record = asRecord(value);
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) return record[key];
+  }
+  for (const key of ["data", "payload", "result", "results", "pagination", "pageInfo", "page_info"]) {
+    if (record[key] !== undefined) {
+      const nested = findFirstValue(record[key], keys, depth + 1);
+      if (nested !== undefined) return nested;
+    }
+  }
+  return undefined;
+}
+
+function pageHasMore(payload: Record<string, any>, continuationToken = "", after = ""): boolean {
+  const value = findFirstValue(payload, ["has_more", "hasMore", "has_next", "hasNext", "hasNextPage"]);
+  if (value !== undefined) return isTruthyMore(value);
+  return Boolean(continuationToken || after);
+}
+
+function pageToken(payload: Record<string, any>, keys: string[]): string {
+  const value = findFirstValue(payload, keys);
+  return value === undefined || value === null ? "" : String(value);
 }
 
 export class TikHubClient {
@@ -253,6 +362,174 @@ export class TikHubClient {
     const payload = unwrapPayload(await this.request(`/api/v1/douyin/web/fetch_video_comments?${params}`));
     this.requireArray(payload, "comments");
     return asArray(payload.comments).slice(0, limit);
+  }
+
+  async searchTikTok(keyword: string, options: TikTokSearchOptions = {}): Promise<TikHubPage> {
+    const params = new URLSearchParams({
+      keyword,
+      offset: String(options.offset ?? 0),
+      count: String(options.count ?? 20),
+      sort_type: String(options.sortType ?? 0),
+      publish_time: String(options.publishTime ?? 0),
+      region: options.region || "US",
+    });
+    const payload = unwrapPayload(await this.request(`/api/v1/tiktok/app/v3/fetch_video_search_result?${params}`));
+    const result = findArrayResult(payload, ["items", "aweme_list", "item_list", "videos", "data"]);
+    this.requireFoundArray(result, "items");
+    const nextCursor = pageToken(payload, ["next_cursor", "nextCursor"]);
+    const nextOffset = pageToken(payload, ["next_offset", "nextOffset"]);
+    return this.searchPage(result.value, payload, nextCursor, "", nextOffset ? Number(nextOffset) : undefined);
+  }
+
+  async getTikTokComments(awemeId: string, limit?: number): Promise<any[]>;
+  async getTikTokComments(awemeId: string, options: TikTokCommentsOptions): Promise<TikHubPage>;
+  async getTikTokComments(awemeId: string, limitOrOptions: number | TikTokCommentsOptions = 10): Promise<any[] | TikHubPage> {
+    const options: TikTokCommentsOptions = typeof limitOrOptions === "number" ? { count: limitOrOptions } : limitOrOptions;
+    const limit = options.count ?? 10;
+    if (!awemeId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ aweme_id: awemeId, cursor: String(options.cursor ?? 0), count: String(Math.min(50, limit)) });
+    const payload = unwrapPayload(await this.request(`/api/v1/tiktok/app/v3/fetch_video_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "comment_list", "items", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") {
+      return this.commentPage(comments, payload, pageToken(payload, ["next_cursor", "nextCursor"]), "");
+    }
+    return comments;
+  }
+
+  async searchInstagram(keyword: string, options: InstagramSearchOptions = { mode: "general" }): Promise<TikHubPage> {
+    const path = options.mode === "reels" ? "/api/v1/instagram/v2/search_reels" : "/api/v1/instagram/v2/general_search";
+    const params = new URLSearchParams({ keyword });
+    if (options.paginationToken !== undefined) params.set("pagination_token", options.paginationToken);
+    const payload = unwrapPayload(await this.request(`${path}?${params}`));
+    const result = findArrayResult(payload, ["items", "posts", "medias", "reels", "results", "data"]);
+    this.requireFoundArray(result, "items");
+    const continuationToken = pageToken(payload, ["next_pagination_token", "nextPaginationToken", "pagination_token", "paginationToken"]);
+    return this.searchPage(result.value, payload, continuationToken, "");
+  }
+
+  async getInstagramComments(codeOrUrl: string, limit?: number, paginationToken?: string): Promise<any[]>;
+  async getInstagramComments(codeOrUrl: string, options: InstagramCommentsOptions): Promise<TikHubPage>;
+  async getInstagramComments(codeOrUrl: string, limitOrOptions: number | InstagramCommentsOptions = 10, paginationToken?: string): Promise<any[] | TikHubPage> {
+    const options: InstagramCommentsOptions = typeof limitOrOptions === "number" ? { paginationToken } : limitOrOptions;
+    const limit = typeof limitOrOptions === "number" ? limitOrOptions : 10;
+    if (!codeOrUrl || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ code_or_url: codeOrUrl });
+    if (options.sortBy) params.set("sort_by", options.sortBy);
+    if (options.paginationToken !== undefined) params.set("pagination_token", options.paginationToken);
+    const payload = unwrapPayload(await this.request(`/api/v1/instagram/v2/fetch_post_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "items", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") {
+      return this.commentPage(comments, payload, pageToken(payload, ["next_pagination_token", "nextPaginationToken", "pagination_token", "paginationToken"]), "");
+    }
+    return comments;
+  }
+
+  async searchYouTube(keyword: string, options: YouTubeSearchOptions = {}): Promise<TikHubPage> {
+    const params = new URLSearchParams();
+    if (keyword) params.set("keyword", keyword);
+    if (options.continuationToken !== undefined) params.set("continuation_token", options.continuationToken);
+    if (options.uploadDate) params.set("upload_date", options.uploadDate);
+    if (options.type) params.set("type", options.type);
+    if (options.duration) params.set("duration", options.duration);
+    if (options.features) params.set("features", options.features);
+    if (options.sortBy) params.set("sort_by", options.sortBy);
+    const payload = unwrapPayload(await this.request(`/api/v1/youtube/web_v2/get_general_search_v2?${params}`));
+    const result = findArrayResult(payload, ["items", "videos", "shorts", "contents", "results", "data"]);
+    this.requireFoundArray(result, "items");
+    const continuationToken = pageToken(payload, ["next_continuation_token", "nextContinuationToken", "continuation_token", "continuationToken"]);
+    return this.searchPage(result.value, payload, continuationToken, "");
+  }
+
+  async getYouTubeComments(videoId: string, limit?: number, continuationToken?: string): Promise<any[]>;
+  async getYouTubeComments(videoId: string, options: YouTubeCommentsOptions): Promise<TikHubPage>;
+  async getYouTubeComments(videoId: string, limitOrOptions: number | YouTubeCommentsOptions = 10, continuationToken?: string): Promise<any[] | TikHubPage> {
+    const options: YouTubeCommentsOptions = typeof limitOrOptions === "number" ? { continuationToken } : limitOrOptions;
+    const limit = typeof limitOrOptions === "number" ? limitOrOptions : 10;
+    if (!videoId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ video_id: videoId });
+    if (options.languageCode) params.set("language_code", options.languageCode);
+    if (options.countryCode) params.set("country_code", options.countryCode);
+    if (options.sortBy) params.set("sort_by", options.sortBy);
+    if (options.continuationToken !== undefined) params.set("continuation_token", options.continuationToken);
+    if (options.needFormat !== undefined) params.set("need_format", String(options.needFormat));
+    const payload = unwrapPayload(await this.request(`/api/v1/youtube/web_v2/get_video_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "items", "comment_items", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") {
+      return this.commentPage(comments, payload, pageToken(payload, ["next_continuation_token", "nextContinuationToken", "continuation_token", "continuationToken"]), "");
+    }
+    return comments;
+  }
+
+  async searchReddit(keyword: string, options: RedditSearchOptions = {}): Promise<TikHubPage> {
+    const params = new URLSearchParams({ query: keyword, search_type: options.searchType || "post", safe_search: options.safeSearch || "unset", allow_nsfw: options.allowNsfw || "0", need_format: "true" });
+    if (options.language) params.set("language", options.language);
+    if (options.sort) params.set("sort", options.sort);
+    if (options.timeRange) params.set("time_range", options.timeRange);
+    if (options.after !== undefined) params.set("after", options.after);
+    const payload = unwrapPayload(await this.request(`/api/v1/reddit/app/fetch_dynamic_search?${params}`));
+    const result = findArrayResult(payload, ["posts", "items", "children", "results", "data"]);
+    this.requireFoundArray(result, "posts");
+    const after = pageToken(payload, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"]);
+    return this.searchPage(result.value, payload, "", after);
+  }
+
+  async getRedditComments(postId: string, limit?: number, after?: string): Promise<any[]>;
+  async getRedditComments(postId: string, options: RedditCommentsOptions): Promise<TikHubPage>;
+  async getRedditComments(postId: string, limitOrOptions: number | RedditCommentsOptions = 10, after?: string): Promise<any[] | TikHubPage> {
+    const options: RedditCommentsOptions = typeof limitOrOptions === "number" ? { after } : limitOrOptions;
+    const limit = typeof limitOrOptions === "number" ? limitOrOptions : 10;
+    if (!postId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ post_id: postId, need_format: "true" });
+    if (options.language) params.set("language", options.language);
+    if (options.sortType) params.set("sort_type", options.sortType);
+    if (options.after !== undefined) params.set("after", options.after);
+    const payload = unwrapPayload(await this.request(`/api/v1/reddit/app/fetch_post_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "items", "children", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") {
+      return this.commentPage(comments, payload, "", pageToken(payload, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"]));
+    }
+    return comments;
+  }
+
+  private searchPage(items: any[], payload: Record<string, any>, continuationToken: string, after: string, offset?: number): TikHubPage {
+    return {
+      items,
+      posts: items,
+      comments: [],
+      hasMore: pageHasMore(payload, continuationToken, after),
+      continuationToken,
+      after,
+      ...(offset === undefined ? {} : { offset }),
+    };
+  }
+
+  private emptyCommentPage(): TikHubPage {
+    return { items: [], posts: [], comments: [], hasMore: false, continuationToken: "", after: "" };
+  }
+
+  private commentPage(comments: any[], payload: Record<string, any>, continuationToken: string, after: string): TikHubPage {
+    return {
+      items: comments,
+      posts: [],
+      comments,
+      hasMore: pageHasMore(payload, continuationToken, after),
+      continuationToken,
+      after,
+    };
+  }
+
+  private requireFoundArray(result: { found: boolean; value: any[] }, key: string): void {
+    if (result.found) return;
+    this.stats.failedCalls += 1;
+    throw new TikHubError(`TikHub invalid response: missing ${key}`, { status: 200 });
   }
 
   private requireArray(payload: Record<string, any>, key: string): void {

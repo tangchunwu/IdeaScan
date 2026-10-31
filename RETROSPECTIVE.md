@@ -159,3 +159,41 @@
 
 - 本轮未做浏览器截图回归，视觉效果以代码、构建和组件测试为依据。
 - 海外平台适配器、报告平台选择和真实 TikHub 生产 Token 验证仍未完成。
+
+## 2026-10-31｜海外社媒四平台灰度扩展与诊断
+
+### Challenges
+
+- TikHub 需要同时承载 TikTok、Instagram、YouTube、Reddit 四种不同的搜索和分页协议。
+- 不能修改数据库表结构，但海外结果需要进入历史报告并且不能影响国内评分。
+- 真实 Token 验证必须由用户在站内触发，不能写入日志或自动消耗业务配额。
+
+### Root Cause
+
+- 现有渠道注册表只有小红书和抖音，客户端没有海外平台的统一分页返回模型。
+- 报告读取链路只识别国内 `xiaohongshu_data`，没有独立的海外 JSON 区块。
+
+### Solutions
+
+- 扩展统一 TikHub 客户端和 ChannelAdapter，接入四个平台官方搜索/评论接口、分页透传、样本上限和请求统计。
+- 使用现有 `validation_reports.data_summary` JSON 保存 `overseasSocialData`，不新增表、列、迁移、RLS 或 RPC。
+- 增加服务端 `ENABLE_OVERSEAS_SOCIAL=true` 灰度开关，默认关闭；海外数据单独展示，不参与评分。
+- 设置页增加海外平台诊断，先验证 Token，再逐个平台执行最小采集，展示状态、耗时和请求次数。
+
+### Verification
+
+- 海外客户端和适配器定向测试通过；全量 Vitest 18 个测试文件、92 项测试通过。
+- `npx tsc --noEmit`、相关 Edge Function `deno check --no-lock --no-config` 和 `npm run build` 通过。
+- `git diff` 检查确认没有数据库迁移或 `supabase/config.toml` 改动。
+- 真实 TikHub Token 尚未执行线上诊断，当前只验证 mock 合同和灰度关闭代码路径。
+
+### Learnings
+
+- 多平台扩展应先统一供应商分页和错误合同，再让适配器只负责平台字段映射。
+- 没有 schema 迁移时，可以复用已有 JSON 报告字段，但必须明确版本、平台状态和不参与评分的边界。
+
+### Boundary
+
+- 默认环境变量未开启时，验证流程不会调用海外平台。
+- 普通设置页没有开放平台选择；当前诊断按钮只验证用户主动配置的 Token。
+- 线上额度、区域可用性、TikHub 实际返回字段和生产网络质量仍需用户执行站内诊断确认。

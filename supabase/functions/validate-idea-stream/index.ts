@@ -30,6 +30,7 @@ import {
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 import { multiChannelOrchestrator } from "../validate-idea/channels/index.ts";
+import { buildOverseasSocialData } from "../_shared/overseas-social.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -78,6 +79,7 @@ interface RequestConfig {
     tavily?: string;
   };
   mode?: 'quick' | 'deep';
+  overseasPlatforms?: string[];
 }
 
 interface LLMRuntime {
@@ -260,6 +262,7 @@ async function loadValidationCheckpoint(
   competitorSummaries: string[];
   aggregatedInsights: { marketInsight: string; competitiveInsight: string; keyFindings: string[] };
   extractedCompetitors: any[];
+  overseasSocialData: any;
   checkpointStage: string;
   checkpointUpdatedAt: string;
 } | null> {
@@ -290,6 +293,7 @@ async function loadValidationCheckpoint(
     competitorSummaries,
     aggregatedInsights: normalizeAggregatedInsights((dataSummary as any).aggregatedInsights),
     extractedCompetitors,
+    overseasSocialData: (dataSummary as any).overseasSocialData || null,
     checkpointStage: String((dataSummary as any).checkpointStage || ""),
     checkpointUpdatedAt: String((dataSummary as any).checkpointUpdatedAt || ""),
   };
@@ -306,6 +310,7 @@ async function persistValidationCheckpoint(
     competitorSummaries?: string[];
     aggregatedInsights?: { marketInsight: string; competitiveInsight: string; keyFindings: string[] };
     extractedCompetitors?: string[];
+    overseasSocialData?: any;
   },
 ): Promise<void> {
   const { data: existing } = await supabase
@@ -326,6 +331,7 @@ async function persistValidationCheckpoint(
   if (Array.isArray(payload.competitorSummaries)) nextSummary.competitorSummaries = payload.competitorSummaries;
   if (payload.aggregatedInsights) nextSummary.aggregatedInsights = payload.aggregatedInsights;
   if (Array.isArray(payload.extractedCompetitors)) nextSummary.extractedCompetitors = payload.extractedCompetitors;
+  if (payload.overseasSocialData !== undefined) nextSummary.overseasSocialData = payload.overseasSocialData;
 
   const patch: any = {
     validation_id: payload.validationId,
@@ -618,6 +624,9 @@ function validateConfig(config: unknown): RequestConfig {
       tavily: validateString((c.searchKeys as any).tavily, "tavily key", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     } : undefined,
     mode: (c.mode === 'quick' || c.mode === 'deep') ? (c.mode as 'quick' | 'deep') : undefined,
+    overseasPlatforms: Array.isArray(c.overseasPlatforms)
+      ? c.overseasPlatforms.filter((item): item is string => typeof item === 'string' && ['tiktok', 'instagram', 'youtube', 'reddit'].includes(item)).slice(0, 4)
+      : [],
   };
 }
 
@@ -1050,6 +1059,7 @@ Deno.serve(async (req) => {
       };
       let usedThirdPartyCrawler = false;
       let competitorData: SearchResult[] = [];
+      let overseasSocialData: any = null;
       let extractedCompetitors: any[] = [];
       let resumeSocialSummaries: string[] = [];
       let resumeCompetitorSummaries: string[] = [];
@@ -1071,6 +1081,9 @@ Deno.serve(async (req) => {
         }
         if (Array.isArray(resumeCheckpoint.extractedCompetitors) && resumeCheckpoint.extractedCompetitors.length > 0) {
           extractedCompetitors = resumeCheckpoint.extractedCompetitors;
+        }
+        if (resumeCheckpoint.overseasSocialData) {
+          overseasSocialData = resumeCheckpoint.overseasSocialData;
         }
         resumeSocialSummaries = resumeCheckpoint.socialSummaries;
         resumeCompetitorSummaries = resumeCheckpoint.competitorSummaries;
@@ -1504,6 +1517,34 @@ Deno.serve(async (req) => {
         }
       }
 
+      const requestedOverseasPlatforms = Array.isArray(config?.overseasPlatforms) ? config.overseasPlatforms : [];
+      const overseasEnabled = Deno.env.get("ENABLE_OVERSEAS_SOCIAL") === "true";
+      if (overseasEnabled && requestedOverseasPlatforms.length > 0 && tikhubToken) {
+        await sendEvent({
+          event: "progress",
+          stage: "overseas_social",
+          progress: 38,
+          message: "正在采集海外社媒样本...",
+          meta: { platforms: requestedOverseasPlatforms },
+        });
+        const overseasResult = await multiChannelOrchestrator.crawlMultipleChannels({
+          keyword: xhsSearchTerm,
+          channels: requestedOverseasPlatforms.map((type) => ({
+            type: type as any,
+            config: { auth_token: tikhubToken, mode: mode === "deep" ? "deep" : "quick", max_posts: 10, max_comments_per_post: 10 },
+          })),
+        });
+        overseasSocialData = buildOverseasSocialData(requestedOverseasPlatforms, overseasResult);
+        await sendEvent({
+          event: "progress",
+          stage: "overseas_social",
+          detailStage: "completed",
+          progress: 40,
+          message: `海外社媒采集完成（${overseasSocialData.aggregate.totalPosts} 条帖子，${overseasSocialData.aggregate.totalComments} 条评论）`,
+          meta: { platforms: requestedOverseasPlatforms, aggregate: overseasSocialData.aggregate },
+        });
+      }
+
       await sendProgress('CRAWL_DONE');
       checkpointSocialData = socialData;
 
@@ -1530,6 +1571,7 @@ Deno.serve(async (req) => {
           stage: "crawl_done",
           socialData,
           competitorData,
+          overseasSocialData,
         });
       } catch (checkpointError) {
         console.error("[Checkpoint] Persist after crawl failed:", checkpointError);
@@ -1968,6 +2010,7 @@ Deno.serve(async (req) => {
           selfRetryCount: crawlSelfRetryCount,
           fallbackUsed: crawlFallbackUsed,
           fallbackReason: crawlFallbackReason,
+          ...(overseasSocialData ? { overseasSocialData } : {}),
         },
         data_quality_score: dataQualityScore,
         keywords_used: { coreKeywords: crawlKeywords, expandedKeywords: xhsKeywords, lowCostMode },

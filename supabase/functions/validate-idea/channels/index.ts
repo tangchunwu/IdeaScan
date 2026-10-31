@@ -6,6 +6,10 @@
  * Supported Channels:
  * - Xiaohongshu (小红书) ✅
  * - Douyin (抖音) ✅
+ * - TikTok ✅
+ * - Instagram ✅
+ * - YouTube ✅
+ * - Reddit ✅
  * - Weibo (微博) - coming soon
  * - Bilibili (哔哩哔哩) - coming soon
  * 
@@ -41,6 +45,10 @@ export { BaseChannelAdapter } from './base-adapter.ts';
 // Channel adapters
 export { XiaohongshuAdapter } from './xiaohongshu-adapter.ts';
 export { DouyinAdapter } from './douyin-adapter.ts';
+export { TikTokAdapter } from './tiktok-adapter.ts';
+export { InstagramAdapter } from './instagram-adapter.ts';
+export { YouTubeAdapter } from './youtube-adapter.ts';
+export { RedditAdapter } from './reddit-adapter.ts';
 
 // Registry and orchestrator
 export { 
@@ -52,7 +60,7 @@ export {
 // ============ Convenience Functions ============
 
 import { multiChannelOrchestrator } from './channel-registry.ts';
-import type { ChannelCrawlResult, ChannelConfig } from './types.ts';
+import type { ChannelCrawlResult, ChannelConfig, ChannelType } from './types.ts';
 
 /**
  * Crawl Xiaohongshu data (backward compatible with existing code)
@@ -81,7 +89,7 @@ export async function crawlDouyin(
  */
 export async function crawlMultipleChannels(
   keyword: string,
-  channels: { type: 'xiaohongshu' | 'douyin'; config: ChannelConfig }[],
+  channels: { type: ChannelType; config: ChannelConfig }[],
   tags?: string[]
 ) {
   return multiChannelOrchestrator.crawlMultipleChannels({

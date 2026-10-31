@@ -48,6 +48,8 @@ export function useReportData(data: FullValidation | null | undefined) {
   if (!data?.validation || !data?.report) return null;
 
   const { validation, report } = data;
+  const dataSummaryRaw = (report?.data_summary ?? {}) as Record<string, any>;
+  const overseasSocialData = dataSummaryRaw.overseasSocialData || null;
 
   const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
   const marketAnalysis = {
@@ -253,6 +255,7 @@ export function useReportData(data: FullValidation | null | undefined) {
     evidenceItems,
     topEvidence,
     evidenceSummary,
+    overseasSocialData,
   };
 }
 

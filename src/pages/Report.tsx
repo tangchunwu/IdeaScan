@@ -44,6 +44,7 @@ import { BrandNameSuggestions } from "@/components/report/BrandNameSuggestions";
 import { ReportNotes } from "@/components/report/ReportNotes";
 import { CollaboratorPanel } from "@/components/report/CollaboratorPanel";
 import { SectionHeading } from "@/components/report/SectionHeading";
+import { OverseasSocialCard } from "@/components/report/OverseasSocialCard";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 
 const Report = () => {
@@ -479,6 +480,13 @@ const Report = () => {
             <SectionHeading icon={Radar} title="维度评估" subtitle="多维度雷达分析" />
             <RadarDimensionSection radarData={radarData} dimensions={dimensions} />
           </ScrollReveal>
+
+          {reportData.overseasSocialData && (
+            <ScrollReveal delay={350} className="mt-10 sm:mt-14">
+              <SectionHeading icon={Globe} title="海外社媒" subtitle="独立平台证据，不参与当前评分" />
+              <OverseasSocialCard data={reportData.overseasSocialData} />
+            </ScrollReveal>
+          )}
 
           {/* Prominent Re-analyze CTA when data is incomplete */}
           {needsReanalysis && !isIncomplete && (
