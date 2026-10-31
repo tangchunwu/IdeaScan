@@ -31,7 +31,7 @@ type RawSignalRow = {
   comments_count: number;
   content_hash: string;
   scanned_at: string;
-  processed_at: string;
+  processed_at: string | null;
 };
 
 function readPayload(body: Record<string, unknown>): CrawlerResultPayload {
@@ -114,7 +114,7 @@ function buildRawSignalRows(payload: CrawlerResultPayload): RawSignalRow[] {
         comments_count: Number(note.comments_count || 0),
         content_hash: `${platform}-note-${note.id}`,
         scanned_at: note.published_at || now,
-        processed_at: now,
+        processed_at: null,
       });
     }
     for (const comment of platformResult.comments || []) {
@@ -131,7 +131,7 @@ function buildRawSignalRows(payload: CrawlerResultPayload): RawSignalRow[] {
         comments_count: 0,
         content_hash: `${platform}-comment-${comment.id}`,
         scanned_at: comment.published_at || now,
-        processed_at: now,
+        processed_at: null,
       });
     }
   }
@@ -202,7 +202,14 @@ serve(async (req) => {
     const secret = Deno.env.get("CRAWLER_CALLBACK_SECRET") || "";
     const skipSignature = Deno.env.get("CRAWLER_SKIP_SIGNATURE_VERIFY") === "true";
 
-    if (!skipSignature && secret) {
+    if (!skipSignature && !secret) {
+      return new Response(JSON.stringify({ error: "Callback signature is not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!skipSignature) {
       const valid = await verifyCrawlerSignature(secret, rawBody, signature);
       if (!valid) {
         return new Response(JSON.stringify({ error: "Invalid callback signature" }), {

@@ -33,13 +33,24 @@ vi.mock('@/hooks/useSettings', () => ({
         })),
 }));
 
-import { getValidation, listValidations, createValidation } from '@/services/validationService';
+vi.mock('@/hooks/useAuth', () => ({
+        useAuth: vi.fn(() => ({
+                user: { id: 'user-123' },
+                session: null,
+                isLoading: false,
+                signOut: vi.fn(),
+        })),
+}));
+
+import { getValidation, listValidations, createValidation, deleteValidation } from '@/services/validationService';
 
 describe('validationKeys', () => {
         it('should generate correct query keys', () => {
                 expect(validationKeys.all).toEqual(['validations']);
-                expect(validationKeys.lists()).toEqual(['validations', 'list']);
-                expect(validationKeys.detail('123')).toEqual(['validations', 'detail', '123']);
+                expect(validationKeys.listRoot).toEqual(['validations', 'list']);
+                expect(validationKeys.lists('user-123')).toEqual(['validations', 'list', 'user-123']);
+                expect(validationKeys.detail('123')).toEqual(['validations', 'detail', '', '123']);
+                expect(validationKeys.detail('123', 'user-123')).toEqual(['validations', 'detail', 'user-123', '123']);
         });
 });
 
@@ -100,7 +111,29 @@ it('listValidations should return validation list', async () => {
         expect(result.current.data).toEqual(mockList);
 });
 
+it('should use separate caches when the user changes', async () => {
+        const userAList = [{ id: 'a', idea: 'User A', status: 'completed' }];
+        const userBList = [{ id: 'b', idea: 'User B', status: 'completed' }];
+        queryClient.setQueryData(validationKeys.lists('user-a'), userAList);
+        queryClient.setQueryData(validationKeys.lists('user-b'), userBList);
+
+        const { useValidations } = await import('@/hooks/useValidation');
+        const { result, rerender } = renderHook(
+                ({ userId }) => useValidations(userId),
+                { initialProps: { userId: 'user-a' }, wrapper },
+        );
+
+        expect(result.current.data).toEqual(userAList);
+        rerender({ userId: 'user-b' });
+
+        await waitFor(() => {
+                expect(result.current.data).toEqual(userBList);
+        });
+        expect(listValidations).not.toHaveBeenCalled();
+});
+
 it('createValidation mutation should work correctly', async () => {
+        queryClient.setQueryData(validationKeys.lists('user-123'), []);
         const mockResponse = { success: true, validationId: 'new-123', overallScore: 85 };
         (createValidation as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
@@ -115,5 +148,24 @@ it('createValidation mutation should work correctly', async () => {
         });
 
         expect(createValidation).toHaveBeenCalled();
+        expect(queryClient.getQueryState(validationKeys.lists('user-123'))?.isInvalidated).toBe(true);
+});
+
+it('deleteValidation should invalidate the current user list and remove its detail cache', async () => {
+        (deleteValidation as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true });
+        const detailKey = validationKeys.detail('123', 'user-123');
+        queryClient.setQueryData(validationKeys.lists('user-123'), [{ id: '123' }]);
+        queryClient.setQueryData(detailKey, { validation: { id: '123' } });
+
+        const { useDeleteValidation } = await import('@/hooks/useValidation');
+        const { result } = renderHook(() => useDeleteValidation(), { wrapper });
+        result.current.mutate('123');
+
+        await waitFor(() => {
+                expect(result.current.isSuccess).toBe(true);
+        });
+
+        expect(queryClient.getQueryData(detailKey)).toBeUndefined();
+        expect(queryClient.getQueryState(validationKeys.lists('user-123'))?.isInvalidated).toBe(true);
 });
 });

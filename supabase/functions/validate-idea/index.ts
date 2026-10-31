@@ -954,6 +954,8 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let activeValidationId: string | undefined;
+  let activeClient: any;
   try {
     const body = await req.json();
 
@@ -962,7 +964,7 @@ serve(async (req) => {
     const tags = validateStringArray(body.tags, "tags", LIMITS.TAG_MAX_COUNT, LIMITS.TAG_MAX_LENGTH);
     const config = validateConfig(body.config);
 
-    const supabase = createClient(
+    const supabase = activeClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
@@ -1001,6 +1003,7 @@ serve(async (req) => {
       console.error("Failed to create validation:", createError);
       throw new Error("Failed to create validation");
     }
+    activeValidationId = validation.id;
 
     console.log("Created validation:", validation.id);
     const startedAt = Date.now();
@@ -1492,6 +1495,7 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("Error updating validation:", updateError);
+      throw new Error("Failed to complete validation");
     }
 
     // 6. Sync to Trending Topics (if heat score is high enough)
@@ -1521,6 +1525,14 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
+    if (activeClient && activeValidationId) {
+      const { error: statusError } = await activeClient
+        .from("validations")
+        .update({ status: "failed" })
+        .eq("id", activeValidationId)
+        .eq("status", "processing");
+      if (statusError) console.error("Failed to mark validation as failed:", statusError);
+    }
     if (error instanceof RateLimitError) {
       return createRateLimitResponse(error, corsHeaders);
     }

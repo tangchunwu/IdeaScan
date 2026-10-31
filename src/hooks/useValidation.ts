@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import {
        createValidation,
        getValidation,
@@ -10,16 +11,19 @@ import {
 // Query Keys
 export const validationKeys = {
        all: ["validations"] as const,
-       lists: () => [...validationKeys.all, "list"] as const,
-       detail: (id: string) => [...validationKeys.all, "detail", id] as const,
+       listRoot: ["validations", "list"] as const,
+       lists: (userId?: string) => [...validationKeys.all, "list", userId ?? ""] as const,
+       detail: (id: string, userId?: string) => [...validationKeys.all, "detail", userId ?? "", id] as const,
 };
 
 // Hook to fetch a single validation report
 export const useValidation = (id: string | undefined) => {
+       const { user } = useAuth();
+
        return useQuery({
-              queryKey: validationKeys.detail(id || ""),
+              queryKey: validationKeys.detail(id || "", user?.id),
               queryFn: () => getValidation(id!),
-              enabled: !!id,
+              enabled: !!id && !!user?.id,
               staleTime: 1000 * 60 * 5, // 5 minutes
        });
 };
@@ -27,7 +31,7 @@ export const useValidation = (id: string | undefined) => {
 // Hook to fetch list of validations
 export const useValidations = (userId: string | undefined) => {
        return useQuery({
-              queryKey: validationKeys.lists(),
+              queryKey: validationKeys.lists(userId),
               queryFn: listValidations,
               enabled: !!userId,
               staleTime: 1000 * 60 * 1, // 1 minute
@@ -39,6 +43,7 @@ import { useSettings } from "./useSettings";
 // Hook to create a validation
 export const useCreateValidation = () => {
        const queryClient = useQueryClient();
+       const { user } = useAuth();
        const settings = useSettings();
        const resolveMode = (mode?: 'quick' | 'deep') => mode || 'deep';
 
@@ -70,7 +75,9 @@ export const useCreateValidation = () => {
                      }
               }),
               onSuccess: () => {
-                     queryClient.invalidateQueries({ queryKey: validationKeys.lists() });
+                     if (user?.id) {
+                            queryClient.invalidateQueries({ queryKey: validationKeys.lists(user.id) });
+                     }
               },
        });
 };
@@ -78,11 +85,15 @@ export const useCreateValidation = () => {
 // Hook to delete a validation
 export const useDeleteValidation = () => {
        const queryClient = useQueryClient();
+       const { user } = useAuth();
 
        return useMutation({
               mutationFn: (id: string) => deleteValidation(id),
-              onSuccess: () => {
-                     queryClient.invalidateQueries({ queryKey: validationKeys.lists() });
+              onSuccess: (_data, id) => {
+                     if (user?.id) {
+                            queryClient.invalidateQueries({ queryKey: validationKeys.lists(user.id) });
+                            queryClient.removeQueries({ queryKey: validationKeys.detail(id, user.id) });
+                     }
               },
        });
 };

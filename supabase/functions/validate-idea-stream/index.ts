@@ -597,7 +597,7 @@ function dedupeLLMRuntimes(items: LLMRuntime[]): LLMRuntime[] {
   return out;
 }
 
-function resolveLLMRuntimes(config?: RequestConfig) {
+async function resolveLLMRuntimes(config?: RequestConfig) {
   const configFallbacks = Array.isArray(config?.llmFallbacks)
     ? config!.llmFallbacks!
         .filter((item) => item && typeof item === "object")
@@ -1602,7 +1602,7 @@ Deno.serve(async (req) => {
 
       // ============ Competitor Search + Jina Clean + Deep Search ============
       const searchKeys = resolveSearchKeys(config);
-      const { primary: llmRuntime, candidates: llmCandidates } = resolveLLMRuntimes(config);
+      const { primary: llmRuntime, candidates: llmCandidates } = await resolveLLMRuntimes(config);
       
       const hasAnySearchKey = searchKeys.tavily || searchKeys.bocha || searchKeys.you;
 

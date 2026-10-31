@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Navbar } from "@/components/shared/Navbar";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getFunctionInvokeError } from "@/lib/adminModelManager";
 import {
   Brain, Search, Image, Globe, Shield, Loader2, CheckCircle2, XCircle,
   Eye, EyeOff, Save, Plus, Trash2, GripVertical, ArrowUp, ArrowDown,
@@ -34,6 +35,7 @@ interface ProviderRow {
   _testResult?: { success: boolean; message: string; latencyMs?: number };
   _testing?: boolean;
   _saving?: boolean;
+  _deleting?: boolean;
 }
 
 interface GroupDef {
@@ -102,6 +104,7 @@ const ModelManager = () => {
   const [envStatus, setEnvStatus] = useState<Record<string, boolean>>({});
   const [lovableReady, setLovableReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const deletingProviderKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -161,15 +164,33 @@ const ModelManager = () => {
   const removeProvider = async (groupId: string, idx: number) => {
     const list = providers[groupId] || [];
     const p = list[idx];
+    if (!p || p._deleting) return;
     if (p.id && !p.id.startsWith("new-") && !p.id.startsWith("env-")) {
+      const deleteKey = `${groupId}:${p.id}`;
+      if (deletingProviderKeysRef.current.has(deleteKey)) return;
+      deletingProviderKeysRef.current.add(deleteKey);
+      setProviders((prev) => {
+        const next = [...(prev[groupId] || [])];
+        if (next[idx]) next[idx] = { ...next[idx], _deleting: true };
+        return { ...prev, [groupId]: next };
+      });
       try {
-        await supabase.functions.invoke("admin-api-config", {
+        const result = await supabase.functions.invoke("admin-api-config", {
           body: { action: "delete", id: p.id },
         });
+        const error = getFunctionInvokeError(result);
+        if (error) throw error;
         toast.success("已删除");
       } catch (e: any) {
         toast.error("删除失败: " + e.message);
         return;
+      } finally {
+        deletingProviderKeysRef.current.delete(deleteKey);
+        setProviders((prev) => {
+          const next = [...(prev[groupId] || [])];
+          if (next[idx]) next[idx] = { ...next[idx], _deleting: false };
+          return { ...prev, [groupId]: next };
+        });
       }
     }
     setProviders((prev) => ({
@@ -455,9 +476,10 @@ const ModelManager = () => {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive"
+                            disabled={p._deleting}
                             onClick={() => removeProvider(group.id, idx)}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {p._deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </Button>
                         </div>
                       </div>

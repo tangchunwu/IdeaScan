@@ -904,11 +904,9 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                             <DialogDescription className="sr-only">
                                    配置大模型与数据源，用于创意验证与报告生成。
                             </DialogDescription>
-                            {!user && (
-                                   <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                                          💡 登录后配置将加密保存到云端，跨设备自动同步
-                                   </p>
-                            )}
+                            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                                   🔐 API 密钥仅保留在当前浏览器会话内，刷新页面后需要重新输入。登录后可点击“同步到云端”保存加密配置并跨设备恢复。
+                            </p>
                      </DialogHeader>
                      <div className="grid gap-6 py-4">
 

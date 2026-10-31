@@ -36,6 +36,10 @@ export interface UserSettings {
   imageGenModel: string;
 }
 
+type PersistedSettings = Omit<Partial<UserSettings>, 'llmFallbacks'> & {
+  llmFallbacks?: Array<Omit<UserSettings['llmFallbacks'][number], 'apiKey'>>;
+};
+
 interface SettingsState extends UserSettings {
   // State
   isLoading: boolean;
@@ -45,6 +49,7 @@ interface SettingsState extends UserSettings {
   // Actions
   updateSettings: (settings: Partial<UserSettings>) => void;
   resetSettings: () => void;
+  clearSensitiveSettings: () => void;
 
   // Cloud sync actions
   syncFromCloud: () => Promise<void>;
@@ -71,9 +76,73 @@ const defaultSettings: UserSettings = {
   imageGenModel: 'dall-e-3',
 };
 
+let settingsSessionVersion = 0;
+
+const stripSecrets = (settings: Partial<UserSettings>): PersistedSettings => ({
+  ...settings,
+  llmFallbacks: Array.isArray(settings.llmFallbacks)
+    ? settings.llmFallbacks.map(({ apiKey: _apiKey, ...fallback }) => fallback)
+    : [],
+  llmApiKey: undefined,
+  tikhubToken: undefined,
+  bochaApiKey: undefined,
+  youApiKey: undefined,
+  tavilyApiKey: undefined,
+  imageGenApiKey: undefined,
+});
+
+const hasOwn = (value: unknown, key: string): boolean =>
+  !!value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key);
+
+const mergePersistedSettings = (
+  persistedState: unknown,
+  currentState: SettingsState,
+): SettingsState => {
+  const persisted = (persistedState || {}) as Partial<SettingsState>;
+  const merged = { ...currentState, ...persisted };
+
+  // Fresh persisted states omit secrets. Keep the current tab's in-memory
+  // values so saving a preference does not clear keys entered this session.
+  for (const key of [
+    'llmApiKey',
+    'tikhubToken',
+    'bochaApiKey',
+    'youApiKey',
+    'tavilyApiKey',
+    'imageGenApiKey',
+  ] as const) {
+    if (!hasOwn(persisted, key)) {
+      merged[key] = currentState[key];
+    }
+  }
+
+  if (Array.isArray(persisted.llmFallbacks)) {
+    merged.llmFallbacks = persisted.llmFallbacks.map((fallback, index) => ({
+      ...fallback,
+      // Legacy entries retain their key during migration. New entries use the
+      // key already held in this browser session, if one exists at this index.
+      apiKey: typeof fallback.apiKey === 'string'
+        ? fallback.apiKey
+        : currentState.llmFallbacks[index]?.apiKey || '',
+    }));
+  }
+
+  return merged;
+};
+
 // Extract only settings fields (not state/actions)
 const extractSettingsOnly = (state: Partial<SettingsState>): Partial<UserSettings> => {
-  const { isLoading, isSynced, lastSyncError, updateSettings, resetSettings, syncFromCloud, syncToCloud, ...settings } = state;
+  const {
+    isLoading,
+    isSynced,
+    lastSyncError,
+    updateSettings,
+    resetSettings,
+    clearSensitiveSettings,
+    syncFromCloud,
+    syncToCloud,
+    ...settings
+  } = state;
   return settings;
 };
 
@@ -94,13 +163,34 @@ export const useSettings = create<SettingsState>()(
         isSynced: false
       })),
 
-      resetSettings: () => set({ ...defaultSettings, isSynced: false }),
+      resetSettings: () => {
+        settingsSessionVersion += 1;
+        set({ ...defaultSettings, isSynced: false, isLoading: false });
+      },
+
+      clearSensitiveSettings: () => {
+        settingsSessionVersion += 1;
+        set((state) => ({
+        ...state,
+        llmApiKey: '',
+        tikhubToken: '',
+        bochaApiKey: '',
+        youApiKey: '',
+        tavilyApiKey: '',
+        imageGenApiKey: '',
+        llmFallbacks: state.llmFallbacks.map((fallback) => ({ ...fallback, apiKey: '' })),
+        isSynced: false,
+        isLoading: false,
+      }));
+      },
 
       syncFromCloud: async () => {
+        const sessionVersion = settingsSessionVersion;
         set({ isLoading: true, lastSyncError: null });
 
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          if (sessionVersion !== settingsSessionVersion) return;
           if (!session) {
             set({ isLoading: false });
             return;
@@ -109,6 +199,7 @@ export const useSettings = create<SettingsState>()(
           const { data, error } = await invokeFunction<{ settings: Partial<UserSettings> | null }>('user-settings', {
             method: 'GET',
           }, true);
+          if (sessionVersion !== settingsSessionVersion) return;
 
           if (error) {
             throw error;
@@ -131,6 +222,7 @@ export const useSettings = create<SettingsState>()(
             set({ isLoading: false });
           }
         } catch (error) {
+          if (sessionVersion !== settingsSessionVersion) return;
           console.error('Failed to sync settings from cloud:', error);
           set({
             isLoading: false,
@@ -140,6 +232,7 @@ export const useSettings = create<SettingsState>()(
       },
 
       syncToCloud: async () => {
+        const sessionVersion = settingsSessionVersion;
         const state = get();
         if (state.isSynced) return; // Already synced
 
@@ -147,6 +240,7 @@ export const useSettings = create<SettingsState>()(
 
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          if (sessionVersion !== settingsSessionVersion) return;
           if (!session) {
             set({ isLoading: false });
             return;
@@ -158,6 +252,7 @@ export const useSettings = create<SettingsState>()(
             method: 'POST',
             body: { settings: settingsToSync },
           }, true);
+          if (sessionVersion !== settingsSessionVersion) return;
 
           if (error) {
             throw error;
@@ -166,6 +261,7 @@ export const useSettings = create<SettingsState>()(
           set({ isLoading: false, isSynced: true, lastSyncError: null });
           // Settings synced to cloud
         } catch (error) {
+          if (sessionVersion !== settingsSessionVersion) return;
           console.error('Failed to sync settings to cloud:', error);
           set({
             isLoading: false,
@@ -176,35 +272,19 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'user-settings',
+      version: 1,
+      migrate: (persistedState) => persistedState as Partial<SettingsState>,
       merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState as Partial<SettingsState>),
+        ...mergePersistedSettings(persistedState, currentState as SettingsState),
         enableDouyin: false,
         enableSelfCrawler: false,
         enableTikhubFallback: true,
       }),
-      // Only persist non-sensitive fields locally as backup
-      partialize: (state) => ({
-        llmFallbacks: state.llmFallbacks,
-        llmProvider: state.llmProvider,
-        llmBaseUrl: state.llmBaseUrl,
-        llmApiKey: state.llmApiKey,
-        llmModel: state.llmModel,
-        tikhubToken: state.tikhubToken,
-        enableXiaohongshu: state.enableXiaohongshu,
-        enableDouyin: state.enableDouyin,
-        enableSelfCrawler: state.enableSelfCrawler,
-        enableTikhubFallback: state.enableTikhubFallback,
-        bochaApiKey: state.bochaApiKey,
-        youApiKey: state.youApiKey,
-        tavilyApiKey: state.tavilyApiKey,
-        imageGenBaseUrl: state.imageGenBaseUrl,
-        imageGenApiKey: state.imageGenApiKey,
-        imageGenModel: state.imageGenModel,
-      }),
+      // Secrets remain available in memory, but never enter localStorage.
+      partialize: (state) => stripSecrets(extractSettingsOnly(state)),
     }
   )
 );
 
-// No auto-sync: settings are stored in browser localStorage by default.
-// Users can manually sync to/from cloud via the settings dialog.
+// Preferences use localStorage; secrets are session-memory only. Users can
+// manually sync the complete runtime settings through the existing cloud API.

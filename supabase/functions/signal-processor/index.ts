@@ -228,6 +228,31 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    const authHeader = req.headers.get("Authorization") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    let authorized = !!serviceKey && authHeader === `Bearer ${serviceKey}`;
+    if (!authorized && authHeader) {
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const { data: userData } = await userClient.auth.getUser();
+      if (userData.user) {
+        const { data: isAdmin } = await supabase.rpc("has_role", {
+          _user_id: userData.user.id,
+          _role: "admin",
+        });
+        authorized = isAdmin === true;
+      }
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Load the full LLM pool (includes all configured providers + Lovable AI fallback)
     const { resolvePool } = await import("../_shared/config-resolver.ts");
     const llmPool = await resolvePool("llm");
@@ -235,7 +260,13 @@ serve(async (req) => {
     console.log(`[Processor] LLM pool: ${llmPool.map(p => p.label).join(" → ")}`);
 
     let batchSize = 8;
-    try { const body = await req.json(); batchSize = body.batchSize || 8; } catch { /* default */ }
+    try {
+      const body = await req.json();
+      const requestedBatchSize = Number(body.batchSize);
+      if (Number.isFinite(requestedBatchSize)) {
+        batchSize = Math.min(50, Math.max(1, Math.floor(requestedBatchSize)));
+      }
+    } catch { /* default */ }
     // Reset dead providers cache for each invocation
     deadProviders.clear();
 

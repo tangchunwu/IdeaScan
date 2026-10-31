@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSkinToast } from "@/hooks/useSkinToast";
+import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
 import { useUserQuota } from "@/hooks/useUserQuota";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
@@ -27,6 +28,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const skinToast = useSkinToast();
+  const { user } = useAuth();
   const settings = useSettings();
   const { hasOwnTikhub, refetch: refetchQuota } = useUserQuota();
   const { notify } = useBrowserNotification();
@@ -41,15 +43,32 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
   const [completionPreview, setCompletionPreview] = useState<CompletionPreview | null>(null);
   const sseControllerRef = useRef<{ abort: () => void } | null>(null);
   const lastStepRef = useRef(-1);
+  const generationRef = useRef(0);
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
+  const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const cleanup = () => {
+  const cleanup = useCallback(() => {
+    generationRef.current += 1;
+    if (completionTimerRef.current !== null) clearTimeout(completionTimerRef.current);
+    completionTimerRef.current = null;
     sseControllerRef.current?.abort();
     sseControllerRef.current = null;
-  };
+  }, []);
+
+  useEffect(() => {
+    setIsValidating(false);
+    setIsCancelling(false);
+    setCompletionPreview(null);
+    setCurrentValidationId(null);
+    return cleanup;
+  }, [user?.id, cleanup]);
 
   const dismissPreview = () => setCompletionPreview(null);
 
   const navigateToReport = (validationId: string) => {
+    cleanup();
+    setIsValidating(false);
     setCompletionPreview(null);
     navigate(`/report/${validationId}`);
   };
@@ -58,6 +77,8 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     if (!currentValidationId || isCancelling) return;
     setIsCancelling(true);
     cleanup();
+    const cancelGeneration = generationRef.current;
+    const isCurrentCancel = () => generationRef.current === cancelGeneration && userIdRef.current === user?.id;
 
     try {
       const { data, error } = await invokeFunction<{ success: boolean; validationId: string; overallScore: number }>(
@@ -66,15 +87,18 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         true,
       );
 
+      if (!isCurrentCancel()) return;
+
       if (error) throw new Error(error.message || "取消失败");
 
       skinToast.success(`已保留部分结果: 基于已采集数据生成了降级报告（评分：${data.overallScore}分）`);
 
-      await queryClient.prefetchQuery({
-        queryKey: validationKeys.detail(currentValidationId),
+      void queryClient.prefetchQuery({
+        queryKey: validationKeys.detail(currentValidationId, user?.id),
         queryFn: () => getValidation(currentValidationId!),
         staleTime: 1000 * 60 * 5,
-      });
+      }).catch(() => undefined);
+      if (!isCurrentCancel()) return;
 
       captureEvent('validation_cancelled_with_partial', {
         validation_id: currentValidationId,
@@ -84,14 +108,16 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       navigate(`/report/${currentValidationId}`);
     } catch (e) {
-      skinToast.error(`取消失败: ${(e as Error).message}`);
+      if (isCurrentCancel()) skinToast.error(`取消失败: ${(e as Error).message}`);
     } finally {
-      setIsCancelling(false);
-      setIsValidating(false);
-      setProgress(0);
-      setCurrentStep(0);
-      setCurrentValidationId(null);
-      setStepTimestamps([]);
+      if (isCurrentCancel()) {
+        setIsCancelling(false);
+        setIsValidating(false);
+        setProgress(0);
+        setCurrentStep(0);
+        setCurrentValidationId(null);
+        setStepTimestamps([]);
+      }
     }
   };
 
@@ -102,6 +128,10 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     resumeValidationId?: string;
   }) => {
     const { idea, selectedTags, validationMode, resumeValidationId } = params;
+    if (!user?.id || sseControllerRef.current) return;
+    cleanup();
+    const generation = generationRef.current;
+    const isCurrentRun = () => generationRef.current === generation && userIdRef.current === user.id;
 
     captureEvent('validation_started', {
       idea_length: idea.length,
@@ -144,6 +174,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         },
       },
       (event) => {
+        if (!isCurrentRun()) return;
         if (event.progress !== undefined) setProgress(event.progress);
         if (event.message) setProgressMessage(event.message);
 
@@ -173,6 +204,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         }
       },
       async (result) => {
+        if (!isCurrentRun()) return;
         setProgress(100);
         setCurrentStep(validationSteps.length);
         setStepTimestamps(prev => [...prev, Date.now()]);
@@ -190,23 +222,23 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         });
         refetchQuota();
 
-        await queryClient.prefetchQuery({
-          queryKey: validationKeys.detail(result.validationId),
+        void queryClient.invalidateQueries({ queryKey: validationKeys.lists(user.id) });
+        void queryClient.prefetchQuery({
+          queryKey: validationKeys.detail(result.validationId, user?.id),
           queryFn: () => getValidation(result.validationId),
           staleTime: 1000 * 60 * 5,
-        });
+        }).catch(() => undefined);
 
         // Show completion preview instead of immediate redirect
         setCompletionPreview({ score: result.overallScore, validationId: result.validationId });
 
         // Auto-navigate after 4 seconds
-        setTimeout(() => {
-          setCompletionPreview(prev => {
-            if (prev?.validationId === result.validationId) {
-              navigate(`/report/${result.validationId}`);
-            }
-            return null;
-          });
+        completionTimerRef.current = setTimeout(() => {
+          if (!isCurrentRun()) return;
+          completionTimerRef.current = null;
+          setCompletionPreview(null);
+          sseControllerRef.current = null;
+          navigate(`/report/${result.validationId}`);
           setIsValidating(false);
           setProgress(0);
           setCurrentStep(0);
@@ -214,6 +246,8 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
         }, 4000);
       },
       (error) => {
+        if (!isCurrentRun()) return;
+        sseControllerRef.current = null;
         captureEvent('validation_failed', {
           error: error.substring(0, 100),
           mode: validationMode,

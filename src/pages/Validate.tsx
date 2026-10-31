@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageBackground, GlassCard, Navbar, LoadingSpinner, SettingsDialog } from "@/components/shared";
@@ -16,6 +16,7 @@ import { captureEvent } from "@/lib/posthog";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useValidationStream, type ValidationStep } from "@/hooks/useValidationStream";
 import { ValidationProgress } from "@/components/validate/ValidationProgress";
+import { createValidateAuthRedirect, getValidateRouteIntent } from "@/lib/validateRoute";
 import {
   Sparkles, X, Plus, Lightbulb, Target, TrendingUp,
   Brain, Globe, FileBarChart, Zap, Microscope,
@@ -68,6 +69,11 @@ const Validate = () => {
     tag: string; confidence: number; reason: string;
     source: 'core' | 'user_phrase' | 'trend' | 'competitor';
   }>>([]);
+  const autoStartConsumedRef = useRef(false);
+  const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skinToastRef = useRef(skinToast);
+  const handleValidateRef = useRef<(ideaOverride?: string, resumeIdOverride?: string, isAutoStart?: boolean) => void>(() => undefined);
+  skinToastRef.current = skinToast;
 
   // Validation stream
   const stream = useValidationStream(validationSteps);
@@ -184,32 +190,47 @@ const Validate = () => {
     }
   };
 
-  // Handle URL params
+  // Handle URL params. URLSearchParams has already decoded the value.
   useEffect(() => {
-    const ideaParam = searchParams.get('idea');
-    const autoParam = searchParams.get('auto');
-    const resumeIdParam = searchParams.get('resumeValidationId');
+    const routeParams = new URLSearchParams(searchParams.toString());
+    const { idea: ideaParam, auto, resumeValidationId: resumeIdParam } = getValidateRouteIntent(routeParams);
+    if (!ideaParam) return;
 
     if (resumeIdParam) setResumeValidationId(resumeIdParam);
 
     if (ideaParam && !idea) {
-      setIdea(decodeURIComponent(ideaParam));
-      if (autoParam === 'true' && user && !stream.isValidating) {
-        skinToast.info(resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求");
-        setTimeout(() => {
-          handleValidate();
-        }, 500);
-      } else {
-        skinToast.info(`"${ideaParam}" - 来自热点雷达`);
-      }
+      setIdea(ideaParam);
     }
-  }, [searchParams, user]);
 
-  const handleValidate = () => {
-    if (!idea.trim()) return;
+    if (auto && !authLoading && user && !stream.isValidating && !autoStartConsumedRef.current) {
+      skinToastRef.current.info(resumeIdParam ? "正在续跑上次失败任务..." : "来自 Hunter 的自动分析请求");
+      autoStartTimerRef.current = setTimeout(() => {
+        autoStartTimerRef.current = null;
+        handleValidateRef.current(ideaParam, resumeIdParam || undefined, true);
+      }, 500);
+      return () => {
+        if (autoStartTimerRef.current) {
+          clearTimeout(autoStartTimerRef.current);
+          autoStartTimerRef.current = null;
+        }
+      };
+    }
+
+    if (!auto && !idea) {
+      skinToastRef.current.info(`"${ideaParam}" - 来自热点雷达`);
+    }
+  }, [authLoading, searchParams, stream.isValidating, user]);
+
+  const handleValidate = (ideaOverride?: string, resumeIdOverride?: string, isAutoStart = false) => {
+    if (!isAutoStart && autoStartTimerRef.current) {
+      clearTimeout(autoStartTimerRef.current);
+      autoStartTimerRef.current = null;
+    }
+    const ideaToValidate = (ideaOverride ?? idea).trim();
+    if (!ideaToValidate) return;
     if (!user) {
       skinToast.error("请先登录才能进行验证");
-      navigate("/auth?redirect=/validate");
+      navigate(createValidateAuthRedirect(searchParams));
       return;
     }
     // Allow validation if: user has own TikHub token OR has free quota remaining
@@ -219,7 +240,7 @@ const Validate = () => {
       return;
     }
 
-    const resumeIdForRun = resumeValidationId || undefined;
+    const resumeIdForRun = resumeIdOverride || resumeValidationId || undefined;
     if (resumeValidationId) setResumeValidationId("");
 
     // Clear draft on successful start
@@ -227,19 +248,21 @@ const Validate = () => {
     setShowRestore(false);
 
     stream.startValidation({
-      idea: idea.trim(),
+      idea: ideaToValidate,
       selectedTags,
       validationMode,
       resumeValidationId: resumeIdForRun,
     });
+    autoStartConsumedRef.current = true;
   };
+  handleValidateRef.current = handleValidate;
 
   // Redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth?redirect=/validate", { replace: true });
+      navigate(createValidateAuthRedirect(searchParams), { replace: true });
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, navigate, searchParams, user]);
 
   if (authLoading || !user) {
     return (
@@ -548,7 +571,7 @@ const Validate = () => {
                     </span>
                   </div>
                 )}
-                <Button id="validate-start-btn" onClick={handleValidate} disabled={!idea.trim()} size="lg"
+                <Button id="validate-start-btn" onClick={() => handleValidate()} disabled={!idea.trim()} size="lg"
                   className="text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50">
                   <Target className="w-5 h-5 mr-2" />
                   验证我的想法

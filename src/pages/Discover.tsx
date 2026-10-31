@@ -27,6 +27,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Compass, Radar, Sparkles, LayoutGrid, ScatterChart, TrendingUp, LogIn, Award, Eye, Search } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { captureEvent } from "@/lib/posthog";
+import { getDiscoverValidationUrl } from "@/lib/validateRoute";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HunterSection } from "@/components/discover/HunterSection";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
@@ -151,7 +152,7 @@ export default function Discover() {
 
   const handleBubbleClick = (item: any) => {
     captureEvent('discover_topic_clicked', { topic: item.name, source: 'bubble_chart' });
-    navigate(`/validate?topic=${encodeURIComponent(item.name)}`);
+    navigate(getDiscoverValidationUrl(item.name));
   };
 
   return (

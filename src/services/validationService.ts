@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { invokeFunction } from "@/lib/invokeFunction";
+import { createSSEParser } from "@/lib/sse";
 
 export interface ValidationConfig {
   mode: 'quick' | 'deep';
@@ -401,29 +402,33 @@ const ensureStreamAccessToken = async (initialToken: string): Promise<string | n
 export function createValidationStream(
   request: ValidationRequest,
   onProgress: (event: SSEProgressEvent) => void,
-  onComplete: (result: ValidationResponse) => void,
+  onComplete: (result: ValidationResponse) => void | Promise<void>,
   onError: (error: string) => void
 ): { abort: () => void } {
   const controller = new AbortController();
 
   (async () => {
-    const bypassAuth = isAuthBypassEnabled();
-    let accessToken = "";
-    if (!bypassAuth) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        onError("请先登录");
-        return;
-      }
-
-      accessToken = (await ensureStreamAccessToken(session.access_token || "")) || "";
-      if (!accessToken) {
-        onError("登录态已失效，请重新登录");
-        return;
-      }
-    }
-
+    let terminalEvent = false;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let completion: Promise<void> = Promise.resolve();
     try {
+      const bypassAuth = isAuthBypassEnabled();
+      let accessToken = "";
+      if (!bypassAuth) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          onError("请先登录");
+          return;
+        }
+
+        accessToken = (await ensureStreamAccessToken(session.access_token || "")) || "";
+        if (!accessToken) {
+          onError("登录态已失效，请重新登录");
+          return;
+        }
+      }
+
+      if (controller.signal.aborted) return;
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-idea-stream`;
       const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -463,41 +468,52 @@ export function createValidationStream(
         throw new Error(detail || `SSE 连接失败(${response.status})`);
       }
 
-      const reader = response.body?.getReader();
+      reader = response.body?.getReader();
+      if (!reader) throw new Error('验证服务未返回进度流，请重试');
       const decoder = new TextDecoder();
+      const parser = createSSEParser<SSEProgressEvent>((eventData) => {
+        if (terminalEvent || controller.signal.aborted) return;
+        if (!eventData || typeof eventData !== 'object') return;
+        if (eventData.event === 'progress') {
+          onProgress(eventData);
+        } else if (eventData.event === 'complete' && eventData.result) {
+          if (typeof eventData.result.validationId !== 'string' || !Number.isFinite(eventData.result.overallScore)) {
+            throw new Error('验证结果格式不正确，请重试');
+          }
+          terminalEvent = true;
+          completion = Promise.resolve().then(() => onComplete({
+            success: true,
+            validationId: eventData.result.validationId,
+            overallScore: eventData.result.overallScore,
+          }));
+        } else if (eventData.event === 'error') {
+          throw new Error(eventData.error || '验证失败');
+        }
+      });
 
-      while (reader) {
+      while (!terminalEvent && !controller.signal.aborted) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const text = decoder.decode(value);
-        const lines = text.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const eventData: SSEProgressEvent = JSON.parse(line.slice(6));
-
-              if (eventData.event === 'progress') {
-                onProgress(eventData);
-              } else if (eventData.event === 'complete') {
-                onComplete({
-                  success: true,
-                  validationId: eventData.result!.validationId,
-                  overallScore: eventData.result!.overallScore,
-                });
-              } else if (eventData.event === 'error') {
-                onError(eventData.error || '验证失败');
-              }
-            } catch (e) {
-              console.error("Failed to parse SSE event:", line, e);
-            }
-          }
-        }
+        parser.feed(decoder.decode(value, { stream: true }));
+      }
+      parser.feed(decoder.decode());
+      parser.end();
+      await completion;
+      if (!terminalEvent && !controller.signal.aborted) {
+        onError('验证连接意外中断，请重试');
       }
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
+      if (!controller.signal.aborted && (error as Error).name !== 'AbortError') {
         onError((error as Error).message || '验证过程中发生错误');
+      }
+    } finally {
+      if (reader) {
+        try {
+          await reader.cancel();
+        } catch {
+          // 断线后取消 reader 可能失败，但仍需释放锁。
+        }
+        reader.releaseLock();
       }
     }
   })();
