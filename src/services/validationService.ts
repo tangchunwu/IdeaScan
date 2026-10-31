@@ -18,6 +18,7 @@ export interface ValidationConfig {
   enableDouyin: boolean;
   enableSelfCrawler: boolean;
   enableTikhubFallback: boolean;
+  overseasPlatforms?: string[];
   searchKeys: {
     bocha: string;
     you: string;

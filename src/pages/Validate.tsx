@@ -57,6 +57,7 @@ const Validate = () => {
   const [idea, setIdea] = useState("");
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['xiaohongshu']);
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
@@ -228,6 +229,10 @@ const Validate = () => {
     }
     const ideaToValidate = (ideaOverride ?? idea).trim();
     if (!ideaToValidate) return;
+    if (selectedPlatforms.length === 0) {
+      skinToast.error("请至少选择一个数据平台");
+      return;
+    }
     if (!user) {
       skinToast.error("请先登录才能进行验证");
       navigate(createValidateAuthRedirect(searchParams));
@@ -251,6 +256,7 @@ const Validate = () => {
       idea: ideaToValidate,
       selectedTags,
       validationMode,
+      selectedPlatforms,
       resumeValidationId: resumeIdForRun,
     });
     autoStartConsumedRef.current = true;
@@ -421,6 +427,36 @@ const Validate = () => {
               </div>
 
               <div className="h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+
+              <div className="rounded-2xl border border-border/30 bg-muted/20 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">选择数据平台</p>
+                    <p className="text-xs text-muted-foreground">所选平台会合并分析并共同参与评分</p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">{selectedPlatforms.length} 个平台</Badge>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    ["xiaohongshu", "小红书", "📕"], ["douyin", "抖音", "🎵"],
+                    ["tiktok", "TikTok", "🎬"], ["instagram", "Instagram", "📸"],
+                    ["youtube", "YouTube", "▶️"], ["reddit", "Reddit", "🔴"],
+                  ].map(([id, label, emoji]) => {
+                    const checked = selectedPlatforms.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={stream.isValidating}
+                        onClick={() => setSelectedPlatforms((current) => checked ? current.filter((item) => item !== id) : [...current, id])}
+                        className={`rounded-xl border px-3 py-2 text-left text-sm transition-all ${checked ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20" : "border-border/40 bg-background/40 text-muted-foreground hover:border-primary/30"} disabled:opacity-50`}
+                      >
+                        <span className="mr-1">{emoji}</span>{label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Tags Section - Collapsible */}
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>

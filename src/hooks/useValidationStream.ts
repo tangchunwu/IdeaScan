@@ -126,8 +126,10 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     selectedTags: string[];
     validationMode: 'quick' | 'deep';
     resumeValidationId?: string;
+    selectedPlatforms?: string[];
   }) => {
     const { idea, selectedTags, validationMode, resumeValidationId } = params;
+    const selectedPlatforms = params.selectedPlatforms?.length ? params.selectedPlatforms : ['xiaohongshu'];
     if (!user?.id || sseControllerRef.current) return;
     cleanup();
     const generation = generationRef.current;
@@ -162,8 +164,9 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           llmModel: settings.llmModel,
           llmFallbacks: settings.llmFallbacks,
           tikhubToken: hasOwnTikhub ? settings.tikhubToken : "",
-          enableXiaohongshu: settings.enableXiaohongshu,
-          enableDouyin: false,
+          enableXiaohongshu: selectedPlatforms.includes('xiaohongshu'),
+          enableDouyin: selectedPlatforms.includes('douyin'),
+          overseasPlatforms: selectedPlatforms.filter((platform) => ['tiktok', 'instagram', 'youtube', 'reddit'].includes(platform)),
           enableSelfCrawler: false,
           enableTikhubFallback: true,
           searchKeys: {
@@ -184,7 +187,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
         const stageMap: Record<string, number> = {
           init: 0, keywords: 1, cache_check: 1,
-          crawl_start: 2, crawl_xhs: 2, crawl_dy: 2, crawl_done: 2, search: 2,
+          crawl_start: 2, crawl_xhs: 2, crawl_dy: 2, crawl_done: 2, overseas_social: 2, search: 2,
           jina_clean: 3, extract_competitors: 3, deep_search: 3,
           summarize_l1: 4, summarize_l2: 4,
           analyze: 5, save: 6, complete: 7,

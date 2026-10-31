@@ -32,7 +32,7 @@ function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   const hook = renderHook(() => useValidationStream([]), { wrapper });
-  act(() => hook.result.current.startValidation({ idea: "test idea", selectedTags: [], validationMode: "deep" }));
+  act(() => hook.result.current.startValidation({ idea: "test idea", selectedTags: [], selectedPlatforms: ["xiaohongshu", "tiktok"], validationMode: "deep" }));
   return { ...hook, client };
 }
 
@@ -57,6 +57,8 @@ describe("validation lifecycle", () => {
   it("shows completion even if report prefetch never responds", async () => {
     mocks.getValidation.mockReturnValue(new Promise(() => {}));
     const hook = setup();
+    expect(mocks.stream.mock.calls[0][0].config.overseasPlatforms).toEqual(["tiktok"]);
+    expect(mocks.stream.mock.calls[0][0].config.enableXiaohongshu).toBe(true);
     await act(async () => complete({ success: true, validationId: "v1", overallScore: 80 }));
     expect(hook.result.current.completionPreview?.validationId).toBe("v1");
     hook.client.clear();

@@ -33,3 +33,23 @@ export function buildOverseasSocialData(requestedPlatforms: string[], result: Mu
     aggregate: { totalPosts, totalComments, totalEngagement },
   };
 }
+
+export function overseasToSocialData(data: any) {
+  const notes: any[] = [];
+  const comments: any[] = [];
+  let totalNotes = 0;
+  let totalLikes = 0;
+  let totalComments = 0;
+  for (const [platform, result] of Object.entries(data?.platforms || {}) as Array<[string, any]>) {
+    if (result?.status !== "success") continue;
+    for (const post of result.posts || []) {
+      const metrics = post.metrics || {};
+      notes.push({ note_id: post.post_id, title: `[${platform}] ${post.title || ""}`, desc: post.content || "", type: post.content_type, liked_count: Number(metrics.likes || 0), comments_count: Number(metrics.comments || 0), collected_count: Number(metrics.collects || 0), shared_count: Number(metrics.shares || 0), user_nickname: post.author || "", _platform: platform });
+      totalLikes += Number(metrics.likes || 0);
+      totalComments += Number(metrics.comments || 0);
+    }
+    for (const comment of result.comments || []) comments.push({ comment_id: comment.comment_id, content: comment.content || "", like_count: Number(comment.metrics?.likes || 0), user_nickname: comment.author || "", ip_location: comment.location || "", post_id: comment.post_id, _platform: platform });
+    totalNotes += Number(result.posts?.length || 0);
+  }
+  return { totalNotes, avgLikes: totalNotes ? Math.round(totalLikes / totalNotes) : 0, avgComments: totalNotes ? Math.round(totalComments / totalNotes) : 0, avgCollects: 0, sampleNotes: notes, sampleComments: comments };
+}

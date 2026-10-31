@@ -12,7 +12,7 @@ export function OverseasSocialCard({ data }: { data: any }) {
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-2 text-primary"><Globe2 className="w-5 h-5" /></div>
-          <div><h3 className="font-semibold">海外社媒数据</h3><p className="text-xs text-muted-foreground">仅作为独立证据展示，不影响当前评分</p></div>
+          <div><h3 className="font-semibold">海外社媒数据</h3><p className="text-xs text-muted-foreground">已与国内平台数据合并参与综合评分</p></div>
         </div>
         <span className="text-xs text-muted-foreground">{data.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : "未记录时间"}</span>
       </div>

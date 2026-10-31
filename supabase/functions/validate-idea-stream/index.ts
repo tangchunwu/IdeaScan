@@ -30,7 +30,7 @@ import {
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 import { multiChannelOrchestrator } from "../validate-idea/channels/index.ts";
-import { buildOverseasSocialData } from "../_shared/overseas-social.ts";
+import { buildOverseasSocialData, overseasToSocialData } from "../_shared/overseas-social.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -613,8 +613,7 @@ function validateConfig(config: unknown): RequestConfig {
       : undefined,
     tikhubToken: validateString(c.tikhubToken, "tikhubToken", LIMITS.API_KEY_MAX_LENGTH) || undefined,
     enableXiaohongshu: typeof c.enableXiaohongshu === 'boolean' ? c.enableXiaohongshu : true,
-    // Global policy: disable Douyin crawling for now.
-    enableDouyin: false,
+    enableDouyin: typeof c.enableDouyin === 'boolean' ? c.enableDouyin : false,
     // Global policy: disable self-crawler and enforce TikHub-only social crawling.
     enableSelfCrawler: false,
     enableTikhubFallback: true,
@@ -1042,7 +1041,7 @@ Deno.serve(async (req) => {
 
       // ============ TikHub Quota Check ============
       const enableXhs = config?.enableXiaohongshu ?? true;
-      const enableDy = false;
+      const enableDy = config?.enableDouyin ?? false;
 
       const selfCrawlerAvailable = false;
       const effectiveEnableTikhubFallback = true;
@@ -1518,7 +1517,11 @@ Deno.serve(async (req) => {
       }
 
       const requestedOverseasPlatforms = Array.isArray(config?.overseasPlatforms) ? config.overseasPlatforms : [];
-      const overseasEnabled = Deno.env.get("ENABLE_OVERSEAS_SOCIAL") === "true";
+      // 海外平台由用户在验证页选择；仅显式设置 false 时关闭，便于线上紧急熔断。
+      const overseasEnabled = Deno.env.get("ENABLE_OVERSEAS_SOCIAL") !== "false";
+      if (overseasEnabled && requestedOverseasPlatforms.length > 0 && !tikhubToken) {
+        throw new ValidationError("TIKHUB_TOKEN_REQUIRED:选择海外平台需要配置 TikHub API Token。");
+      }
       if (overseasEnabled && requestedOverseasPlatforms.length > 0 && tikhubToken) {
         await sendEvent({
           event: "progress",
@@ -1535,6 +1538,7 @@ Deno.serve(async (req) => {
           })),
         });
         overseasSocialData = buildOverseasSocialData(requestedOverseasPlatforms, overseasResult);
+        socialData = mergeSocialSamples(socialData, overseasToSocialData(overseasSocialData));
         await sendEvent({
           event: "progress",
           stage: "overseas_social",
