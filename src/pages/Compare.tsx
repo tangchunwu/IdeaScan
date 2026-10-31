@@ -149,6 +149,7 @@ const Compare = () => {
       <PageBackground showClouds={false}>
         <Navbar />
         <main className="pt-28 pb-16 px-4 flex items-center justify-center min-h-screen">
+          <h1 className="sr-only">正在加载创意对比分析</h1>
           <LoadingSpinner size="lg" />
         </main>
       </PageBackground>
@@ -163,7 +164,7 @@ const Compare = () => {
           <div className="max-w-6xl mx-auto">
             <GlassCard className="text-center py-16">
               <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">加载失败</h2>
+              <h1 className="text-xl font-semibold text-foreground mb-2">创意对比分析加载失败</h1>
               <p className="text-muted-foreground mb-6">{error}</p>
               <Button asChild variant="outline" className="rounded-xl">
                 <Link to="/history">

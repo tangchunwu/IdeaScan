@@ -180,6 +180,7 @@ const History = () => {
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8 pl-1">
+              <h1 className="sr-only">正在加载验证历史记录</h1>
               <div className="h-8 w-32 bg-muted rounded mb-2 animate-pulse" />
               <div className="h-5 w-48 bg-muted rounded animate-pulse" />
             </div>
@@ -203,8 +204,9 @@ const History = () => {
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-4xl mx-auto">
             <EmptyState
+              headingAs="h1"
               icon={AlertCircle}
-              title="加载失败"
+              title="验证历史记录加载失败"
               description={error}
               actionLabel="重试"
               onAction={() => window.location.reload()}
@@ -225,9 +227,9 @@ const History = () => {
           <div className="max-w-lg mx-auto text-center">
             <GlassCard className="animate-fade-in">
               <LogIn className="w-16 h-16 text-primary mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-4">
+              <h1 className="text-2xl font-bold text-foreground mb-4">
                 登录查看历史记录
-              </h2>
+              </h1>
               <p className="text-muted-foreground mb-6">
                 登录后可查看你的所有验证记录
               </p>

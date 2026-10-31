@@ -302,6 +302,7 @@ const Report = () => {
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
+            <h1 className="sr-only">正在加载需求验证报告</h1>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -350,7 +351,7 @@ const Report = () => {
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <EmptyState icon={AlertCircle} title="加载失败" description={error || "未找到报告数据"} actionLabel="重试" onAction={() => refetch()} className="py-16" />
+            <EmptyState headingAs="h1" icon={AlertCircle} title="需求验证报告加载失败" description={error || "未找到报告数据"} actionLabel="重试" onAction={() => refetch()} className="py-16" />
           </div>
         </main>
       </PageBackground>

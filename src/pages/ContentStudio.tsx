@@ -111,7 +111,7 @@ export default function ContentStudioPage() {
           >
             <FileText className="w-10 h-10 text-primary" />
           </motion.div>
-          <h2 className="text-2xl font-bold text-foreground">请先登录</h2>
+          <h1 className="text-2xl font-bold text-foreground">登录使用内容工作室</h1>
           <p className="text-muted-foreground">内容工作室需要登录后使用</p>
           <Button onClick={() => navigate("/auth")} size="lg" className="gap-2 rounded-xl">
             <LogIn className="w-4 h-4" /> 登录使用

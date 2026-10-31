@@ -71,6 +71,7 @@ const SharedReport = () => {
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
+            <h1 className="sr-only">正在加载公开分享报告</h1>
             <Skeleton className="h-10 w-64 rounded-lg" />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <Skeleton className="lg:col-span-4 h-[300px] rounded-3xl" />
@@ -88,7 +89,7 @@ const SharedReport = () => {
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <EmptyState icon={AlertCircle} title="报告不存在" description={error || "分享链接无效或已过期"} actionLabel="去首页" onAction={() => window.location.href = "/"} className="py-16" />
+            <EmptyState headingAs="h1" icon={AlertCircle} title="公开分享报告无法查看" description={error || "分享链接无效或已过期"} actionLabel="去首页" onAction={() => window.location.href = "/"} className="py-16" />
           </div>
         </main>
       </PageBackground>
@@ -114,7 +115,7 @@ const SharedReport = () => {
                 公开分享报告
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-2 sm:mb-3 break-words">
-                {validation.idea.length > 40 ? `${validation.idea.slice(0, 40)}...` : validation.idea}
+                公开分享报告{validation.idea.trim() ? `：${validation.idea.length > 40 ? `${validation.idea.slice(0, 40)}...` : validation.idea}` : ""}
               </h1>
               <p className="text-muted-foreground max-w-2xl text-base sm:text-lg leading-relaxed line-clamp-3">
                 {aiAnalysis.overallVerdict || "AI 深度分析结论"}
@@ -132,6 +133,7 @@ const SharedReport = () => {
           </div>
 
           {/* Quick Insights Cards */}
+          <h2 className="sr-only">快速洞察</h2>
           <QuickInsightsCards
             score={displayScore}
             competitionLevel={marketAnalysis.competitionLevel}
@@ -156,6 +158,7 @@ const SharedReport = () => {
           {/* Persona Card */}
           {personaData && (
             <div className="mb-3 sm:mb-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+              <h2 className="sr-only">用户画像</h2>
               <PersonaCard persona={personaData} validationId={validation.id} />
             </div>
           )}

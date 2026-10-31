@@ -62,7 +62,7 @@ export const ReportHeader = ({
           需求验证报告 #{validation.id.slice(0, 8)}
         </div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-2 sm:mb-3 break-words">
-          {validation.idea.length > 20 ? `${validation.idea.slice(0, 20)}...` : validation.idea}
+          需求验证报告{validation.idea.trim() ? `：${validation.idea.length > 20 ? `${validation.idea.slice(0, 20)}...` : validation.idea}` : ""}
         </h1>
         <p className="text-muted-foreground max-w-2xl text-base sm:text-lg leading-relaxed line-clamp-3 sm:line-clamp-none">
           {aiAnalysis.overallVerdict || "AI 正在生成深度分析结论..."}

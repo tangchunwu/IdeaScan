@@ -246,6 +246,7 @@ const Validate = () => {
       <PageBackground>
         <Navbar />
         <main className="pt-28 pb-16 px-4">
+          <h1 className="sr-only">正在准备创意需求验证</h1>
           <div className="flex items-center justify-center min-h-[50vh]">
             <LoadingSpinner size="lg" />
           </div>

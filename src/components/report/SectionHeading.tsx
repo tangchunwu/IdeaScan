@@ -20,7 +20,7 @@ export const SectionHeading = ({ icon: Icon, emoji, title, subtitle, className =
       </div>
     ) : null}
     <div className="border-l-[3px] border-l-primary/60 pl-3">
-      <h3 className="font-bold text-lg leading-tight tracking-tight">{title}</h3>
+      <h2 className="font-bold text-lg leading-tight tracking-tight">{title}</h2>
       {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
     </div>
   </div>
