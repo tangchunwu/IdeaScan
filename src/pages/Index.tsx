@@ -63,7 +63,9 @@ const Index = () => {
     { step: "03", title: t("landing.step3Title"), desc: t("landing.step3Desc"), icon: stepIcons[2] },
   ];
 
-  useDocumentTitle(t("landing.pageTitle"));
+  useDocumentTitle(t("landing.pageTitle"), {
+    description: t("landing.heroDescPlain"),
+  });
 
   return (
     <PageBackground variant="vibrant">

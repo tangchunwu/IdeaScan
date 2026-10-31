@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { BrandLoader } from "@/components/shared";
 import { useSkinToast } from "@/hooks/useSkinToast";
 import { Button } from "@/components/ui/button";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const skinToast = useSkinToast();
   const [error, setError] = useState<string | null>(null);
+
+  useDocumentTitle("登录授权", { robots: "noindex, nofollow" });
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -58,6 +61,8 @@ const AuthCallback = () => {
     };
 
     handleCallback();
+    // 授权回调只需处理当前这一次授权响应。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) {

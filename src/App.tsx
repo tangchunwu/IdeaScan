@@ -11,6 +11,8 @@ import { Navigate } from "react-router-dom";
 import FeedbackWidget from "@/components/shared/FeedbackWidget";
 import { AnalyticsProvider, usePageView } from "@/lib/posthog";
 import { useTheme } from "@/hooks/useTheme";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { getRouteSeo } from "@/lib/seo";
 
 // Lazy load pages
 const Index = lazy(() => import("./pages/Index"));
@@ -52,6 +54,16 @@ const SkinInitializer = () => {
   return null;
 };
 
+const RouteSeo = () => {
+  const location = useLocation();
+  const seo = getRouteSeo(location.pathname);
+  useDocumentTitle(seo.title, {
+    description: seo.description,
+    robots: seo.robots,
+  });
+  return null;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -59,31 +71,34 @@ const AnimatedRoutes = () => {
   usePageView();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Index /></PageTransition>} />
-        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
-        <Route path="/auth/callback/linuxdo" element={<AuthCallback />} />
-        <Route path="/validate" element={<PageTransition><Validate /></PageTransition>} />
-        <Route path="/report/:id" element={<PageTransition><Report /></PageTransition>} />
-        <Route path="/history" element={<PageTransition><History /></PageTransition>} />
-        <Route path="/compare" element={<PageTransition><Compare /></PageTransition>} />
-        <Route path="/discover" element={<PageTransition><Discover /></PageTransition>} />
-        <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
-        <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
-        <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
-        <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
-        <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
-        <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
-        <Route path="/admin/feedback" element={<PageTransition><AdminGate><FeedbackDashboard /></AdminGate></PageTransition>} />
-        <Route path="/admin/models" element={<PageTransition><AdminGate><ModelManager /></AdminGate></PageTransition>} />
-        <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
-        <Route path="/gallery" element={<PageTransition><GalleryRedirect /></PageTransition>} />
-        <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />
-        <Route path="/content-studio" element={<PageTransition><ContentStudio /></PageTransition>} />
-        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-      </Routes>
-    </AnimatePresence>
+    <>
+      <RouteSeo />
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<PageTransition><Index /></PageTransition>} />
+          <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+          <Route path="/auth/callback/linuxdo" element={<AuthCallback />} />
+          <Route path="/validate" element={<PageTransition><Validate /></PageTransition>} />
+          <Route path="/report/:id" element={<PageTransition><Report /></PageTransition>} />
+          <Route path="/history" element={<PageTransition><History /></PageTransition>} />
+          <Route path="/compare" element={<PageTransition><Compare /></PageTransition>} />
+          <Route path="/discover" element={<PageTransition><Discover /></PageTransition>} />
+          <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
+          <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
+          <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
+          <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
+          <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
+          <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
+          <Route path="/admin/feedback" element={<PageTransition><AdminGate><FeedbackDashboard /></AdminGate></PageTransition>} />
+          <Route path="/admin/models" element={<PageTransition><AdminGate><ModelManager /></AdminGate></PageTransition>} />
+          <Route path="/share/:token" element={<PageTransition><SharedReport /></PageTransition>} />
+          <Route path="/gallery" element={<PageTransition><GalleryRedirect /></PageTransition>} />
+          <Route path="/openclaw" element={<PageTransition><OpenClaw /></PageTransition>} />
+          <Route path="/content-studio" element={<PageTransition><ContentStudio /></PageTransition>} />
+          <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+        </Routes>
+      </AnimatePresence>
+    </>
   );
 };
 
