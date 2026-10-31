@@ -29,6 +29,7 @@ import {
 } from "../_shared/report-metrics.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
 import { 
   extractCompetitorNames, 
   searchCompetitorDetails, 
@@ -95,12 +96,6 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number, timeoutError:
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
-}
-
-function createOptionalTimeoutSignal(timeoutMs?: number): AbortSignal | undefined {
-  const value = Number(timeoutMs ?? 0);
-  if (!Number.isFinite(value) || value <= 0) return undefined;
-  return AbortSignal.timeout(Math.max(1000, Math.round(value)));
 }
 
 function hasReusableSocialData(data: any): boolean {
@@ -375,66 +370,6 @@ function isSelfCrawlerRetryable(diagnostic: string, routeError: string): boolean
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
-}
-
-function shouldRetryHttpStatus(status: number): boolean {
-  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
-}
-
-function isRetryableFetchError(error: unknown): boolean {
-  const text = String(error || "").toLowerCase();
-  return (
-    text.includes("timeout")
-    || text.includes("timed out")
-    || text.includes("aborted")
-    || text.includes("network")
-    || text.includes("connection")
-    || text.includes("fetch failed")
-  );
-}
-
-async function fetchTikhubWithRetry(
-  url: string,
-  token: string,
-  options: {
-    timeoutMs?: number;
-    maxRetries?: number;
-    baseDelayMs?: number;
-    tag?: string;
-  } = {},
-): Promise<Response> {
-  const { timeoutMs = 0, maxRetries = 4, baseDelayMs = 1200, tag = "TikHub" } = options;
-  let lastError: unknown = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const signal = createOptionalTimeoutSignal(timeoutMs);
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        ...(signal ? { signal } : {}),
-      });
-
-      if (shouldRetryHttpStatus(response.status) && attempt < maxRetries) {
-        const preview = await response.text().catch(() => "");
-        const delayMs = Math.min(10000, baseDelayMs * 2 ** attempt);
-        console.warn(`[${tag}] HTTP ${response.status}, retry ${attempt + 1}/${maxRetries} after ${delayMs}ms: ${preview.slice(0, 160)}`);
-        await sleep(delayMs);
-        continue;
-      }
-
-      return response;
-    } catch (error) {
-      lastError = error;
-      if (!isRetryableFetchError(error) || attempt >= maxRetries) {
-        throw error;
-      }
-      const delayMs = Math.min(10000, baseDelayMs * 2 ** attempt);
-      console.warn(`[${tag}] Request error, retry ${attempt + 1}/${maxRetries} after ${delayMs}ms:`, error);
-      await sleep(delayMs);
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error(`[${tag}] request failed`);
 }
 
 function stripCodeFence(input: string) {
@@ -2389,13 +2324,10 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     keywordAttempts: 0,
     matchedKeyword: "",
   };
-  let apiCalls = 0;
-  // <=0 means no app-level timeout; rely on retries + heartbeat to avoid false timeout failures.
-  const searchTimeoutMs = Number(Deno.env.get("TIKHUB_XHS_SEARCH_TIMEOUT_MS") || "0");
-  const commentTimeoutMs = Number(Deno.env.get("TIKHUB_XHS_COMMENT_TIMEOUT_MS") || "0");
+  const searchTimeoutMs = Number(Deno.env.get("TIKHUB_XHS_SEARCH_TIMEOUT_MS") || "45000");
+  const maxSearchRetries = mode === "deep" ? 2 : 1;
+  const client = new TikHubClient(token, { timeoutMs: searchTimeoutMs, maxRetries: maxSearchRetries });
   const maxKeywordVariants = mode === "deep" ? 12 : 8;
-  const maxSearchRetries = mode === "deep" ? 8 : 5;
-  const maxCommentRetries = mode === "deep" ? 3 : 2;
 
   // Build comprehensive keyword variants from primary + extra keywords
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
@@ -2406,36 +2338,21 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     }
   }
   const keywordVariants = Array.from(variantSet).slice(0, maxKeywordVariants);
-  const maskedToken = token.length > 12 ? `${token.slice(0, 8)}...${token.slice(-4)}` : '***';
-  console.log(`[XHS Simple] Using token: ${maskedToken}`);
   console.log(`[XHS Simple] Keyword variants to try: ${JSON.stringify(keywordVariants)}`);
 
   let allItems: any[] = [];
   let totalFromApi = 0;
   let keywordAttempts = 0;
   let matchedKeyword = "";
+  let stopCollection = false;
 
   for (const kw of keywordVariants) {
     if (allItems.length >= 10) break; // enough notes already
     keywordAttempts += 1;
     try {
-      const url = `https://api.tikhub.io/api/v1/xiaohongshu/app_v2/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
-      const res = await fetchTikhubWithRetry(url, token, {
-        timeoutMs: searchTimeoutMs,
-        maxRetries: maxSearchRetries,
-        tag: `XHS Search ${kw}`,
-      });
-      apiCalls += 1;
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.warn(`[XHS Simple] Search failed for "${kw}": ${res.status} ${errText.slice(0, 200)}`);
-        continue;
-      }
-
-      const data = await res.json();
-      const items = data?.data?.data?.items || [];
-      totalFromApi = Math.max(totalFromApi, Number(data?.data?.data?.total || items.length));
+      const page = await client.searchXhs(kw);
+      const items = page.notes;
+      totalFromApi = Math.max(totalFromApi, page.total);
       console.log(`[XHS Simple] Keyword "${kw}" returned ${items.length} items`);
 
       if (items.length === 0) continue;
@@ -2443,73 +2360,53 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
       allItems = [...allItems, ...items];
 
       // Page 2 only in deep mode to reduce cost/time in quick mode
-      if (mode === "deep") {
+      if (mode === "deep" && page.hasMore) {
         try {
-          const url2 = `https://api.tikhub.io/api/v1/xiaohongshu/app_v2/search_notes?keyword=${encodeURIComponent(kw)}&page=2&sort=general&note_type=0`;
-          const res2 = await fetchTikhubWithRetry(url2, token, {
-            timeoutMs: searchTimeoutMs,
-            maxRetries: 3,
-            tag: `XHS Search P2 ${kw}`,
+          const page2 = await client.searchXhs(kw, {
+            page: 2,
+            searchId: page.searchId,
+            searchSessionId: page.searchSessionId,
           });
-          apiCalls += 1;
-          if (res2.ok) {
-            const data2 = await res2.json();
-            const items2 = data2?.data?.data?.items || [];
-            allItems = [...allItems, ...items2];
-          } else {
-            await res2.text(); // consume body
-          }
+          allItems = [...allItems, ...page2.notes];
         } catch (error) {
+          if (error instanceof TikHubError) stopCollection = true;
           console.warn(`[XHS Simple] Page 2 failed for "${kw}":`, error);
         }
       }
 
       break; // Found results, no need to try more variants
     } catch (e) {
+      if (e instanceof TikHubError) throw e;
       console.warn(`[XHS Simple] Error for "${kw}" after retries:`, e);
     }
   }
 
   if (allItems.length === 0) {
     console.warn(`[XHS Simple] All keyword variants returned 0 results`);
-    return { ...emptyResult, apiCalls, keywordAttempts, matchedKeyword, error: '小红书搜索未返回任何数据，请尝试更换关键词' };
+    return { ...emptyResult, apiCalls: client.stats.apiCalls, keywordAttempts, matchedKeyword, error: '小红书搜索未返回任何数据，请尝试更换关键词' };
   }
 
   const maxNotes = mode === "deep" ? 20 : 8;
   const maxCommentsPerNote = mode === "deep" ? 12 : 4;
   const maxCommentFetchNotes = mode === "deep" ? 6 : 2;
 
-  const notes = allItems.slice(0, maxNotes).map((item: any) => ({
-    note_id: item.note?.id || '',
-    title: '[小红书] ' + (item.note?.title || ''),
-    desc: item.note?.desc || '',
-    liked_count: item.note?.liked_count || 0,
-    comments_count: item.note?.comments_count || 0,
-    collected_count: item.note?.collected_count || 0,
-    publish_time: item.note?.time || item.note?.publish_time || item.note?.last_update_time || null,
+  const uniqueItems = Array.from(new Map(allItems.map((item: any) => [String(item.id || item.note_id), item])).values());
+  const notes = uniqueItems.slice(0, maxNotes).map((item: any) => ({
+    note_id: item.id || item.note_id || '',
+    title: '[小红书] ' + (item.title || ''),
+    desc: item.desc || '',
+    liked_count: Number(item.liked_count || 0),
+    comments_count: Number(item.comments_count || item.comment_count || 0),
+    collected_count: Number(item.collected_count || 0),
+    publish_time: item.time || item.publish_time || item.last_update_time || null,
     _platform: 'xiaohongshu'
   }));
 
   const sampleComments: any[] = [];
-  for (const note of notes.slice(0, maxCommentFetchNotes)) {
+  for (const note of stopCollection ? [] : notes.slice(0, maxCommentFetchNotes)) {
     if (!note.note_id) continue;
     try {
-      const commentRes = await fetchTikhubWithRetry(
-        `https://api.tikhub.io/api/v1/xiaohongshu/app_v2/get_note_comments?note_id=${encodeURIComponent(note.note_id)}`,
-        token,
-        {
-          timeoutMs: commentTimeoutMs,
-          maxRetries: maxCommentRetries,
-          tag: `XHS Comments ${String(note.note_id).slice(0, 12)}`,
-        }
-      );
-      apiCalls += 1;
-      if (!commentRes.ok) {
-        await commentRes.text(); // consume body
-        continue;
-      }
-      const commentData = await commentRes.json();
-      const comments = commentData?.data?.data?.comments || [];
+      const comments = await client.getXhsComments(note.note_id, maxCommentsPerNote);
       sampleComments.push(...comments.slice(0, maxCommentsPerNote).map((c: any) => ({
         comment_id: c.id || '',
         content: c.content || '',
@@ -2519,7 +2416,8 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
         create_time: c.create_time || c.time || null,
         _platform: 'xiaohongshu',
       })));
-    } catch (_commentError) {
+    } catch (commentError) {
+      if (commentError instanceof TikHubError) break;
       // Ignore single-note comment failures to keep the flow resilient.
     }
   }
@@ -2533,7 +2431,7 @@ async function crawlXhsSimple(keyword: string, token: string, mode: string, extr
     avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
     sampleNotes: notes,
     sampleComments,
-    apiCalls,
+    apiCalls: client.stats.apiCalls,
     keywordAttempts,
     matchedKeyword,
   };
@@ -2550,12 +2448,9 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     keywordAttempts: 0,
     matchedKeyword: "",
   };
-  let apiCalls = 0;
-  const searchTimeoutMs = Number(Deno.env.get("TIKHUB_DY_SEARCH_TIMEOUT_MS") || "0");
-  const commentTimeoutMs = Number(Deno.env.get("TIKHUB_DY_COMMENT_TIMEOUT_MS") || "0");
+  const searchTimeoutMs = Number(Deno.env.get("TIKHUB_DY_SEARCH_TIMEOUT_MS") || "45000");
+  const client = new TikHubClient(token, { timeoutMs: searchTimeoutMs, maxRetries: mode === "deep" ? 2 : 1 });
   const maxKeywordVariants = mode === "deep" ? 12 : 8;
-  const maxSearchRetries = mode === "deep" ? 8 : 5;
-  const maxCommentRetries = mode === "deep" ? 3 : 2;
 
   const allSourceKeywords = [keyword, ...(extraKeywords || [])];
   const variantSet = new Set<string>();
@@ -2575,34 +2470,22 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     if (awemeList.length > 0) break;
     keywordAttempts += 1;
     try {
-      const url = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(kw)}&offset=0&count=5&sort_type=0`;
-      const res = await fetchTikhubWithRetry(url, token, {
-        timeoutMs: searchTimeoutMs,
-        maxRetries: maxSearchRetries,
-        tag: `DY Search ${kw}`,
-      });
-      apiCalls += 1;
-
-      if (!res.ok) {
-        await res.text();
-        continue;
-      }
-
-      const data = await res.json();
-      awemeList = data?.data?.data?.aweme_list || data?.data?.aweme_list || [];
+      const page = await client.searchDouyin(kw);
+      awemeList = page.videos;
       console.log(`[Douyin Simple] Keyword "${kw}" returned ${awemeList.length} videos`);
       if (awemeList.length > 0) {
         matchedKeyword = kw;
         break;
       }
     } catch (e) {
+      if (e instanceof TikHubError) throw e;
       console.warn(`[Douyin Simple] Error for "${kw}" after retries:`, e);
     }
   }
 
   if (awemeList.length === 0) {
     console.warn(`[Douyin Simple] All keyword variants returned 0 results`);
-    return { ...emptyResult, apiCalls, keywordAttempts, matchedKeyword, error: '抖音搜索未返回任何数据，请尝试更换关键词' };
+    return { ...emptyResult, apiCalls: client.stats.apiCalls, keywordAttempts, matchedKeyword, error: '抖音搜索未返回任何数据，请尝试更换关键词' };
   }
 
   const maxVideos = mode === "deep" ? 20 : 6;
@@ -2613,8 +2496,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     aweme_id: item.aweme_id || '',
     title: '[抖音] ' + (item.desc || '').slice(0, 30),
     desc: item.desc || '',
-    digg_count: item.statistics?.digg_count || 0,
-    comment_count: item.statistics?.comment_count || 0,
+    digg_count: Number(item.statistics?.digg_count || 0),
+    comment_count: Number(item.statistics?.comment_count || 0),
     create_time: item.create_time || null,
     _platform: 'douyin'
   }));
@@ -2623,22 +2506,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
   for (const video of videos.slice(0, maxCommentFetchVideos)) {
     if (!video.aweme_id) continue;
     try {
-      const commentRes = await fetchTikhubWithRetry(
-        `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(video.aweme_id)}&cursor=0&count=${maxCommentsPerVideo}`,
-        token,
-        {
-          timeoutMs: commentTimeoutMs,
-          maxRetries: maxCommentRetries,
-          tag: `DY Comments ${String(video.aweme_id).slice(0, 12)}`,
-        }
-      );
-      apiCalls += 1;
-      if (!commentRes.ok) {
-        await commentRes.text();
-        continue;
-      }
-      const commentData = await commentRes.json();
-      const comments = commentData?.data?.data?.comments || commentData?.data?.comments || [];
+      const comments = await client.getDouyinComments(video.aweme_id, maxCommentsPerVideo);
       sampleComments.push(...comments.slice(0, maxCommentsPerVideo).map((c: any) => ({
         comment_id: c.cid || '',
         content: c.text || '',
@@ -2648,7 +2516,8 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
         create_time: c.create_time || null,
         _platform: 'douyin',
       })));
-    } catch (_commentError) {
+    } catch (commentError) {
+      if (commentError instanceof TikHubError) break;
       // Ignore single-video comment failures.
     }
   }
@@ -2662,7 +2531,7 @@ async function crawlDouyinSimple(keyword: string, token: string, mode: string, e
     avgComments: videos.length > 0 ? Math.round(totalComments / videos.length) : 0,
     sampleNotes: videos,
     sampleComments,
-    apiCalls,
+    apiCalls: client.stats.apiCalls,
     keywordAttempts,
     matchedKeyword,
   };

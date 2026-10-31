@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,20 +60,9 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
   };
   
   try {
-    const searchUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general&note_type=0`;
-    const response = await fetch(searchUrl, {
-      headers: { Authorization: `Bearer ${tikhubToken}` },
-    });
-    
-    if (!response.ok) {
-      console.warn(`[XHS] Search failed: ${response.status}`);
-      return emptyResult;
-    }
-    
-    const data = await response.json();
-    const payload = data?.data?.data || data?.data || {};
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    const notes = items.map((item: any) => item?.note || item);
+    const client = new TikHubClient(tikhubToken);
+    const result = await client.searchXhs(keyword);
+    const notes = result.notes;
     
     if (notes.length === 0) return emptyResult;
     
@@ -103,22 +93,16 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
       try {
         const noteId = notes[0].id || notes[0].note_id;
         if (noteId) {
-          const commentsUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/get_note_comments?note_id=${noteId}&cursor=`;
-          const commentsRes = await fetch(commentsUrl, {
-            headers: { Authorization: `Bearer ${tikhubToken}` },
-          });
-          if (commentsRes.ok) {
-            const commentsData = await commentsRes.json();
-            const commentsList = commentsData?.data?.data?.comments || commentsData?.data?.comments || [];
-            for (const c of commentsList.slice(0, 10)) {
-              allComments.push({
-                content: c.content || "",
-                user_nickname: c.user?.nickname || c.user_info?.nickname,
-              });
-            }
+          const commentsList = await client.getXhsComments(String(noteId), 10);
+          for (const c of commentsList) {
+            allComments.push({
+              content: c.content || "",
+              user_nickname: c.user?.nickname || c.user_info?.nickname,
+            });
           }
         }
       } catch (e) {
+        if (e instanceof TikHubError) throw e;
         console.warn("[XHS] Comments fetch failed:", e);
       }
     }
@@ -126,7 +110,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
     return {
       success: true,
       platform: 'xiaohongshu',
-      totalPosts: Math.max(Number(payload.total || 0), notes.length),
+      totalPosts: Math.max(result.total, notes.length),
       avgLikes: notes.length > 0 ? Math.round(totalLikes / notes.length) : 0,
       avgComments: notes.length > 0 ? Math.round(totalComments / notes.length) : 0,
       avgCollects: notes.length > 0 ? Math.round(totalCollects / notes.length) : 0,
@@ -134,6 +118,7 @@ async function crawlXiaohongshu(keyword: string, tikhubToken: string): Promise<C
       relatedTags: relatedTags.slice(0, 10),
     };
   } catch (e) {
+    if (e instanceof TikHubError) throw e;
     console.error("[XHS] Crawl error:", e);
     return emptyResult;
   }
@@ -155,24 +140,9 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
   };
   
   try {
-    const searchUrl = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(keyword)}&count=5&offset=0&sort_type=0`;
-    const response = await fetch(searchUrl, {
-      headers: { Authorization: `Bearer ${tikhubToken}` },
-    });
-    
-    if (!response.ok) {
-      console.warn(`[Douyin] Search failed: ${response.status}`);
-      return emptyResult;
-    }
-    
-    const data = await response.json();
-    const payload = data?.data?.data || data?.data || {};
-    const awemeList = Array.isArray(payload)
-      ? payload
-      : (Array.isArray(payload.aweme_list)
-        ? payload.aweme_list
-        : (Array.isArray(payload.data) ? payload.data : []));
-    const videos = awemeList.map((item: any) => item?.aweme_info || item);
+    const client = new TikHubClient(tikhubToken);
+    const result = await client.searchDouyin(keyword);
+    const videos = result.videos;
     
     if (videos.length === 0) return emptyResult;
     
@@ -200,22 +170,16 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
       try {
         const awemeId = videos[0].aweme_id;
         if (awemeId) {
-          const commentsUrl = `https://api.tikhub.io/api/v1/douyin/web/fetch_video_comments?aweme_id=${awemeId}&count=10&cursor=0`;
-          const commentsRes = await fetch(commentsUrl, {
-            headers: { Authorization: `Bearer ${tikhubToken}` },
-          });
-          if (commentsRes.ok) {
-            const commentsData = await commentsRes.json();
-            const commentsList = commentsData?.data?.data?.comments || commentsData?.data?.comments || [];
-            for (const c of commentsList.slice(0, 10)) {
-              allComments.push({
-                content: c.text || "",
-                user_nickname: c.user?.nickname,
-              });
-            }
+          const commentsList = await client.getDouyinComments(String(awemeId), 10);
+          for (const c of commentsList) {
+            allComments.push({
+              content: c.text || "",
+              user_nickname: c.user?.nickname,
+            });
           }
         }
       } catch (e) {
+        if (e instanceof TikHubError) throw e;
         console.warn("[Douyin] Comments fetch failed:", e);
       }
     }
@@ -231,6 +195,7 @@ async function crawlDouyin(keyword: string, tikhubToken: string): Promise<CrawlR
       relatedTags: relatedTags.slice(0, 10),
     };
   } catch (e) {
+    if (e instanceof TikHubError) throw e;
     console.error("[Douyin] Crawl error:", e);
     return emptyResult;
   }
@@ -654,6 +619,7 @@ Deno.serve(async (req) => {
           // Rate limiting between requests
           await new Promise(r => setTimeout(r, 1000));
         } catch (e) {
+          if (e instanceof TikHubError) throw e;
           console.error(`[Scan] Error scanning ${keyword}:`, e);
         }
       }
@@ -671,6 +637,7 @@ Deno.serve(async (req) => {
           
           await new Promise(r => setTimeout(r, 1000));
         } catch (e) {
+          if (e instanceof TikHubError) throw e;
           console.error(`[Scan] Error scanning dynamic keyword ${keyword}:`, e);
         }
       }

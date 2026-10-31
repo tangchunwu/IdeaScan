@@ -7,6 +7,7 @@ import {
   LIMITS
 } from "../_shared/validation.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,8 +237,6 @@ serve(async (req) => {
       }
     } else if (type === 'tikhub') {
       try {
-        const maskedToken = apiKey.length > 12 ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : '***';
-        console.log(`[TikHub Test] Token: ${maskedToken}`);
         
         // Step 1: Validate token via user info endpoint
         console.log(`[TikHub Test] Step 1: Validating token via user info...`);
@@ -262,30 +261,21 @@ serve(async (req) => {
           
           // Step 2: Test App search endpoint (recommended by TikHub)
           console.log(`[TikHub Test] Step 2: Testing App search...`);
-          const testUrl = `https://api.tikhub.io/api/v1/xiaohongshu/app_v2/search_notes?keyword=${encodeURIComponent('测试')}&page=1&sort=general&note_type=0`;
-          const searchRes = await fetch(testUrl, {
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            signal: AbortSignal.timeout(15000),
-          });
-          
-          const searchText = await searchRes.text();
-          console.log(`[TikHub Test] Search status: ${searchRes.status}, Body (first 300): ${searchText.slice(0, 300)}`);
-          
-          if (searchRes.ok) {
-            let noteCount = 0;
-            try {
-              const data = JSON.parse(searchText);
-              noteCount = data?.data?.data?.items?.length || 0;
-            } catch {}
+          try {
+            const searchResult = await new TikHubClient(apiKey, { timeoutMs: 30_000, maxRetries: 0 }).searchXhs('测试');
+            const noteCount = searchResult.notes.length;
             isValid = true;
             message = `TikHub API 连接成功！Token 有效，搜索返回 ${noteCount} 条笔记`;
-          } else if (searchRes.status === 400) {
-            // Token is valid but search service may be temporarily down
-            isValid = true;
-            message = `TikHub Token 有效，但小红书搜索服务暂时不可用 (400)，请稍后重试`;
-          } else {
-            isValid = false;
-            message = `TikHub 搜索测试失败 (${searchRes.status}): ${searchText.slice(0, 150)}`;
+          } catch (searchError) {
+            const status = searchError instanceof TikHubError ? searchError.status : 0;
+            console.log(`[TikHub Test] Search failed with status ${status}`);
+            if (status === 400) {
+              isValid = true;
+              message = `TikHub Token 有效，但小红书搜索服务暂时不可用 (400)，请稍后重试`;
+            } else {
+              isValid = false;
+              message = `TikHub 搜索测试失败 (${status || 'network'}): 请检查 Token、额度或稍后重试`;
+            }
           }
         }
       } catch (e: any) {

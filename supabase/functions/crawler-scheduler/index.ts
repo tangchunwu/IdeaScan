@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
 
 const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
@@ -41,32 +42,18 @@ async function hashContent(content: string): Promise<string> {
 // Crawl Xiaohongshu using Tikhub API (reusing existing channel adapter)
 async function crawlXiaohongshu(keywords: string[], tikhubToken: string): Promise<CrawlResult[]> {
         const results: CrawlResult[] = [];
+        const client = new TikHubClient(tikhubToken);
 
         for (const keyword of keywords.slice(0, 3)) { // Limit to 3 keywords per run to control costs
                 try {
-                        const searchUrl = `https://api.tikhub.io/api/v1/xiaohongshu/web/search_notes?keyword=${encodeURIComponent(keyword)}&page=1&sort=general`;
-
-                        const response = await fetch(searchUrl, {
-                                headers: {
-                                        "Authorization": `Bearer ${tikhubToken}`,
-                                        "Content-Type": "application/json"
-                                }
-                        });
-
-                        if (!response.ok) {
-                                console.error(`Tikhub XHS search failed for "${keyword}":`, response.status);
-                                continue;
-                        }
-
-                        const data = await response.json();
-                        const notes = data?.data?.notes || [];
+                        const notes = (await client.searchXhs(keyword)).notes;
 
                         for (const note of notes.slice(0, 10)) { // Top 10 notes per keyword
                                 results.push({
                                         content: `${note.title || ""}\n${note.desc || ""}`.trim(),
                                         source: "xiaohongshu",
-                                        source_id: note.note_id,
-                                        source_url: `https://www.xiaohongshu.com/explore/${note.note_id}`,
+                                        source_id: note.id || note.note_id,
+                                        source_url: `https://www.xiaohongshu.com/explore/${note.id || note.note_id}`,
                                         content_type: "post",
                                         author_name: note.user?.nickname,
                                         likes_count: note.liked_count || 0,
@@ -76,6 +63,7 @@ async function crawlXiaohongshu(keywords: string[], tikhubToken: string): Promis
 
                         console.log(`[XHS] Found ${notes.length} notes for "${keyword}"`);
                 } catch (e) {
+                        if (e instanceof TikHubError) throw e;
                         console.error(`[XHS] Error crawling "${keyword}":`, e);
                 }
         }

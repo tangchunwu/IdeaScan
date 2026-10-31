@@ -82,3 +82,44 @@
 - 动态 `/p/:slug` 页面可以在运行时生成标题和 canonical；未知 slug 无法在静态构建阶段预生成独立 HTML。
 - 本次生成的是独立 head 的 HTML 外壳，没有预渲染页面正文或引入 SSR；需要执行 JavaScript 才能显示正文和 `h1`。
 - 本地构建产物已验证；线上主机是否优先返回 `dist/<route>/index.html` 尚待发布后检查，若强制所有路径重写到首页，则需调整静态文件优先级。
+
+## 2026-10-31｜TikHub V2 接口兼容与调用成本边界修复
+
+### Challenges
+
+- TikHub 官方生产 OpenAPI 已更新到 V5.3.2，仓库仍混用小红书旧字段、已移除的 Web 搜索路径和旧抖音搜索接口。
+- TikHub 调用散落在验证、复查、趋势扫描、定时任务、适配器和配置验证中；重复重试与无限超时会放大计费和等待风险。
+- 小红书评论与搜索翻页需要透传游标/会话状态，跨平台结果还要继续兼容现有 JSON 报告结构。
+
+### Root Cause
+
+- 请求参数直接拼接在多个 Edge Function 中，没有共享的供应商客户端和统一 envelope 解析。
+- `sort=general`、`note_type=0` 不符合当前 XHS App V2 合同；抖音 `web/fetch_video_search_result` 不是当前推荐搜索入口。
+- HTTP 200 的上游业务错误和异常 JSON 可能被当成空成功；部分错误路径还会继续换关键词或继续请求评论。
+
+### Solutions
+
+- 新增共享 `TikHubClient`，统一 Bearer 鉴权、30-60 秒有限超时、有限重试、Retry-After、429 统计、业务失败识别和物理请求计数。
+- XHS 统一使用 App V2 当前字段与搜索会话翻页；评论使用 `cursor/index/pageArea/sort_strategy=latest_v2` 并去重。
+- 抖音搜索切换为官方 `POST /api/v1/douyin/search/fetch_video_search_v5`，传递 `offset/page/search_id/backtrace`；评论保留当前有效的 Web 评论接口。
+- 验证主流、复查、趋势扫描、调度、渠道适配器和配置验证全部复用客户端；失败停止后续计费请求，已有样本仍可返回。
+- 删除旧 `validate-idea/tikhub.ts` 的失效请求实现，仅保留摘要器使用的数据类型；未改数据库迁移、RLS、RPC 或海外平台 schema。
+
+### Verification
+
+- 32 项 TikHub 客户端和渠道适配器测试通过；全量 Vitest 15 个测试文件、74 项测试通过。
+- `npm run build`、`npx tsc --noEmit` 和全部目标 Edge Function 的 `deno check --no-lock --no-config` 通过。
+- 全仓库检索未发现旧 XHS Web 搜索、旧抖音 Web 搜索、`sort=general` 或 `note_type=0` 调用。
+- 官方 `https://api.tikhub.io/openapi.json` 实时核验确认版本 V5.3.2、XHS App V2 参数和抖音 V5 请求体；未做真实 Token 生产调用。
+
+### Learnings
+
+- 第三方付费 API 必须把请求次数、重试次数、限流和失败原因作为客户端级元数据，而不是散落在业务函数中。
+- “HTTP 成功”不等于供应商业务成功；响应 envelope、数组字段和上游错误文本都需要显式校验。
+- 翻页状态属于供应商协议，不应只传一个 page/cursor；适配器应保留统一模型，供应商细节集中在客户端。
+
+### Boundary
+
+- 本轮只修代码和测试，没有线上 Supabase schema、RLS、RPC 或数据批量操作；旧数据库问题仍需单独确认。
+- TikTok、Instagram、YouTube、Reddit 等海外平台只完成 OpenAPI 方向核查，尚未接入业务适配器或报告字段。
+- 真实 TikHub Token、额度、区域代理和生产 Edge Function 网络质量未在本地测试中验证。

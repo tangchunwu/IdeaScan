@@ -5,6 +5,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,63 +23,6 @@ interface RecrawlRequest {
     llmModel?: string;
     llmFallbacks?: Array<{ baseUrl: string; apiKey: string; model: string }>;
   };
-}
-
-async function fetchWithRetry(
-  url: string,
-  headers: Record<string, string>,
-  maxRetries = 0,
-  timeoutMs = 45000,
-): Promise<{ status: number; data: any } | null> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const resp = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
-      console.log(`[TikHub] Attempt ${attempt + 1}: status=${resp.status} for ${url.slice(0, 120)}`);
-      
-      // Log response body for non-200 status to debug 400 errors
-      if (resp.status >= 400 && resp.status < 500) {
-        const errText = await resp.text();
-        console.error(`[TikHub] ${resp.status} response body: ${errText.slice(0, 500)}`);
-        return { status: resp.status, data: null };
-      }
-
-      const contentType = resp.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        const text = await resp.text();
-        console.error(`[TikHub] Non-JSON response (${contentType}): ${text.slice(0, 200)}`);
-        if (attempt < maxRetries) {
-          const delay = 2000 * (attempt + 1);
-          console.log(`[TikHub] Retrying in ${delay}ms...`);
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
-        return null;
-      }
-
-      if (resp.status === 504 || resp.status === 502 || resp.status === 503) {
-        await resp.text();
-        if (attempt < maxRetries) {
-          const delay = 2000 * (attempt + 1);
-          console.log(`[TikHub] Server error ${resp.status}, retrying in ${delay}ms...`);
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
-        return null;
-      }
-
-      const data = await resp.json();
-      return { status: resp.status, data };
-    } catch (e) {
-      const timeoutLike = String((e as Error)?.name || "").includes("Timeout") || String(e).toLowerCase().includes("timeout") || String(e).toLowerCase().includes("aborted");
-      console.error(`[TikHub] Attempt ${attempt + 1} ${timeoutLike ? "timeout" : "error"}:`, e);
-      if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-        continue;
-      }
-      return null;
-    }
-  }
-  return null;
 }
 
 const KEYWORD_NOISE_TERMS = ["做一个", "做一款", "做个", "我想做", "我要做", "面向", "针对", "用于", "帮助", "给", "平台", "系统", "工具", "项目", "应用", "软件"] as const;
@@ -134,14 +78,11 @@ function buildKeywordVariants(input: string): string[] {
 }
 
 async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean, enableDy: boolean) {
-  const TIKHUB_BASE = "https://api.tikhub.io";
-  const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
-  const maskedToken = token.length > 12 ? `${token.slice(0, 8)}...${token.slice(-4)}` : '***';
-  console.log(`[TikHub] Using token: ${maskedToken}`);
-  
+  const client = new TikHubClient(token);
   const sampleNotes: any[] = [];
   const sampleComments: any[] = [];
   let totalEngagement = 0;
+  let stopCollection = false;
 
   // Xiaohongshu
   if (enableXhs) {
@@ -150,18 +91,8 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
 
     for (const kw of keywordVariants) {
       try {
-        const url = `${TIKHUB_BASE}/api/v1/xiaohongshu/app_v2/search_notes?keyword=${encodeURIComponent(kw)}&page=1&sort=general&note_type=0`;
-        console.log(`[TikHub-XHS] Requesting: ${url}`);
-        const result = await fetchWithRetry(url, headers, 1, 45000);
-        if (!result?.data) {
-          console.error(`[TikHub-XHS] All retries failed for keyword: ${kw}`);
-          continue;
-        }
-
-        const data = result.data;
-        const payload = data?.data?.data || data?.data || {};
-        const items = Array.isArray(payload.items) ? payload.items : [];
-        const notes = items.map((item: any) => item?.note || item);
+        const result = await client.searchXhs(kw);
+        const notes = result.notes;
         console.log(`[TikHub-XHS] Keyword "${kw}" found ${notes.length} notes`);
 
         if (notes.length === 0) continue;
@@ -181,15 +112,18 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
           totalEngagement += Number(note.liked_count || 0) + Number(note.comments_count || note.comment_count || 0);
 
           if (!noteId || sampleComments.length >= 60) continue;
-          const commentsResult = await fetchWithRetry(
-            `${TIKHUB_BASE}/api/v1/xiaohongshu/app_v2/get_note_comments?note_id=${encodeURIComponent(noteId)}`,
-            headers,
-            1,
-            45000,
-          );
-          const commentPayload = commentsResult?.data?.data?.data || commentsResult?.data?.data || {};
-          const comments = Array.isArray(commentPayload.comments) ? commentPayload.comments : [];
-          for (const c of comments.slice(0, 6)) {
+          let comments: any[] = [];
+          try {
+            comments = await client.getXhsComments(noteId, 6);
+          } catch (error) {
+            if (error instanceof TikHubError) {
+              stopCollection = true;
+              console.warn(`[TikHub-XHS] Comment collection stopped for note ${noteId}`);
+              break;
+            }
+            console.warn(`[TikHub-XHS] Comment collection failed for note ${noteId}:`, error);
+          }
+          for (const c of comments) {
             sampleComments.push({
               comment_id: c.id || "",
               content: c.content || "",
@@ -201,61 +135,60 @@ async function crawlViaTikhub(keyword: string, token: string, enableXhs: boolean
           }
         }
 
-        if (sampleNotes.length > 0) break;
+        if (stopCollection || sampleNotes.length > 0) break;
       } catch (e) {
+        if (e instanceof TikHubError) throw e;
         console.error(`[TikHub-XHS] Error for keyword "${kw}":`, e);
       }
     }
   }
 
   // Douyin
-  if (enableDy) {
+  if (enableDy && !stopCollection) {
     try {
-      const url = `${TIKHUB_BASE}/api/v1/douyin/web/fetch_video_search_result?keyword=${encodeURIComponent(keyword)}&offset=0&count=10&sort_type=0`;
-      console.log(`[TikHub-DY] Requesting: ${url.slice(0, 120)}`);
-      const result = await fetchWithRetry(url, headers, 1);
-      if (result?.data) {
-        const data = result.data;
-        const payload = data?.data?.data || data?.data || {};
-        const awemeList = Array.isArray(payload.aweme_list) ? payload.aweme_list : [];
-        const videos = awemeList.map((item: any) => item?.aweme_info || item);
-        for (const aweme of videos.slice(0, 10)) {
-          const awemeId = String(aweme.aweme_id || "");
-          if (!awemeId) continue;
-          sampleNotes.push({
-            note_id: awemeId,
-            title: "[抖音] " + String(aweme.desc || "").slice(0, 60),
-            desc: String(aweme.desc || "").slice(0, 280),
-            liked_count: Number(aweme.statistics?.digg_count || 0),
-            comments_count: Number(aweme.statistics?.comment_count || 0),
-            collected_count: Number(aweme.statistics?.collect_count || 0),
-            shared_count: Number(aweme.statistics?.share_count || 0),
-            user_nickname: aweme.author?.nickname || "",
+      const result = await client.searchDouyin(keyword);
+      const videos = result.videos;
+      for (const aweme of videos.slice(0, 10)) {
+        const awemeId = String(aweme.aweme_id || "");
+        if (!awemeId) continue;
+        sampleNotes.push({
+          note_id: awemeId,
+          title: "[抖音] " + String(aweme.desc || "").slice(0, 60),
+          desc: String(aweme.desc || "").slice(0, 280),
+          liked_count: Number(aweme.statistics?.digg_count || 0),
+          comments_count: Number(aweme.statistics?.comment_count || 0),
+          collected_count: Number(aweme.statistics?.collect_count || 0),
+          shared_count: Number(aweme.statistics?.share_count || 0),
+          user_nickname: aweme.author?.nickname || "",
+          _platform: "douyin",
+        });
+        totalEngagement += Number(aweme.statistics?.digg_count || 0) + Number(aweme.statistics?.comment_count || 0);
+
+        if (sampleComments.length >= 90) continue;
+        let comments: any[] = [];
+        try {
+          comments = await client.getDouyinComments(awemeId, 6);
+        } catch (error) {
+          if (error instanceof TikHubError) {
+            stopCollection = true;
+            console.warn(`[TikHub-DY] Comment collection stopped for video ${awemeId}`);
+            break;
+          }
+          console.warn(`[TikHub-DY] Comment collection failed for video ${awemeId}:`, error);
+        }
+        for (const c of comments) {
+          sampleComments.push({
+            comment_id: c.cid || "",
+            content: c.text || "",
+            like_count: Number(c.digg_count || 0),
+            user_nickname: c.user?.nickname || "",
+            ip_location: c.ip_label || "",
             _platform: "douyin",
           });
-          totalEngagement += Number(aweme.statistics?.digg_count || 0) + Number(aweme.statistics?.comment_count || 0);
-
-          if (sampleComments.length >= 90) continue;
-          const commentsResult = await fetchWithRetry(
-            `${TIKHUB_BASE}/api/v1/douyin/web/fetch_video_comments?aweme_id=${encodeURIComponent(awemeId)}&cursor=0&count=8`,
-            headers,
-            1,
-          );
-          const commentPayload = commentsResult?.data?.data?.data || commentsResult?.data?.data || {};
-          const comments = Array.isArray(commentPayload.comments) ? commentPayload.comments : [];
-          for (const c of comments.slice(0, 6)) {
-            sampleComments.push({
-              comment_id: c.cid || "",
-              content: c.text || "",
-              like_count: Number(c.digg_count || 0),
-              user_nickname: c.user?.nickname || "",
-              ip_location: c.ip_label || "",
-              _platform: "douyin",
-            });
-          }
         }
       }
     } catch (e) {
+      if (e instanceof TikHubError) throw e;
       console.error("[TikHub-DY] Error:", e);
     }
   }
@@ -382,6 +315,8 @@ serve(async (req) => {
         socialData = null;
         console.log(`[Recrawl] TikHub no data for "${kw}", trying next...`);
       } catch (e) {
+        // 客户端已完成有限重试，不再换关键词重复付费请求。
+        if (e instanceof TikHubError) throw e;
         console.error(`[Recrawl] TikHub error for "${kw}":`, e);
       }
     }
