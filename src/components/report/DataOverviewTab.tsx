@@ -76,7 +76,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
                     <div key={item.name} className="flex items-center gap-2 text-sm">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CONTENT_COLORS[index % CONTENT_COLORS.length] }} />
                       <span className="text-muted-foreground">{item.name}</span>
-                      <span className="font-medium text-foreground">{item.value}%</span>
+                      <span className="font-medium text-foreground number-highlight">{item.value}%</span>
                     </div>
                   ))}
                 </div>
@@ -102,7 +102,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
                     <Icon className={`w-5 h-5 ${metric.color}`} />
                     <span className="text-muted-foreground">{metric.label}</span>
                   </div>
-                  <span className="font-semibold text-foreground">{metric.value}</span>
+                  <span className="font-semibold text-foreground number-highlight">{metric.value}</span>
                 </div>
               );
             })}
@@ -120,7 +120,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
                 (dataQualityScore || 0) >= 40 ? "border-yellow-500/50 text-yellow-500" :
                   "border-red-500/50 text-red-500"
             }>
-              {dataQualityScore || 0}/100
+              <span className="number-highlight">{dataQualityScore || 0}/100</span>
             </Badge>
           </div>
           <Progress value={dataQualityScore || 0} className="h-2 mb-2" />
@@ -144,7 +144,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-foreground">{resonance.keyword}</span>
-                      <Badge variant="secondary" className="text-xs">{resonance.totalMentions} 次提及</Badge>
+                      <Badge variant="secondary" className="text-xs"><span className="number-highlight">{resonance.totalMentions}</span> 次提及</Badge>
                     </div>
                     <div className="flex gap-1">
                       {resonance.platforms.map((p: string, j: number) => (
@@ -228,7 +228,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
               <div key={i} className="p-3 rounded-lg bg-muted/30">
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-medium text-sm">{s.signal}</span>
-                  <Badge variant="outline" className="text-xs">置信度 {s.confidence}%</Badge>
+                  <Badge variant="outline" className="text-xs">置信度 <span className="number-highlight">{s.confidence}%</span></Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">{s.implication}</p>
               </div>

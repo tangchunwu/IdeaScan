@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useReferral } from "@/hooks/useReferral";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { Gift, Copy, Check, Users, Loader2 } from "lucide-react";
 
 export function ReferralCard() {
   const { code, usesCount, loading, shareUrl, redeemCode } = useReferral();
-  const { toast } = useToast();
+  const skinToast = useSkinToast();
   const [redeemInput, setRedeemInput] = useState("");
   const [redeeming, setRedeeming] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -19,10 +19,10 @@ export function ReferralCard() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast({ title: "邀请链接已复制" });
+      skinToast.success("邀请链接已复制");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast({ title: "复制失败", variant: "destructive" });
+      skinToast.error("复制失败");
     }
   };
 
@@ -32,7 +32,7 @@ export function ReferralCard() {
     try {
       const result = await redeemCode(redeemInput.trim());
       if (result?.success) {
-        toast({ title: "🎉 兑换成功！", description: "你和邀请者各获得 +1 次免费验证额度" });
+        skinToast.success("🎉 兑换成功！你和邀请者各获得 +1 次免费验证额度");
         setRedeemInput("");
       } else {
         const msgs: Record<string, string> = {
@@ -40,7 +40,7 @@ export function ReferralCard() {
           invalid_code: "邀请码无效",
           self_referral: "不能使用自己的邀请码",
         };
-        toast({ title: "兑换失败", description: msgs[result?.error] || result?.error || "请重试", variant: "destructive" });
+        skinToast.error(`兑换失败：${msgs[result?.error] || result?.error || "请重试"}`);
       }
     } finally {
       setRedeeming(false);

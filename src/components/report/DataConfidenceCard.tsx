@@ -109,7 +109,7 @@ export const DataConfidenceCard = ({
                      <div className="mb-4">
                             <div className="flex justify-between text-xs mb-1.5">
                                    <span className="text-muted-foreground">综合置信度</span>
-                                   <span className={confidence.color}>{overallConfidence}%</span>
+                                   <span className={`${confidence.color} number-highlight`}>{overallConfidence}%</span>
                             </div>
                             <Progress value={overallConfidence} className="h-2" />
                      </div>
@@ -119,7 +119,7 @@ export const DataConfidenceCard = ({
                             {/* Sample Size */}
                             <div className="p-3 rounded-xl bg-card/50 text-center">
                                    <Database className="w-4 h-4 mx-auto mb-1 text-primary" />
-                                   <div className="text-lg font-bold">{sampleSize}</div>
+                                   <div className="text-lg font-bold number-highlight">{sampleSize}</div>
                                    <div className="text-[10px] text-muted-foreground">样本数量</div>
                                    {sampleSize < 100 && (
                                           <div className="text-[10px] text-yellow-500 mt-1">建议 &gt;100</div>
@@ -129,7 +129,7 @@ export const DataConfidenceCard = ({
                             {/* Platform Coverage */}
                             <div className="p-3 rounded-xl bg-card/50 text-center">
                                    <BarChart3 className="w-4 h-4 mx-auto mb-1 text-secondary" />
-                                   <div className="text-lg font-bold">{platforms.length}</div>
+                                   <div className="text-lg font-bold number-highlight">{platforms.length}</div>
                                    <div className="text-[10px] text-muted-foreground">数据源</div>
                                    {platforms.length < 2 && (
                                           <div className="text-[10px] text-yellow-500 mt-1">建议多平台</div>
@@ -161,7 +161,7 @@ export const DataConfidenceCard = ({
                                                         />
                                                  </div>
                                                  <span className="text-xs text-muted-foreground w-12 text-right">
-                                                        {platform.count} 条
+                                                        <span className="number-highlight">{platform.count}</span> 条
                                                  </span>
                                           </div>
                                    );

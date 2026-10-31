@@ -177,7 +177,7 @@ const History = () => {
     return (
       <PageBackground>
         <Navbar />
-        <main className="pt-28 pb-16 px-4">
+        <main className="pt-28 pb-16 px-4 section-breathe">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8 pl-1">
               <h1 className="sr-only">正在加载验证历史记录</h1>
@@ -201,7 +201,7 @@ const History = () => {
     return (
       <PageBackground showClouds={false}>
         <Navbar />
-        <main className="pt-28 pb-16 px-4">
+        <main className="pt-28 pb-16 px-4 section-breathe">
           <div className="max-w-4xl mx-auto">
             <EmptyState
               headingAs="h1"
@@ -222,7 +222,7 @@ const History = () => {
     return (
       <PageBackground showClouds={false}>
         <Navbar />
-        <main className="pt-28 pb-16 px-4">
+        <main className="pt-28 pb-16 px-4 section-breathe">
           {/* ... existing login prompt, maybe we can reuse EmptyState here too but let's keep it custom for now as it's a specific auth wall */}
           <div className="max-w-lg mx-auto text-center">
             <GlassCard className="animate-fade-in">
@@ -247,7 +247,7 @@ const History = () => {
     <PageBackground showClouds={false}>
       <Navbar />
 
-      <main className="pt-28 pb-16 px-4">
+      <main className="pt-28 pb-16 px-4 section-breathe">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-8 animate-fade-in">

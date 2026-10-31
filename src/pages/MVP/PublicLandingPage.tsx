@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { getMVPBySlug, collectLead, trackExperimentEvent } from "@/services/mvpService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { LoadingSpinner } from "@/components/shared";
 import { Check, ArrowRight, Zap, Shield, BarChart } from "lucide-react";
 
@@ -17,7 +17,7 @@ const ICON_MAP: any = {
 
 export default function PublicLandingPage() {
         const { slug } = useParams();
-        const { toast } = useToast();
+        const skinToast = useSkinToast();
         const [email, setEmail] = useState("");
         const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -34,7 +34,7 @@ export default function PublicLandingPage() {
 		mutationFn: () => collectLead(page!.id, email),
 		onSuccess: () => {
 			setIsSubmitted(true);
-			toast({ title: "已加入等待名单！🚀" });
+			skinToast.success("已加入等待名单！🚀");
 		},
 		onError: (error: Error) => {
 			const message = error.message?.includes('Too many') 
@@ -42,7 +42,7 @@ export default function PublicLandingPage() {
 				: error.message?.includes('Invalid email')
 				? "请输入有效的邮箱地址"
 				: "提交失败，请重试";
-			toast({ title: message, variant: "destructive" });
+			skinToast.error(message);
 		}
 	});
 
@@ -57,7 +57,7 @@ export default function PublicLandingPage() {
 			void trackExperimentEvent(page.id, "cta_click", { source: "hero_form" });
 		}
 		if (!email || !email.includes('@')) {
-			toast({ title: "请输入有效的邮箱地址", variant: "destructive" });
+			skinToast.error("请输入有效的邮箱地址");
 			return;
 		}
 		if (page?.id) {

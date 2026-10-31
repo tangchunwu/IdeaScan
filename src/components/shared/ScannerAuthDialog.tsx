@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, QrCode, Shield, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useSkinToast } from "@/hooks/useSkinToast";
 import { invokeFunction } from "@/lib/invokeFunction";
 
 interface ScannerAuthDialogProps {
@@ -13,7 +13,7 @@ interface ScannerAuthDialogProps {
 }
 
 export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: ScannerAuthDialogProps) {
-       const { toast } = useToast();
+       const skinToast = useSkinToast();
        const [loadingQr, setLoadingQr] = useState(false);
        const [qrBase64, setQrBase64] = useState<string>("");
        const [flowId, setFlowId] = useState<string>("");
@@ -40,7 +40,7 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                      body: { platform: "xiaohongshu", user_id: userId },
               });
               if (result.error) {
-                     toast({ title: "爬虫流启失败", description: result.error.message, variant: "destructive" });
+                      skinToast.error(`爬虫流启失败：${result.error.message}`);
                      onOpenChange(false);
                      return;
               }
@@ -50,11 +50,11 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                      setQrBase64(data.qr_image_base64);
                      setAuthMessage(data.message || "请打开小红书 APP 扫码");
               } else {
-                     toast({ title: "爬虫流启失败", description: data.error, variant: "destructive" });
+                      skinToast.error(`爬虫流启失败：${data.error}`);
                      onOpenChange(false);
               }
               } catch (e) {
-                     toast({ title: "爬虫服务未连接", description: "认证服务暂不可用，请稍后重试", variant: "destructive" });
+                      skinToast.error("爬虫服务未连接：认证服务暂不可用，请稍后重试");
                      onOpenChange(false);
               } finally {
                      setLoadingQr(false);
@@ -82,7 +82,7 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
                                           onOpenChange(false);
                                    }, 1500);
                             } else if (data.status === "failed" || data.status === "expired") {
-                                   toast({ title: "二维码已过期或失效", description: "请重新获取", variant: "destructive" });
+                                    skinToast.error("二维码已过期或失效：请重新获取");
                                    clearInterval(interval);
                                    setFlowId("");
                             } else {

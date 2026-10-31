@@ -268,7 +268,7 @@ const Validate = () => {
     return (
       <PageBackground>
         <Navbar />
-        <main className="pt-28 pb-16 px-4">
+        <main className="pt-28 pb-16 px-4 section-breathe">
           <h1 className="sr-only">正在准备创意需求验证</h1>
           <div className="flex items-center justify-center min-h-[50vh]">
             <LoadingSpinner size="lg" />
@@ -281,7 +281,7 @@ const Validate = () => {
   return (
     <PageBackground>
       <Navbar />
-      <main className="pt-28 pb-20 px-4 md:px-8">
+      <main className="pt-28 pb-20 px-4 md:px-8 section-breathe">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="relative text-center mb-16 animate-fade-in">

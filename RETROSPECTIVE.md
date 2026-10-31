@@ -123,3 +123,39 @@
 - 本轮只修代码和测试，没有线上 Supabase schema、RLS、RPC 或数据批量操作；旧数据库问题仍需单独确认。
 - TikTok、Instagram、YouTube、Reddit 等海外平台只完成 OpenAPI 方向核查，尚未接入业务适配器或报告字段。
 - 真实 TikHub Token、额度、区域代理和生产 Edge Function 网络质量未在本地测试中验证。
+
+## 2026-10-31｜皮肤系统与验证主链路统一优化
+
+### Challenges
+
+- 皮肤系统仍有三个页面使用旧 Toast，Report 核心数字没有统一数字字体，主要工具页的皮肤间距没有生效。
+- 流式验证已经有稳定的渠道适配器，但主入口仍保留一套重复的 XHS/抖音抓取、分页和结果转换逻辑。
+
+### Root Cause
+
+- Toast、数字样式和间距只在部分页面接入，缺少一次全局收口。
+- `validate-idea-stream` 历史上为了关键词变体和进度反馈直接拼接 TikHub 请求，后来适配器稳定后没有完成迁移。
+
+### Solutions
+
+- 将 PublicLandingPage、ScannerAuthDialog、ReferralCard 的旧 `useToast` 全部切换为 `useSkinToast`。
+- 给 Validate、History、Discover、Report 主要容器接入 `section-breathe`，给 Report 的互动量、收藏、评论、质量分、样本量和平台数接入 `number-highlight`。
+- 保留流式关键词变体和进度统计，把每个关键词的社媒抓取改为调用 `MultiChannelOrchestrator`，统一复用 XHS/抖音适配器和 TikHubClient，并保持旧报告 JSON 输出字段。
+- 本轮不改数据库迁移、RLS、RPC，不接入海外平台。
+
+### Verification
+
+- 全量 Vitest 15 个测试文件、74 项测试通过。
+- `npx tsc --noEmit`、主流式 Edge Function `deno check --no-lock --no-config` 和 `npm run build` 通过。
+- 代码扫描确认业务页面不再直接引用旧 `useToast`；仅保留兼容 hook 导出文件。
+- 已检查目标文件 `git diff --check`，无新增空白错误。
+
+### Learnings
+
+- 适配器层稳定后，主流程应尽快切换到适配器，避免供应商协议细节在流式入口重新复制。
+- 皮肤规范只有在页面容器、数据展示和反馈组件同时接入时才会形成一致体验。
+
+### Boundary
+
+- 本轮未做浏览器截图回归，视觉效果以代码、构建和组件测试为依据。
+- 海外平台适配器、报告平台选择和真实 TikHub 生产 Token 验证仍未完成。
