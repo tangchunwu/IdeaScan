@@ -282,7 +282,7 @@ const Index = () => {
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">{t("landing.footerProduct")}</h4>
+            <h2 className="font-bold mb-6 text-foreground">{t("landing.footerProduct")}</h2>
             <ul className="space-y-4">
               <li><Link to="/validate" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerStartValidation")}</Link></li>
               <li><Link to="/discover" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerDiscover")}</Link></li>
@@ -291,7 +291,7 @@ const Index = () => {
           </div>
 
           <div>
-            <h4 className="font-bold mb-6 text-foreground">{t("landing.footerSupport")}</h4>
+            <h2 className="font-bold mb-6 text-foreground">{t("landing.footerSupport")}</h2>
             <ul className="space-y-4">
               <li><Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerFaq")}</Link></li>
               <li><Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">{t("landing.footerPrivacy")}</Link></li>

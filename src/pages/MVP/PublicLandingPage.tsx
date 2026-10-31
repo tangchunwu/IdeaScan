@@ -68,13 +68,14 @@ export default function PublicLandingPage() {
 
         if (isLoading) return (
                 <div className="min-h-screen flex items-center justify-center bg-white">
+                        <h1 className="sr-only">正在加载 MVP 落地页</h1>
                         <LoadingSpinner size="lg" />
                 </div>
         );
 
         if (error || !page) return (
                 <div className="min-h-screen flex items-center justify-center bg-zinc-50 flex-col">
-                        <h1 className="text-4xl font-bold mb-4 text-zinc-300">404</h1>
+                        <h1 className="text-4xl font-bold mb-4 text-muted-foreground">Landing page not found</h1>
                         <p className="text-zinc-500">Page not found</p>
                 </div>
         );
@@ -91,7 +92,7 @@ export default function PublicLandingPage() {
                         {/* Hero Section */}
                         <section className="pt-32 pb-20 px-6 text-center max-w-5xl mx-auto">
                                 <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent pb-4">
-                                        {content.hero.title}
+                                        {content.hero.title?.trim() || "MVP 落地页"}
                                 </h1>
                                 <p className={`text-xl md:text-2xl mb-12 max-w-3xl mx-auto ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
                                         {content.hero.subtitle}
@@ -135,7 +136,7 @@ export default function PublicLandingPage() {
                                                                 <div className="w-12 h-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600">
                                                                         <Icon className="w-6 h-6" />
                                                                 </div>
-                                                                <h3 className="text-xl font-bold">{f.title}</h3>
+                                                                <h2 className="text-xl font-bold">{f.title}</h2>
                                                                 <p className={`${isDark ? 'text-zinc-400' : 'text-zinc-600'} leading-relaxed`}>
                                                                         {f.description}
                                                                 </p>

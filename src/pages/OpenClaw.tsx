@@ -109,7 +109,7 @@ export default function OpenClawPage() {
               <Bot className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary`} />
             </div>
             <div>
-              <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold tracking-tight`}>OpenClaw</h1>
+              <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>OpenClaw AI 助手</h1>
               {!isMobile && (
                 <p className="text-sm text-muted-foreground mt-0.5">AI Agent · 对话 · 内容创作 · 自动化</p>
               )}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandLoader } from "@/components/shared";
 import { useSkinToast } from "@/hooks/useSkinToast";
+import { Button } from "@/components/ui/button";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -63,20 +64,25 @@ const AuthCallback = () => {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center space-y-4">
-          <p className="text-destructive text-lg font-medium">登录失败</p>
+          <h1 className="text-destructive text-lg font-medium">Linux DO 登录失败</h1>
           <p className="text-muted-foreground">{error}</p>
-          <button
+          <Button variant="link"
             onClick={() => navigate("/auth")}
             className="text-primary underline"
           >
             返回登录页
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
-  return <BrandLoader fullScreen text="正在通过 Linux DO 登录..." />;
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-4">
+      <h1 className="text-xl font-semibold text-foreground">正在通过 Linux DO 登录</h1>
+      <BrandLoader text="正在验证授权信息..." />
+    </div>
+  );
 };
 
 export default AuthCallback;

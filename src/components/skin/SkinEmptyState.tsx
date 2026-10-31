@@ -16,6 +16,7 @@ interface SkinEmptyStateProps {
   actionLink?: string;
   onAction?: () => void;
   className?: string;
+  headingAs?: "h1" | "h2" | "h3";
 }
 
 /**
@@ -29,6 +30,7 @@ export const SkinEmptyState = ({
   actionLink,
   onAction,
   className,
+  headingAs: Heading = "h2",
 }: SkinEmptyStateProps) => {
   const { skin } = useTheme();
   const copy = getSkinCopy(skin);
@@ -73,7 +75,7 @@ export const SkinEmptyState = ({
           </svg>
         </motion.div>
 
-        <h3 className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</h3>
+        <Heading className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</Heading>
         <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">{description}</p>
 
         {(actionLabel && (actionLink || onAction)) && (
@@ -141,7 +143,7 @@ export const SkinEmptyState = ({
           </svg>
         </motion.div>
 
-        <h3 className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</h3>
+        <Heading className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</Heading>
         <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">{description}</p>
 
         {(actionLabel && (actionLink || onAction)) && (
@@ -165,7 +167,7 @@ export const SkinEmptyState = ({
         <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center border border-muted-foreground/20" style={{ borderRadius: "2px" }}>
           <Icon className="w-6 h-6 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wider">{title}</h3>
+        <Heading className="text-lg font-bold text-foreground mb-2 uppercase tracking-wider">{title}</Heading>
         <p className="text-muted-foreground mb-6 max-w-xs mx-auto text-sm">{description}</p>
         {(actionLabel && (actionLink || onAction)) && (
           <Button asChild={!!actionLink} onClick={onAction} size="sm" className="px-6 h-9" style={{ borderRadius: "2px" }}>
@@ -214,7 +216,7 @@ export const SkinEmptyState = ({
           </div>
         </motion.div>
 
-        <h3 className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</h3>
+        <Heading className="text-xl font-medium text-foreground mb-3 tracking-tight">{title}</Heading>
         <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">{description}</p>
 
         {(actionLabel && (actionLink || onAction)) && (
@@ -238,7 +240,7 @@ export const SkinEmptyState = ({
         <Icon className="w-10 h-10 text-primary relative z-10" />
       </motion.div>
 
-      <h3 className="text-2xl font-bold text-foreground mb-3 tracking-tight">{title}</h3>
+      <Heading className="text-2xl font-bold text-foreground mb-3 tracking-tight">{title}</Heading>
       <p className="text-muted-foreground mb-8 max-w-sm mx-auto text-lg leading-relaxed">{description}</p>
 
       {(actionLabel && (actionLink || onAction)) && (
