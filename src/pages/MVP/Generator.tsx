@@ -92,6 +92,7 @@ export default function MVPGenerator() {
                         <PageBackground>
                                 <Navbar />
                                 <div className="flex flex-col items-center justify-center min-h-screen pt-20">
+                                        <h1 className="sr-only">正在准备 MVP 落地页生成器</h1>
                                         <LoadingSpinner size="lg" />
                                         <p className="mt-4 text-muted-foreground animate-pulse">
                                                 AI 正在构建您的 MVP 落地页...
@@ -158,10 +159,10 @@ export default function MVPGenerator() {
 
                                         {/* Editor Panel */}
                                         <Card className="lg:col-span-1 border-white/10 bg-black/20 backdrop-blur-xl h-full overflow-hidden flex flex-col">
-                                                <div className="p-4 border-b border-white/5 font-semibold flex items-center gap-2">
+                                                <h2 className="p-4 border-b border-white/5 font-semibold flex items-center gap-2">
                                                         <Code className="w-4 h-4 text-primary" />
                                                         内容编辑器
-                                                </div>
+                                                </h2>
                                                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
                                                         <div className="space-y-3">
@@ -237,9 +238,9 @@ export default function MVPGenerator() {
 
                                                         {/* Hero */}
                                                         <section className="py-20 px-6 text-center max-w-4xl mx-auto">
-                                                                <h1 className="text-5xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent pb-2">
+                                                                <h2 className="text-5xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent pb-2">
                                                                         {editedContent.hero.title}
-                                                                </h1>
+                                                                </h2>
                                                                 <p className="text-xl text-zinc-600 mb-8 max-w-2xl mx-auto">
                                                                         {editedContent.hero.subtitle}
                                                                 </p>
@@ -270,7 +271,7 @@ export default function MVPGenerator() {
                                                                                 <div key={i} className="flex gap-4 items-start">
                                                                                         <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-1">✕</div>
                                                                                         <div>
-                                                                                                <h4 className="text-lg font-semibold text-zinc-800">{p.problem}</h4>
+                                                                                                <h3 className="text-lg font-semibold text-zinc-800">{p.problem}</h3>
                                                                                                 <p className="text-zinc-500">{p.solution}</p>
                                                                                         </div>
                                                                                 </div>

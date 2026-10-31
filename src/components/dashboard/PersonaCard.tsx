@@ -131,10 +131,10 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Pain Points */}
           <div className="space-y-2">
-            <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <div className="p-1 rounded bg-primary/10 text-primary"><Target className="w-3 h-3" /></div>
               核心痛点
-            </h5>
+            </h4>
             <div className="space-y-1">
               {persona.painPoints?.map((pain, i) => (
                 <p key={i} className="text-sm text-foreground/70 flex items-start gap-1.5">
@@ -147,10 +147,10 @@ export const PersonaCard = ({ persona: rawPersona, validationId }: PersonaCardPr
 
           {/* Goals */}
           <div className="space-y-2">
-            <h5 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <div className="p-1 rounded bg-secondary/10 text-secondary"><Zap className="w-3 h-3" /></div>
               核心诉求
-            </h5>
+            </h4>
             <div className="space-y-1">
               {persona.goals?.map((goal, i) => (
                 <p key={i} className="text-sm text-foreground/70 flex items-start gap-1.5">
