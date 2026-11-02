@@ -15,7 +15,9 @@ vi.mock('../../supabase/functions/_shared/tikhub-client.ts', () => ({
   },
 }));
 
-const request = (token = 'test-token') => ({
+type CrawlRequest = { keyword: string; config: { auth_token: string; mode: 'deep' } };
+
+const request = (token = 'test-token'): CrawlRequest => ({
   keyword: 'home office',
   config: { auth_token: token, mode: 'deep' as const },
 });
@@ -55,7 +57,7 @@ const commentItem = (id: string) => ({
 });
 
 type AdapterConstructor = new () => {
-  crawl(request: ReturnType<typeof request>): Promise<any>;
+  crawl(request: CrawlRequest): Promise<any>;
 };
 
 type PlatformCase = {
