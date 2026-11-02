@@ -268,3 +268,41 @@
 - 未改表、迁移、RLS、RPC，未部署、提交、推送或调用真实付费 API；原有未提交文件保持不动。
 - 线上供应商返回、区域可用性、真实需求相关性和付费意愿未验收；证据片段不等于结论已证实。
 - 定时监控、机会库、异步持久任务与全局预算不在首期，开放公共密钥前必须补齐网关预算保护。
+
+## 2026-11-02｜IdeaScan｜TikHub 真实响应映射与脱敏诊断修复
+
+### Challenges
+
+- mock 响应下的海外适配器测试通过，但真实 TikHub 返回的 TikTok、Reddit、YouTube 包装字段不同，导致有效帖子被丢弃或指标变成 0。
+- 诊断原先只保留 HTTP 状态，业务错误、网络失败和超时被混成同一类，设置页也无法安全展示旧版/新版响应差异。
+
+### Root Cause
+
+- TikTok 真实结果在 `search_item_list[].aweme_info`，Reddit 使用 `children[].post` / `comment`，YouTube 使用 `video_id`、`description_snippet`、`view_count` 等清洗字段；旧映射只覆盖了 mock 形状。
+- TikHub client 丢弃上游错误摘要，固定 30 秒下限和 408 包装掩盖了真实失败类型；诊断没有共享请求预算和分阶段状态。
+
+### Solutions
+
+- 修复 TikTok 搜索项、cursor 分页、Reddit t3/t1 身份和父帖绑定、YouTube 清洗字段/计数/绝对时间解析，并增加真实响应形状回归测试。
+- TikHubError 增加脱敏后的 HTTP 状态、业务码、请求 ID、错误类型和路径；区分 HTTP、业务、网络、超时、无效响应和预算终止，不保留完整上游 body。
+- 新增六平台有界诊断：一次鉴权，每个平台最多一次搜索和一次评论探测，最多 13 次请求、单请求 8 秒、总计时 55 秒，401/402/403/422 或额度类失败停止后续付费请求。
+- 设置页支持单平台/六平台诊断、分阶段搜索与评论结果、调用数和安全错误摘要；旧版 flat 响应只提示先部署新版函数，不读取未定义字段。
+
+### Verification
+
+- 全量 Vitest 30 个文件、233 项通过；`tsc --noEmit`、应用项目类型检查、相关 Edge Function `deno check`、`npm run build` 和 `git diff --check` 通过。
+- 使用聊天中暴露的旧 Token 做一次有限真实诊断：鉴权成功；TikTok、小红书、YouTube 搜索和评论通过；Instagram HTTP 400；Reddit、抖音搜索通过但评论响应契约仍不匹配，已显示为 `invalid_response`，没有伪报成功。
+- 未通过浏览器设置页复用登录会话完成点击验收，真实探测使用同一诊断逻辑的本地 CLI；未部署本轮修改、未提交推送、未修改数据库。
+- 追加的失败结构探测仅尝试一次鉴权，未通过后停止，没有继续请求平台或取得新的评论响应正文。
+
+### Learnings
+
+- 供应商适配测试必须包含官方清洗响应和原始包装响应，不能只用自定义理想 fixture。
+- “Token 鉴权成功”与“某平台搜索/评论成功”必须拆成独立阶段；HTTP 200 不代表业务数据契约正确。
+- 诊断工具要共享物理请求预算和总 deadline，错误摘要只返回白名单字段，不能用异常 `instanceof` 丢失普通对象错误。
+
+### Boundary
+
+- Reddit 和抖音评论的真实响应包装仍需依据新的线上样本继续补充映射；Instagram 400 的具体上游原因因旧 client 未保留正文，尚不能归因于 Token、权限或额度。
+- 旧 Token 已在聊天中暴露，必须撤销并重新生成；本轮没有保存或写入该 Token。
+- 共享模块不能单独部署；上线需重新部署引用它们的 `verify-config`、`opportunity-discover`、`validate-idea`、`validate-idea-stream`，并发布前端。未部署前线上设置页不会包含本轮修复。

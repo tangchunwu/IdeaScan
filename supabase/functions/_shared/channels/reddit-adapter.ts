@@ -22,10 +22,37 @@ export class RedditAdapter extends BaseChannelAdapter {
     } catch (error) { return this.failed(error instanceof Error ? error.message : 'Reddit crawl failed', startedAt, client); }
   }
   private addPosts(target: Map<string, any>, items: any[]): void { for (const item of items || []) { const id = this.postId(item); if (id && !target.has(id)) target.set(id, item); } }
-  private postId(item: any): string { const data = item?.data || item; return String(data?.id || data?.name || item?.id || ''); }
+  private postId(item: any): string { const data = item?.post || item?.data || item; return this.typedId(data?.id || data?.name, 't3'); }
+  private typedId(value: unknown, prefix: 't1' | 't3'): string {
+    if (typeof value !== 'string') return '';
+    if (new RegExp(`^${prefix}_[a-z0-9]+$`, 'i').test(value)) return value;
+    return /^[a-z0-9]+$/i.test(value) ? `${prefix}_${value}` : '';
+  }
+  private text(value: any): string { return typeof value === 'string' ? value : typeof value?.markdown === 'string' ? value.markdown : ''; }
+  private author(value: any): string { return typeof value === 'string' ? value : this.text(value?.name || value?.username || value?.displayName); }
+  private count(value: unknown): number { const n = typeof value === 'number' || typeof value === 'string' ? Number(value) : 0; return Number.isFinite(n) ? n : 0; }
+  private date(value: unknown): string | undefined {
+    if (value === undefined || value === null || value === '') return undefined;
+    const date = typeof value === 'number' || /^\d+(?:\.\d+)?$/.test(String(value))
+      ? new Date(Number(value) * 1000) : typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) ? new Date(value) : undefined;
+    return date && Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
+  }
   private async loadComments(client: TikHubClient, posts: UnifiedPost[], limit: number): Promise<UnifiedComment[]> { const result = new Map<string, UnifiedComment>(); for (const post of posts.slice(0, 5)) { const page: any = await client.getRedditComments(post.post_id, limit); for (const item of (Array.isArray(page) ? page : page.comments || []).slice(0, limit)) { const c = this.toComment(item, post.post_id); if (c.comment_id && !result.has(c.comment_id)) result.set(c.comment_id, c); } } return Array.from(result.values()); }
-  private toPost(item: any): UnifiedPost { const data = item?.data || item; return { post_id: this.postId(item), platform: this.channel, title: String(data?.title || ''), content: String(data?.selftext || data?.title || ''), content_type: data?.is_video ? 'video' : 'text', author: String(data?.author || ''), metrics: { likes: Number(data?.ups || data?.score || 0), comments: Number(data?.num_comments || 0), shares: 0, collects: 0 }, created_at: data?.created_utc ? new Date(Number(data.created_utc) * 1000).toISOString() : undefined, raw_data: item }; }
-  private toComment(item: any, postId: string): UnifiedComment { const data = item?.data || item; return { comment_id: String(data?.id || data?.name || ''), platform: this.channel, post_id: postId, content: String(data?.body || data?.text || ''), author: String(data?.author || ''), metrics: { likes: Number(data?.ups || data?.score || 0) } }; }
+  private toPost(item: any): UnifiedPost {
+    const data = item?.post || item?.data || item;
+    const title = this.text(data?.postTitle ?? data?.title);
+    return { post_id: this.postId(item), platform: this.channel, title,
+      content: this.text(data?.content) || this.text(data?.selftext) || title,
+      content_type: data?.is_video ? 'video' : 'text', author: this.author(data?.author),
+      metrics: { likes: this.count(data?.score ?? data?.ups), comments: this.count(data?.comments ?? data?.num_comments), shares: 0, collects: 0 },
+      created_at: this.date(data?.createdAt ?? data?.created_utc), raw_data: item };
+  }
+  private toComment(item: any, postId: string): UnifiedComment {
+    const data = item?.comment || item?.data || item;
+    return { comment_id: this.typedId(data?.id || data?.name, 't1'), platform: this.channel, post_id: postId,
+      content: this.text(data?.content) || this.text(data?.body) || this.text(data?.text), author: this.author(data?.author),
+      metrics: { likes: this.count(data?.score ?? data?.ups) }, created_at: this.date(data?.createdAt ?? data?.created_utc) };
+  }
   private metadata(client: TikHubClient, startedAt: number) { return { crawl_time_ms: Date.now() - startedAt, api_calls: client.stats.apiCalls, failed_calls: client.stats.failedCalls, retries: client.stats.retries, rate_limited: client.stats.rateLimited }; }
   private success(posts: UnifiedPost[], comments: UnifiedComment[], client: TikHubClient, startedAt: number): ChannelCrawlResult { return { success: true, channel: this.channel, posts, comments, stats: this.calculateStats(posts), metadata: this.metadata(client, startedAt) }; }
   private failed(error: string, startedAt: number, client?: TikHubClient): ChannelCrawlResult { return { ...this.createEmptyResult(error), ...(client ? { metadata: this.metadata(client, startedAt) } : {}) }; }

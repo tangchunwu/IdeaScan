@@ -16,6 +16,7 @@ import { ExportDataButton } from "./ExportDataButton";
 import { ImportDataButton } from "./ImportDataButton";
 import { useTheme, SKINS, type Skin } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import { TikHubDiagnosticPanel } from './TikHubDiagnosticPanel';
 
 const SkinSelector = () => {
   const { skin, setSkin } = useTheme();
@@ -454,51 +455,6 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
               }
               setIsVerifyingAllFallbacks(false);
               okCount > 0 ? skinToast.success(`备选模型验证完成: 可用 ${okCount}/${list.length}`) : skinToast.error(`备选模型验证完成: 可用 ${okCount}/${list.length}`);
-       };
-
-       const [isVerifyingTikhub, setIsVerifyingTikhub] = useState(false);
-       const [overseasDiagnostic, setOverseasDiagnostic] = useState<Array<{ platform: string; valid: boolean; message: string; latencyMs: number; apiCalls: number }>>([]);
-
-       const handleVerifyTikhub = async () => {
-              if (!localSettings.tikhubToken) {
-                     skinToast.error("请先输入 TikHub Token");
-                     return;
-              }
-              setIsVerifyingTikhub(true);
-              try {
-                     const { data, error } = await invokeFunction<{ valid: boolean; message?: string }>('verify-config', {
-                            body: { type: 'tikhub', apiKey: localSettings.tikhubToken }
-                     });
-                     if (error || !data?.valid) {
-                            skinToast.error(`TikHub 验证失败: ${data?.message || error?.message || "连接失败，请检查 Token"}`);
-                     } else {
-                            updateSettings({ tikhubToken: localSettings.tikhubToken });
-                             skinToast.success(`TikHub 验证成功: ${data.message || "Token 有效，配置已自动保存"}`);
-                     }
-              } catch (e) {
-                     skinToast.error("验证请求失败");
-              }
-              setIsVerifyingTikhub(false);
-       };
-
-       const handleDiagnoseOverseas = async () => {
-              if (!localSettings.tikhubToken) {
-                     skinToast.error("请先输入 TikHub Token");
-                     return;
-              }
-              setIsVerifyingTikhub(true);
-              try {
-                     const { data, error } = await invokeFunction<{ valid: boolean; message?: string; platforms?: typeof overseasDiagnostic }>('verify-config', {
-                            body: { type: 'tikhub', apiKey: localSettings.tikhubToken, platforms: ['tiktok', 'instagram', 'youtube', 'reddit'] },
-                     });
-                     if (error) throw error;
-                     setOverseasDiagnostic(data?.platforms || []);
-                     data?.valid ? skinToast.success("海外平台诊断全部通过") : skinToast.error("部分海外平台诊断失败，请查看详情");
-              } catch (error) {
-                     skinToast.error(error instanceof Error ? error.message : "海外平台诊断失败");
-              } finally {
-                     setIsVerifyingTikhub(false);
-              }
        };
 
        const handleVerifyImageGen = async () => {
@@ -1093,24 +1049,7 @@ export const SettingsDialog = ({ open: controlledOpen, onOpenChange: controlledO
                                                   <Input type={showTikhubToken ? "text" : "password"} value={localSettings.tikhubToken} onChange={(e) => setLocalSettings(s => ({ ...s, tikhubToken: e.target.value }))} className="pr-10" />
                                                   <button type="button" onClick={() => setShowTikhubToken(!showTikhubToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Eye className="w-4 h-4" /></button>
                                            </div>
-                                           <Button variant="outline" size="sm" onClick={handleVerifyTikhub} disabled={isVerifyingTikhub || !localSettings.tikhubToken}>
-                                                  {isVerifyingTikhub ? (
-                                                         <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />验证中...</span>
-                                                  ) : '测试连通性'}
-                                           </Button>
-                                           <Button variant="outline" size="sm" onClick={handleDiagnoseOverseas} disabled={isVerifyingTikhub || !localSettings.tikhubToken}>
-                                                  {isVerifyingTikhub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "诊断海外平台"}
-                                           </Button>
-                                           {overseasDiagnostic.length > 0 && (
-                                                  <div className="grid gap-1 text-xs">
-                                                         {overseasDiagnostic.map((item) => (
-                                                                <div key={item.platform} className="flex items-center justify-between rounded border px-2 py-1">
-                                                                       <span>{item.platform}</span>
-                                                                       <span className={item.valid ? "text-green-600" : "text-destructive"}>{item.valid ? "通过" : item.message} · {item.latencyMs}ms · {item.apiCalls} 次请求</span>
-                                                                </div>
-                                                         ))}
-                                                  </div>
-                                           )}
+                                           {open && <TikHubDiagnosticPanel token={localSettings.tikhubToken} />}
                                     </div>
                             </div>
 

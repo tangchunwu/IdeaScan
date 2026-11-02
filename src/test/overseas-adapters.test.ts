@@ -101,8 +101,8 @@ const platformCases: PlatformCase[] = [
   {
     name: 'Reddit', channel: 'reddit', Adapter: RedditAdapter,
     searchMethod: 'searchReddit', commentMethod: 'getRedditComments',
-    firstPage: { items: [searchItem('reddit', 'rd-1'), searchItem('reddit', 'rd-1')], hasMore: true, nextAfter: 'rd-next' },
-    secondPage: { items: Array.from({ length: 11 }, (_, i) => searchItem('reddit', `rd-${i + 1}`)), hasMore: false },
+    firstPage: { items: [searchItem('reddit', 'abc1'), searchItem('reddit', 'abc1')], hasMore: true, nextAfter: 'rd-next' },
+    secondPage: { items: Array.from({ length: 11 }, (_, i) => searchItem('reddit', `abc${i + 1}`)), hasMore: false },
     expectedSecondArgs: ['home office', { after: 'rd-next' }],
     posts: [], comments: [],
   },
@@ -126,7 +126,7 @@ describe('overseas channel adapters', () => {
     };
     client[testCase.searchMethod] = vi.fn().mockResolvedValueOnce(testCase.firstPage).mockResolvedValueOnce(testCase.secondPage);
     client[testCase.commentMethod] = vi.fn((postId: string) => Promise.resolve(
-      Array.from({ length: 11 }, (_, i) => commentItem(`${postId}-c-${i}`)),
+      Array.from({ length: 11 }, (_, i) => commentItem(testCase.channel === 'reddit' ? `t1_${postId.slice(3)}c${i}` : `${postId}-c-${i}`)),
     ));
     mocks.createClient.mockReturnValue(client);
 

@@ -11,17 +11,43 @@ export interface TikHubClientOptions {
   timeoutMs?: number;
   maxRetries?: number;
   baseDelayMs?: number;
+  signal?: AbortSignal;
+  maxRequests?: number;
+}
+
+export type TikHubErrorKind = 'http' | 'business' | 'timeout' | 'network' | 'invalid_response' | 'auth' | 'budget';
+export interface TikHubErrorOptions {
+  status?: number;
+  retryable?: boolean;
+  httpStatus?: number | null;
+  businessCode?: number | string;
+  kind?: TikHubErrorKind;
+  requestId?: string;
+  path?: string;
+  upstreamMessage?: string;
 }
 
 export class TikHubError extends Error {
   readonly status: number;
   readonly retryable: boolean;
+  readonly httpStatus: number | null;
+  readonly businessCode?: number | string;
+  readonly kind: TikHubErrorKind;
+  readonly requestId?: string;
+  readonly path?: string;
+  readonly upstreamMessage?: string;
 
-  constructor(message: string, options: { status?: number; retryable?: boolean } = {}) {
+  constructor(message: string, options: TikHubErrorOptions = {}) {
     super(message);
     this.name = "TikHubError";
     this.status = options.status ?? 0;
     this.retryable = options.retryable ?? false;
+    this.kind = options.kind || 'http';
+    this.httpStatus = options.httpStatus === undefined ? (this.kind === 'http' ? this.status || null : null) : options.httpStatus;
+    this.businessCode = options.businessCode;
+    this.requestId = options.requestId;
+    this.path = options.path;
+    this.upstreamMessage = options.upstreamMessage;
   }
 }
 
@@ -151,7 +177,37 @@ function hasUpstreamFailure(body: any): boolean {
   )) return true;
   const text = [outer.msg, outer.message, first.msg, first.message, second.msg, second.message]
     .filter(Boolean).join(" ").toLowerCase();
-  return text.includes("服务异常") || text.includes("service error") || text.includes("upstream error");
+  return /服务异常|service error|upstream error|insufficient (?:balance|credits)|quota exceeded|额度不足|余额不足/.test(text);
+}
+
+function safeDiagnosticText(value: unknown, token: string): string | undefined {
+  if (typeof value !== 'string' || /<\/?(?:html|script|body)\b/i.test(value)) return undefined;
+  let output = value;
+  for (const secret of [token, encodeURIComponent(token)]) {
+    if (secret) output = output.split(secret).join('[REDACTED]');
+  }
+  output = output.replace(/https?:\/\/[^\s<>"']+/gi, '[URL]')
+    .replace(/Bearer\s+[^\s,;"']+/gi, 'Bearer [REDACTED]')
+    .replace(/((?:api[_ -]?key|token|authorization|secret|password)\s*[:=]\s*)["']?[^\s,;"']+/gi, '$1[REDACTED]')
+    .replace(/[A-Za-z0-9+/_=-]{32,}/g, '[REDACTED]')
+    .replace(/\s+/g, ' ').trim();
+  // 禁止控制字符进入日志或设置页；仅返回白名单摘要而非原始响应体。
+  output = Array.from(output).filter(ch => ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) !== 127).join('');
+  return output.slice(0, 240) || undefined;
+}
+
+function upstreamErrorInfo(body: unknown, token: string): Pick<TikHubErrorOptions, 'businessCode' | 'requestId' | 'upstreamMessage'> {
+  const root = asRecord(body);
+  const layers = [root, asRecord(root.data), asRecord(asRecord(root.data).data)];
+  const failed = layers.find(layer => (layer.code !== undefined && ![0, 200].includes(Number(layer.code))) || (layer.status_code !== undefined && Number(layer.status_code) !== 0) || layer.success === false);
+  const rawCode = failed?.code ?? failed?.status_code;
+  const businessCode = typeof rawCode === 'number' && Number.isFinite(rawCode) ? rawCode
+    : typeof rawCode === 'string' && /^-?\d{1,9}$/.test(rawCode) ? rawCode : undefined;
+  const rawId = layers.map(layer => layer.request_id || layer.requestId).find(value => typeof value === 'string');
+  const requestId = typeof rawId === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{3,79}$/.test(rawId) && !rawId.includes(token) ? rawId : undefined;
+  const errorLayer = failed || layers.find(layer => layer.message || layer.msg || layer.detail) || {};
+  const detail = Array.isArray(errorLayer.detail) ? errorLayer.detail.slice(0, 3).map((item: unknown) => typeof asRecord(item).msg === 'string' ? asRecord(item).msg : '').join('; ') : errorLayer.detail;
+  return { businessCode, requestId, upstreamMessage: safeDiagnosticText(errorLayer.message_zh || errorLayer.message || errorLayer.msg || detail, token) };
 }
 
 function retryAfterMs(response: Response, fallback: number): number {
@@ -215,24 +271,35 @@ export class TikHubClient {
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly baseDelayMs: number;
+  private readonly signal?: AbortSignal;
+  private readonly maxRequests: number;
+  private lastPath = '';
 
   constructor(token: string, options: TikHubClientOptions = {}) {
-    if (!String(token || "").trim()) throw new TikHubError("TikHub token is required", { status: 401 });
+    if (!String(token || "").trim()) throw new TikHubError("TikHub token is required", { status: 401, kind: 'auth', httpStatus: null });
     this.token = token;
     const timeout = Number(options.timeoutMs);
     const retries = Number(options.maxRetries ?? DEFAULT_MAX_RETRIES);
     const delay = Number(options.baseDelayMs);
-    this.timeoutMs = Number.isFinite(timeout) && timeout > 0 ? Math.max(30_000, Math.min(60_000, timeout)) : DEFAULT_TIMEOUT_MS;
+    this.timeoutMs = Number.isFinite(timeout) && timeout > 0 ? Math.max(1, Math.min(60_000, timeout)) : DEFAULT_TIMEOUT_MS;
     this.maxRetries = Number.isFinite(retries) ? Math.max(0, Math.min(2, Math.trunc(retries))) : DEFAULT_MAX_RETRIES;
     this.baseDelayMs = Number.isFinite(delay) && delay > 0 ? Math.min(10_000, delay) : DEFAULT_BASE_DELAY_MS;
+    this.signal = options.signal;
+    this.maxRequests = Number.isFinite(options.maxRequests) ? Math.max(0, Math.trunc(options.maxRequests!)) : Infinity;
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<any> {
     const url = `${BASE_URL}${path}`;
+    const requestPath = path.split('?')[0];
+    this.lastPath = requestPath;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (this.signal?.aborted || this.stats.apiCalls >= this.maxRequests) throw new TikHubError('TikHub diagnostic deadline or request budget reached', { kind: 'budget', httpStatus: null, path: requestPath });
       this.stats.apiCalls += 1;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(new DOMException("TikHub timeout", "TimeoutError")), this.timeoutMs);
+      let timedOut = false;
+      const timeout = setTimeout(() => { timedOut = true; controller.abort(new DOMException("TikHub timeout", "TimeoutError")); }, this.timeoutMs);
+      const cancel = () => controller.abort(this.signal?.reason);
+      this.signal?.addEventListener('abort', cancel, { once: true });
       try {
         const response = await fetch(url, {
           ...init,
@@ -242,6 +309,7 @@ export class TikHubClient {
             ...(init.headers || {}),
           },
           signal: controller.signal,
+          redirect: 'error',
         });
         const bodyText = await response.text();
         clearTimeout(timeout);
@@ -252,35 +320,44 @@ export class TikHubClient {
 
         if (response.ok && body && !hasUpstreamFailure(body)) return body;
 
-        const retryable = isRetryableStatus(response.status);
+        const info = upstreamErrorInfo(body, this.token);
+        const effectiveStatus = info.businessCode !== undefined && Number(info.businessCode) >= 100 && Number(info.businessCode) <= 599 ? Number(info.businessCode) : response.status;
+        const retryable = ![401, 402, 403, 422].includes(effectiveStatus) && !hasUpstreamFailure(body) && isRetryableStatus(response.status);
         this.stats.failedCalls += 1;
-        if (response.status === 429) this.stats.rateLimited = true;
+        if (effectiveStatus === 429 || response.status === 429) this.stats.rateLimited = true;
         if (!retryable || attempt >= this.maxRetries) {
+          const kind: TikHubErrorKind = !response.ok ? 'http' : hasUpstreamFailure(body) ? 'business' : 'invalid_response';
           throw new TikHubError(
-            `TikHub request failed (${response.status || "invalid response"})`,
-            { status: response.status, retryable: false },
+            `TikHub ${kind} error (HTTP ${response.status}${info.businessCode !== undefined ? `, code ${info.businessCode}` : ''})${info.upstreamMessage ? `: ${info.upstreamMessage}` : ''}`,
+            { status: effectiveStatus, httpStatus: response.status, kind, ...info, path: requestPath, retryable: false },
           );
         }
 
         const delay = retryAfterMs(response, Math.min(30_000, this.baseDelayMs * (2 ** attempt)));
         // 超长限流不提前重试，交给用户稍后再试，避免同一次验证持续刷费。
-        if (delay > 30_000) throw new TikHubError("TikHub rate limit; retry later", { status: 429 });
+        if (delay > 30_000) throw new TikHubError("TikHub rate limit; retry later", { status: 429, httpStatus: response.status, kind: 'http', path: requestPath, ...info });
         this.stats.retries += 1;
         await new Promise((resolve) => setTimeout(resolve, delay));
       } catch (error) {
         clearTimeout(timeout);
         if (error instanceof TikHubError) throw error;
         this.stats.failedCalls += 1;
+        if (this.signal?.aborted) throw new TikHubError('TikHub diagnostic deadline reached', { kind: 'budget', httpStatus: null, path: requestPath });
         if (attempt >= this.maxRetries) {
-          throw new TikHubError("TikHub request timed out or failed", { status: 408, retryable: false });
+          throw new TikHubError(timedOut ? 'TikHub request timed out' : 'TikHub network connection failed', { status: timedOut ? 408 : 0, httpStatus: null, kind: timedOut ? 'timeout' : 'network', path: requestPath, retryable: false });
         }
         this.stats.retries += 1;
         await new Promise((resolve) => setTimeout(resolve, Math.min(30_000, this.baseDelayMs * (2 ** attempt))));
       } finally {
         clearTimeout(timeout);
+        this.signal?.removeEventListener('abort', cancel);
       }
     }
     throw new TikHubError("TikHub request failed", { retryable: false });
+  }
+
+  async getUserInfo(): Promise<Record<string, unknown>> {
+    return asRecord(await this.request('/api/v1/tikhub/user/get_user_info'));
   }
 
   async searchXhs(keyword: string, options: {
@@ -337,6 +414,14 @@ export class TikHubClient {
     return comments.slice(0, limit);
   }
 
+  async getXhsCommentsFirstPage(noteId: string, limit = 1): Promise<unknown[]> {
+    if (!noteId || limit <= 0) return [];
+    const params = new URLSearchParams({ note_id: noteId, cursor: '', index: '0', pageArea: 'UNFOLDED', sort_strategy: 'latest_v2' });
+    const payload = unwrapPayload(await this.request(`/api/v1/xiaohongshu/app_v2/get_note_comments?${params}`));
+    this.requireArray(payload, 'comments');
+    return asArray(payload.comments).slice(0, limit);
+  }
+
   async searchDouyin(keyword: string, pagination: Partial<DouyinSearchPage["pagination"]> = {}): Promise<DouyinSearchPage> {
     const page = Number(pagination.page || 1);
     const body = { keyword, offset: Number(pagination.offset || 0), page, search_id: String(pagination.searchId || ""), backtrace: String(pagination.backtrace || "") };
@@ -374,11 +459,14 @@ export class TikHubClient {
       region: options.region || "US",
     });
     const payload = unwrapPayload(await this.request(`/api/v1/tiktok/app/v3/fetch_video_search_result?${params}`));
-    const result = findArrayResult(payload, ["items", "aweme_list", "item_list", "videos", "data"]);
+    const result = findArrayResult(payload, ['search_item_list', "items", "aweme_list", "item_list", "videos", "data"]);
     this.requireFoundArray(result, "items");
+    const items = result.value.map(item => asRecord(item).aweme_info || item).filter(item => String(item?.aweme_id || item?.id || item?.video_id || ''));
+    const uniqueItems = Array.from(new Map(items.map(item => [String(item.aweme_id || item.id || item.video_id), item])).values());
     const nextCursor = pageToken(payload, ["next_cursor", "nextCursor"]);
-    const nextOffset = pageToken(payload, ["next_offset", "nextOffset"]);
-    return this.searchPage(result.value, payload, nextCursor, "", nextOffset ? Number(nextOffset) : undefined);
+    const nextOffset = pageToken(payload, ["next_offset", "nextOffset", 'cursor']);
+    const offset = nextOffset !== '' && Number.isFinite(Number(nextOffset)) && Number(nextOffset) >= 0 ? Number(nextOffset) : undefined;
+    return this.searchPage(uniqueItems, payload, nextCursor, "", offset);
   }
 
   async getTikTokComments(awemeId: string, limit?: number): Promise<any[]>;
@@ -529,14 +617,14 @@ export class TikHubClient {
   private requireFoundArray(result: { found: boolean; value: any[] }, key: string): void {
     if (result.found) return;
     this.stats.failedCalls += 1;
-    throw new TikHubError(`TikHub invalid response: missing ${key}`, { status: 200 });
+    throw new TikHubError(`TikHub invalid response: missing ${key}`, { status: 200, httpStatus: 200, kind: 'invalid_response', path: this.lastPath });
   }
 
   private requireArray(payload: Record<string, any>, key: string): void {
     if (Array.isArray(payload[key])) return;
     // 返回结构变动或上游服务异常不等于成功的空样本，也不能盲目重试付费请求。
     this.stats.failedCalls += 1;
-    throw new TikHubError(`TikHub invalid response: missing ${key}`, { status: 200 });
+    throw new TikHubError(`TikHub invalid response: missing ${key}`, { status: 200, httpStatus: 200, kind: 'invalid_response', path: this.lastPath });
   }
 }
 

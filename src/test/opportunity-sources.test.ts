@@ -213,6 +213,18 @@ describe('web source collection', () => {
 });
 
 describe('social source collection', () => {
+  it('reads cleaned Reddit raw.post links without weakening URL safety or guessing routes', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => 'true' } });
+    crawlResults(result({ channel: 'reddit', posts: [
+      { ...post('t3_abc', { post: { permalink: '/r/pets/comments/abc/real/' } }), platform: 'reddit' },
+      { ...post('t3_def', { post: { url: 'https://127.0.0.1/private' } }), platform: 'reddit' },
+      { ...post('t3_ghi', { post: { permalink: '//evil.example.org/route' } }), platform: 'reddit' },
+      { ...post('t3_jkl', { post: {} }), platform: 'reddit' },
+    ] }));
+    const output = await collectOpportunitySources(request({ platforms: ['reddit'] }), { tikhubToken: 'mock-only' });
+    expect(output.evidence.map(item => item.url)).toEqual(['https://www.reddit.com/r/pets/comments/abc/real/']);
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('uses canonical public routes only for well-shaped platform IDs, not opaque IDs', async () => {
     vi.stubGlobal('Deno', { env: { get: () => 'true' } });
     crawlResults(

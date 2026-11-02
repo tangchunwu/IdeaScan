@@ -87,7 +87,7 @@ function overseasEnabled(): boolean {
 function postUrl(post: UnifiedPost): string | null {
   const raw = record(post.raw_data);
   // 只读取现有适配器保留的原始结构，不假设 UnifiedPost 上存在 url，也不猜测 ID 路由。
-  const layers = [raw, record(raw.data), record(raw.media), record(raw.video)];
+  const layers = [raw, record(raw.post), record(raw.data), record(raw.media), record(raw.video)];
   for (const layer of layers) {
     for (const source of [layer, record(layer.share_info)]) {
       for (const key of ['permalink', 'share_url', 'web_url', 'url']) {
