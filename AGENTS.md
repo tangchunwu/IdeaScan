@@ -1,2 +1,3 @@
 # Project rules
 - Route components own their page H1, including loading and error branches; reusable empty states accept a heading level so embedded states do not create duplicate page headings.
+- An edge function's deploy bundle contains only its own folder plus `_shared`, so shared code must live in `supabase/functions/_shared/` and never be imported from `src/` or a sibling function folder; the frontend re-exports those shared types from `src/types/` so both sides keep one definition.
