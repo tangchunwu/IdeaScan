@@ -19,7 +19,7 @@ import {
   toLegacyXhsFormat,
   toLegacyDouyinFormat,
   type ChannelCrawlResult
-} from "./channels/index.ts";
+} from "../_shared/channels/index.ts";
 import {
   validateString,
   validateStringArray,

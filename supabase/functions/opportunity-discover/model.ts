@@ -1,7 +1,7 @@
 import { buildChatCompletionEndpoints, extractAssistantContent } from '../_shared/llm-client.ts';
 import { buildOpportunityPrompt } from './core.ts';
 import { RadarServiceError } from './handler.ts';
-import type { OpportunityEvidence, OpportunityRequest } from '../../../src/types/opportunity.ts';
+import type { OpportunityEvidence, OpportunityRequest } from '../_shared/opportunity-types.ts';
 
 export interface RadarModelConfig { baseUrl: string; apiKey: string; model: string }
 

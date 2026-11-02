@@ -96,7 +96,7 @@ export function ScannerAuthDialog({ open, onOpenChange, onSuccess, userId }: Sca
               }, 3000);
 
               return () => clearInterval(interval);
-       }, [flowId, isAuthorized, open, onSuccess, onOpenChange, userId, toast]);
+       }, [flowId, isAuthorized, open, onSuccess, onOpenChange, userId]);
 
        return (
               <Dialog open={open} onOpenChange={onOpenChange}>

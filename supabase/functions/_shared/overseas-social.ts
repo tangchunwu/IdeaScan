@@ -1,4 +1,4 @@
-import type { MultiChannelResult } from "../validate-idea/channels/types.ts";
+import type { MultiChannelResult } from "./channels/types.ts";
 
 export const OVERSEAS_PLATFORMS = ["tiktok", "instagram", "youtube", "reddit"] as const;
 export type OverseasPlatform = typeof OVERSEAS_PLATFORMS[number];

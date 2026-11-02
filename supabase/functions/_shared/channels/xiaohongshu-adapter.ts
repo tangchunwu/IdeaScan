@@ -1,5 +1,5 @@
 /** 小红书数据适配，HTTP、重试和评论分页由共享客户端负责。 */
-import { TikHubClient, TikHubError } from '../../_shared/tikhub-client.ts';
+import { TikHubClient, TikHubError } from '../tikhub-client.ts';
 import { BaseChannelAdapter } from './base-adapter.ts';
 import type { ChannelType, CrawlRequest, ChannelCrawlResult, UnifiedPost, UnifiedComment } from './types.ts';
 

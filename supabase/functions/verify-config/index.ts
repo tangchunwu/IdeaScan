@@ -8,7 +8,7 @@ import {
 } from "../_shared/validation.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
 import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
-import { multiChannelOrchestrator } from "../validate-idea/channels/index.ts";
+import { multiChannelOrchestrator } from "../_shared/channels/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

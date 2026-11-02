@@ -1,5 +1,5 @@
-import { RADAR_PLATFORMS } from '../../../src/types/opportunity.ts';
-import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest, OpportunityResult } from '../../../src/types/opportunity.ts';
+import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
+import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest, OpportunityResult } from '../_shared/opportunity-types.ts';
 
 export class RadarInputError extends Error {}
 
