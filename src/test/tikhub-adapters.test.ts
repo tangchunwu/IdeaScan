@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BaseChannelAdapter } from '../../supabase/functions/validate-idea/channels/base-adapter.ts';
-import { XiaohongshuAdapter } from '../../supabase/functions/validate-idea/channels/xiaohongshu-adapter.ts';
-import { DouyinAdapter } from '../../supabase/functions/validate-idea/channels/douyin-adapter.ts';
+import { BaseChannelAdapter } from '../../supabase/functions/_shared/channels/base-adapter.ts';
+import { XiaohongshuAdapter } from '../../supabase/functions/_shared/channels/xiaohongshu-adapter.ts';
+import { DouyinAdapter } from '../../supabase/functions/_shared/channels/douyin-adapter.ts';
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn() }));
 

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OpportunityRequest } from '../types/opportunity';
-import type { ChannelCrawlResult, UnifiedPost } from '../../supabase/functions/validate-idea/channels/types.ts';
+import type { ChannelCrawlResult, UnifiedPost } from '../../supabase/functions/_shared/channels/types.ts';
 import { collectOpportunitySources, safePublicHttpsUrl } from '../../supabase/functions/opportunity-discover/sources.ts';
 
 const mocks = vi.hoisted(() => ({ crawl: vi.fn() }));
-vi.mock('../../supabase/functions/validate-idea/channels/channel-registry.ts', () => ({
+vi.mock('../../supabase/functions/_shared/channels/channel-registry.ts', () => ({
   MultiChannelOrchestrator: class { crawlMultipleChannels = mocks.crawl; },
 }));
 

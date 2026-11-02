@@ -1,4 +1,4 @@
-import { TikHubClient } from '../../_shared/tikhub-client.ts';
+import { TikHubClient } from '../tikhub-client.ts';
 import { BaseChannelAdapter } from './base-adapter.ts';
 import type { ChannelCrawlResult, ChannelType, CrawlRequest, UnifiedComment, UnifiedPost } from './types.ts';
 

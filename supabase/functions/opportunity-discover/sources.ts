@@ -1,7 +1,7 @@
 import type { OpportunityEvidence, OpportunityRequest } from '../_shared/opportunity-types.ts';
 import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
-import { MultiChannelOrchestrator } from '../validate-idea/channels/channel-registry.ts';
-import type { ChannelType, UnifiedPost } from '../validate-idea/channels/types.ts';
+import { MultiChannelOrchestrator } from '../_shared/channels/channel-registry.ts';
+import type { ChannelType, UnifiedPost } from '../_shared/channels/types.ts';
 
 export interface RadarSourceConfig {
   tikhubToken?: string;
