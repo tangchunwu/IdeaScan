@@ -1,0 +1,66 @@
+.opportunity-radar .radar-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: start;
+  gap: 2rem;
+}
+
+.opportunity-radar .radar-form-card { position: sticky; top: 7rem; }
+.opportunity-radar > .fixed.rounded-full { max-width: 60vw; }
+.opportunity-radar .radar-touch { min-height: 44px; }
+.opportunity-radar input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
+.opportunity-radar .radar-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background) / 0.8);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.opportunity-radar .radar-choice:has(input:checked) {
+  border-color: hsl(var(--foreground) / 0.55);
+  background: hsl(var(--primary) / 0.1);
+}
+.opportunity-radar .radar-choice:focus-within {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+.opportunity-radar .radar-choice input { width: 1rem; height: 1rem; flex-shrink: 0; accent-color: hsl(var(--foreground)); }
+.opportunity-radar .radar-note {
+  padding: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background) / 0.85);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.opportunity-radar .radar-evidence summary {
+  min-height: 44px;
+  padding: 0.65rem 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.opportunity-radar .radar-source { border-top: 1px solid hsl(var(--border)); padding-top: 1rem; overflow-wrap: anywhere; }
+.opportunity-radar .radar-source-link { display: block; min-height: 44px; text-decoration: underline; text-underline-offset: 3px; font-size: 0.875rem; }
+.opportunity-radar :is(dd, h3, h4, p) { overflow-wrap: anywhere; }
+.opportunity-radar :is(a, summary):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; border-radius: 4px; }
+
+@media (max-width: 767px) {
+  .opportunity-radar .radar-workspace { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  .opportunity-radar .radar-form-card { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opportunity-radar *, .opportunity-radar *::before, .opportunity-radar *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .opportunity-radar .page-enter { opacity: 1 !important; transform: none !important; }
+  .opportunity-radar .paw-press { transform: none !important; }
+}

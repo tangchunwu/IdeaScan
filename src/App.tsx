@@ -21,6 +21,7 @@ const Report = lazy(() => import("./pages/Report"));
 const History = lazy(() => import("./pages/History"));
 const Compare = lazy(() => import("./pages/Compare"));
 const Discover = lazy(() => import("./pages/Discover"));
+const OpportunityRadar = lazy(() => import("./pages/OpportunityRadar"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const MVPGenerator = lazy(() => import("./pages/MVP/Generator"));
@@ -83,6 +84,7 @@ const AnimatedRoutes = () => {
           <Route path="/history" element={<PageTransition><History /></PageTransition>} />
           <Route path="/compare" element={<PageTransition><Compare /></PageTransition>} />
           <Route path="/discover" element={<PageTransition><Discover /></PageTransition>} />
+          <Route path="/opportunity-radar" element={<PageTransition><OpportunityRadar /></PageTransition>} />
           <Route path="/mvp/:id" element={<PageTransition><MVPGenerator /></PageTransition>} />
           <Route path="/p/:slug" element={<PageTransition><PublicLandingPage /></PageTransition>} />
           <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />

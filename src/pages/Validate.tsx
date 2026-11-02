@@ -47,6 +47,7 @@ const validationSteps: ValidationStep[] = [
 const Validate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const routeQuery = searchParams.toString();
   useDocumentTitle("验证我的想法", { description: "一句话描述你的创业想法，AI 自动抓取社媒数据和竞品情报，3分钟生成需求验证报告。" });
   const { user, isLoading: authLoading } = useAuth();
   const skinToast = useSkinToast();
@@ -81,6 +82,15 @@ const Validate = () => {
 
   // Cleanup SSE on unmount
   useEffect(() => () => stream.cleanup(), []);
+
+  // 只在查询内容变化时初始化，避免登录状态或用户编辑引发重置。
+  useEffect(() => {
+    const params = new URLSearchParams(routeQuery);
+    const intent = getValidateRouteIntent(params);
+    if (intent.idea) setIdea(intent.idea);
+    setSelectedTags(intent.tags);
+    setSelectedPlatforms(params.has("platforms") ? intent.platforms : ["xiaohongshu"]);
+  }, [routeQuery]);
 
   // Save form to localStorage on change
   useEffect(() => {
@@ -194,7 +204,7 @@ const Validate = () => {
   // Handle URL params. URLSearchParams has already decoded the value.
   useEffect(() => {
     const routeParams = new URLSearchParams(searchParams.toString());
-    const { idea: ideaParam, auto, resumeValidationId: resumeIdParam } = getValidateRouteIntent(routeParams);
+    const { idea: ideaParam, auto, resumeValidationId: resumeIdParam, source } = getValidateRouteIntent(routeParams);
     if (!ideaParam) return;
 
     if (resumeIdParam) setResumeValidationId(resumeIdParam);
@@ -218,7 +228,7 @@ const Validate = () => {
     }
 
     if (!auto && !idea) {
-      skinToastRef.current.info(`"${ideaParam}" - 来自热点雷达`);
+      skinToastRef.current.info(`"${ideaParam}" - 来自${source === "opportunity-radar" ? "商机雷达" : "热点雷达"}`);
     }
   }, [authLoading, searchParams, stream.isValidating, user]);
 
@@ -456,6 +466,9 @@ const Validate = () => {
                     );
                   })}
                 </div>
+                {searchParams.get('source') === 'opportunity-radar' && selectedPlatforms.length === 0 && (
+                  <p role="status" className="mt-3 text-sm text-muted-foreground">该候选来自仅全网研究。验证评分还需要社媒样本，请先选择至少一个平台，再开始验证。</p>
+                )}
               </div>
 
               {/* Tags Section - Collapsible */}

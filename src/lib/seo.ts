@@ -4,6 +4,7 @@ export const STATIC_SEO_PATHS = [
   "/", "/validate", "/discover", "/pricing", "/faq", "/privacy", "/terms",
   "/auth", "/auth/callback/linuxdo", "/history", "/compare", "/openclaw",
   "/content-studio", "/admin/models", "/admin/feedback", "/gallery",
+  "/opportunity-radar",
 ];
 
 export interface RouteSeo {
@@ -53,6 +54,14 @@ export const getRouteSeo = (pathname: string): RouteSeo => {
       title: "MVP 落地页",
       description: "了解这个产品想法并加入早期用户等待名单。",
       robots: "index, follow",
+    };
+  }
+
+  if (pathname === "/opportunity-radar") {
+    return {
+      title: "商机雷达",
+      description: "按国家、行业和数据平台发现商机，选择机会后进一步验证用户需求。",
+      robots: "noindex, nofollow",
     };
   }
 

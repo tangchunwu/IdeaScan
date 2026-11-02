@@ -32,6 +32,7 @@ export const Navbar = () => {
   const navItems = [
     { path: "/validate", label: t("nav.ideaValidation"), icon: Sparkles, requireAuth: true, tourId: "nav-validate" },
     { path: "/discover", label: t("nav.hotRadar"), icon: Radar, requireAuth: false, tourId: "nav-discover" },
+    { path: "/opportunity-radar", label: "商机雷达", icon: Radar, requireAuth: false, tourId: "nav-opportunity-radar" },
     { path: "/history", label: t("nav.history"), icon: History, requireAuth: true, tourId: "nav-history" },
     { path: "/openclaw", label: "OpenClaw", icon: Cog, requireAuth: true, tourId: "nav-openclaw" },
   ];
@@ -90,7 +91,7 @@ export const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -126,7 +127,7 @@ export const Navbar = () => {
           <div className="flex items-center gap-2">
             {/* Auth Button - Desktop */}
             {!isLoading && (
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -205,7 +206,7 @@ export const Navbar = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden rounded-xl"
+              className="lg:hidden rounded-xl"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -215,7 +216,7 @@ export const Navbar = () => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-2 glass-card-elevated p-4 animate-fade-in-down">
+          <div className="lg:hidden mt-2 glass-card-elevated p-4 animate-fade-in-down">
             <div className="space-y-1">
               {visibleNavItems.map((item) => {
                 const Icon = item.icon;
