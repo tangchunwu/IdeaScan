@@ -445,8 +445,9 @@ export class TikHubClient {
     if (!awemeId || limit <= 0) return [];
     const params = new URLSearchParams({ aweme_id: awemeId, cursor: "0", count: String(Math.min(50, limit)) });
     const payload = unwrapPayload(await this.request(`/api/v1/douyin/web/fetch_video_comments?${params}`));
-    this.requireArray(payload, "comments");
-    return asArray(payload.comments).slice(0, limit);
+    const result = findArrayResult(payload, ["comments", "comment_list", "commentList", "items", "data"]);
+    this.requireFoundArray(result, "comments");
+    return result.value.slice(0, limit);
   }
 
   async searchTikTok(keyword: string, options: TikTokSearchOptions = {}): Promise<TikHubPage> {
@@ -578,11 +579,17 @@ export class TikHubClient {
     if (options.sortType) params.set("sort_type", options.sortType);
     if (options.after !== undefined) params.set("after", options.after);
     const payload = unwrapPayload(await this.request(`/api/v1/reddit/app/fetch_post_comments?${params}`));
-    const result = findArrayResult(payload, ["comments", "items", "children", "data"]);
+    const forest = asRecord(payload.commentForest || asRecord(payload.postInfoById).commentForest);
+    const trees = asArray(forest.trees);
+    const result = trees.length > 0
+      ? { found: true, value: trees.map(tree => asRecord(tree).node || tree) }
+      : findArrayResult(payload, ["comments", "items", "children", "data"]);
     this.requireFoundArray(result, "comments");
     const comments = result.value.slice(0, limit);
     if (typeof limitOrOptions !== "number") {
-      return this.commentPage(comments, payload, "", pageToken(payload, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"]));
+      const nextAfter = pageToken(forest, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"])
+        || pageToken(payload, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"]);
+      return this.commentPage(comments, payload, "", nextAfter);
     }
     return comments;
   }

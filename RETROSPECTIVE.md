@@ -306,3 +306,35 @@
 - Reddit 和抖音评论的真实响应包装仍需依据新的线上样本继续补充映射；Instagram 400 的具体上游原因因旧 client 未保留正文，尚不能归因于 Token、权限或额度。
 - 旧 Token 已在聊天中暴露，必须撤销并重新生成；本轮没有保存或写入该 Token。
 - 共享模块不能单独部署；上线需重新部署引用它们的 `verify-config`、`opportunity-discover`、`validate-idea`、`validate-idea-stream`，并发布前端。未部署前线上设置页不会包含本轮修复。
+
+## 2026-11-02｜IdeaScan｜TikHub Reddit 评论树与抖音评论包装修复
+
+### Challenges
+
+- Reddit 搜索已成功，但评论诊断报 `missing comments`；抖音搜索成功，评论返回也不能直接按单一 `comments` 字段解析。
+
+### Root Cause
+
+- TikHub Reddit 评论清洗响应使用 `data.postInfoById.commentForest.trees[].node`，分页游标在 `commentForest.pageInfo.endCursor`，不是顶层 `comments`。
+- 抖音评论客户端只接受 `comments`，没有覆盖已知的 `comment_list`、`commentList` 和 `items` 包装。
+
+### Solutions
+
+- Reddit 客户端解析 comment forest 节点并保留 `endCursor`，适配器继续用真实 `t1_` 评论 ID 绑定 `t3_` 父帖。
+- 抖音评论扩展为有限已知数组字段递归解析；未知结构仍返回 invalid response，不把错误当空评论。
+- 新增官方清洗响应形状的 Reddit 评论树和抖音 comment-list 回归测试。
+
+### Verification
+
+- 全量 Vitest 30 个文件、235 项通过；应用 TypeScript、相关 Deno check、生产构建和 diff check 通过。
+- 真实 Reddit 评论响应已确认 `commentForest` 结构；真实抖音评论本次未继续增加请求，保留线上失败状态边界。
+
+### Learnings
+
+- 社媒接口的搜索结果和评论结果常用不同清洗模型，必须分别建立响应契约和测试。
+- 评论数量为零、接口返回空数组和响应结构未知是三个不同状态，诊断和评分输入不能合并处理。
+
+### Boundary
+
+- Instagram HTTP 400 的上游具体原因仍未确认；没有完整错误正文时不归因于 Token 或权限。
+- 本轮只修改本地代码和测试，未部署、提交或推送；数据库、RLS、RPC 未改。

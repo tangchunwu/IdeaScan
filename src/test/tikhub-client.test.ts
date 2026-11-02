@@ -45,6 +45,12 @@ describe("TikHub current API contract", () => {
     expect(first.videos[0].aweme_id).toBe("v1");
   });
 
+  it("accepts known Douyin comment-list wrappers without treating malformed data as empty", async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ code: 200, data: { comment_list: [{ cid: "c1", text: "reply" }] } }));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(new TikHubClient("token").getDouyinComments("v1", 1)).resolves.toEqual([{ cid: "c1", text: "reply" }]);
+  });
+
   it("paginates XHS comments with cursor, index and pageArea, deduplicating results", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: { data: {
       comments: [{ id: "c1", content: "a" }], cursor: "next", index: 1, pageArea: "FOLDED", has_more: 1,

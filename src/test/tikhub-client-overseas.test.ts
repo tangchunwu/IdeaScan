@@ -123,6 +123,17 @@ describe("TikHub overseas API contracts", () => {
     expect(Object.fromEntries(commentsUrl.searchParams)).toMatchObject({ post_id: "t3_p1", language: "en-US", sort_type: "TOP", after: "reddit-next", need_format: "true" });
   });
 
+  it("maps Reddit commentForest trees and preserves pageInfo endCursor", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: {
+      postInfoById: { commentForest: { trees: [{ node: { id: "t1_c1", content: { markdown: "Reply" } } }], pageInfo: { endCursor: "reddit-next", hasNextPage: true } } },
+    } }));
+    vi.stubGlobal("fetch", fetcher);
+    const page = await new TikHubClient("token").getRedditComments("t3_p1", { after: "" });
+    expect(page.comments).toEqual([{ id: "t1_c1", content: { markdown: "Reply" } }]);
+    expect(page.after).toBe("reddit-next");
+    expect(page.hasMore).toBe(true);
+  });
+
   it.each([401, 402, 403, 422])("does not retry overseas calls on HTTP %i", async (status) => {
     const fetcher = vi.fn().mockResolvedValue(json({}, status));
     vi.stubGlobal("fetch", fetcher);
