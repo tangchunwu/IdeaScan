@@ -1,5 +1,5 @@
 import { parseOpportunityRequest, RadarInputError } from './core.ts';
-import type { OpportunityRequest, OpportunityResult } from '../../../src/types/opportunity.ts';
+import type { OpportunityRequest, OpportunityResult } from '../_shared/opportunity-types.ts';
 
 export type RadarRuntimeConfig = Partial<Record<'llmBaseUrl' | 'llmApiKey' | 'llmModel' | 'tikhubToken' | 'bochaApiKey' | 'youApiKey' | 'tavilyApiKey', string>>;
 export class RadarServiceError extends Error {

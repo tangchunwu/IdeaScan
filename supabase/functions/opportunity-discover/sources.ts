@@ -1,5 +1,5 @@
-import type { OpportunityEvidence, OpportunityRequest } from '../../../src/types/opportunity.ts';
-import { RADAR_PLATFORMS } from '../../../src/types/opportunity.ts';
+import type { OpportunityEvidence, OpportunityRequest } from '../_shared/opportunity-types.ts';
+import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
 import { MultiChannelOrchestrator } from '../validate-idea/channels/channel-registry.ts';
 import type { ChannelType, UnifiedPost } from '../validate-idea/channels/types.ts';
 
