@@ -443,9 +443,13 @@ export class TikHubClient {
 
   async getDouyinComments(awemeId: string, limit = 20): Promise<any[]> {
     if (!awemeId || limit <= 0) return [];
-    const params = new URLSearchParams({ aweme_id: awemeId, cursor: "0", count: String(Math.min(50, limit)) });
-    const payload = unwrapPayload(await this.request(`/api/v1/douyin/web/fetch_video_comments?${params}`));
+    // TiKHub 文档要求抖音评论保持默认 count=20；即使调用方只需要一条，
+    // 也必须先请求默认页大小，再在本地截断，否则 Web 路由会返回 400。
+    const upstreamCount = 20;
+    const params = new URLSearchParams({ aweme_id: awemeId, cursor: "0", count: String(upstreamCount) });
+    const payload = unwrapPayload(await this.request(`/api/v1/douyin/app/v3/fetch_video_comments?${params}`));
     const result = findArrayResult(payload, ["comments", "comment_list", "commentList", "items", "data"]);
+    if (!result.found && Object.prototype.hasOwnProperty.call(payload, "comments") && payload.comments == null) return [];
     this.requireFoundArray(result, "comments");
     return result.value.slice(0, limit);
   }

@@ -154,6 +154,33 @@ describe("TikHub overseas API contracts", () => {
     expect(client.stats).toEqual({ apiCalls: 1, failedCalls: 1, retries: 0, rateLimited: true });
   });
 
+  it("treats a null Douyin comments field as an empty successful page", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: { comments: null, cursor: 0, has_more: 0 } }));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(new TikHubClient("token").getDouyinComments("aweme-1", 1)).resolves.toEqual([]);
+  });
+
+  it("keeps Douyin upstream count at the documented default for larger local limits", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: { comments: [{ cid: "c1" }, { cid: "c2" }] } }));
+    vi.stubGlobal("fetch", fetcher);
+    await new TikHubClient("token").getDouyinComments("aweme-1", 30);
+
+    const commentsUrl = new URL(fetcher.mock.calls[0][0]);
+    expect(commentsUrl.searchParams.get("count")).toBe("20");
+  });
+
+  it("uses Douyin App V3 comments with the documented default page size", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: { comments: [{ cid: "c1" }, { cid: "c2" }] } }));
+    vi.stubGlobal("fetch", fetcher);
+    const client = new TikHubClient("token");
+
+    await expect(client.getDouyinComments("aweme-1", 1)).resolves.toEqual([{ cid: "c1" }]);
+
+    const commentsUrl = new URL(fetcher.mock.calls[0][0]);
+    expect(commentsUrl.pathname).toBe("/api/v1/douyin/app/v3/fetch_video_comments");
+    expect(Object.fromEntries(commentsUrl.searchParams)).toMatchObject({ aweme_id: "aweme-1", cursor: "0", count: "20" });
+  });
+
   it("rejects a successful envelope without the expected array and counts it once", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ code: 200, data: { pageInfo: { endCursor: "x" } } })));
     const client = new TikHubClient("token");
