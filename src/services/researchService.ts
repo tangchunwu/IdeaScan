@@ -2,9 +2,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OpportunityResult } from '@/types/opportunity';
 import { parseOpportunityResult, serializeOpportunityResult } from '@/lib/opportunityRadar';
+import { nextResearchVersion } from '@/lib/researchVersion';
 
 export interface ResearchOutcome {stage:'interview'|'quote'|'trial'|'repeat_use'|'purchase';note:string;recordedAt:string;source:'self_reported'}
-export interface ResearchSession {id:string;createdAt:string;result:OpportunityResult;outcomes:Record<string,ResearchOutcome[]>}
+export interface ResearchSession {id:string;createdAt:string;result:OpportunityResult;outcomes:Record<string,ResearchOutcome[]>;versionNo:number;parentSessionId:string|null;changeSummary:string}
 async function assertIdentity(ownerId:string) {
   const {data:{user},error}=await supabase.auth.getUser();
   if(error || !user || user.id!==ownerId) throw new Error('登录身份已变化，请重新打开研究记录');
@@ -21,17 +22,24 @@ function parseOutcomes(value:Json):Record<string,ResearchOutcome[]> {
 export async function saveResearchSession(result:OpportunityResult,ownerId:string):Promise<string> {
   await assertIdentity(ownerId);
   const snapshot=JSON.parse(serializeOpportunityResult(result)) as Json;
-  const {data,error}=await supabase.from('research_sessions').insert({user_id:ownerId,result:snapshot}).select('id').single();
+  let parent: { id:string; version_no:number } | null = null;
+  if (result.request.parentResearchId) {
+    const parentResult=await supabase.from('research_sessions').select('id,version_no').eq('id',result.request.parentResearchId).eq('user_id',ownerId).maybeSingle();
+    if(parentResult.error || !parentResult.data) throw new Error('父研究版本不可用，请重新打开研究后再补证');
+    parent=parentResult.data as {id:string;version_no:number};
+  }
+  const version=nextResearchVersion(parent);
+  const {data,error}=await supabase.from('research_sessions').insert({user_id:ownerId,result:snapshot,version_no:version.versionNo,parent_session_id:version.parentSessionId,change_summary:version.changeSummary}).select('id').single();
   if(error || !data) throw new Error('研究保存失败；请确认研究存储服务已部署，再重试保存');
   await assertIdentity(ownerId);
   return data.id;
 }
 export async function listResearchSessions(ownerId:string):Promise<ResearchSession[]> {
   await assertIdentity(ownerId);
-  const {data,error}=await supabase.from('research_sessions').select('id,result,outcomes,created_at').eq('user_id',ownerId).order('created_at',{ascending:false}).limit(20);
+  const {data,error}=await supabase.from('research_sessions').select('id,result,outcomes,created_at,version_no,parent_session_id,change_summary').eq('user_id',ownerId).order('created_at',{ascending:false}).limit(30);
   if(error) throw new Error('暂时无法读取已保存研究，请确认研究存储服务已部署');
   await assertIdentity(ownerId);
-  return (data||[]).flatMap(row=>{try{return [{id:row.id,createdAt:row.created_at,result:parseOpportunityResult(row.result),outcomes:parseOutcomes(row.outcomes)}]}catch{return []}});
+  return (data||[]).flatMap(row=>{try{return [{id:row.id,createdAt:row.created_at,result:parseOpportunityResult(row.result),outcomes:parseOutcomes(row.outcomes),versionNo:Number(row.version_no||1),parentSessionId:row.parent_session_id||null,changeSummary:String(row.change_summary||'首次研究')}]}catch{return []}});
 }
 export async function recordResearchOutcome(sessionId:string,candidateId:string,stage:ResearchOutcome['stage'],note:string,ownerId:string):Promise<void> {
   await assertIdentity(ownerId);

@@ -20,9 +20,10 @@ export function ResearchLibrary({ownerId,result,sessionId,onSaved,onRestore}:{ow
     catch {if(current===generation.current)setError('保存失败，请稍后重试；当前结果尚未保存。')}
     finally {if(current===generation.current)setBusy(false)}
   }
-  return <GlassCard className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">我的研究档案</h3>{result&&<Button type="button" variant="outline" disabled={busy||!!sessionId} onClick={save}>{sessionId?'本次研究已保存':busy?'保存中…':'保存本次研究'}</Button>}</div>
+  const isNewVersion=Boolean(result?.request.parentResearchId && sessionId);
+  return <GlassCard className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">我的研究档案</h3>{result&&<Button type="button" variant="outline" disabled={busy||(!isNewVersion&&!!sessionId)} onClick={save}>{isNewVersion?'保存补证版本':sessionId?'本次研究已保存':busy?'保存中…':'保存本次研究'}</Button>}</div>
     {error&&<p role="status" className="text-sm text-muted-foreground">{error}</p>}
-    {records.length>0?<ul className="space-y-2">{records.map(row=><li key={row.id}><button type="button" className="w-full rounded-lg border p-3 text-left text-sm hover:bg-muted" onClick={()=>onRestore(row)}>{row.result.request.country} · {row.result.request.industry||row.result.request.keyword||'场景研究'}<span className="block text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString('zh-CN')} · {row.result.candidates.length} 个候选 · 打开后可继续深入研究</span></button></li>)}</ul>:!error&&<p className="text-sm text-muted-foreground">保存研究后，可在这里继续查看原文、比较候选和记录验证结果。</p>}
+    {records.length>0?<ul className="space-y-2">{records.map(row=><li key={row.id}><button type="button" className="w-full rounded-lg border p-3 text-left text-sm hover:bg-muted" onClick={()=>onRestore(row)}>{row.result.request.country} · {row.result.request.industry||row.result.request.keyword||'场景研究'}<span className="block text-xs text-muted-foreground">第 {row.versionNo} 版 · {row.changeSummary} · {new Date(row.createdAt).toLocaleString('zh-CN')} · {row.result.candidates.length} 个候选</span></button></li>)}</ul>:!error&&<p className="text-sm text-muted-foreground">保存研究后，可在这里继续查看原文、比较候选和记录验证结果。</p>}
   </GlassCard>;
 }
 

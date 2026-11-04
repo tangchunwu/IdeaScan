@@ -16,6 +16,7 @@ import { RADAR_PLATFORMS, type OpportunityRequest, type OpportunityResult, type 
 import './OpportunityRadar.css';
 import { ResearchLibrary, ResearchOutcomeEditor } from '@/components/discover/ResearchLibrary';
 import { saveResearchSession, type ResearchOutcome } from '@/services/researchService';
+import { deriveEvidenceGaps } from '@/lib/researchGaps';
 
 const platformNames: Record<RadarPlatform, string> = {
   xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads',
@@ -291,6 +292,7 @@ export default function OpportunityRadar() {
                       {([['最强支持',candidate.support],['反证与限制',candidate.counter]] as const).map(([label,claims])=>claims?.length?<div key={label}><h4 className="text-sm font-semibold">{label}</h4>{claims.map((claim,i)=><div key={i} className="mt-1 text-sm">{claim.claim}<ul className="pl-4 text-xs text-muted-foreground">{claim.evidenceIds.map(id=>{const e=candidate.evidence.find(item=>item.id===id);return e?<li key={id}>“{e.snippet.slice(0,180)}”</li>:null})}</ul></div>)}</div>:null)}
                       {!!candidate.unknowns?.length&&<p className="text-sm"><strong>最大未知：</strong>{candidate.unknowns.join('；')}</p>}
                       {!!candidate.experiment&&<p className="text-sm"><strong>最小验证动作：</strong>{candidate.experiment}</p>}
+                      {(() => { const gaps=deriveEvidenceGaps(candidate,result.request); return gaps.length ? <div className="radar-note"><h4 className="mb-2 font-semibold">证据缺口（按优先级）</h4><ul className="space-y-2 text-sm">{gaps.slice(0,5).map(gap=><li key={gap.id}><span className="font-medium">{gap.title}</span><span className="block text-muted-foreground">{gap.reason}</span><span className="block text-xs">下一步：{gap.action}</span></li>)}</ul></div> : null; })()}
                       <dl className="space-y-3 text-sm leading-relaxed">{[
                         ['待解决问题', candidate.problem], ['目标用户', candidate.targetUsers], ['竞争线索', candidate.competitionHint], ['建议下一步', candidate.recommendedNextStep],
                       ].map(([label, value]) => <div key={label}><dt className="mb-1 font-semibold">{label}</dt><dd className="text-muted-foreground">{value || '未提供'}</dd></div>)}</dl>

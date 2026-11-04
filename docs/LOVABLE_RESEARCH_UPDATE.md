@@ -12,6 +12,7 @@
 1. 核对已执行的 Supabase migration 版本，仅应用尚未执行的这两份迁移，保持原文件内容和顺序：
    supabase/migrations/20261104090000_add_research_sessions.sql
    supabase/migrations/20261104091000_validation_run_writes.sql
+   supabase/migrations/20261104100000_research_session_versions.sql
 
 2. 核对数据库中 research_sessions 表已启用 RLS，并且普通账号只能访问自己的研究；
    validations.active_run_id 字段、write_validation_run_report 函数存在；

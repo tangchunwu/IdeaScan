@@ -15,6 +15,13 @@
       "when": 1793789596699,
       "tag": "0001_validation_run_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793790000000,
+      "tag": "0002_research_session_versions",
+      "breakpoints": true
     }
   ]
 }
