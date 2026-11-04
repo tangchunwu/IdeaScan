@@ -14,12 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      research_sessions: {
-        Row: {id:string;user_id:string;result:Json;outcomes:Json;created_at:string;updated_at:string}
-        Insert: {id?:string;user_id:string;result:Json;outcomes?:Json;created_at?:string;updated_at?:string}
-        Update: {result?:Json;outcomes?:Json;updated_at?:string}
-        Relationships: []
-      }
       admin_api_configs: {
         Row: {
           api_key: string
@@ -1099,6 +1093,33 @@ export type Database = {
           },
         ]
       }
+      research_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          outcomes: Json
+          result: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          outcomes?: Json
+          result: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          outcomes?: Json
+          result?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sample_reports: {
         Row: {
           created_at: string
@@ -1535,6 +1556,7 @@ export type Database = {
       }
       validations: {
         Row: {
+          active_run_id: string | null
           created_at: string
           id: string
           idea: string
@@ -1546,6 +1568,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active_run_id?: string | null
           created_at?: string
           id?: string
           idea: string
@@ -1557,6 +1580,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active_run_id?: string | null
           created_at?: string
           id?: string
           idea?: string
@@ -1651,6 +1675,17 @@ export type Database = {
         Returns: Json
       }
       use_tikhub_quota: { Args: { p_user_id: string }; Returns: undefined }
+      write_validation_run_report: {
+        Args: {
+          p_finish?: boolean
+          p_report: Json
+          p_run_id: string
+          p_score?: number
+          p_user_id: string
+          p_validation_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
