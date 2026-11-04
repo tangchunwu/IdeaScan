@@ -62,9 +62,6 @@ export type Database = {
           created_at: string | null
           id: string
           user_id: string
-          version_no: number
-          parent_session_id: string | null
-          change_summary: string
         }
         Insert: {
           comment_id: string
@@ -77,9 +74,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           user_id?: string
-          version_no?: number
-          parent_session_id?: string | null
-          change_summary?: string
         }
         Relationships: [
           {
@@ -164,9 +158,6 @@ export type Database = {
           topic: string
           updated_at: string
           user_id: string
-          version_no: number
-          parent_session_id: string | null
-          change_summary: string
           validation_id: string | null
         }
         Insert: {
@@ -183,9 +174,6 @@ export type Database = {
           topic: string
           updated_at?: string
           user_id: string
-          version_no?: number
-          parent_session_id?: string | null
-          change_summary?: string
           validation_id?: string | null
         }
         Update: {
@@ -1107,39 +1095,47 @@ export type Database = {
       }
       research_sessions: {
         Row: {
+          change_summary: string
           created_at: string
           id: string
           outcomes: Json
+          parent_session_id: string | null
           result: Json
           updated_at: string
           user_id: string
           version_no: number
-          parent_session_id: string | null
-          change_summary: string
         }
         Insert: {
+          change_summary?: string
           created_at?: string
           id?: string
           outcomes?: Json
+          parent_session_id?: string | null
           result: Json
           updated_at?: string
           user_id: string
           version_no?: number
-          parent_session_id?: string | null
-          change_summary?: string
         }
         Update: {
+          change_summary?: string
           created_at?: string
           id?: string
           outcomes?: Json
+          parent_session_id?: string | null
           result?: Json
           updated_at?: string
           user_id?: string
           version_no?: number
-          parent_session_id?: string | null
-          change_summary?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "research_sessions_parent_session_id_fkey"
+            columns: ["parent_session_id"]
+            isOneToOne: false
+            referencedRelation: "research_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sample_reports: {
         Row: {
