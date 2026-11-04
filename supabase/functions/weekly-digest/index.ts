@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isDecisionReady } from "../_shared/analysis-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,16 +49,20 @@ Deno.serve(async (req) => {
         .order("overall_score", { ascending: false });
 
       if (!validations || validations.length === 0) continue;
+      const { data: reports } = await supabase.from('validation_reports').select('validation_id, ai_analysis, data_summary').in('validation_id', validations.map((item: any) => item.id));
+      const reportMap = new Map((reports || []).map((item: any) => [item.validation_id, item]));
+      const readyValidations = validations.filter((item: any) => isDecisionReady(reportMap.get(item.id)?.ai_analysis, reportMap.get(item.id)?.data_summary) && typeof item.overall_score === 'number');
+      if (!readyValidations.length) continue;
 
-      const scores = validations.map((v: any) => v.overall_score || 0);
+      const scores = readyValidations.map((v: any) => v.overall_score as number);
       const avgScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
 
       summaries.push({
         userId,
-        count: validations.length,
+        count: readyValidations.length,
         avgScore,
-        bestIdea: validations[0]?.idea?.slice(0, 50),
-        bestScore: validations[0]?.overall_score,
+        bestIdea: readyValidations[0]?.idea?.slice(0, 50),
+        bestScore: readyValidations[0]?.overall_score,
       });
 
       // Update last_sent_at

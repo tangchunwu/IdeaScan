@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveAnalysisStatus, usableResearchScore } from "../_shared/analysis-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -109,13 +110,14 @@ serve(async (req) => {
 
     const { data: report } = await supabase
       .from("validation_reports")
-      .select("ai_analysis, dimensions, market_analysis, xiaohongshu_data, sentiment_analysis, competitor_data, persona, evidence_grade, proof_result, data_quality_score, keywords_used, cost_breakdown")
+      .select("ai_analysis, data_summary, dimensions, market_analysis, xiaohongshu_data, sentiment_analysis, competitor_data, persona, evidence_grade, proof_result, data_quality_score, keywords_used, cost_breakdown")
       .eq("validation_id", validation.id)
       .maybeSingle();
 
     // OG mode: return HTML with meta tags
     if (mode === "og") {
-      const score = validation.overall_score || 0;
+      const score = usableResearchScore(validation.overall_score, report?.ai_analysis, report?.data_summary);
+      const scoreText = score === null ? "待补充" : String(score);
       const idea = escapeHtml(validation.idea || "");
       const ai = (report?.ai_analysis || {}) as Record<string, unknown>;
       const verdict = escapeHtml(String(ai.overallVerdict || "AI 验证报告"));
@@ -128,17 +130,17 @@ serve(async (req) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${idea} - 验证得分 ${score} | IdeaScan</title>
+      <title>${idea} - 研究状态 ${scoreText} | IdeaScan</title>
   <meta name="description" content="${verdict} ${tags}">
   <meta property="og:type" content="article">
   <meta property="og:url" content="${shareUrl}">
-  <meta property="og:title" content="${idea} - 验证得分 ${score}/100">
+  <meta property="og:title" content="${idea} - 研究状态 ${scoreText}">
   <meta property="og:description" content="${verdict}">
   <meta property="og:image" content="${appUrl}/og-image.png">
   <meta property="og:site_name" content="IdeaScan">
   <meta property="og:locale" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${idea} - 验证得分 ${score}/100">
+  <meta name="twitter:title" content="${idea} - 研究状态 ${scoreText}">
   <meta name="twitter:description" content="${verdict}">
   <meta name="twitter:image" content="${appUrl}/og-image.png">
   <meta http-equiv="refresh" content="0;url=${shareUrl}">

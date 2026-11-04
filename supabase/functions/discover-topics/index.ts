@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isDecisionReady } from "../_shared/analysis-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,7 +169,7 @@ Deno.serve(async (req) => {
       const validationIds = validations.map(v => v.id);
       const { data: reports, error: reportsError } = await supabase
         .from("validation_reports")
-        .select("validation_id, xiaohongshu_data, sentiment_analysis, data_quality_score")
+        .select("validation_id, xiaohongshu_data, sentiment_analysis, data_quality_score, ai_analysis, data_summary")
         .in("validation_id", validationIds);
 
       if (reportsError) throw reportsError;
@@ -182,6 +183,10 @@ Deno.serve(async (req) => {
           if (!reportMap.has(v.id)) return false;
           // Skip validations with empty or very short ideas
           if (!v.idea || String(v.idea).trim().length < 4) return false;
+          const report = reportMap.get(v.id) as any;
+          if (!isDecisionReady(report?.ai_analysis, report?.data_summary)) return false;
+          const sentiment = report?.sentiment_analysis || {};
+          if (![sentiment.positive, sentiment.neutral, sentiment.negative].every((value: unknown) => typeof value === 'number' && Number.isFinite(value))) return false;
           return true;
         })
         .map((v: any) => {
@@ -210,9 +215,9 @@ Deno.serve(async (req) => {
           heat_score: heatScore,
           sample_count: sampleCount,
           avg_engagement: avgEngagement,
-          sentiment_positive: numberOrZero(sentiment.positive) || 33,
-          sentiment_negative: numberOrZero(sentiment.negative) || 33,
-          sentiment_neutral: numberOrZero(sentiment.neutral) || 34,
+          sentiment_positive: numberOrZero(sentiment.positive),
+          sentiment_negative: numberOrZero(sentiment.negative),
+          sentiment_neutral: numberOrZero(sentiment.neutral),
           related_keywords: tags.slice(0, 8),
           sources: [{ platform: "validation_backfill", count: sampleCount }],
           validation_count: 1,

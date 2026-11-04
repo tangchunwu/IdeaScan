@@ -456,3 +456,73 @@
 - 完成状态必须验证模型合同，不能因系统自动补出的未知项就认为模型完成；情感比例需用非负总和守恒的分配方式。
 - 异步工作要同时隔离账号、研究结果和运行轮次；涉及取消/恢复的数据库写入应采用同一锁顺序和事务入口。
 - 完整采集数据与模型上下文预算必须分开保存；数据库迁移、后端函数、前端需要按依赖顺序发布。
+
+## 2026-11-04｜IdeaScan｜公开仓库完整历史密钥审计
+
+### Challenges
+
+- 用户需要确认公开仓库是否暴露 API 或数据库密钥；原工作区是浅克隆，不能据此判断早期提交和其他分支。
+- Supabase anon 客户端 key 会被通用 JWT 规则命中，必须按角色区别于 service_role 和数据库密码。
+
+### Hypotheses
+
+- 若凭据只从 main 删除，其他公开分支和历史归档仍可能包含；使用隔离完整镜像和 ZIP 内容交叉检查。
+- 若 JWT 是浏览器公开配置，其 payload.role 应为 anon；本地解码核对角色，不请求生产数据库。
+
+### Root Cause
+
+- 早期导入的第三方参考项目 .env.example 存在一个疑似 TikHub Token 字面量，历史 ZIP 含同一值。main 已无该文件，但五个旧分支仍有文件，四个还保留 ZIP；归属和有效性不能静态确认。
+- 其余 Gitleaks JWT 命中均为 anon 客户端 key；本轮未发现 OpenAI 私钥、Supabase 服务端密钥或数据库密码。
+
+### Solutions
+
+- 获取六分支、零标签、1757 提交的完整镜像，使用官方校验通过的 Gitleaks v8.30.1 和脱敏补查，覆盖全部 blob/commit 对象及历史 ZIP。
+- 仅保存路径、行号、类型、角色、指纹和结论，完整 Token 不进入报告、聊天或复盘。
+- 建议若旧 Token 属于用户，先在供应商控制台撤销；清理应覆盖旧分支、ZIP 和历史，需另行明确执行范围。
+
+### Verification
+
+- 审计 main：4eddd93a34704614591987a076d5158b6a5cb2c2；GitHub 未鉴权查询确认 public，无公开 Release 或 PR。
+- 补查 4549 个 blob/commit 对象约54MB，解包一个57条目的ZIP；Gitleaks六项命中经分类为五项anon JWT和一项历史疑似Token。
+- 聊天中此前 TikHub Token 的短前缀未在 Git 对象中匹配；未测试任何 Token 有效性或线上 RLS，未访问实际用户数据。
+- 本轮未删除分支、改写历史、推送清理或修改仓库可见性；审计报告保存在工作区 outputs，复盘仅本地记录。
+
+### Learnings
+
+- 公开仓库凭据审计必须先检查浅克隆状态，再覆盖全部可获取分支、历史与压缩包，不能只扫描最近改动。
+- 扫描器命中只是候选：JWT应解析角色，通用token规则需排除源码引用、测试值和占位符，疑似真实值仍要区分归属与有效性。
+- anon/publishable key 公开不等于数据库管理员密钥暴露；实际数据权限仍需独立 RLS 验收。
+
+## 2026-11-04｜IdeaScan｜旧研究出口统一状态门禁
+
+### Challenges
+
+- 新版报告已经使用 `analysisStatus`、`decision` 和证据边界，但分享、热点回填、讨论生成和周报仍有旧的 `overall_score || 0/50` 或固定情感比例。
+- 如果只改主报告，用户会在不同入口看到相互矛盾的研究结论。
+
+### Hypotheses
+
+- 只允许 `analysisStatus=complete` 且 decision 不是 `insufficient` 的报告参加排名、公开分享分数和周报汇总，可以阻止未完成研究被放大。
+- 重新分析入口若不读取新证据合同，可能用旧摘要补出不受追溯的结论，应拒绝对新 incomplete 报告走旧补全路径。
+
+### Root Cause
+
+- 旧入口把数据库中的 `overall_score` 当作统一真相，没有结合 `ai_analysis` 和 `data_summary` 的研究状态。
+- `SharedReport`、OG 分享、`discover-topics`、`generate-discussion` 和 `weekly-digest` 各自有默认值和旧评分路径。
+
+### Solutions
+
+- 新增 `_shared/analysis-status.ts`，统一解析 `complete/incomplete/legacy/unknown`，并提供可排名分数门禁。
+- 公开分享、热点回填、讨论生成和周报改为只消费完整且可执行判断的研究；缺失状态不补 0、50 或 33%，重新分析对新 incomplete 报告返回继续验证提示。
+- 公开分享页同步传递研究状态和判断，Lovable 更新说明增加五个旧出口函数的部署清单。
+
+### Verification
+
+- 新增状态门禁测试通过；报告真值与导出测试 16 项通过。
+- `npx tsc --noEmit -p tsconfig.app.json` 通过；五个旧出口函数 Deno check 通过；`git diff --check` 通过。
+- 全量 40 个测试文件、314 项回归通过；本阶段没有线上部署、真实分享链接或付费 API 验收。
+
+### Learnings
+
+- 研究可信度是跨入口合同，公开分享、周报和增长页面也必须遵守同一证据状态。
+- 旧函数不一定需要立刻删除，但必须明确它们能否消费新版报告；不能让兼容路径静默降低证据门槛。

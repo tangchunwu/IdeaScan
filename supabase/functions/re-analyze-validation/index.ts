@@ -324,6 +324,13 @@ serve(async (req) => {
       );
     }
 
+    const summary = report.data_summary && typeof report.data_summary === 'object' ? report.data_summary as Record<string, unknown> : {};
+    if (summary.analysisStatus === 'incomplete') {
+      return new Response(JSON.stringify({ error: "当前报告证据或分析尚未完成，请使用‘继续验证’补充原文后再分析。" }), {
+        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Check what needs regeneration
     const needsPersona = isPersonaIncomplete(report.persona);
     const needsDimensions = isDimensionsIncomplete(report.dimensions as any[]);

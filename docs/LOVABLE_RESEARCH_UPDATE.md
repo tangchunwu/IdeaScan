@@ -22,9 +22,16 @@
    cancel-validation
    opportunity-discover
 
-4. 构建并发布已同步的前端，不使用旧构建产物。
+4. 重新部署以下旧出口函数，避免它们继续把 incomplete/legacy 报告当成可排名分数：
+   get-shared-report
+   re-analyze-validation
+   discover-topics
+   generate-discussion
+   weekly-digest
 
-5. 使用登录账号做最小验收：
+5. 构建并发布已同步的前端，不使用旧构建产物。
+
+6. 使用登录账号做最小验收：
    - 商机雷达能选择机会类型、目标国家和研究语言。
    - 能保存研究，刷新后重新打开，查看原文与候选对比。
    - 能从保存的候选进入验证，保留市场、平台和研究引用，不自动开始计费研究。

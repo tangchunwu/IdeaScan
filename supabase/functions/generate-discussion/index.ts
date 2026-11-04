@@ -12,6 +12,7 @@ import {
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
 import { requestChatCompletion, extractAssistantContent } from "../_shared/llm-client.ts";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { isDecisionReady } from "../_shared/analysis-status.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -314,11 +315,14 @@ serve(async (req) => {
     const report = reportResult.data;
     const personas = personasResult.data as Persona[];
     if (personasResult.error || !personas || personas.length === 0) throw new Error("No personas configured");
+    if (!isDecisionReady(report?.ai_analysis, report?.data_summary) || typeof validation.overall_score !== 'number') {
+      return new Response(JSON.stringify({ error: "研究分析尚未完成，暂不能生成讨论内容" }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const validationData: ValidationData = {
       idea: validation.idea,
       tags: validation.tags || [],
-      overall_score: validation.overall_score || 50,
+      overall_score: validation.overall_score,
       dimensions: report?.dimensions as ValidationData['dimensions'] || undefined,
       report: report ? {
         market_analysis: (report as any).market_analysis || undefined,

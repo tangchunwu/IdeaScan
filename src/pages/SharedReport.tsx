@@ -100,7 +100,8 @@ const SharedReport = () => {
     evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
     competitorRows, evidenceItems, topEvidence, evidenceSummary } = reportData;
 
-  const displayScore = aiAnalysis.feasibilityScore || validation.overall_score || 0;
+  const displayScore = aiAnalysis.feasibilityScore;
+  const isIncomplete = aiAnalysis.analysisStatus === 'incomplete';
 
   return (
     <PageBackground showClouds={false}>
@@ -136,6 +137,8 @@ const SharedReport = () => {
           <h2 className="sr-only">快速洞察</h2>
           <QuickInsightsCards
             score={displayScore}
+            analysisStatus={aiAnalysis.analysisStatus}
+            decision={aiAnalysis.decision}
             competitionLevel={marketAnalysis.competitionLevel}
             strengths={aiAnalysis.strengths}
             weaknesses={aiAnalysis.weaknesses}
@@ -147,7 +150,9 @@ const SharedReport = () => {
             <ScoreHeroCard
               score={displayScore}
               totalNotes={xiaohongshuData.totalNotes}
-              isIncomplete={false}
+              isIncomplete={isIncomplete}
+              analysisStatus={aiAnalysis.analysisStatus}
+              decision={aiAnalysis.decision}
               idea={validation.idea}
               overallVerdict={aiAnalysis.overallVerdict}
               strengths={aiAnalysis.strengths || []}
