@@ -1095,30 +1095,47 @@ export type Database = {
       }
       research_sessions: {
         Row: {
+          change_summary: string
           created_at: string
           id: string
           outcomes: Json
+          parent_session_id: string | null
           result: Json
           updated_at: string
           user_id: string
+          version_no: number
         }
         Insert: {
+          change_summary?: string
           created_at?: string
           id?: string
           outcomes?: Json
+          parent_session_id?: string | null
           result: Json
           updated_at?: string
           user_id: string
+          version_no?: number
         }
         Update: {
+          change_summary?: string
           created_at?: string
           id?: string
           outcomes?: Json
+          parent_session_id?: string | null
           result?: Json
           updated_at?: string
           user_id?: string
+          version_no?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "research_sessions_parent_session_id_fkey"
+            columns: ["parent_session_id"]
+            isOneToOne: false
+            referencedRelation: "research_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sample_reports: {
         Row: {
