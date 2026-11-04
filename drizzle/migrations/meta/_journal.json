@@ -8,6 +8,13 @@
       "when": 1793789574795,
       "tag": "0000_add_research_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793789596699,
+      "tag": "0001_validation_run_writes",
+      "breakpoints": true
     }
   ]
 }
