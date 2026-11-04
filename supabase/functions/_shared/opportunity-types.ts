@@ -1,6 +1,6 @@
 // 商机雷达的共享类型。部署包只包含 supabase/functions，因此这里保持一份权威定义，
 // 前端通过 src/types/opportunity.ts 再导出同一份内容，避免两边漂移。
-export const RADAR_PLATFORMS = ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit'] as const;
+export const RADAR_PLATFORMS = ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads'] as const;
 export type RadarPlatform = typeof RADAR_PLATFORMS[number];
 
 export interface OpportunityRequest {

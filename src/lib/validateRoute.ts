@@ -9,7 +9,7 @@ export interface ValidateRouteIntent {
   source: string;
 }
 
-const validationPlatforms = new Set(["xiaohongshu", "douyin", "tiktok", "instagram", "youtube", "reddit"]);
+const validationPlatforms = new Set(["xiaohongshu", "douyin", "tiktok", "instagram", "youtube", "reddit", "twitter", "threads"]);
 
 function parseList(value: string | null): string[] {
   return [...new Set((value || "").split(",").map(item => item.trim()).filter(Boolean))];

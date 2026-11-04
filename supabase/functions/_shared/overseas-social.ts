@@ -1,6 +1,6 @@
 import type { MultiChannelResult } from "./channels/types.ts";
 
-export const OVERSEAS_PLATFORMS = ["tiktok", "instagram", "youtube", "reddit"] as const;
+export const OVERSEAS_PLATFORMS = ["tiktok", "instagram", "youtube", "reddit", "twitter", "threads"] as const;
 export type OverseasPlatform = typeof OVERSEAS_PLATFORMS[number];
 
 export function buildOverseasSocialData(requestedPlatforms: string[], result: MultiChannelResult) {

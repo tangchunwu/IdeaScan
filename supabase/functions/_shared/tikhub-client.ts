@@ -136,6 +136,10 @@ export interface RedditCommentsOptions {
   after?: string;
 }
 
+export interface TwitterSearchOptions { searchType?: string; cursor?: string; }
+export interface TwitterCommentsOptions { cursor?: string; }
+export interface ThreadsCommentsOptions { endCursor?: string; }
+
 const BASE_URL = "https://api.tikhub.io";
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_MAX_RETRIES = 1;
@@ -595,6 +599,59 @@ export class TikHubClient {
         || pageToken(payload, ["end_cursor", "endCursor", "next_after", "nextAfter", "after"]);
       return this.commentPage(comments, payload, "", nextAfter);
     }
+    return comments;
+  }
+
+  async searchTwitter(keyword: string, options: TwitterSearchOptions = {}): Promise<TikHubPage> {
+    const params = new URLSearchParams({ keyword, search_type: options.searchType || "Top", cursor: options.cursor || "" });
+    const payload = unwrapPayload(await this.request(`/api/v1/twitter/web/fetch_search_timeline?${params}`));
+    const result = findArrayResult(payload, ["timeline", "tweets", "items", "results", "data"]);
+    this.requireFoundArray(result, "timeline");
+    const items = result.value.filter(item => asRecord(item).type === undefined || asRecord(item).type === "tweet");
+    return this.searchPage(items, payload, pageToken(payload, ["next_cursor", "nextCursor"]), "");
+  }
+
+  async getTwitterComments(tweetId: string, limit?: number, cursor?: string): Promise<any[]>;
+  async getTwitterComments(tweetId: string, options: TwitterCommentsOptions): Promise<TikHubPage>;
+  async getTwitterComments(tweetId: string, limitOrOptions: number | TwitterCommentsOptions = 10, cursor?: string): Promise<any[] | TikHubPage> {
+    const options: TwitterCommentsOptions = typeof limitOrOptions === "number" ? { cursor } : limitOrOptions;
+    const limit = typeof limitOrOptions === "number" ? limitOrOptions : 10;
+    if (!tweetId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ tweet_id: tweetId, cursor: options.cursor || "" });
+    const payload = unwrapPayload(await this.request(`/api/v1/twitter/web/fetch_post_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "items", "replies", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") return this.commentPage(comments, payload, pageToken(payload, ["next_cursor", "nextCursor"]), "");
+    return comments;
+  }
+
+  async searchThreads(keyword: string): Promise<TikHubPage> {
+    const params = new URLSearchParams({ query: keyword });
+    const payload = unwrapPayload(await this.request(`/api/v1/threads/web/search_posts?${params}`));
+    const results = findArrayResult(payload, ["results"]);
+    this.requireFoundArray(results, "results");
+    const posts = results.value.map(item => {
+      const root = asRecord(item);
+      const node = asRecord(asRecord(root.node).thread);
+      const first = asRecord(asArray(node.thread_items)[0]);
+      return first.post || root.post || item;
+    }).filter(Boolean);
+    return this.searchPage(posts, payload, pageToken(payload, ["cursor", "next_cursor"]), "");
+  }
+
+  async getThreadsComments(postId: string, limit?: number, endCursor?: string): Promise<any[]>;
+  async getThreadsComments(postId: string, options: ThreadsCommentsOptions): Promise<TikHubPage>;
+  async getThreadsComments(postId: string, limitOrOptions: number | ThreadsCommentsOptions = 10, endCursor?: string): Promise<any[] | TikHubPage> {
+    const options: ThreadsCommentsOptions = typeof limitOrOptions === "number" ? { endCursor } : limitOrOptions;
+    const limit = typeof limitOrOptions === "number" ? limitOrOptions : 10;
+    if (!postId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
+    const params = new URLSearchParams({ post_id: postId, end_cursor: options.endCursor || "" });
+    const payload = unwrapPayload(await this.request(`/api/v1/threads/web/fetch_post_comments?${params}`));
+    const result = findArrayResult(payload, ["comments", "items", "replies", "data"]);
+    this.requireFoundArray(result, "comments");
+    const comments = result.value.slice(0, limit);
+    if (typeof limitOrOptions !== "number") return this.commentPage(comments, payload, "", "");
     return comments;
   }
 

@@ -166,7 +166,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           tikhubToken: hasOwnTikhub ? settings.tikhubToken : "",
           enableXiaohongshu: selectedPlatforms.includes('xiaohongshu'),
           enableDouyin: selectedPlatforms.includes('douyin'),
-          overseasPlatforms: selectedPlatforms.filter((platform) => ['tiktok', 'instagram', 'youtube', 'reddit'].includes(platform)),
+          overseasPlatforms: selectedPlatforms.filter((platform) => ['tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads'].includes(platform)),
           enableSelfCrawler: false,
           enableTikhubFallback: true,
           searchKeys: {

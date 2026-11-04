@@ -71,11 +71,11 @@ describe("validate route helpers", () => {
 
   it("normalizes route selections and respects the five-tag limit", () => {
     const intent = getValidateRouteIntent(new URLSearchParams({
-      topic: "旧版热点", platforms: " reddit,unknown,reddit,douyin,,youtube ",
+      topic: "旧版热点", platforms: " reddit,unknown,reddit,douyin,,youtube, twitter, threads ",
       tags: " 医疗,医疗,,排班,诊所,效率,工具,第六个 ",
     }));
     expect(intent.idea).toBe("旧版热点");
-    expect(intent.platforms).toEqual(["reddit", "douyin", "youtube"]);
+    expect(intent.platforms).toEqual(["reddit", "douyin", "youtube", "twitter", "threads"]);
     expect(intent.tags).toEqual(["医疗", "排班", "诊所", "效率", "工具"]);
   });
   it("bounds a radar candidate to the existing 500-character idea form", () => {

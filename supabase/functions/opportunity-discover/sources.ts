@@ -114,6 +114,19 @@ function postUrl(post: UnifiedPost): string | null {
     const handle = record(raw.author).unique_id;
     if (typeof handle === 'string' && /^[A-Za-z0-9_.]{1,30}$/.test(handle) && /^\d{15,22}$/.test(post.post_id)) return `https://www.tiktok.com/@${handle}/video/${post.post_id}`;
   }
+  if (post.platform === 'twitter') {
+    const handle = raw.screen_name || record(raw.user_info).screen_name;
+    if (typeof handle === 'string' && /^[A-Za-z0-9_]{1,20}$/.test(handle) && /^\d{15,22}$/.test(post.post_id)) {
+      return `https://x.com/${handle}/status/${post.post_id}`;
+    }
+  }
+  if (post.platform === 'threads') {
+    const handle = raw.username || record(raw.user).username;
+    const code = raw.code || raw.shortcode;
+    if (typeof handle === 'string' && /^[A-Za-z0-9_.]{1,30}$/.test(handle) && typeof code === 'string' && /^[A-Za-z0-9_-]{5,32}$/.test(code)) {
+      return `https://www.threads.com/@${handle}/post/${code}`;
+    }
+  }
   return null;
 }
 

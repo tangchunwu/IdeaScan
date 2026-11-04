@@ -338,3 +338,45 @@
 
 - Instagram HTTP 400 的上游具体原因仍未确认；没有完整错误正文时不归因于 Token 或权限。
 - 本轮只修改本地代码和测试，未部署、提交或推送；数据库、RLS、RPC 未改。
+
+## 2026-11-04｜IdeaScan｜海外信源扩充至 X 与 Threads
+
+### Challenges
+
+- IdeaScan 已接入 TikTok、Instagram、YouTube、Reddit，但海外需求发现仍缺少文本讨论密集的 X 与 Threads。
+- 新平台需要同时贯穿 TikHub 客户端、统一适配器、验证页、商机雷达、诊断页、路由回填和报告结构，不能只增加两个按钮。
+
+### Hypotheses
+
+- 如果 TikHub 官方接口提供稳定的关键词搜索和评论入口，那么 X 与 Threads 可以先以统一帖子/评论模型接入，不需要新增数据库表。
+- 如果平台选择已经写入验证 URL，那么路由白名单和诊断请求预算必须同步扩展，否则用户选择会在跳转或诊断中丢失。
+
+### Root Cause
+
+- 共享渠道注册表、海外平台枚举和前端展示只覆盖四个海外平台；X/Threads 没有客户端方法、适配器或安全原帖链接生成规则。
+- 路由平台白名单仍是旧六平台，诊断请求预算仍按鉴权加六个平台的 13 次计算。
+
+### Solutions
+
+- 新增 `TwitterAdapter` 与 `ThreadsAdapter`，以及 TikHub 搜索/评论客户端方法；按统一 `UnifiedPost`、`UnifiedComment` 输出，并保留请求统计与失败状态。
+- 将 X/Threads 加入渠道注册表、海外数据、商机雷达、验证页、报告卡、诊断面板和安全原帖 URL 生成；不修改数据库、迁移、RLS 或 RPC。
+- 将验证路由白名单扩展到八个平台；诊断预算改为鉴权 1 次加八个平台各搜索/评论 1 次，共 17 次，并补充八平台回归测试。
+- 依据 TikHub 官方文档核对参数：X 使用 `keyword/search_type/cursor`，Threads 使用 `query`；Threads 评论的 `end_cursor` 仅作兼容参数，文档明确无分页。
+
+### Verification
+
+- 全量 Vitest：30 个测试文件、242 项测试全部通过。
+- `npx tsc --noEmit`、应用项目 TypeScript 检查、`npm run build`、`git diff --check` 通过。
+- 生产构建成功生成验证页与商机雷达页；构建仍有历史 chunk size 和 Browserslist 提示，不影响本次功能。
+- 官方文档实时核对通过；未使用聊天中暴露的旧 TikHub Token 做新的付费生产调用，真实账号额度、区域和平台权限仍需在部署后从诊断页确认。
+
+### Learnings
+
+- 新增一个社媒平台必须同步检查：客户端协议、适配器注册、统一类型、URL 安全规则、评分输入、前端选择、路由白名单和诊断预算。
+- 诊断次数应由平台集合推导或至少与 UI 文案同源，不能只改平台列表而保留旧的固定请求上限。
+- 官方文档的“无分页”说明应保留在客户端边界内，避免为了统一接口而虚构可用的翻页能力。
+
+### Boundary
+
+- 本轮未部署、提交或推送；未修改数据库、RLS、RPC，也未做真实 X/Threads 付费调用。
+- 全仓库 ESLint 仍有历史 `no-explicit-any` 问题；本轮以测试、TypeScript、构建和 diff 检查作为验收依据。

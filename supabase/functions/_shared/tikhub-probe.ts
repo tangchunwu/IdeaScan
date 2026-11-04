@@ -1,6 +1,6 @@
 import { TikHubClient, TikHubError } from './tikhub-client.ts';
 
-export const DIAGNOSTIC_PLATFORMS = ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit'] as const;
+export const DIAGNOSTIC_PLATFORMS = ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads'] as const;
 export type DiagnosticPlatform = typeof DIAGNOSTIC_PLATFORMS[number];
 export interface DiagnosticStage {
   status: 'success' | 'failed' | 'unknown' | 'skipped';
@@ -48,7 +48,10 @@ function postId(platform: DiagnosticPlatform, item: unknown): string {
   const value = platform === 'xiaohongshu' ? p.id || p.note_id
     : platform === 'douyin' || platform === 'tiktok' ? p.aweme_id
     : platform === 'instagram' ? p.code || p.shortcode
-    : platform === 'youtube' ? p.video_id || p.videoId : p.name || p.id;
+    : platform === 'youtube' ? p.video_id || p.videoId
+    : platform === 'twitter' ? p.tweet_id || p.id
+    : platform === 'threads' ? p.pk || p.id || p.code
+    : p.name || p.id;
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) return '';
   if (platform !== 'reddit') return value;
   if (/^t[12]_/.test(value) || /^t\d_/.test(value) && !value.startsWith('t3_')) return '';
@@ -87,7 +90,8 @@ export async function runTikHubDiagnostics(token: string, platforms: string[], o
   };
   try {
     auth = stage('unknown', '尚未验证');
-    try { client = new TikHubClient(token, { timeoutMs: 8_000, maxRetries: 0, maxRequests: 13, signal: controller.signal }); }
+    // 鉴权 1 次，加上每个平台最多搜索和评论各 1 次；八个平台最多 17 次。
+    try { client = new TikHubClient(token, { timeoutMs: 8_000, maxRetries: 0, maxRequests: 17, signal: controller.signal }); }
     catch (error) { Object.assign(auth, diagnosticFailure(error, token), { status: 'failed' }); }
     if (client) await execute(auth, () => client!.getUserInfo());
     tokenValid = auth.status === 'success';
@@ -99,7 +103,8 @@ export async function runTikHubDiagnostics(token: string, platforms: string[], o
       if (!stopped && !controller.signal.aborted) {
         const methods = { xiaohongshu: () => client!.searchXhs('测试'), douyin: () => client!.searchDouyin('测试'),
           tiktok: () => client!.searchTikTok('test', { count: 1 }), instagram: () => client!.searchInstagram('test'),
-          youtube: () => client!.searchYouTube('test', { type: 'video' }), reddit: () => client!.searchReddit('test') };
+          youtube: () => client!.searchYouTube('test', { type: 'video' }), reddit: () => client!.searchReddit('test'),
+          twitter: () => client!.searchTwitter('test'), threads: () => client!.searchThreads('test') };
         const page = await execute(search, methods[platform]);
         if (page !== undefined) {
           const items = page.notes || page.videos || page.items || page.posts || page.children || [];
@@ -112,7 +117,8 @@ export async function runTikHubDiagnostics(token: string, platforms: string[], o
                 return client!.getXhsCommentsFirstPage(id, 1);
               }
               const methods = { douyin: () => client!.getDouyinComments(id, 1), tiktok: () => client!.getTikTokComments(id, 1),
-                instagram: () => client!.getInstagramComments(id, 1), youtube: () => client!.getYouTubeComments(id, 1), reddit: () => client!.getRedditComments(id, 1) };
+                instagram: () => client!.getInstagramComments(id, 1), youtube: () => client!.getYouTubeComments(id, 1), reddit: () => client!.getRedditComments(id, 1),
+                twitter: () => client!.getTwitterComments(id, 1), threads: () => client!.getThreadsComments(id, 1) };
               return methods[platform]();
             });
             comment.count = Array.isArray(comments) ? comments.length : comments?.comments?.length ?? 0;

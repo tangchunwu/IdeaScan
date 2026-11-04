@@ -101,7 +101,7 @@ export interface ChannelStats {
 
 // ============ Channel Configuration ============
 
-export type ChannelType = 'xiaohongshu' | 'douyin' | 'tiktok' | 'instagram' | 'youtube' | 'reddit' | 'weibo' | 'bilibili';
+export type ChannelType = 'xiaohongshu' | 'douyin' | 'tiktok' | 'instagram' | 'youtube' | 'reddit' | 'twitter' | 'threads' | 'weibo' | 'bilibili';
 
 export interface ChannelConfig {
   /** Authentication token for the API */

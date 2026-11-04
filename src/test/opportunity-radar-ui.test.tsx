@@ -185,11 +185,11 @@ describe('opportunity service', () => {
 });
 
 describe('opportunity radar UI', () => {
-  it.each(['drift', 'ghibli', 'cotton', 'bamboo', 'street'] as Skin[])('renders a single H1, six accessible checkboxes and optional all-web selection with %s', skin => {
+  it.each(['drift', 'ghibli', 'cotton', 'bamboo', 'street'] as Skin[])('renders a single H1, eight accessible checkboxes and optional all-web selection with %s', skin => {
     useTheme.setState({ skin });
     render(<Page />);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getAllByRole('checkbox')).toHaveLength(6);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(8);
     expect(screen.getAllByRole('checkbox').every(input => !(input as HTMLInputElement).checked)).toBe(true);
     expect(screen.getByLabelText('国家 / 地区')).toHaveAttribute('maxlength', '80');
     expect(screen.getByRole('radio', { name: '快速 · quick' })).toBeChecked();

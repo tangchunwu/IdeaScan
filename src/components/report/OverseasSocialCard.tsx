@@ -1,7 +1,7 @@
 import { Globe2, MessageCircle, FileText, Activity, AlertTriangle } from "lucide-react";
 import { GlassCard } from "@/components/shared";
 
-const labels: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube", reddit: "Reddit" };
+const labels: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube", reddit: "Reddit", twitter: "X / Twitter", threads: "Threads" };
 
 export function OverseasSocialCard({ data }: { data: any }) {
   if (!data) return null;

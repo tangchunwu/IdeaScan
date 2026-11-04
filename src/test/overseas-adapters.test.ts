@@ -4,6 +4,8 @@ import { InstagramAdapter } from '../../supabase/functions/_shared/channels/inst
 import { RedditAdapter } from '../../supabase/functions/_shared/channels/reddit-adapter.ts';
 import { TikTokAdapter } from '../../supabase/functions/_shared/channels/tiktok-adapter.ts';
 import { YouTubeAdapter } from '../../supabase/functions/_shared/channels/youtube-adapter.ts';
+import { TwitterAdapter } from '../../supabase/functions/_shared/channels/twitter-adapter.ts';
+import { ThreadsAdapter } from '../../supabase/functions/_shared/channels/threads-adapter.ts';
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn() }));
 
@@ -62,13 +64,14 @@ type AdapterConstructor = new () => {
 
 type PlatformCase = {
   name: string;
-  channel: 'tiktok' | 'instagram' | 'youtube' | 'reddit';
+  channel: 'tiktok' | 'instagram' | 'youtube' | 'reddit' | 'twitter' | 'threads';
   Adapter: AdapterConstructor;
   searchMethod: string;
   commentMethod: string;
   firstPage: Record<string, unknown>;
   secondPage: Record<string, unknown>;
   expectedSecondArgs: unknown[];
+  expectedPosts?: number;
   posts: unknown[];
   comments: unknown[];
 };
@@ -106,6 +109,24 @@ const platformCases: PlatformCase[] = [
     expectedSecondArgs: ['home office', { after: 'rd-next' }],
     posts: [], comments: [],
   },
+  {
+    name: 'Twitter', channel: 'twitter', Adapter: TwitterAdapter,
+    searchMethod: 'searchTwitter', commentMethod: 'getTwitterComments',
+    firstPage: { items: [searchItem('twitter', 'tw-1')], hasMore: false },
+    secondPage: { items: [], hasMore: false },
+    expectedSecondArgs: [],
+    posts: [], comments: [],
+    expectedPosts: 1,
+  },
+  {
+    name: 'Threads', channel: 'threads', Adapter: ThreadsAdapter,
+    searchMethod: 'searchThreads', commentMethod: 'getThreadsComments',
+    firstPage: { items: [searchItem('threads', 'th-1')], hasMore: false },
+    secondPage: { items: [], hasMore: false },
+    expectedSecondArgs: [],
+    posts: [], comments: [],
+    expectedPosts: 1,
+  },
 ];
 
 describe('overseas channel adapters', () => {
@@ -116,8 +137,8 @@ describe('overseas channel adapters', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it('registers all four overseas adapters', () => {
-    expect(channelRegistry.getAvailableChannels().map((channel) => channel.type)).toEqual(expect.arrayContaining(['tiktok', 'instagram', 'youtube', 'reddit']));
+  it('registers all overseas adapters', () => {
+    expect(channelRegistry.getAvailableChannels().map((channel) => channel.type)).toEqual(expect.arrayContaining(['tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads']));
   });
 
   it.each(platformCases)('$name uses the shared client, caps samples, deduplicates and binds comments', async (testCase) => {
@@ -133,14 +154,15 @@ describe('overseas channel adapters', () => {
     const result = await new testCase.Adapter().crawl(request());
 
     expect(mocks.createClient).toHaveBeenCalledWith('test-token');
-    expect(client[testCase.searchMethod]).toHaveBeenCalledTimes(2);
-    expect(client[testCase.searchMethod].mock.calls[1]).toEqual(testCase.expectedSecondArgs);
+    expect(client[testCase.searchMethod]).toHaveBeenCalledTimes(testCase.expectedSecondArgs.length ? 2 : 1);
+    if (testCase.expectedSecondArgs.length) expect(client[testCase.searchMethod].mock.calls[1]).toEqual(testCase.expectedSecondArgs);
     expect(result.success).toBe(true);
     expect(result.channel).toBe(testCase.channel);
-    expect(result.posts).toHaveLength(10);
-    expect(new Set(result.posts.map((post: any) => post.post_id)).size).toBe(10);
-    expect(client[testCase.commentMethod]).toHaveBeenCalledTimes(5);
-    expect(result.comments).toHaveLength(50);
+    const expectedPosts = testCase.expectedPosts ?? 10;
+    expect(result.posts).toHaveLength(expectedPosts);
+    expect(new Set(result.posts.map((post: any) => post.post_id)).size).toBe(expectedPosts);
+    expect(client[testCase.commentMethod]).toHaveBeenCalledTimes(Math.min(5, expectedPosts));
+    expect(result.comments).toHaveLength(Math.min(5, expectedPosts) * 10);
     expect(result.comments.every((comment: any) => comment.post_id)).toBe(true);
     expect(result.comments.every((comment: any) => result.posts.some((post: any) => post.post_id === comment.post_id))).toBe(true);
     expect(result.posts.every((post: any) => post.platform === testCase.channel)).toBe(true);

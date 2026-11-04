@@ -123,6 +123,35 @@ describe("TikHub overseas API contracts", () => {
     expect(Object.fromEntries(commentsUrl.searchParams)).toMatchObject({ post_id: "t3_p1", language: "en-US", sort_type: "TOP", after: "reddit-next", need_format: "true" });
   });
 
+  it("uses Twitter search and comments contracts", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ code: 200, data: { timeline: [{ tweet_id: "tw1", text: "need help", screen_name: "alice" }], next_cursor: "tw-next" } }))
+      .mockResolvedValueOnce(json({ code: 200, data: { comments: [{ id: "twc1", text: "same" }] } }));
+    vi.stubGlobal("fetch", fetcher);
+    const client = new TikHubClient("token");
+    const page = await client.searchTwitter("black friday", { searchType: "Top" });
+    const comments = await client.getTwitterComments("tw1", 1);
+    expect(new URL(fetcher.mock.calls[0][0]).pathname).toBe("/api/v1/twitter/web/fetch_search_timeline");
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.get("search_type")).toBe("Top");
+    expect(new URL(fetcher.mock.calls[1][0]).pathname).toBe("/api/v1/twitter/web/fetch_post_comments");
+    expect(page.items).toHaveLength(1);
+    expect(comments).toEqual([{ id: "twc1", text: "same" }]);
+  });
+
+  it("unwraps Threads search results and reads unpaginated comments", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ code: 200, data: { results: [{ node: { thread: { thread_items: [{ post: { pk: "th1", code: "AbC12", caption: { text: "need" }, user: { username: "alice" } } }] } } }] } }))
+      .mockResolvedValueOnce(json({ code: 200, data: { comments: [{ pk: "thc1", text: "same" }] } }));
+    vi.stubGlobal("fetch", fetcher);
+    const client = new TikHubClient("token");
+    const page = await client.searchThreads("black friday");
+    const comments = await client.getThreadsComments("th1", 1);
+    expect(new URL(fetcher.mock.calls[0][0]).pathname).toBe("/api/v1/threads/web/search_posts");
+    expect(new URL(fetcher.mock.calls[1][0]).pathname).toBe("/api/v1/threads/web/fetch_post_comments");
+    expect(page.items[0]).toMatchObject({ pk: "th1", code: "AbC12" });
+    expect(comments).toEqual([{ pk: "thc1", text: "same" }]);
+  });
+
   it("maps Reddit commentForest trees and preserves pageInfo endCursor", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(json({ code: 200, data: {
       postInfoById: { commentForest: { trees: [{ node: { id: "t1_c1", content: { markdown: "Reply" } } }], pageInfo: { endCursor: "reddit-next", hasNextPage: true } } },

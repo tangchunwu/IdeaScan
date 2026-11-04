@@ -624,7 +624,7 @@ function validateConfig(config: unknown): RequestConfig {
     } : undefined,
     mode: (c.mode === 'quick' || c.mode === 'deep') ? (c.mode as 'quick' | 'deep') : undefined,
     overseasPlatforms: Array.isArray(c.overseasPlatforms)
-      ? c.overseasPlatforms.filter((item): item is string => typeof item === 'string' && ['tiktok', 'instagram', 'youtube', 'reddit'].includes(item)).slice(0, 4)
+      ? c.overseasPlatforms.filter((item): item is string => typeof item === 'string' && ['tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads'].includes(item)).slice(0, 6)
       : [],
   };
 }

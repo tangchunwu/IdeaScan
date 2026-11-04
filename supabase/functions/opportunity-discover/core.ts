@@ -13,7 +13,7 @@ function requiredText(value: unknown, limit: number): string {
 export function parseOpportunityRequest(input: unknown): OpportunityRequest {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new RadarInputError('请求格式不正确');
   const body = input as Record<string, unknown>;
-  if (!Array.isArray(body.platforms) || body.platforms.length > 6 || body.platforms.some(p => !RADAR_PLATFORMS.includes(p))) {
+  if (!Array.isArray(body.platforms) || body.platforms.length > 8 || body.platforms.some(p => !RADAR_PLATFORMS.includes(p))) {
     throw new RadarInputError('平台选择不正确');
   }
   if (body.mode !== 'quick' && body.mode !== 'deep') throw new RadarInputError('研究模式不正确');

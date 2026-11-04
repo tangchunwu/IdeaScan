@@ -17,7 +17,7 @@ const requestSchema = z.object({
   country: z.string().trim().min(1).max(80),
   industry: z.string().trim().min(1).max(100),
   keyword: z.string().trim().max(200).optional(),
-  platforms: z.array(z.enum(RADAR_PLATFORMS)).max(6),
+  platforms: z.array(z.enum(RADAR_PLATFORMS)).max(8),
   mode: z.enum(['quick', 'deep']),
 });
 const count = z.number().finite().int().nonnegative();

@@ -450,7 +450,7 @@ const Validate = () => {
                   {[
                     ["xiaohongshu", "小红书", "📕"], ["douyin", "抖音", "🎵"],
                     ["tiktok", "TikTok", "🎬"], ["instagram", "Instagram", "📸"],
-                    ["youtube", "YouTube", "▶️"], ["reddit", "Reddit", "🔴"],
+                    ["youtube", "YouTube", "▶️"], ["reddit", "Reddit", "🔴"], ["twitter", "X / Twitter", "𝕏"], ["threads", "Threads", "🧵"],
                   ].map(([id, label, emoji]) => {
                     const checked = selectedPlatforms.includes(id);
                     return (

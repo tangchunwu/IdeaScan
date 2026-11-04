@@ -16,7 +16,7 @@ import { RADAR_PLATFORMS, type OpportunityRequest, type OpportunityResult, type 
 import './OpportunityRadar.css';
 
 const platformNames: Record<RadarPlatform, string> = {
-  xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit',
+  xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads',
 };
 const countries = ['United States', 'China', 'United Kingdom', 'Canada', 'Australia', 'Singapore', 'Japan', 'South Korea', 'Germany', 'France', 'India', 'Indonesia', 'Brazil', 'Mexico', 'United Arab Emirates'];
 const urgencyNames = { high: '高', medium: '中', low: '低' };

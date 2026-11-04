@@ -49,6 +49,8 @@ export { TikTokAdapter } from './tiktok-adapter.ts';
 export { InstagramAdapter } from './instagram-adapter.ts';
 export { YouTubeAdapter } from './youtube-adapter.ts';
 export { RedditAdapter } from './reddit-adapter.ts';
+export { TwitterAdapter } from './twitter-adapter.ts';
+export { ThreadsAdapter } from './threads-adapter.ts';
 
 // Registry and orchestrator
 export { 

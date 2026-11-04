@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { invokeFunction } from '@/lib/invokeFunction';
 import { DIAGNOSTIC_PLATFORMS, diagnosticFailure, type DiagnosticStage, type PlatformDiagnostic } from '../../../supabase/functions/_shared/tikhub-probe';
 
-const names = { xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit' };
+const names = { xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads' };
 const statuses = { success: '成功', failed: '失败', unknown: '未知', skipped: '未验证' };
 function detail(value: Partial<DiagnosticStage>) {
   return [value.httpStatus == null ? 'HTTP 未知/无响应' : `HTTP ${value.httpStatus}`, value.businessCode != null && `code ${value.businessCode}`, value.kind && `type ${value.kind}`, value.requestId && `requestId ${value.requestId}`].filter(Boolean).join(' · ');
@@ -44,7 +44,7 @@ export function TikHubDiagnosticPanel({ token }: { token: string }) {
     <p className="text-xs text-muted-foreground">仅临时诊断，不自动保存 Token。鉴权一次，每个平台最多搜索一次、评论一次；可能消耗配额。</p>
     <Button variant="outline" size="sm" disabled={busy || !token} onClick={() => diagnose()}>测试连通性</Button>
     <div className="flex flex-wrap gap-2">{DIAGNOSTIC_PLATFORMS.map(platform => <Button key={platform} variant="outline" size="sm" disabled={busy || !token} onClick={() => diagnose([platform])}>诊断 {names[platform]}</Button>)}</div>
-    <Button variant="outline" size="sm" disabled={busy || !token} onClick={() => diagnose([...DIAGNOSTIC_PLATFORMS])}>诊断全部六平台（最多 13 次）</Button>
+    <Button variant="outline" size="sm" disabled={busy || !token} onClick={() => diagnose([...DIAGNOSTIC_PLATFORMS])}>诊断全部八平台（最多 17 次）</Button>
     {busy && <p role="status" className="text-xs">诊断中，最长约 55 秒…</p>}
     {result && <div role="status" className="grid gap-2 text-xs break-words">
       <p>{result.message} · 实际调用数 {result.apiCalls ?? '未知'}</p>

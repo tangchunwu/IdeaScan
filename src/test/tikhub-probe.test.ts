@@ -8,10 +8,10 @@ vi.mock('../../supabase/functions/_shared/tikhub-client.ts', async importOrigina
 } }));
 beforeEach(() => {
   mock.client = { stats: { apiCalls: 0 }, getUserInfo: vi.fn(async () => { mock.client.stats.apiCalls++; return {}; }) };
-  for (const method of ['searchXhs', 'searchDouyin', 'searchTikTok', 'searchInstagram', 'searchYouTube', 'searchReddit']) {
+  for (const method of ['searchXhs', 'searchDouyin', 'searchTikTok', 'searchInstagram', 'searchYouTube', 'searchReddit', 'searchTwitter', 'searchThreads']) {
     mock.client[method] = vi.fn(async () => { mock.client.stats.apiCalls++; return { notes: [], videos: [], items: [] }; });
   }
-  for (const method of ['getXhsCommentsFirstPage', 'getDouyinComments', 'getTikTokComments', 'getInstagramComments', 'getYouTubeComments', 'getRedditComments', 'request']) {
+  for (const method of ['getXhsCommentsFirstPage', 'getDouyinComments', 'getTikTokComments', 'getInstagramComments', 'getYouTubeComments', 'getRedditComments', 'getTwitterComments', 'getThreadsComments', 'request']) {
     mock.client[method] = vi.fn(async () => { mock.client.stats.apiCalls++; return method === 'request' ? { data: { comments: [] } } : []; });
   }
 });
@@ -27,13 +27,13 @@ describe('bounded TikHub diagnostics', () => {
     expect(result.platforms[1].search.status).toBe('skipped');
     expect(mock.client.searchYouTube).not.toHaveBeenCalled();
   });
-  it('uses at most thirteen actual calls for six platforms and discards auth contents', async () => {
+  it('uses at most seventeen actual calls for eight platforms and discards auth contents', async () => {
     mock.client.getUserInfo.mockImplementation(async () => { mock.client.stats.apiCalls++; return { user_balance: 'private-balance', access_token: 'private-auth' }; });
-    const pages = { searchXhs: { notes: [{ id: 'n1' }] }, searchDouyin: { videos: [{ aweme_id: 'dy1' }] }, searchTikTok: { items: [{ aweme_id: 'tt1' }] }, searchInstagram: { items: [{ code: 'ig1' }] }, searchYouTube: { items: [{ video_id: 'yt1' }] }, searchReddit: { items: [{ post: { id: 'rd1' } }] } };
+    const pages = { searchXhs: { notes: [{ id: 'n1' }] }, searchDouyin: { videos: [{ aweme_id: 'dy1' }] }, searchTikTok: { items: [{ aweme_id: 'tt1' }] }, searchInstagram: { items: [{ code: 'ig1' }] }, searchYouTube: { items: [{ video_id: 'yt1' }] }, searchReddit: { items: [{ post: { id: 'rd1' } }] }, searchTwitter: { items: [{ tweet_id: 'tw1' }] }, searchThreads: { items: [{ pk: 'th1' }] } };
     for (const [method, page] of Object.entries(pages)) mock.client[method].mockImplementation(async () => { mock.client.stats.apiCalls++; return page; });
-    const result = await runTikHubDiagnostics('offline', ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit', 'reddit']);
-    expect(result.apiCalls).toBe(13);
-    expect(result.platforms).toHaveLength(6);
+    const result = await runTikHubDiagnostics('offline', ['xiaohongshu', 'douyin', 'tiktok', 'instagram', 'youtube', 'reddit', 'twitter', 'threads', 'threads']);
+    expect(result.apiCalls).toBe(17);
+    expect(result.platforms).toHaveLength(8);
     expect(result.valid).toBe(true);
     expect(JSON.stringify(result)).not.toMatch(/private-balance|private-auth|user_balance|access_token/);
   });
@@ -75,7 +75,7 @@ describe('bounded TikHub diagnostics', () => {
   it('authenticates once and never reports an empty search as comment success', async () => {
     const result = await runTikHubDiagnostics('offline', ['xiaohongshu', 'tiktok']);
     expect(mock.client.getUserInfo).toHaveBeenCalledTimes(1);
-    expect(mock.options).toMatchObject({ timeoutMs: 8000, maxRetries: 0, maxRequests: 13, signal: expect.any(AbortSignal) });
+    expect(mock.options).toMatchObject({ timeoutMs: 8000, maxRetries: 0, maxRequests: 17, signal: expect.any(AbortSignal) });
     expect(result.apiCalls).toBe(3);
     expect(result.platforms[0].comment.status).toBe('skipped');
     expect(result.platforms[0].comment.apiCalls).toBe(0);
