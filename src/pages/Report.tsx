@@ -73,6 +73,9 @@ const Report = () => {
   const checkNeedsReanalysis = () => {
     if (!data?.report) return false;
     const report = data.report;
+    const analysisStatus = (report.ai_analysis as unknown as Record<string, unknown>)?.analysisStatus;
+    if (analysisStatus === 'complete') return false;
+    if (analysisStatus === 'incomplete') return true;
     const personaIncomplete = !report.persona ||
       !(report.persona as any)?.name ||
       !(report.persona as any)?.role ||
@@ -186,7 +189,7 @@ const Report = () => {
     return {
       id: validation.id,
       idea: validation.idea,
-      score: aiAnalysis.feasibilityScore ?? validation.overall_score ?? 0,
+      score: aiAnalysis.analysisStatus === 'legacy' ? aiAnalysis.feasibilityScore ?? validation.overall_score ?? null : aiAnalysis.feasibilityScore,
       verdict: aiAnalysis.overallVerdict,
       tags: validation.tags || [],
       createdAt: validation.created_at,
@@ -207,6 +210,8 @@ const Report = () => {
         avgCollects: xiaohongshuData.avgCollects,
       },
       aiAnalysis,
+      proofResult: reportData.proofResult,
+      evidenceItems: reportData.evidenceItems,
     };
   };
 
@@ -276,7 +281,7 @@ const Report = () => {
       
       const shareUrl = `https://ideascan.me/share/${shareToken}`;
       const shareTitle = `需求验证报告 - ${data?.validation?.idea || ""}`;
-      const shareText = `查看我的需求验证报告，需求真实度评分：${data?.validation?.overall_score || 0}分`;
+      const shareText = `查看这份研究报告的支持证据、反证与待核实项`;
       
       if (navigator.share) {
         try {
@@ -363,12 +368,22 @@ const Report = () => {
     evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData,
     competitorRows, evidenceItems, topEvidence, evidenceSummary } = reportData;
 
-  const isIncomplete = validation.status === 'failed' || validation.status === 'processing' || (validation as any).resumable === true;
-  const displayScore = aiAnalysis.feasibilityScore || validation.overall_score || 0;
+  const isIncomplete = aiAnalysis.analysisStatus === 'incomplete' || validation.status === 'failed' || validation.status === 'processing' || (validation as any).resumable === true;
+  const displayScore = aiAnalysis.analysisStatus === 'legacy' ? aiAnalysis.feasibilityScore ?? validation.overall_score ?? null : aiAnalysis.feasibilityScore;
 
   const handleResume = () => {
-    const idea = encodeURIComponent(validation.idea);
-    navigate(`/validate?idea=${idea}&auto=true&resumeValidationId=${validation.id}`);
+    const params=new URLSearchParams({idea:validation.idea,resumeValidationId:validation.id,tags:(validation.tags||[]).join(',')});
+    try {
+      const summary=report.data_summary as unknown as Record<string,unknown>;
+      const scope=JSON.parse(String(summary?.researchScope||''));
+      if(Array.isArray(scope.platforms))params.set('platforms',scope.platforms.join(','));
+      if(scope.market?.country)params.set('country',scope.market.country);
+      if(scope.market?.language)params.set('language',scope.market.language);
+      if(scope.market?.opportunityType)params.set('opportunityType',scope.market.opportunityType);
+      if(scope.researchSessionId)params.set('researchSessionId',scope.researchSessionId);
+      if(scope.researchCandidateId)params.set('researchCandidateId',scope.researchCandidateId);
+    } catch { /* 旧报告无范围记录，由服务端明确拒绝旧证据复用。 */ }
+    navigate(`/validate?${params}`);
   };
 
   return (
@@ -405,7 +420,7 @@ const Report = () => {
               <AlertCircle className="h-4 w-4 text-amber-500" />
               <AlertTitle className="text-amber-500">验证未完成</AlertTitle>
               <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <span className="text-muted-foreground">本次验证中途中断，部分数据尚未采集完成。您可以继续验证以补全分析结果。</span>
+                <span className="text-muted-foreground">本次研究采集或分析尚未完整完成。已保留的证据可继续查看，当前分数不能用于需求判断。</span>
                 <Button variant="outline" size="sm" className="rounded-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10 shrink-0" onClick={handleResume}>
                   <RefreshCw className="w-4 h-4 mr-2" />继续验证
                 </Button>
@@ -428,6 +443,8 @@ const Report = () => {
             </Alert>
           )}
 
+          <DemandDecisionCard validation={validation} score={displayScore} xiaohongshuData={xiaohongshuData} sentimentAnalysis={sentimentAnalysis} marketAnalysis={marketAnalysis} aiAnalysis={aiAnalysis} proofResult={proofResult} costBreakdown={costBreakdown} topEvidence={topEvidence} evidenceSummary={evidenceSummary} evidenceItems={evidenceItems} platforms={reportData.platforms} />
+
           {/* Quick Insights Cards */}
           <ScrollReveal>
             <SectionHeading icon={BarChart3} title="快速洞察" subtitle="关键指标一览" />
@@ -437,6 +454,8 @@ const Report = () => {
               strengths={aiAnalysis.strengths}
               weaknesses={aiAnalysis.weaknesses}
               sentimentPositive={sentimentAnalysis.positive}
+              analysisStatus={aiAnalysis.analysisStatus}
+              decision={aiAnalysis.decision}
             />
           </ScrollReveal>
 
@@ -446,6 +465,8 @@ const Report = () => {
             <div className="mb-3 sm:mb-4">
               <ScoreHeroCard
                 score={displayScore}
+                analysisStatus={aiAnalysis.analysisStatus}
+                decision={aiAnalysis.decision}
                 totalNotes={xiaohongshuData.totalNotes}
                 isIncomplete={isIncomplete}
                 idea={validation.idea}
@@ -483,7 +504,7 @@ const Report = () => {
 
           {reportData.overseasSocialData && (
             <ScrollReveal delay={350} className="mt-10 sm:mt-14">
-              <SectionHeading icon={Globe} title="海外社媒" subtitle="独立平台证据，不参与当前评分" />
+              <SectionHeading icon={Globe} title="海外社媒" subtitle="按平台查看采集到的原文线索" />
               <OverseasSocialCard data={reportData.overseasSocialData} />
             </ScrollReveal>
           )}
@@ -539,7 +560,7 @@ const Report = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} demandDecisionProps={{ validation, score: displayScore, xiaohongshuData, sentimentAnalysis, marketAnalysis, aiAnalysis, proofResult, costBreakdown, topEvidence, evidenceSummary, evidenceItems, platforms: [{ name: "小红书", count: xiaohongshuData.totalNotes || 0 }, ...((report?.data_summary as any)?.douyin?.totalVideos ? [{ name: "抖音", count: (report.data_summary as any).douyin.totalVideos }] : []), ...Object.entries(reportData.overseasSocialData?.platforms || {}).filter(([, item]: any) => item?.status === "success").map(([platform, item]: any) => ({ name: platform, count: item.posts?.length || 0 }))] }} />}</TabsContent>
+                <TabsContent value="overview" forceMount={activeTab === "overview" ? true : undefined}>{activeTab === "overview" && <DataOverviewTab data={reportData} dataSummary={report?.data_summary as any} dataQualityScore={report?.data_quality_score ?? undefined} keywordsUsed={report?.keywords_used as any} />}</TabsContent>
                 <TabsContent value="market" forceMount={activeTab === "market" ? true : undefined}>{activeTab === "market" && <MarketInsightsTab data={reportData} />}</TabsContent>
                 <TabsContent value="competitors" forceMount={activeTab === "competitors" ? true : undefined}>{activeTab === "competitors" && <CompetitorTab data={reportData} />}</TabsContent>
                 <TabsContent value="ai" forceMount={activeTab === "ai" ? true : undefined}>{activeTab === "ai" && <AIAnalysisTab data={reportData} aiAnalysis={aiAnalysis} />}</TabsContent>

@@ -1,25 +1,14 @@
 // PDF Report Generator
 // Generates print-optimized HTML for multi-page PDF export
 
-import { ReportData } from "./reportGenerator";
+import { type ReportData, getReportResearchLabel, prepareResearchExport, generateResearchSummaryHTML } from "./reportGenerator";
 import { escapeHtml, escapeHtmlArray } from "./htmlEscape";
 
-function getScoreColor(score: number): string {
+function getScoreColor(score: number | null): string {
+  if (score === null) return '#6b7280';
   if (score >= 80) return "#22c55e";
   if (score >= 60) return "#eab308";
   return "#ef4444";
-}
-
-function getScoreLabel(score: number): string {
-  if (score >= 80) return "真实刚需";
-  if (score >= 60) return "需求待验证";
-  return "疑似伪需求";
-}
-
-function getScoreEmoji(score: number): string {
-  if (score >= 80) return "✅";
-  if (score >= 60) return "⚠️";
-  return "❌";
 }
 
 function formatDate(dateStr: string): string {
@@ -90,9 +79,10 @@ function generateRadarSVG(dimensions: { dimension: string; score: number }[]): s
 }
 
 export function generatePDFHTML(data: ReportData): string {
+  data = prepareResearchExport(data);
   const scoreColor = getScoreColor(data.score);
-  const scoreLabel = getScoreLabel(data.score);
-  const scoreEmoji = getScoreEmoji(data.score);
+  const scoreLabel = getReportResearchLabel(data);
+  const scoreEmoji = '';
   
   const styles = `
     @page {
@@ -449,10 +439,11 @@ export function generatePDFHTML(data: ReportData): string {
     }
   `;
 
+  const hasSentiment = [data.sentiment.positive, data.sentiment.neutral, data.sentiment.negative].every(v => v !== null && Number.isFinite(v)) && data.sentiment.positive + data.sentiment.neutral + data.sentiment.negative > 0;
   const sentimentTotal = data.sentiment.positive + data.sentiment.neutral + data.sentiment.negative;
-  const posPercent = Math.round((data.sentiment.positive / sentimentTotal) * 100);
-  const neuPercent = Math.round((data.sentiment.neutral / sentimentTotal) * 100);
-  const negPercent = Math.round((data.sentiment.negative / sentimentTotal) * 100);
+  const posPercent = hasSentiment ? Math.round((data.sentiment.positive / sentimentTotal) * 100) : null;
+  const neuPercent = hasSentiment ? Math.round((data.sentiment.neutral / sentimentTotal) * 100) : null;
+  const negPercent = hasSentiment ? Math.round((data.sentiment.negative / sentimentTotal) * 100) : null;
 
   const dimensionsHTML = data.dimensions.map(d => {
     const color = getScoreColor(d.score);
@@ -493,19 +484,19 @@ export function generatePDFHTML(data: ReportData): string {
           <div class="progress-item">
             <div class="progress-label">
               <span>技术素养</span>
-              <span>${data.persona.techSavviness}%</span>
+              <span>${data.persona.techSavviness === null ? '未知' : `${data.persona.techSavviness}%`}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${data.persona.techSavviness}%"></div>
+              <div class="progress-fill" style="width: ${data.persona.techSavviness ?? 0}%; display: ${data.persona.techSavviness === null ? 'none' : 'block'}"></div>
             </div>
           </div>
           <div class="progress-item">
             <div class="progress-label">
               <span>消费能力</span>
-              <span>${data.persona.spendingCapacity}%</span>
+              <span>${data.persona.spendingCapacity === null ? '未知' : `${data.persona.spendingCapacity}%`}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${data.persona.spendingCapacity}%"></div>
+              <div class="progress-fill" style="width: ${data.persona.spendingCapacity ?? 0}%; display: ${data.persona.spendingCapacity === null ? 'none' : 'block'}"></div>
             </div>
           </div>
         </div>
@@ -536,16 +527,18 @@ export function generatePDFHTML(data: ReportData): string {
     
     <div class="score-grid">
       <div class="score-card">
-        <div class="score-value">${data.score}</div>
-        <div style="color: #6b7280; font-size: 12px;">/ 100</div>
+        <div class="score-value">${data.score === null ? '—' : data.score}</div>
+        <div style="color: #6b7280; font-size: 12px;">${data.score === null ? '尚未评分' : '研究参考分 / 100'}</div>
         <div class="score-label">${scoreEmoji} ${scoreLabel}</div>
-        <div class="score-meta">基于 ${data.xiaohongshu.totalNotes.toLocaleString()} 条数据</div>
+        <div class="score-meta">已采集 ${data.xiaohongshu.totalNotes.toLocaleString()} 条去重帖子</div>
       </div>
       <div class="radar-card">
         ${generateRadarSVG(data.dimensions)}
       </div>
     </div>
     
+    ${generateResearchSummaryHTML(data)}
+
     <div class="section">
       <h2 class="section-title">📊 维度详细分析</h2>
       <div class="dimension-grid">
@@ -590,6 +583,7 @@ export function generatePDFHTML(data: ReportData): string {
     
     <div class="section">
       <h2 class="section-title">💬 情感分析</h2>
+      ${hasSentiment ? `
       <div class="sentiment-bar">
         <div class="sentiment-positive" style="width: ${posPercent}%">${posPercent}%</div>
         <div class="sentiment-neutral" style="width: ${neuPercent}%">${neuPercent}%</div>
@@ -600,6 +594,7 @@ export function generatePDFHTML(data: ReportData): string {
         <span>⚖️ 中性 ${neuPercent}%</span>
         <span>❌ 负面 ${negPercent}%</span>
       </div>
+      ` : '<p>尚未取得情感分类数据</p>'}
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
         <div class="persona-box">
@@ -623,11 +618,11 @@ export function generatePDFHTML(data: ReportData): string {
   <!-- Page 3: Data & AI Analysis -->
   <div class="page">
     <div class="section">
-      <h2 class="section-title">📱 小红书数据</h2>
+      <h2 class="section-title">📱 社媒采样数据</h2>
       <div class="stats-grid">
         <div class="stat-item">
           <div class="stat-value">${data.xiaohongshu.totalNotes.toLocaleString()}</div>
-          <div class="stat-label">相关笔记</div>
+          <div class="stat-label">去重帖子</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">${data.xiaohongshu.totalEngagement.toLocaleString()}</div>

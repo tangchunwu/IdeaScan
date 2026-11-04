@@ -59,7 +59,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
       <GlassCard className="animate-slide-up" style={{ animationDelay: "150ms" }}>
         <SectionHeading emoji="💬" title="情感分布" />
         <div className="h-64 flex items-center justify-center">
-          <ResponsiveContainer width="50%" height="100%">
+          {sentimentData.every(item => item.value !== null) && sentimentData.reduce((sum, item) => sum + (item.value || 0), 0) > 0 ? <ResponsiveContainer width="50%" height="100%">
             <PieChart>
               <Pie data={sentimentData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value">
                 {SENTIMENT_COLORS.map((color, index) => (
@@ -68,7 +68,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
               </Pie>
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer> : <p className="text-sm text-muted-foreground">尚未取得情感分类数据</p>}
           <div className="space-y-3">
             {[
               { name: "正面评价", value: sentimentAnalysis.positive, color: SENTIMENT_COLORS[0] },
@@ -78,7 +78,7 @@ export function MarketInsightsTab({ data }: MarketInsightsTabProps) {
               <div key={item.name} className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-muted-foreground">{item.name}</span>
-                <span className="font-semibold text-foreground">{item.value}%</span>
+                <span className="font-semibold text-foreground">{item.value === null ? '未知' : `${item.value}%`}</span>
               </div>
             ))}
           </div>

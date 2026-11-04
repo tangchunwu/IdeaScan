@@ -6,6 +6,7 @@
  */
 
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "./llm-client.ts";
+import { buildMarketQueries, type MarketContext } from './market-context.ts';
 
 export interface SearchResult {
   title: string;
@@ -122,7 +123,8 @@ ${context}
  */
 export async function searchCompetitorDetails(
   competitors: ExtractedCompetitor[],
-  searchKeys: SearchKeys
+  searchKeys: SearchKeys,
+  marketContext?: MarketContext,
 ): Promise<DeepSearchResult[]> {
   const results: DeepSearchResult[] = [];
   
@@ -132,13 +134,14 @@ export async function searchCompetitorDetails(
     .slice(0, 3);
 
   for (const competitor of topCompetitors) {
+    const localQueries = marketContext ? buildMarketQueries(marketContext,competitor.name) : [];
     const searchQueries = [
-      { query: `${competitor.name} 定价 价格`, type: 'pricing' as const },
-      { query: `${competitor.name} 用户评价 口碑`, type: 'review' as const },
+      { query: localQueries.find(q=>q.intent==='payment')?.query || `${competitor.name} 定价 价格`, type: 'pricing' as const },
+      { query: localQueries.find(q=>q.intent==='counter')?.query || `${competitor.name} 用户评价 口碑`, type: 'review' as const },
     ];
 
     for (const { query, type } of searchQueries) {
-      const searchResult = await searchSingle(query, searchKeys);
+      const searchResult = await searchSingle(query, searchKeys,marketContext);
       
       for (const result of searchResult) {
         results.push({
@@ -161,7 +164,8 @@ export async function searchCompetitorDetails(
  */
 async function searchSingle(
   query: string, 
-  keys: SearchKeys
+  keys: SearchKeys,
+  marketContext?: MarketContext,
 ): Promise<SearchResult[]> {
   // 优先使用 Tavily
   if (keys.tavily) {
@@ -206,8 +210,8 @@ async function searchSingle(
           freshness: "noLimit",
           summary: true,
           count: 3,
-          market: "zh-CN",
-          language: "zh"
+          ...(marketContext?.countryCode ? {market:`${marketContext.language}-${marketContext.countryCode}`} : {}),
+          ...(marketContext?.language ? {language:marketContext.language} : {})
         }),
         signal: AbortSignal.timeout(15000)
       });

@@ -58,9 +58,9 @@ const DimensionItem = ({ d, i }: { d: { dimension: string; score: number; reason
 export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionSectionProps) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <GlassCard className="lg:col-span-1 animate-slide-up h-full flex flex-col" style={{ animationDelay: "200ms" }} padding="md">
-      <SectionHeading emoji="🕸️" title="需求验证雷达" className="mb-0" />
+      <SectionHeading emoji="🕸️" title="研究维度参考" className="mb-0" />
       <div className="flex-1 min-h-[250px] w-full mt-4">
-        <ResponsiveContainer width="100%" height="100%">
+        {radarData.length > 0 ? <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
             <PolarGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
             <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
@@ -68,16 +68,17 @@ export const RadarDimensionSection = ({ radarData, dimensions }: RadarDimensionS
             <Radar name="Score" dataKey="A" stroke="hsl(var(--primary))" strokeWidth={3} fill="hsl(var(--primary))" fillOpacity={0.2} />
             <Tooltip content={<CustomTooltip />} />
           </RadarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer> : <p className="py-12 text-center text-sm text-muted-foreground">尚未取得维度评分，未绘制雷达图。</p>}
       </div>
     </GlassCard>
 
     <GlassCard className="lg:col-span-2 animate-slide-up" style={{ animationDelay: "300ms" }} padding="md">
       <div className="flex items-center justify-between mb-6">
-        <SectionHeading emoji="🔬" title="需求真伪分析" className="mb-0" />
+        <SectionHeading emoji="🔬" title="研究维度说明" className="mb-0" />
         <span className="text-xs text-muted-foreground font-normal">点击展开详情</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+        {dimensions.length === 0 && <p className="text-sm text-muted-foreground">维度与证据尚未评估。</p>}
         {dimensions.map((d, i) => (
           <DimensionItem key={i} d={d} i={i} />
         ))}

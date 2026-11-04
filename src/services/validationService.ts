@@ -24,6 +24,9 @@ export interface ValidationConfig {
     you: string;
     tavily: string;
   };
+  marketContext?: { country?: string; countryCode?: string; language?: string; opportunityType?: string };
+  researchSessionId?: string;
+  researchCandidateId?: string;
   imageGen: {
     baseUrl: string;
     apiKey: string;
@@ -36,13 +39,16 @@ export interface ValidationRequest {
   tags: string[];
   mode?: 'quick' | 'deep';
   resumeValidationId?: string;
+  researchSessionId?: string;
+  researchCandidateId?: string;
   config?: Partial<ValidationConfig>;
 }
 
 export interface ValidationResponse {
   success: boolean;
   validationId: string;
-  overallScore: number;
+  overallScore: number | null;
+  analysisStatus?: 'complete' | 'incomplete';
 }
 
 export interface Persona {

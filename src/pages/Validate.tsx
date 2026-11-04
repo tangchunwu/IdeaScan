@@ -40,7 +40,7 @@ const validationSteps: ValidationStep[] = [
   { id: 2, label: "抓取真实数据", description: "小红书/抖音 + 全网竞品情报...", icon: Globe, targetProgress: 45 },
   { id: 3, label: "数据清洗提炼", description: "Jina清洗 + 竞品提取 + 深度搜索...", icon: Microscope, targetProgress: 65 },
   { id: 4, label: "智能摘要", description: "分层摘要 + 洞察聚合...", icon: Sparkles, targetProgress: 78 },
-  { id: 5, label: "需求真伪分析", description: "AI 正在判断是否为伪需求...", icon: Brain, targetProgress: 88 },
+  { id: 5, label: "核对需求证据", description: "分析支持、反证与待验证假设...", icon: Brain, targetProgress: 88 },
   { id: 6, label: "生成验证报告", description: "正在生成需求验证报告...", icon: FileBarChart, targetProgress: 95 },
 ];
 
@@ -59,6 +59,8 @@ const Validate = () => {
   const [customTag, setCustomTag] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['xiaohongshu']);
+  const [marketCountry,setMarketCountry] = useState('');
+  const [marketLanguage,setMarketLanguage] = useState('');
   const [validationMode, setValidationMode] = useState<'quick' | 'deep'>('deep');
   const [showSettingsFromQuota, setShowSettingsFromQuota] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
@@ -90,6 +92,8 @@ const Validate = () => {
     if (intent.idea) setIdea(intent.idea);
     setSelectedTags(intent.tags);
     setSelectedPlatforms(params.has("platforms") ? intent.platforms : ["xiaohongshu"]);
+    setMarketCountry(intent.country);
+    setMarketLanguage(params.get('language') || '');
   }, [routeQuery]);
 
   // Save form to localStorage on change
@@ -239,7 +243,7 @@ const Validate = () => {
     }
     const ideaToValidate = (ideaOverride ?? idea).trim();
     if (!ideaToValidate) return;
-    if (selectedPlatforms.length === 0) {
+    if (selectedPlatforms.length === 0 && !searchParams.get('researchSessionId') && ![settings.bochaApiKey,settings.youApiKey,settings.tavilyApiKey].some(Boolean)) {
       skinToast.error("请至少选择一个数据平台");
       return;
     }
@@ -268,6 +272,9 @@ const Validate = () => {
       validationMode,
       selectedPlatforms,
       resumeValidationId: resumeIdForRun,
+      marketContext: marketCountry ? {country:marketCountry,...(marketLanguage ? {language:marketLanguage}: {}),opportunityType:searchParams.get('opportunityType') || undefined} : undefined,
+      researchSessionId:searchParams.get('researchSessionId') || undefined,
+      researchCandidateId:searchParams.get('researchCandidateId') || undefined,
     });
     autoStartConsumedRef.current = true;
   };
@@ -442,9 +449,13 @@ const Validate = () => {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="text-sm font-semibold text-foreground">选择数据平台</p>
-                    <p className="text-xs text-muted-foreground">所选平台会合并分析并共同参与评分</p>
+                    <p className="text-xs text-muted-foreground">按目标市场采集证据，分别查看支持、反证和未知</p>
                   </div>
                   <Badge variant="secondary" className="text-xs">{selectedPlatforms.length} 个平台</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <label className="text-sm">目标国家 / 地区<Input aria-label="验证目标国家" value={marketCountry} maxLength={80} disabled={stream.isValidating} placeholder="例如 Japan、United States" onChange={e=>setMarketCountry(e.target.value)} /></label>
+                  <label className="text-sm">研究语言<select aria-label="验证研究语言" className="mt-1 block w-full rounded-md border bg-background p-2" value={marketLanguage} disabled={stream.isValidating} onChange={e=>setMarketLanguage(e.target.value)}><option value="">按目标市场推荐</option><option value="en">英语</option><option value="zh">中文</option><option value="ja">日语</option><option value="ko">韩语</option><option value="es">西班牙语</option><option value="pt">葡萄牙语</option><option value="th">泰语</option><option value="fr">法语</option><option value="de">德语</option><option value="ar">阿拉伯语</option></select></label>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
@@ -466,7 +477,7 @@ const Validate = () => {
                     );
                   })}
                 </div>
-                {searchParams.get('source') === 'opportunity-radar' && selectedPlatforms.length === 0 && (
+                {searchParams.get('source') === 'opportunity-radar' && selectedPlatforms.length === 0 && !searchParams.get('researchSessionId') && (
                   <p role="status" className="mt-3 text-sm text-muted-foreground">该候选来自仅全网研究。验证评分还需要社媒样本，请先选择至少一个平台，再开始验证。</p>
                 )}
               </div>
@@ -576,12 +587,10 @@ const Validate = () => {
                     <CheckCircle2 className="w-10 h-10 text-green-500" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-foreground mb-2">验证完成！</h3>
-                    <div className="text-5xl font-bold text-primary mb-2">{stream.completionPreview.score}</div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">{stream.completionPreview.score == null ? '证据已保留，分析未完成' : '研究报告已生成'}</h3>
+                    {stream.completionPreview.score != null&&<div className="text-lg text-primary mb-2">研究参考分 {stream.completionPreview.score}</div>}
                     <p className="text-sm text-muted-foreground">
-                      {stream.completionPreview.score >= 80 ? "✅ 真实刚需 — 值得深入探索" :
-                        stream.completionPreview.score >= 60 ? "⚠️ 需求待验证 — 建议进一步调研" :
-                          "❌ 需求信号较弱 — 建议调整方向"}
+                      查看支持证据、反证和下一步实验；研究判断仍需真实用户行为验证。
                     </p>
                   </div>
                   <div className="flex items-center justify-center gap-3">

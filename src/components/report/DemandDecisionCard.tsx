@@ -1,38 +1,37 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/shared";
 import { ChevronDown, Quote } from "lucide-react";
 import { useSkinToast } from "@/hooks/useSkinToast";
+import { researchDecisionLabel } from './useReportData';
 
 interface DemandDecisionCardProps {
   validation: { id: string; overall_score: number | null };
-  score: number;
   xiaohongshuData: { totalNotes: number; totalEngagement: number };
-  sentimentAnalysis: { positive: number };
+  sentimentAnalysis: { positive: number | null };
   marketAnalysis: { competitionLevel?: string; targetAudience?: string };
-  aiAnalysis: { overallVerdict?: string; strengths?: string[] };
-  proofResult: { verdict: string; paidIntentRate: number; waitlistRate: number; sampleUv: number };
+  aiAnalysis: { overallVerdict?: string; strengths?: string[]; analysisStatus?: string; decision?: string; evidenceAssessment?: { support: Array<{ claim: string; evidenceIds: string[] }>; counter: Array<{ claim: string; evidenceIds: string[] }>; unknowns: string[]; nextExperiment: string } };
+  proofResult: { verdict: string; paidIntentRate: number | null; waitlistRate: number | null; sampleUv: number };
   costBreakdown: { estCost: number; llmCalls: number; externalApiCalls: number; crawlerCalls: number; promptTokens: number; completionTokens: number; latencyMs: number; crawlerLatencyMs: number };
   topEvidence: string[];
   evidenceSummary: string;
-  evidenceItems: Array<{ type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
+  evidenceItems: Array<{ id?: string; type: string; title: string; snippet?: string; url?: string; fullText?: string }>;
   platforms?: { name: string; count: number }[];
+  score?: number | null;
 }
 
 const useCountUp = (target: number, duration = 800) => {
   const [value, setValue] = useState(0);
-  const started = useRef(false);
   useEffect(() => {
-    if (started.current || target <= 0) return;
-    started.current = true;
+    let frame = 0;
     const start = performance.now();
+    setValue(0);
     const tick = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(eased * target));
-      if (progress < 1) requestAnimationFrame(tick);
+      const progress = Math.min((now - start) / duration, 1);
+      setValue(Math.round((1 - Math.pow(1 - progress, 3)) * target));
+      if (progress < 1) frame = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [target, duration]);
   return value;
 };
@@ -46,15 +45,14 @@ export const DemandDecisionCard = ({
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
   const animatedNotes = useCountUp(xiaohongshuData.totalNotes);
   const animatedEngagement = useCountUp(xiaohongshuData.totalEngagement);
-  const animatedPositive = useCountUp(sentimentAnalysis.positive);
+  const animatedPositive = useCountUp(sentimentAnalysis.positive ?? 0);
 
   const visibleEvidence = evidenceExpanded ? evidenceItems : evidenceItems.slice(0, 3);
 
-  // Verdict label only (no large score display)
-  const verdictLabel = score >= 90 ? "🔥 强烈刚需" : score >= 70 ? "✅ 真实需求" : score >= 40 ? "⚠️ 需求存疑" : "❌ 伪需求警告";
-  const verdictClass = score >= 70 ? "bg-green-500/10 text-green-500 border-green-500/20" :
-    score >= 40 ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
-      "bg-red-500/10 text-red-500 border-red-500/20";
+  const verdictLabel = researchDecisionLabel(aiAnalysis.analysisStatus, aiAnalysis.decision);
+  const verdictClass = aiAnalysis.analysisStatus === 'complete' && aiAnalysis.decision === 'test' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20';
+  const evidenceAssessment = aiAnalysis.evidenceAssessment;
+  const claim = (item: { claim: string; evidenceIds: string[] }, i: number) => <div key={i} className="mb-2"><p>{item.claim}</p><div className="mt-1 flex flex-wrap gap-2">{item.evidenceIds.map(id => <a key={id} className="text-xs text-primary underline" href={`#report-evidence-${encodeURIComponent(id)}`} onClick={() => setEvidenceExpanded(true)}>证据 {id}</a>)}</div></div>;
 
   return (
     <GlassCard className="mb-10 overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/80 to-card/40 animate-slide-up ring-1 ring-white/10">
@@ -66,7 +64,7 @@ export const DemandDecisionCard = ({
           <div className={`text-lg font-bold px-5 py-1.5 rounded-full border ${verdictClass}`}>
             {verdictLabel}
           </div>
-          <p className="text-sm text-muted-foreground">(基于 {xiaohongshuData.totalNotes} 条真实用户反馈)</p>
+          <p className="text-sm text-muted-foreground">已采集 {xiaohongshuData.totalNotes} 条去重帖子</p>
         </div>
 
         {/* Stats Row */}
@@ -74,12 +72,12 @@ export const DemandDecisionCard = ({
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30 border-l-[3px] border-l-primary">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">样本量</div>
             <div className="text-2xl font-semibold">{animatedNotes.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">条</span></div>
-            {xiaohongshuData.totalNotes < 100 && <div className="text-xs text-orange-500">建议 &gt;100</div>}
+            <div className="text-xs text-muted-foreground">样本数量不代表需求成立</div>
           </div>
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">数据源</div>
-            <div className="text-2xl font-semibold">{platforms?.length || 1} <span className="text-sm text-muted-foreground font-normal">个平台</span></div>
-            {(platforms?.length || 1) < 2 && <div className="text-xs text-orange-500">建议多平台</div>}
+            <div className="text-2xl font-semibold">{platforms?.filter(p => p.count > 0).length || 0} <span className="text-sm text-muted-foreground font-normal">个平台</span></div>
+            <div className="text-xs text-muted-foreground">仅计有样本的平台</div>
           </div>
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">互动热度</div>
@@ -88,7 +86,7 @@ export const DemandDecisionCard = ({
           <div className="space-y-1 p-4 rounded-xl bg-muted/30 border border-border/30">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">用户态度</div>
             <div className={`text-2xl font-semibold ${sentimentAnalysis.positive > 60 ? 'text-green-500' : 'text-foreground'}`}>
-              {animatedPositive}% <span className="text-sm text-muted-foreground font-normal">正向</span>
+            {sentimentAnalysis.positive === null ? '未知' : `${animatedPositive}%`} <span className="text-sm text-muted-foreground font-normal">正向</span>
             </div>
           </div>
         </div>
@@ -104,7 +102,7 @@ export const DemandDecisionCard = ({
             <Quote className="w-4 h-4 text-emerald-500/20 absolute top-2 right-2" />
             <div className="text-xs text-muted-foreground mb-1">商业可行性（付费意图）</div>
             <div className="text-sm font-medium">
-              {proofResult.verdict} · 付费意图 {Math.round(proofResult.paidIntentRate * 100)}% · Waitlist {Math.round(proofResult.waitlistRate * 100)}%
+              {proofResult.verdict}{proofResult.sampleUv > 0 && proofResult.paidIntentRate !== null ? ` · 付费意图 ${Math.round(proofResult.paidIntentRate * 100)}% · Waitlist ${Math.round((proofResult.waitlistRate || 0) * 100)}%` : ' · 尚未取得实验数据'}
             </div>
           </div>
         </div>
@@ -116,6 +114,14 @@ export const DemandDecisionCard = ({
             {evidenceSummary}
           </div>
         </div>
+
+        {evidenceAssessment && (evidenceAssessment.support.length > 0 || evidenceAssessment.counter.length > 0 || evidenceAssessment.unknowns.length > 0 || evidenceAssessment.nextExperiment) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm"><div className="mb-1 text-xs text-muted-foreground">支持证据</div>{evidenceAssessment.support.length ? evidenceAssessment.support.map(claim) : <p className="text-muted-foreground">尚未取得可追溯的支持证据</p>}</div>
+            <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-sm"><div className="mb-1 text-xs text-muted-foreground">反证与未知</div>{evidenceAssessment.counter.map(claim)}{evidenceAssessment.unknowns.map((item, i) => <p key={`u-${i}`} className="text-muted-foreground"><span>{item}</span></p>)}</div>
+            {evidenceAssessment.nextExperiment && <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm md:col-span-2"><span className="text-xs text-muted-foreground">下一步实验：</span> {evidenceAssessment.nextExperiment}</div>}
+          </div>
+        )}
 
         {/* Evidence Sources - collapsible */}
         <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
@@ -134,15 +140,15 @@ export const DemandDecisionCard = ({
           {visibleEvidence.length > 0 ? (
             <div className="space-y-2">
               {visibleEvidence.map((item, idx) => (
-                <div key={`${item.type}-${idx}`} className="text-sm flex items-start justify-between gap-3">
+                <div key={`${item.type}-${idx}`} id={item.id ? `report-evidence-${encodeURIComponent(item.id)}` : undefined} className="text-sm flex items-start justify-between gap-3 scroll-mt-24">
                   <div className="min-w-0">
                     <div className="font-medium truncate">
-                      [{item.type === "note" ? "笔记" : item.type === "comment" ? "评论" : "竞品"}] {item.title}
+                      [{item.type === "note" ? "帖子" : item.type === "comment" ? "评论" : item.type === 'research' ? '原文证据' : "网页"}] {item.title}
                     </div>
                     {item.snippet && <div className="text-xs text-muted-foreground truncate">{item.snippet}</div>}
                   </div>
                   {item.url ? (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline shrink-0">查看来源</a>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline shrink-0" aria-label={`${item.title} · 查看来源`}>查看来源</a>
                   ) : (
                     <div className="flex items-center gap-2 shrink-0">
                       <details className="text-xs">

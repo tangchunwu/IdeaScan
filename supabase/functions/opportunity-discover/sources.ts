@@ -1,5 +1,6 @@
-import type { OpportunityEvidence, OpportunityRequest } from '../_shared/opportunity-types.ts';
+import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest } from '../_shared/opportunity-types.ts';
 import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
+import { buildMarketQueries, resolveMarketContext, type ResearchQuery } from '../_shared/market-context.ts';
 import { MultiChannelOrchestrator } from '../_shared/channels/channel-registry.ts';
 import type { ChannelType, UnifiedPost } from '../_shared/channels/types.ts';
 
@@ -16,6 +17,7 @@ interface SourceCollection {
   postCount: number;
   commentCount: number;
   apiCalls: number;
+  queryPlan?: ResearchQuery[];
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -187,12 +189,12 @@ async function searchWeb(provider: SearchProvider, key: string, query: string, c
 }
 
 export async function collectOpportunitySources(request: OpportunityRequest, config: RadarSourceConfig): Promise<SourceCollection> {
-  const output: SourceCollection = { evidence: [], warnings: [], postCount: 0, commentCount: 0, apiCalls: 0 };
+  const output: SourceCollection = { evidence: [], warnings: [], postCount: 0, commentCount: 0, apiCalls: 0, queryPlan: [] };
   const warnings = new Set<string>();
-  const query = [request.country, request.industry, request.keyword].filter(value => value?.trim()).map(value => value!.trim()).join(' ');
-  const intent = /[\u3400-\u9fff]/.test(request.industry)
-    ? '手工 低效 替代' : 'manual workflow pain points alternatives';
-  const webQuery = `${query} ${intent}`;
+  const market = resolveMarketContext(request);
+  const subject = [request.industry, request.keyword].filter(value => value?.trim()).map(value => value!.trim()).join(' ');
+  const plan = buildMarketQueries(market, subject);
+  if (market.language !== 'zh' && /[\u3400-\u9fff]/.test(subject) && !/[ぁ-ゟ゠-ヿ]/.test(subject)) warnings.add('本地查询使用有限词表和意图模板，主题转换可能不完整；请核对实际查询并用当地语言补充场景关键词。');
   const quick = request.mode === 'quick';
   const postLimit = quick ? 5 : 10;
   const commentPostLimit = quick ? 3 : 5;
@@ -209,7 +211,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
       title: cleanedTitle || cleanedSnippet.slice(0, 180), snippet: cleanedSnippet,
       url, collectedAt, kind: 'fact' });
   };
-  if (!query) {
+  if (!subject && !request.opportunityType) {
     output.warnings.push('查询为空，未调用数据源。');
     return output;
   }
@@ -229,22 +231,31 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
       return false;
     });
     if (!channels.length) return;
-    try {
-      const result = await new MultiChannelOrchestrator().crawlMultipleChannels({
-        keyword: query,
-        channels: channels.map(type => ({ type, config: {
+    // 中文平台使用中文查询，其余平台使用目标市场语言；不强塞英文国家名。
+    const groups = [channels.filter(type => DOMESTIC.has(type)), channels.filter(type => !DOMESTIC.has(type))].filter(group => group.length);
+    await Promise.all(groups.map(async group => {
+      const groupMarket = DOMESTIC.has(group[0]) ? { ...market, language: 'zh' } : market;
+      const search = buildMarketQueries(groupMarket, subject)[0];
+      const socialQuery = search.query.slice(0, 120);
+      for (const platform of group) output.queryPlan!.push({ ...search, query: socialQuery, platform });
+      try {
+        const result = await new MultiChannelOrchestrator().crawlMultipleChannels({
+        keyword: socialQuery,
+        channels: group.map(type => ({ type, config: {
           auth_token: token, mode: request.mode,
+          countryCode: market.countryCode, language: groupMarket.language,
           // 国内适配器返回整页帖子，但 max_posts 控制评论帖数；海外适配器内置五帖评论上限。
           max_posts: DOMESTIC.has(type) ? commentPostLimit : (quick ? commentPostLimit : postLimit),
           max_comments_per_post: commentLimit,
         } })),
       });
       for (const channel of result.results) {
-        if (!channels.some(type => type === channel.channel)) continue;
+        if (!group.some(type => type === channel.channel)) continue;
         const calls = channel.metadata?.api_calls;
         if (typeof calls === 'number' && Number.isFinite(calls) && calls >= 0) output.apiCalls += Math.floor(calls);
         else warnings.add(`${channel.channel}: 调用统计不可用，未估算调用次数。`);
         if (!channel.success) warnings.add(`${channel.channel}: 社媒采集失败或不完整。`);
+        if (channel.metadata?.partial) warnings.add(`${channel.channel}: 评论或后续页采集不完整，已保留成功取得的原文；不能把缺失评论视为没有需求。`);
         const posts = channel.posts.slice(0, postLimit);
         output.postCount += posts.length;
         const urls = new Map<string, string>();
@@ -273,16 +284,18 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
           addEvidence(channel.channel, '用户评论', comment.content, url);
         }
       }
-    } catch {
-      warnings.add('社媒采集失败；未返回的调用统计不可用。');
-    }
+      } catch {
+        warnings.add('社媒采集失败；未返回的调用统计不可用。');
+      }
+    }));
   };
 
-  const collectWeb = async (provider: SearchProvider, key: string | undefined) => {
+  const collectWeb = async (provider: SearchProvider, key: string | undefined, search: ResearchQuery) => {
     if (!key?.trim()) return;
     output.apiCalls += 1;
+    output.queryPlan!.push({ ...search, platform: provider });
     try {
-      const items = await searchWeb(provider, key.trim(), webQuery, request.country, postLimit);
+      const items = await searchWeb(provider, key.trim(), search.query, market.countryCode, postLimit);
       for (const item of items) {
         const data = record(item);
         const url = safePublicHttpsUrl(data.url);
@@ -299,10 +312,45 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
     }
   };
 
-  await Promise.all([
-    collectSocial(), collectWeb('bocha', config.bochaApiKey),
-    collectWeb('you', config.youApiKey), collectWeb('tavily', config.tavilyApiKey),
-  ]);
+  const providers: Array<[SearchProvider, string]> = ([['bocha', config.bochaApiKey], ['you', config.youApiKey], ['tavily', config.tavilyApiKey]] as Array<[SearchProvider, string | undefined]>).filter((entry): entry is [SearchProvider, string] => !!entry[1]?.trim());
+  // 初筛每个供应商只请求一次，分别覆盖经历、付费与替代意图；深度复核另有严格预算。
+  await Promise.all([collectSocial(), ...providers.map(([provider, key], index) => collectWeb(provider, key, plan[index % plan.length]))]);
   output.warnings = [...warnings];
+  return output;
+}
+
+/** 深入模式只复核前两个候选，每个候选最多三项网页查询，不重复抓评论或跨端点重试。 */
+export async function collectOpportunityFollowUpSources(request: OpportunityRequest, config: RadarSourceConfig, candidates: OpportunityCandidate[]): Promise<SourceCollection> {
+  const output: SourceCollection = { evidence: [], warnings: [], postCount: 0, commentCount: 0, apiCalls: 0, queryPlan: [] };
+  if (request.mode !== 'deep') return output;
+  const providers: Array<[SearchProvider, string]> = ([['bocha', config.bochaApiKey], ['you', config.youApiKey], ['tavily', config.tavilyApiKey]] as Array<[SearchProvider, string | undefined]>).filter((entry): entry is [SearchProvider, string] => !!entry[1]?.trim());
+  if (!providers.length) {
+    output.warnings.push('未配置网页检索服务，无法执行价格、替代方案和反证复核。');
+    return output;
+  }
+  const market = resolveMarketContext(request);
+  const searches = candidates.slice(0, 2).flatMap(candidate => buildMarketQueries(market, candidate.localSearchTerms || candidate.title).filter(query => ['payment', 'alternative', 'counter'].includes(query.intent)));
+  const unique = [...new Map(searches.map(query => [query.query, query])).values()].slice(0, 6);
+  await Promise.all(unique.map(async (query, index) => {
+    const [provider, key] = providers[index % providers.length];
+    output.apiCalls += 1;
+    output.queryPlan!.push({ ...query, platform: provider });
+    try {
+      const results = await searchWeb(provider, key.trim(), query.query, market.countryCode, 3);
+      for (const item of results) {
+        const data = record(item);
+        const url = safePublicHttpsUrl(data.url);
+        if (!url) continue;
+        const snippets = Array.isArray(data.snippets) ? data.snippets : [];
+        const title = cleanText(data.title || data.name, 180);
+        const snippet = cleanText(data.snippet || data.description || data.content || data.summary || snippets[0], 1200);
+        if (!title && !snippet) continue;
+        output.evidence.push({ id: `followup-${output.evidence.length + 1}`, title: title || snippet.slice(0, 180), snippet, url,
+          platform: provider, collectedAt: new Date().toISOString(), kind: 'fact', language: market.language, signalType: query.intent });
+      }
+    } catch {
+      output.warnings.push(`${provider}: ${query.intent} 复核搜索失败或超时；未重试。`);
+    }
+  }));
   return output;
 }

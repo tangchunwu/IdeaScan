@@ -16,6 +16,14 @@ import type {
 } from './types.ts';
 
 export abstract class BaseChannelAdapter implements ChannelAdapter {
+  protected async readOptionalPage<T>(read: () => Promise<T>, previous: T, warnings: string[]): Promise<T> {
+    try { return await read(); }
+    catch { warnings.push('后续页采集失败，已保留首批帖子'); return previous; }
+  }
+  protected safeIsoDate(value: string | number): string | undefined {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
+  }
   abstract readonly channel: ChannelType;
   abstract readonly displayName: string;
   
@@ -80,21 +88,9 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
     const avgShares = Math.round(totalShares / posts.length);
     const avgCollects = Math.round(totalCollects / posts.length);
     
-    // Estimate total posts (sample * 100 as rough estimate)
-    const estimatedTotal = posts.length * 100;
-    const totalEngagement = estimatedTotal * (avgLikes + avgComments + avgShares + avgCollects);
-    
-    // Generate weekly trend
-    const baseValue = Math.round(estimatedTotal / 7);
-    const weeklyTrend = [
-      { name: '周一', value: Math.round(baseValue * 0.85) },
-      { name: '周二', value: Math.round(baseValue * 0.90) },
-      { name: '周三', value: Math.round(baseValue * 1.00) },
-      { name: '周四', value: Math.round(baseValue * 0.95) },
-      { name: '周五', value: Math.round(baseValue * 1.10) },
-      { name: '周六', value: Math.round(baseValue * 1.25) },
-      { name: '周日', value: Math.round(baseValue * 1.15) },
-    ];
+    const totalEngagement = totalLikes + totalComments + totalShares + totalCollects;
+    // 单次搜索的有限样本不能估算全市场总量或热度时间序列。
+    const weeklyTrend: { name: string; value: number }[] = [];
     
     // Calculate content type distribution
     const typeCounts: Record<string, number> = {};
@@ -118,7 +114,7 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
     }
     
     return {
-      total_posts: estimatedTotal,
+      total_posts: posts.length,
       avg_likes: avgLikes,
       avg_comments: avgComments,
       avg_shares: avgShares,

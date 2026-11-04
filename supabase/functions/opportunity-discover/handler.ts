@@ -23,7 +23,7 @@ export function parseRadarConfig(input: unknown): RadarRuntimeConfig {
 
 export function createOpportunityHandler(deps: {
   authenticate: (token: string) => Promise<string | null>;
-  research: (request: OpportunityRequest, config: RadarRuntimeConfig) => Promise<OpportunityResult>;
+  research: (request: OpportunityRequest, config: RadarRuntimeConfig, userId: string) => Promise<OpportunityResult>;
   now?: () => number;
 }) {
   const lastRuns = new Map<string, number>();
@@ -65,7 +65,7 @@ export function createOpportunityHandler(deps: {
       lastRuns.set(userId, time);
       activeUsers.add(userId);
       reserved = true;
-      return json(await deps.research(request, config));
+      return json(await deps.research(request, config, userId));
     } catch (error) {
       if (error instanceof RadarInputError) return json({ error: error.message }, 400);
       if (error instanceof RadarServiceError) return json({ error: error.message }, error.status);

@@ -65,22 +65,41 @@ function estimateChars(socialData: any, competitors: any[]): number {
   return notesChars + commentsChars + competitorChars;
 }
 
+function behaviorSignalScore(value: unknown): number {
+  const content = String(value || '');
+  // 仅用于上下文取样优先级，不把词命中当作需求或支付已经证实。
+  const concrete = /(?:\b(?:pay|paid|paying|every|weekly|monthly|manually|hours|minutes|spreadsheet|alternative|refund|cancel|wish|ritual|remind|check[ -]?in)\b|每次|每天|每周|每月|小时|花钱|付费|订阅|表格|手工|重复|纪念|许愿|报平安|立替|精算|面倒|毎日|毎月|支払|불편|매일|결제|구독)/i.test(content);
+  const promotional = /(?:visit our|our shop|use my code|limited offer|限时优惠|扫码购买|优惠券|推广链接)/i.test(content);
+  return (concrete ? 60 : 0) - (promotional ? 30 : 0);
+}
+
 function scoreNote(note: any): number {
-  const likes = Number(note?.liked_count || note?.digg_count || note?.likes || 0);
-  const comments = Number(note?.comments_count || note?.comment_count || 0);
-  const collects = Number(note?.collected_count || note?.collect_count || 0);
-  const textLen = String(note?.desc || note?.content || "").length;
-  const freshness = freshnessScore(
-    note?.scanned_at || note?.created_at || note?.publish_time || note?.create_time || note?.time
-  );
-  return likes + comments * 2 + collects * 1.5 + Math.min(40, textLen / 20) + freshness;
+  const likes = Math.max(0, Number(note?.liked_count || note?.digg_count || note?.likes || 0));
+  const text = `${note?.title || ''} ${note?.desc || note?.content || ''}`;
+  return behaviorSignalScore(text) + Math.min(10, Math.log2(likes + 1)) + Math.min(12, text.length / 60) + freshnessScore(note?.created_at || note?.publish_time || note?.create_time || note?.time);
 }
 
 function scoreComment(comment: any): number {
-  const likes = Number(comment?.like_count || comment?.digg_count || comment?.likes || 0);
-  const textLen = String(comment?.content || comment?.text || "").length;
-  const freshness = freshnessScore(comment?.created_at || comment?.create_time || comment?.time);
-  return likes * 2 + Math.min(30, textLen / 12) + freshness;
+  const likes = Math.max(0, Number(comment?.like_count || comment?.digg_count || comment?.likes || 0));
+  const text = String(comment?.content || comment?.text || '');
+  return behaviorSignalScore(text) + Math.min(10, Math.log2(likes + 1)) + Math.min(12, text.length / 60) + freshnessScore(comment?.created_at || comment?.create_time || comment?.time);
+}
+
+function selectDiverse(items: any[], limit: number, score: (item: any) => number): any[] {
+  const sorted = [...items].sort((a, b) => score(b) - score(a));
+  const selected: any[] = [];
+  const seenPlatforms = new Set<string>();
+  // 每个平台先保留一条高优先级原文，再填剩余预算，避免单一热门渠道挤占全部上下文。
+  for (const item of sorted) {
+    const platform = String(item?._platform || item?.platform || 'unknown');
+    if (!seenPlatforms.has(platform)) { selected.push(item); seenPlatforms.add(platform); }
+    if (selected.length >= limit) return selected;
+  }
+  for (const item of sorted) {
+    if (!selected.includes(item)) selected.push(item);
+    if (selected.length >= limit) break;
+  }
+  return selected;
 }
 
 function scoreCompetitor(c: any): number {
@@ -124,13 +143,9 @@ export function applyContextBudget(
     if (!dedupCompetitorMap.has(key)) dedupCompetitorMap.set(key, c);
   }
 
-  const budgetedNotes = Array.from(dedupNoteMap.values())
-    .sort((a, b) => scoreNote(b) - scoreNote(a))
-    .slice(0, maxNotes);
+  const budgetedNotes = selectDiverse(Array.from(dedupNoteMap.values()), maxNotes, scoreNote);
 
-  const budgetedComments = Array.from(dedupCommentMap.values())
-    .sort((a, b) => scoreComment(b) - scoreComment(a))
-    .slice(0, maxComments);
+  const budgetedComments = selectDiverse(Array.from(dedupCommentMap.values()), maxComments, scoreComment);
 
   const budgetedCompetitors = Array.from(dedupCompetitorMap.values())
     .sort((a, b) => scoreCompetitor(b) - scoreCompetitor(a))

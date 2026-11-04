@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ScoreCircle } from "@/components/shared";
+import { researchDecisionLabel } from "./useReportData";
 
 interface ScoreHeroCardProps {
-  score: number;
+  score: number | null;
+  analysisStatus?: string;
+  decision?: string;
   totalNotes: number;
   isIncomplete?: boolean;
   idea?: string;
@@ -12,37 +15,29 @@ interface ScoreHeroCardProps {
   sentiment?: { positive: number; negative: number };
 }
 
-const useCountUp = (target: number, duration = 1200) => {
+const useCountUp = (target: number, duration = 800) => {
   const [value, setValue] = useState(0);
-  const started = useRef(false);
-
   useEffect(() => {
-    if (started.current || target <= 0) return;
-    started.current = true;
+    let frame = 0;
     const start = performance.now();
+    setValue(0);
     const tick = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(eased * target));
-      if (progress < 1) requestAnimationFrame(tick);
+      const progress = Math.min((now - start) / duration, 1);
+      setValue(Math.round((1 - Math.pow(1 - progress, 3)) * target));
+      if (progress < 1) frame = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [target, duration]);
-
   return value;
-};
-
-const getScoreLabel = (score: number) => {
-  if (score >= 80) return { text: "✅ 真实刚需", cls: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20" };
-  if (score >= 60) return { text: "⚠️ 需求待验证", cls: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" };
-  return { text: "❌ 疑似伪需求", cls: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" };
 };
 
 const GENERIC_VERDICTS = ["已完成综合评估", "综合评估中", "待分析"];
 
 export const ScoreHeroCard = ({
   score,
+  analysisStatus,
+  decision,
   totalNotes,
   isIncomplete,
   idea,
@@ -50,8 +45,9 @@ export const ScoreHeroCard = ({
   strengths = [],
   weaknesses = [],
 }: ScoreHeroCardProps) => {
-  const animatedScore = useCountUp(score);
-  const label = getScoreLabel(score);
+  const hasScore = score !== null && Number.isFinite(score) && analysisStatus !== 'incomplete';
+  const animatedScore = useCountUp(hasScore ? score : 0);
+  const label = { text: researchDecisionLabel(analysisStatus, decision), cls: 'bg-primary/10 text-primary border-primary/20' };
 
   const displayIdea = idea && idea.length > 30 ? idea.slice(0, 30) + "…" : idea;
 
@@ -96,14 +92,14 @@ export const ScoreHeroCard = ({
       <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-10">
         {/* Left: Score Ring */}
         <div className="flex flex-col items-center shrink-0">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-3">需求真实度</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-3">研究参考分</span>
           <div className="relative group cursor-default transform hover:scale-105 transition-transform duration-500">
             {/* Outer glow ring */}
             <div className="absolute -inset-3 rounded-full opacity-30 blur-xl" style={{ background: `radial-gradient(circle, hsl(var(--primary) / 0.3), transparent)` }} />
-            <ScoreCircle score={animatedScore} customSize={120} strokeWidth={8} showText={false} />
+            {hasScore ? <ScoreCircle score={animatedScore} customSize={120} strokeWidth={8} showText={false} /> : <div className="h-[120px] w-[120px] rounded-full border-8 border-muted" />}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-5xl font-extrabold text-foreground tracking-tighter tabular-nums">{animatedScore}</span>
-              <span className="text-[10px] text-muted-foreground font-medium">/ 100</span>
+              <span className="text-5xl font-extrabold text-foreground tracking-tighter tabular-nums">{hasScore ? animatedScore : '—'}</span>
+              <span className="text-[10px] text-muted-foreground font-medium">{hasScore ? '/ 100' : '尚未评分'}</span>
             </div>
           </div>
           <div className={`mt-4 text-xs font-bold px-3 py-1 rounded-full border ${label.cls}`}>
@@ -118,11 +114,12 @@ export const ScoreHeroCard = ({
               {displayIdea}
             </h2>
           )}
+          {analysisStatus !== 'complete' && analysisStatus !== 'incomplete' && <p className="text-sm text-muted-foreground">本报告使用旧版研究口径，分数不能证明需求或付费成立。</p>}
           {summaryContent}
           {/* Bottom tags */}
           <div className="flex flex-wrap gap-2 justify-center md:justify-start pt-1">
             <span className="text-[10px] text-muted-foreground bg-muted/60 border border-border/50 rounded-full px-3 py-1">
-              📊 基于 {totalNotes} 条数据
+              📊 已采集 {totalNotes} 条帖子
             </span>
             {isIncomplete && (
               <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1">

@@ -14,6 +14,8 @@ import { discoverOpportunities, getOpportunityConfigIssues, OpportunityRadarErro
 import { getOpportunityValidationUrl } from '@/lib/validateRoute';
 import { RADAR_PLATFORMS, type OpportunityRequest, type OpportunityResult, type RadarPlatform } from '@/types/opportunity';
 import './OpportunityRadar.css';
+import { ResearchLibrary, ResearchOutcomeEditor } from '@/components/discover/ResearchLibrary';
+import { saveResearchSession, type ResearchOutcome } from '@/services/researchService';
 
 const platformNames: Record<RadarPlatform, string> = {
   xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads',
@@ -53,6 +55,10 @@ export default function OpportunityRadar() {
   const [error, setError] = useState('');
   const [needsLogin, setNeedsLogin] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sessionId,setSessionId]=useState<string|null>(null);
+  const [selectedCandidates,setSelectedCandidates]=useState<string[]>([]);
+  const [savingHandoff,setSavingHandoff]=useState(false);
+  const [outcomes,setOutcomes]=useState<Record<string,ResearchOutcome[]>>({});
   const authorized = !!userId && identity === userId && !authLoading;
   // 渲染时也核对归属，不能等 effect 清理后才隐藏旧账号数据。
   const result = authorized && stored?.ownerId === userId ? stored.result : null;
@@ -72,6 +78,7 @@ export default function OpportunityRadar() {
     setError('');
     setNeedsLogin(false);
     setSettingsOpen(false);
+    setSessionId(null);setSelectedCandidates([]);setSavingHandoff(false);setOutcomes({});
   }, [userId]);
 
   useEffect(() => {
@@ -91,6 +98,7 @@ export default function OpportunityRadar() {
       setError('');
       setNeedsLogin(false);
       setSettingsOpen(false);
+      setSessionId(null);setSelectedCandidates([]);setSavingHandoff(false);setOutcomes({});
     });
     return () => {
       generation.current += 1;
@@ -111,6 +119,7 @@ export default function OpportunityRadar() {
     activeController.current = controller;
     setLoading(true);
     setStored(null);
+    setSessionId(null);setSelectedCandidates([]);setSavingHandoff(false);setOutcomes({});
     setError('');
     setNotice('');
     setNeedsLogin(false);
@@ -140,6 +149,7 @@ export default function OpportunityRadar() {
     activeController.current?.abort();
     activeController.current = null;
     setLoading(false);
+    setSavingHandoff(false);
     setNotice('已取消等待。已发出的请求可能仍在服务端执行并产生费用，取消不保证停止计费。');
   }
 
@@ -155,6 +165,21 @@ export default function OpportunityRadar() {
       toast.success('已导出结果，不含 API 配置。');
     } catch { toast.error('导出失败，请稍后重试。'); }
     finally { if (url) URL.revokeObjectURL(url); }
+  }
+
+  async function enterValidation(candidate:OpportunityResult['candidates'][number]) {
+    if(!result || !userId || activeIdentity.current!==userId || savingHandoff)return;
+    const ownerId=userId;const current=generation.current;setSavingHandoff(true);
+    try {
+      const savedId=sessionId || await saveResearchSession(result,ownerId);
+      if(activeIdentity.current!==ownerId || generation.current!==current)return;
+      setSessionId(savedId);
+      const url=getOpportunityValidationUrl({title:candidate.title,problem:candidate.problem,targetUsers:candidate.targetUsers,country:result.request.country,industry:result.request.industry,platforms:result.request.platforms,opportunityType:result.request.opportunityType});
+      const params=new URLSearchParams(url.split('?')[1]);params.set('researchSessionId',savedId);params.set('researchCandidateId',candidate.id);
+      if(result.request.language)params.set('language',result.request.language);
+      navigate(`/validate?${params}`);
+    } catch {if(activeIdentity.current===ownerId&&generation.current===current)toast.error('保存未成功，证据尚未交接；请稍后重试或先导出结果。')}
+    finally {if(activeIdentity.current===ownerId&&generation.current===current)setSavingHandoff(false)}
   }
 
   return (
@@ -184,12 +209,20 @@ export default function OpportunityRadar() {
                     <p id="radar-country-help" className="text-xs text-muted-foreground">使用可读的英文国家名，可直接输入；国家条件不等于来源所在地已核实。</p>
                   </div>
                   <div className="space-y-2">
+                    <label htmlFor="radar-type" className="text-sm font-medium">想找哪类小应用</label>
+                    <select id="radar-type" value={form.opportunityType||''} onChange={e=>setForm({...form,opportunityType:(e.target.value||undefined) as OpportunityRequest['opportunityType']})} className="block w-full rounded-md border bg-background p-2">{[['','不限类型'],['reassurance','安心与被关心'],['ritual','情绪与仪式'],['festival','地域节日'],['hobby','兴趣与关系'],['daily','日常小麻烦'],['workflow','工作与效率']].map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="radar-language" className="text-sm font-medium">研究语言</label>
+                    <select id="radar-language" value={form.language||''} onChange={e=>setForm({...form,language:e.target.value||undefined})} className="block w-full rounded-md border bg-background p-2">{[['','按目标市场推荐'],['en','英语'],['ja','日语'],['ko','韩语'],['zh','中文'],['es','西班牙语'],['pt','葡萄牙语'],['th','泰语'],['fr','法语'],['de','德语'],['ar','阿拉伯语']].map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+                  </div>
+                  <div className="space-y-2">
                     <label htmlFor="radar-industry" className="text-sm font-medium">行业</label>
-                    <Input id="radar-industry" value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} required maxLength={100} placeholder="例如：宠物护理、跨境物流" />
+                    <Input id="radar-industry" value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} maxLength={100} placeholder="可选，例如：宠物护理、收藏" />
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="radar-keyword" className="text-sm font-medium">关键词 <span className="text-muted-foreground">（可选）</span></label>
-                    <Input id="radar-keyword" value={form.keyword ?? ''} onChange={e => setForm({ ...form, keyword: e.target.value })} maxLength={200} placeholder="进一步缩小问题或人群" />
+                    <Input id="radar-keyword" value={form.keyword ?? ''} onChange={e => setForm({ ...form, keyword: e.target.value })} maxLength={200} placeholder="例如：演唱会远征垫付、黑五错过退货期" />
                   </div>
                   <fieldset aria-describedby="radar-platform-help" className="min-w-0 space-y-2">
                     <legend className="mb-2 text-sm font-medium">社媒平台 <span className="text-muted-foreground">（多选）</span></legend>
@@ -218,8 +251,9 @@ export default function OpportunityRadar() {
                   <>
                     {!!configIssues.length && <div className="radar-note space-y-2"><p className="font-medium">API 配置提示（不影响提交）</p><ul className="list-disc space-y-1 pl-5">{configIssues.map(issue => <li key={issue}>{issue}</li>)}</ul><Button type="button" variant="outline" className="radar-touch" onClick={() => setSettingsOpen(true)}>前往设置</Button></div>}
                     {loading ? <Button type="button" variant="outline" className="radar-touch w-full" onClick={cancel}><X aria-hidden="true" />取消等待</Button>
-                      : <Button type="submit" className="radar-touch w-full"><Radar aria-hidden="true" />发现商机</Button>}
-                    <p className="text-xs leading-relaxed text-muted-foreground">仅本页内存保留结果，刷新或切换账号即清空。请求将把所需 API 密钥发送至发现服务用于调用上游，可能计费。</p>
+                      : <Button type="submit" className="radar-touch w-full"><Radar aria-hidden="true" />{form.parentResearchId?'继续补证据':'发现商机'}</Button>}
+                    {form.parentResearchId&&<Button type="button" variant="ghost" onClick={()=>setForm({...form,parentResearchId:undefined})}>以当前条件新建研究</Button>}
+                    <p className="text-xs leading-relaxed text-muted-foreground">未保存的结果在刷新后清空；保存后可继续研究。发现可能消耗已配置服务的额度。</p>
                   </>
                 )}
               </form>
@@ -228,6 +262,7 @@ export default function OpportunityRadar() {
 
           <section aria-labelledby="radar-results-title" aria-busy={authorized && loading} className="min-w-0 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="radar-results-title" className="text-xl font-semibold">{result ? '本次发现' : '发现工作台'}</h2>{result && <Button type="button" variant="outline" className="radar-touch" onClick={exportResult}><Download aria-hidden="true" />导出 JSON</Button>}</div>
+            {authorized&&userId&&<ResearchLibrary ownerId={userId} result={result} sessionId={sessionId} onSaved={setSessionId} onRestore={record=>{if(activeIdentity.current!==userId)return;generation.current++;activeController.current?.abort();activeController.current=null;setLoading(false);setStored({ownerId:userId,result:record.result});setForm({...record.result.request,mode:'deep',parentResearchId:record.id});setSessionId(record.id);setSelectedCandidates([]);setSavingHandoff(false);setOutcomes(record.outcomes);setNotice('已打开保存的研究；可比较候选，或用深入模式补充新证据。')}} />}
             <div role="status" aria-live="polite" aria-atomic="true" className="text-sm">{authorized && (loading ? '正在检索公开来源并分析证据，请稍候。没有实时进度可供显示。' : notice)}</div>
             {authorized && error && <div role="alert" className="radar-note border-destructive/50"><p>{error}</p>{needsLogin && <Link to={loginUrl} className="mt-2 inline-flex min-h-11 items-center underline">重新登录</Link>}</div>}
             {!result && !loading && <GlassCard className="space-y-5" padding="lg"><Globe2 aria-hidden="true" className="h-9 w-9 text-muted-foreground" /><h3 className="text-lg font-semibold">从一个具体市场开始</h3><p className="leading-relaxed text-muted-foreground">填写国家和行业后主动发起发现。证据不足时会如实返回空结果，不生成占位商机。</p><div className="radar-note flex items-start gap-2"><ShieldCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /><p>社媒讨论只是线索。候选商机均为假设，仍需访谈、报价和真实付费验证。</p></div></GlassCard>}
@@ -242,12 +277,20 @@ export default function OpportunityRadar() {
                 </GlassCard>
                 <div className="radar-note space-y-2"><p className="font-medium">阅读边界</p><p>以下商机均为待验证假设；紧迫度是分析判断，热度不代表付费意愿。国家 / 地区仅为检索条件，来源所在地尚未验证。</p></div>
                 {!!result.warnings.length && <aside aria-label="采集警告" className="radar-note"><h3 className="mb-2 font-semibold">采集警告</h3><ul className="list-disc space-y-2 pl-5">{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></aside>}
+                {!!result.queryPlan?.length&&<details className="radar-note"><summary>查看实际检索记录</summary><ul className="mt-3 space-y-2 text-sm">{result.queryPlan.map((query,index)=><li key={index}>[{query.language} · {query.intent}] {query.query}</li>)}</ul></details>}
+                {selectedCandidates.length>1&&<GlassCard><h3 className="mb-3 font-semibold">候选对照</h3><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">场景</th><th className="p-2">最小应用</th><th className="p-2">最大未知</th><th className="p-2">下一步</th></tr></thead><tbody>{result.candidates.filter(c=>selectedCandidates.includes(c.id)).map(c=><tr key={c.id}><td className="p-2">{c.title}</td><td className="p-2">{c.mvp||'待收敛'}</td><td className="p-2">{c.unknowns?.[0]||'尚需补充证据'}</td><td className="p-2">{c.experiment||c.recommendedNextStep}</td></tr>)}</tbody></table></div></GlassCard>}
                 {!result.candidates.length && <GlassCard><h3 className="mb-2 font-semibold">暂未发现证据充分的商机</h3><p className="text-sm text-muted-foreground">请先检查采集警告，再调整行业、关键词或平台。没有候选不代表市场不存在机会。</p></GlassCard>}
                 {result.candidates.map((candidate, index) => (
                   <article key={candidate.id || index} aria-labelledby={`radar-candidate-${index}`}>
                     <GlassCard className="space-y-4">
                       <div className="flex flex-wrap gap-2"><Badge variant="secondary">待验证假设</Badge><Badge variant="outline">紧迫度：{urgencyNames[candidate.urgency]}</Badge><Badge variant="outline">证据 {candidate.evidenceCount} 条</Badge></div>
                       <h3 id={`radar-candidate-${index}`} className="break-words text-xl font-semibold">{candidate.title}</h3>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" aria-label={`对比 ${candidate.title}`} checked={selectedCandidates.includes(candidate.id)} onChange={e=>setSelectedCandidates(ids=>e.target.checked?[...ids,candidate.id].slice(-3):ids.filter(id=>id!==candidate.id))}/>加入对比（最多三项）</label>
+                      <p className="text-sm font-medium">{{test:'值得小测',reframe:'需要调整',pause:'暂缓',insufficient:'证据不足'}[candidate.decision||'insufficient']}</p>
+                      {!!candidate.mvp&&<p className="text-sm"><strong>最小软件切口：</strong>{candidate.mvp}</p>}
+                      {([['最强支持',candidate.support],['反证与限制',candidate.counter]] as const).map(([label,claims])=>claims?.length?<div key={label}><h4 className="text-sm font-semibold">{label}</h4>{claims.map((claim,i)=><div key={i} className="mt-1 text-sm">{claim.claim}<ul className="pl-4 text-xs text-muted-foreground">{claim.evidenceIds.map(id=>{const e=candidate.evidence.find(item=>item.id===id);return e?<li key={id}>“{e.snippet.slice(0,180)}”</li>:null})}</ul></div>)}</div>:null)}
+                      {!!candidate.unknowns?.length&&<p className="text-sm"><strong>最大未知：</strong>{candidate.unknowns.join('；')}</p>}
+                      {!!candidate.experiment&&<p className="text-sm"><strong>最小验证动作：</strong>{candidate.experiment}</p>}
                       <dl className="space-y-3 text-sm leading-relaxed">{[
                         ['待解决问题', candidate.problem], ['目标用户', candidate.targetUsers], ['竞争线索', candidate.competitionHint], ['建议下一步', candidate.recommendedNextStep],
                       ].map(([label, value]) => <div key={label}><dt className="mb-1 font-semibold">{label}</dt><dd className="text-muted-foreground">{value || '未提供'}</dd></div>)}</dl>
@@ -256,11 +299,9 @@ export default function OpportunityRadar() {
                         const url = safeSourceUrl(evidence.url);
                         return <section key={`${evidence.id}-${i}`} className="radar-source"><h4 className="font-semibold">{evidence.title || '未提供标题'}</h4><p className="mt-1 text-xs text-muted-foreground">{platformNames[evidence.platform as RadarPlatform] || evidence.platform} · 采集时间：<CollectedTime value={evidence.collectedAt} /></p><p className="my-3 whitespace-pre-wrap text-sm leading-relaxed">{evidence.snippet || '未提供原文摘录'}</p>{url ? <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="radar-source-link">打开原文（新窗口）<span className="block break-all text-xs">{url}</span></a> : <p className="text-xs text-muted-foreground">未提供有效的 HTTPS 原文链接</p>}</section>;
                       })}</div></details>
-                      <Button type="button" variant="outline" className="radar-touch" onClick={() => {
-                        if (activeIdentity.current !== userId) return;
-                        navigate(getOpportunityValidationUrl({ title: candidate.title, problem: candidate.problem, targetUsers: candidate.targetUsers, country: result.request.country, industry: result.request.industry, platforms: result.request.platforms }));
-                      }}>进入验证<ArrowRight aria-hidden="true" /></Button>
-                      <p className="text-xs text-muted-foreground">{result.request.platforms.length ? '仅预填本次结果的条件；进入后需手动开始验证。' : '本候选来自全网检索。现有验证流程至少需要一个社媒平台，进入后请先补选平台，再手动开始验证。'}</p>
+                      <Button type="button" variant="outline" className="radar-touch" disabled={savingHandoff} onClick={()=>void enterValidation(candidate)}>进入验证<ArrowRight aria-hidden="true" /></Button>
+                      {sessionId&&userId&&<ResearchOutcomeEditor ownerId={userId} sessionId={sessionId} candidateId={candidate.id} initialOutcomes={outcomes[candidate.id]}/>}
+                      <p className="text-xs text-muted-foreground">保存并携带原文进入验证；进入后确认研究范围，再手动开始分析。</p>
                     </GlassCard>
                   </article>
                 ))}

@@ -1,262 +1,117 @@
-import { FullValidation } from "@/services/validationService";
+import type { FullValidation } from "@/services/validationService";
 
-const PLACEHOLDER_PATTERNS = [
-  "综合评估中",
-  "待分析",
-  "目标用户群体分析中",
-  "pending_experiment",
-  "未知",
-];
-
+const PLACEHOLDER_PATTERNS = ["综合评估中", "待分析", "目标用户群体分析中", "pending_experiment"];
+const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const rows = (value: unknown): Record<string, unknown>[] => Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
+const numberOrNull = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+const percentage = (value: unknown) => { const n = numberOrNull(value); return n !== null && n <= 100 ? n : null; };
+const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && !!v.trim()) : [];
 export const cleanDisplayText = (value: unknown, fallback: string) => {
-  const text = String(value ?? "").trim();
-  if (!text) return fallback;
-  if (PLACEHOLDER_PATTERNS.some((p) => text.includes(p))) return fallback;
-  return text;
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text && !PLACEHOLDER_PATTERNS.some(p => text.includes(p)) ? text : fallback;
+};
+const sourceUrl = (value: unknown): string | undefined => {
+  try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
 };
 
+export type AnalysisStatus = 'complete' | 'incomplete' | 'legacy';
+export type ResearchDecision = 'test' | 'reframe' | 'pause' | 'insufficient';
+export interface EvidenceClaim { claim: string; evidenceIds: string[] }
+export interface EvidenceAssessment { support: EvidenceClaim[]; counter: EvidenceClaim[]; unknowns: string[]; nextExperiment: string }
+export function researchDecisionLabel(status?: string, decision?: string): string {
+  if (status === 'incomplete') return '分析未完成';
+  if (status !== 'complete') return '旧版研究判断';
+  return ({ test: '值得小测', reframe: '需要调整', pause: '暂缓', insufficient: '证据不足' } as Record<string, string>)[decision || ''] || '证据不足';
+}
 export const mapProofVerdictLabel = (value: unknown) => {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw || raw === "pending_experiment") return "待实验验证";
-  if (raw === "pass") return "通过";
-  if (raw === "fail") return "未通过";
-  return String(value);
+  const raw = String(value || '').toLowerCase();
+  return ({ pending_experiment: '尚未实验', pass: '意图实验通过', fail: '意图实验未通过', insufficient_data: '实验样本不足', validated_paid_intent: '已观察到付费意图', promising_need: '存在初步意图信号', needs_iteration: '需要调整实验', weak_signal: '意图信号较弱' } as Record<string, string>)[raw] || (raw ? '实验状态待核实' : '尚未实验');
 };
-
-export type EvidenceItem = {
-  type: "note" | "comment" | "competitor";
-  title: string;
-  snippet: string;
-  fullText?: string;
-  url?: string;
-};
-
-const defaultDimensionReasons: Record<string, string> = {
-  "需求痛感": "基于用户反馈和市场调研的需求强度评估",
-  "PMF潜力": "产品与市场匹配度的综合分析",
-  "市场规模": "目标市场容量和增长趋势评估",
-  "差异化": "与竞品的差异化程度分析",
-  "可行性": "技术和商业实现的可行性评估",
-  "盈利能力": "商业模式和盈利潜力分析",
-  "护城河": "竞争优势和可持续性分析",
-  "商业模式": "商业模式的可行性和盈利评估",
-  "技术可行性": "技术实现难度和资源需求",
-  "创新程度": "创新性和市场差异化程度"
-};
-
-export function useReportData(data: FullValidation | null | undefined) {
-  if (!data?.validation || !data?.report) return null;
-
-  const { validation, report } = data;
-  const dataSummaryRaw = (report?.data_summary ?? {}) as Record<string, any>;
-  const overseasSocialData = dataSummaryRaw.overseasSocialData || null;
-
-  const marketAnalysisRaw = (report?.market_analysis ?? {}) as Record<string, unknown>;
-  const marketAnalysis = {
-    targetAudience: cleanDisplayText(marketAnalysisRaw.targetAudience, "目标用户已根据评论样本自动归纳"),
-    marketSize: cleanDisplayText(marketAnalysisRaw.marketSize, "中等规模（待更多样本补充）"),
-    competitionLevel: cleanDisplayText(marketAnalysisRaw.competitionLevel, "竞争程度中等"),
-    trendDirection: cleanDisplayText(marketAnalysisRaw.trendDirection, "趋势平稳"),
-    keywords: Array.isArray(marketAnalysisRaw.keywords) ? marketAnalysisRaw.keywords : [],
-  };
-
-  const xiaohongshuDataRaw = (report?.xiaohongshu_data ?? {}) as Record<string, unknown>;
-  const xhsTotalNotes = (xiaohongshuDataRaw.totalNotes as number) ?? 0;
-  const xhsAvgLikes = (xiaohongshuDataRaw.avgLikes as number) ?? 0;
-  const xhsAvgComments = (xiaohongshuDataRaw.avgComments as number) ?? 0;
-  const xhsAvgCollects = (xiaohongshuDataRaw.avgCollects as number) ?? 0;
-
-  const xiaohongshuData = {
-    totalNotes: xhsTotalNotes,
-    avgLikes: xhsAvgLikes,
-    avgComments: xhsAvgComments,
-    avgCollects: xhsAvgCollects,
-    totalEngagement: (xiaohongshuDataRaw.totalEngagement as number) ??
-      (xhsTotalNotes * (xhsAvgLikes + xhsAvgComments + xhsAvgCollects)),
-    weeklyTrend: Array.isArray(xiaohongshuDataRaw.weeklyTrend) && xiaohongshuDataRaw.weeklyTrend.length > 0
-      ? xiaohongshuDataRaw.weeklyTrend
-      : [
-        { name: "周一", value: Math.round(xhsTotalNotes * 0.12) || 85 },
-        { name: "周二", value: Math.round(xhsTotalNotes * 0.13) || 92 },
-        { name: "周三", value: Math.round(xhsTotalNotes * 0.14) || 100 },
-        { name: "周四", value: Math.round(xhsTotalNotes * 0.14) || 95 },
-        { name: "周五", value: Math.round(xhsTotalNotes * 0.16) || 110 },
-        { name: "周六", value: Math.round(xhsTotalNotes * 0.17) || 125 },
-        { name: "周日", value: Math.round(xhsTotalNotes * 0.14) || 115 },
-      ],
-    contentTypes: Array.isArray(xiaohongshuDataRaw.contentTypes) && xiaohongshuDataRaw.contentTypes.length > 0
-      ? xiaohongshuDataRaw.contentTypes
-      : [
-        { name: "图文分享", value: 65 },
-        { name: "视频分享", value: 20 },
-        { name: "探店分享", value: 10 },
-        { name: "产品测评", value: 5 },
-      ],
-    sampleNotes: Array.isArray(xiaohongshuDataRaw.sampleNotes) ? xiaohongshuDataRaw.sampleNotes : [],
-    sampleComments: Array.isArray(xiaohongshuDataRaw.sampleComments) ? xiaohongshuDataRaw.sampleComments : [],
-  };
-
-  const sentimentAnalysisRaw = (report?.sentiment_analysis ?? {}) as Record<string, unknown>;
-  const sentimentAnalysis = {
-    positive: (sentimentAnalysisRaw.positive as number) || 33,
-    neutral: (sentimentAnalysisRaw.neutral as number) || 34,
-    negative: (sentimentAnalysisRaw.negative as number) || 33,
-    topPositive: Array.isArray(sentimentAnalysisRaw.topPositive) ? sentimentAnalysisRaw.topPositive : [],
-    topNegative: Array.isArray(sentimentAnalysisRaw.topNegative) ? sentimentAnalysisRaw.topNegative : [],
-  };
-
-  const aiAnalysisRaw = (report?.ai_analysis ?? {}) as Record<string, unknown>;
-  const aiAnalysis = {
-    feasibilityScore: (aiAnalysisRaw.feasibilityScore as number) ?? 0,
-    strengths: Array.isArray(aiAnalysisRaw.strengths) ? aiAnalysisRaw.strengths : [],
-    weaknesses: Array.isArray(aiAnalysisRaw.weaknesses) ? aiAnalysisRaw.weaknesses : [],
-    suggestions: Array.isArray(aiAnalysisRaw.suggestions) ? aiAnalysisRaw.suggestions : [],
-    risks: Array.isArray(aiAnalysisRaw.risks) ? aiAnalysisRaw.risks : [],
-    monetizationStrategies: Array.isArray(aiAnalysisRaw.monetizationStrategies) ? aiAnalysisRaw.monetizationStrategies : [],
-    brandNames: Array.isArray(aiAnalysisRaw.brandNames) ? aiAnalysisRaw.brandNames : [],
-    overallVerdict: cleanDisplayText(aiAnalysisRaw.overallVerdict, "已完成综合评估"),
-  };
-
-  const evidenceGrade = (["A", "B", "C", "D"].includes(String(report?.evidence_grade))
-    ? String(report?.evidence_grade)
-    : "C") as "A" | "B" | "C" | "D";
-  
-  const proofResultRaw = (report?.proof_result ?? {}) as Record<string, unknown>;
-  const proofResult = {
-    paidIntentRate: Number(proofResultRaw.paid_intent_rate || 0),
-    waitlistRate: Number(proofResultRaw.waitlist_rate || 0),
-    sampleUv: Number(proofResultRaw.sample_uv || 0),
-    verdict: mapProofVerdictLabel(proofResultRaw.verdict),
-  };
-
-  const costBreakdownRaw = (report?.cost_breakdown ?? {}) as Record<string, unknown>;
-  const costBreakdown = {
-    llmCalls: Number(costBreakdownRaw.llm_calls || 0),
-    promptTokens: Number(costBreakdownRaw.prompt_tokens || 0),
-    completionTokens: Number(costBreakdownRaw.completion_tokens || 0),
-    externalApiCalls: Number(costBreakdownRaw.external_api_calls || 0),
-    estCost: Number(costBreakdownRaw.est_cost || 0),
-    latencyMs: Number(costBreakdownRaw.latency_ms || 0),
-    crawlerCalls: Number(costBreakdownRaw.crawler_calls || 0),
-    crawlerLatencyMs: Number(costBreakdownRaw.crawler_latency_ms || 0),
-  };
-
-  const rawDimensions = Array.isArray(report?.dimensions) ? report.dimensions : [];
-  const dimensions = rawDimensions.length > 0
-    ? rawDimensions.map((d: any) => ({
-      dimension: d.dimension || "未知维度",
-      score: typeof d.score === 'number' ? d.score : 50,
-      reason: (d.reason && d.reason !== "待AI分析" && d.reason.length > 5)
-        ? d.reason
-        : (defaultDimensionReasons[d.dimension] || `基于市场数据对${d.dimension || "该维度"}的综合评估`)
-    }))
-    : Object.keys(defaultDimensionReasons).slice(0, 6).map(dim => ({
-      dimension: dim,
-      score: 50,
-      reason: defaultDimensionReasons[dim]
-    }));
-
-  const radarData = dimensions.map((d: any) => ({
-    subject: d.dimension || "未知",
-    A: typeof d.score === 'number' ? d.score : 50,
-    fullMark: 100,
-  }));
-
-  const rawPersona = report?.persona as unknown as Record<string, unknown> | null;
-  const personaData = rawPersona && rawPersona.name ? {
-    name: String(rawPersona.name || "目标用户"),
-    role: String(rawPersona.role || "潜在用户"),
-    age: String(rawPersona.age || "25-45岁"),
-    income: String(rawPersona.income || "中等收入"),
-    painPoints: Array.isArray(rawPersona.painPoints) && rawPersona.painPoints.length > 0
-      ? (rawPersona.painPoints as string[])
-      : ["需要更高效的解决方案", "现有选择无法满足需求"],
-    goals: Array.isArray(rawPersona.goals) && rawPersona.goals.length > 0
-      ? (rawPersona.goals as string[])
-      : ["找到更好的产品体验", "提升生活/工作效率"],
-    techSavviness: Number(rawPersona.techSavviness) || 65,
-    spendingCapacity: Number(rawPersona.spendingCapacity) || 60,
-    description: String(rawPersona.description || `对"${validation?.idea?.slice(0, 30) || '该产品'}..."感兴趣的用户群体`),
-    avatarUrl: rawPersona.avatarUrl ? String(rawPersona.avatarUrl) : undefined,
-  } : null;
-
-  const competitorRows = Array.isArray(report?.competitor_data) ? (report.competitor_data as any[]) : [];
-  
-  const evidenceItems: EvidenceItem[] = [
-    ...xiaohongshuData.sampleNotes.slice(0, 4).map((n: any) => ({
-      type: "note" as const,
-      title: cleanDisplayText(n?.title, "样本笔记"),
-      snippet: cleanDisplayText(n?.desc, "").slice(0, 90),
-      fullText: cleanDisplayText(n?.desc, ""),
-      url: typeof n?.url === "string" ? n.url : undefined,
-    })),
-    ...xiaohongshuData.sampleComments.slice(0, 4).map((c: any) => ({
-      type: "comment" as const,
-      title: `评论 · ${cleanDisplayText(c?.user_nickname, "匿名用户")}`,
-      snippet: cleanDisplayText(c?.content, "").slice(0, 90),
-      fullText: cleanDisplayText(c?.content, ""),
-      url: typeof c?.url === "string" ? c.url : undefined,
-    })),
-    ...competitorRows.slice(0, 4).map((c: any) => ({
-      type: "competitor" as const,
-      title: cleanDisplayText(c?.title, "竞品页面"),
-      snippet: cleanDisplayText(c?.snippet, "").slice(0, 90),
-      fullText: cleanDisplayText(c?.snippet, ""),
-      url: typeof c?.url === "string" ? c.url : undefined,
-    })),
-  ].filter((e) => !!e.title);
-
-  const topEvidence = [
-    ...xiaohongshuData.sampleNotes.slice(0, 2)
-      .map((n: any) => cleanDisplayText(n?.title, "").replace(/^\[[^\]]+\]\s*/, ""))
-      .filter(Boolean).map((t: string) => `笔记: ${t}`),
-    ...xiaohongshuData.sampleComments.slice(0, 2)
-      .map((c: any) => cleanDisplayText(c?.content, ""))
-      .filter(Boolean).map((t: string) => `评论: ${t.slice(0, 42)}${t.length > 42 ? "..." : ""}`),
-    ...competitorRows.slice(0, 2)
-      .map((c: any) => cleanDisplayText(c?.title, ""))
-      .filter(Boolean).map((t: string) => `竞品: ${t}`),
-  ].slice(0, 4);
-
-  // Build a synthesized evidence summary instead of raw title concatenation
-  const verdictText = aiAnalysis.overallVerdict;
-  const isGenericVerdict = !verdictText || verdictText === "已完成综合评估" || PLACEHOLDER_PATTERNS.some(p => verdictText.includes(p));
-  
-  const summaryParts: string[] = [];
-  if (!isGenericVerdict) {
-    summaryParts.push(verdictText);
+export type EvidenceItem = { id?: string; type: 'note' | 'comment' | 'competitor' | 'research'; title: string; snippet: string; fullText?: string; url?: string };
+const platformLabels: Record<string, string> = { xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads' };
+function uniqueSamples(items: Record<string, unknown>[], comment = false) {
+  const result = new Map<string, Record<string, unknown>>();
+  for (const item of items) {
+    const id = String(comment ? item.comment_id || item.id || item.content || '' : item.note_id || item.id || `${item.title || ''}|${item.desc || ''}`);
+    if (!id || id === '|') continue;
+    const platform = item._platform || item.platform || 'unknown';
+    const key = `${platform}:${id}`;
+    if (!result.has(key)) result.set(key, item);
   }
-  const dataPoint = `基于${xiaohongshuData.totalNotes}条真实用户反馈，${sentimentAnalysis.positive}%用户持正向态度`;
-  summaryParts.push(dataPoint);
-  if (aiAnalysis.strengths.length > 0) {
-    summaryParts.push(`核心优势：${aiAnalysis.strengths.slice(0, 2).join("、")}`);
-  }
-  if (aiAnalysis.weaknesses.length > 0) {
-    summaryParts.push(`潜在风险：${aiAnalysis.weaknesses.slice(0, 1).join("、")}`);
-  }
-  const evidenceSummary = summaryParts.length > 0
-    ? summaryParts.join("。") + "。"
-    : "当前样本不足，建议增加关键词并重跑验证";
-
-  return {
-    validation,
-    report,
-    marketAnalysis,
-    xiaohongshuData,
-    sentimentAnalysis,
-    aiAnalysis,
-    evidenceGrade,
-    proofResult,
-    costBreakdown,
-    dimensions,
-    radarData,
-    personaData,
-    competitorRows,
-    evidenceItems,
-    topEvidence,
-    evidenceSummary,
-    overseasSocialData,
-  };
+  return [...result.values()];
 }
 
+export function deriveReportData(data: FullValidation | null | undefined) {
+  if (!data?.validation || !data?.report) return null;
+  const { validation, report } = data;
+  const dataSummaryRaw = record(report.data_summary);
+  const overseasSocialData = dataSummaryRaw.overseasSocialData || null;
+  const rawSocial = record(report.xiaohongshu_data);
+  const sampleNotes = uniqueSamples(rows(rawSocial.sampleNotes));
+  const sampleComments = uniqueSamples(rows(rawSocial.sampleComments), true);
+  const totalNotes = sampleNotes.length;
+  const sum = (field: string) => sampleNotes.reduce((total, item) => total + (numberOrNull(item[field]) ?? 0), 0);
+  const avg = (field: string) => totalNotes ? Math.round(sum(field) / totalNotes) : 0;
+  const counts = new Map<string, number>();
+  sampleNotes.forEach(note => { const p = String(note._platform || note.platform || 'unknown'); counts.set(p, (counts.get(p) || 0) + 1); });
+  const platforms = [...counts].map(([platform, count]) => ({ name: platformLabels[platform] || '来源未标注', count }));
+  const measuredTrend = rows(rawSocial.weeklyTrend).filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && numberOrNull(item.value) !== null);
+  const typeCounts = new Map<string, number>();
+  sampleNotes.forEach(note => { if (typeof note.type === 'string' && ['text', 'image', 'video', 'mixed'].includes(note.type)) typeCounts.set(note.type, (typeCounts.get(note.type) || 0) + 1); });
+  const xiaohongshuData = {
+    totalNotes, estimatedTotalNotes: numberOrNull(rawSocial.totalNotes), avgLikes: avg('liked_count'), avgComments: avg('comments_count'), avgCollects: avg('collected_count'),
+    totalEngagement: sum('liked_count') + sum('comments_count') + sum('collected_count') + sum('shared_count'),
+    weeklyTrend: measuredTrend,
+    contentTypes: [...typeCounts].map(([name, count]) => ({ name: ({ text: '文字', image: '图文', video: '视频', mixed: '混合' } as Record<string, string>)[name], value: Math.round(count / totalNotes * 100) })),
+    sampleNotes, sampleComments,
+  };
+  const marketRaw = record(report.market_analysis);
+  const marketAnalysis = {
+    targetAudience: cleanDisplayText(marketRaw.targetAudience, '目标用户尚未确认'), marketSize: cleanDisplayText(marketRaw.marketSize, '尚未取得市场规模证据'),
+    competitionLevel: cleanDisplayText(marketRaw.competitionLevel, '竞争情况尚未确认'), trendDirection: cleanDisplayText(marketRaw.trendDirection, '趋势尚未确认'), keywords: strings(marketRaw.keywords),
+  };
+  const aiRaw = record(report.ai_analysis);
+  const rawStatus = aiRaw.analysisStatus || dataSummaryRaw.analysisStatus;
+  const analysisStatus: AnalysisStatus = rawStatus === 'complete' || rawStatus === 'incomplete' ? rawStatus : 'legacy';
+  const proposedDecision: ResearchDecision = typeof aiRaw.decision === 'string' && ['test', 'reframe', 'pause', 'insufficient'].includes(aiRaw.decision) ? aiRaw.decision as ResearchDecision : 'insufficient';
+  const sentimentRaw = record(report.sentiment_analysis);
+  const sentimentAnalysis = { positive: analysisStatus === 'incomplete' ? null : percentage(sentimentRaw.positive), neutral: analysisStatus === 'incomplete' ? null : percentage(sentimentRaw.neutral), negative: analysisStatus === 'incomplete' ? null : percentage(sentimentRaw.negative), topPositive: strings(sentimentRaw.topPositive), topNegative: strings(sentimentRaw.topNegative) };
+  const rawEvidence = [...rows(dataSummaryRaw.validationEvidence), ...rows(dataSummaryRaw.researchEvidence)];
+  const validationEvidence = [...new Map(rawEvidence.filter(e => typeof e.id === 'string').map(e => [e.id, { ...e, id: String(e.id), title: cleanDisplayText(e.title, '原文证据'), snippet: cleanDisplayText(e.snippet, ''), url: sourceUrl(e.url) }])).values()];
+  const evidenceIds = new Set(validationEvidence.map(e => e.id));
+  const assessmentRaw = record(aiRaw.evidenceAssessment);
+  const claims = (value: unknown): EvidenceClaim[] => rows(value).map(item => ({ claim: cleanDisplayText(item.claim, ''), evidenceIds: strings(item.evidenceIds).filter(id => evidenceIds.has(id)) })).filter(item => item.claim && item.evidenceIds.length > 0);
+  const evidenceAssessment: EvidenceAssessment = { support: claims(assessmentRaw.support), counter: claims(assessmentRaw.counter), unknowns: strings(assessmentRaw.unknowns), nextExperiment: cleanDisplayText(assessmentRaw.nextExperiment, '') };
+  const decision: ResearchDecision = proposedDecision === 'test' && !evidenceAssessment.support.length ? 'insufficient' : proposedDecision;
+  const aiAnalysis = {
+    analysisStatus, decision, evidenceAssessment,
+    feasibilityScore: analysisStatus === 'incomplete' || analysisStatus === 'complete' && decision === 'insufficient' ? null : percentage(aiRaw.feasibilityScore),
+    strengths: strings(aiRaw.strengths), weaknesses: strings(aiRaw.weaknesses), risks: strings(aiRaw.risks),
+    suggestions: Array.isArray(aiRaw.suggestions) ? aiRaw.suggestions : [],
+    monetizationStrategies: Array.isArray(aiRaw.monetizationStrategies) ? aiRaw.monetizationStrategies : [], brandNames: Array.isArray(aiRaw.brandNames) ? aiRaw.brandNames : [],
+    overallVerdict: cleanDisplayText(aiRaw.overallVerdict, analysisStatus === 'incomplete' ? '分析尚未完成，已保留采集证据。' : '目前尚无可追溯的完整研究结论。'),
+  };
+  const evidenceGrade = ['A', 'B', 'C', 'D'].includes(String(report.evidence_grade)) ? String(report.evidence_grade) : '未评定';
+  const proofRaw = record(report.proof_result);
+  const sampleUv = numberOrNull(proofRaw.sample_uv) ?? 0;
+  const proofResult = { paidIntentRate: sampleUv > 0 ? numberOrNull(proofRaw.paid_intent_rate) : null, waitlistRate: sampleUv > 0 ? numberOrNull(proofRaw.waitlist_rate) : null, sampleUv, verdict: sampleUv > 0 ? mapProofVerdictLabel(proofRaw.verdict) : '尚未实验' };
+  const costRaw = record(report.cost_breakdown);
+  const costBreakdown = { llmCalls: Number(costRaw.llm_calls || 0), promptTokens: Number(costRaw.prompt_tokens || 0), completionTokens: Number(costRaw.completion_tokens || 0), externalApiCalls: Number(costRaw.external_api_calls || 0), estCost: Number(costRaw.est_cost || 0), latencyMs: Number(costRaw.latency_ms || 0), crawlerCalls: Number(costRaw.crawler_calls || 0), crawlerLatencyMs: Number(costRaw.crawler_latency_ms || 0) };
+  const dimensions = (analysisStatus === 'incomplete' ? [] : rows(report.dimensions)).filter(d => percentage(d.score) !== null && typeof d.dimension === 'string').map(d => ({ dimension: d.dimension as string, score: d.score as number, reason: cleanDisplayText(d.reason, '未提供该维度的证据说明') }));
+  const radarData = dimensions.map(d => ({ subject: d.dimension, A: d.score, fullMark: 100 }));
+  const rawPersona = record(report.persona);
+  const personaData = rawPersona.name ? { name: String(rawPersona.name), role: String(rawPersona.role || '身份待确认'), age: String(rawPersona.age || '年龄待确认'), income: String(rawPersona.income || '收入待确认'), painPoints: strings(rawPersona.painPoints), goals: strings(rawPersona.goals), techSavviness: numberOrNull(rawPersona.techSavviness), spendingCapacity: numberOrNull(rawPersona.spendingCapacity), description: String(rawPersona.description || '画像仍需用户研究核实'), avatarUrl: sourceUrl(rawPersona.avatarUrl) } : null;
+  const competitorRows = rows(report.competitor_data);
+  const evidenceItems: EvidenceItem[] = [
+    ...validationEvidence.map(e => ({ id: e.id, type: 'research' as const, title: e.title, snippet: e.snippet, fullText: e.snippet, url: e.url })),
+    ...sampleNotes.slice(0, 4).map(n => ({ type: 'note' as const, title: cleanDisplayText(n.title, '样本帖子'), snippet: cleanDisplayText(n.desc, '').slice(0, 90), fullText: cleanDisplayText(n.desc, ''), url: sourceUrl(n.url) })),
+    ...sampleComments.slice(0, 4).map(c => ({ type: 'comment' as const, title: `评论 · ${cleanDisplayText(c.user_nickname, '匿名用户')}`, snippet: cleanDisplayText(c.content, '').slice(0, 90), fullText: cleanDisplayText(c.content, ''), url: sourceUrl(c.url) })),
+    ...competitorRows.slice(0, 4).map(c => ({ type: 'competitor' as const, title: cleanDisplayText(c.title, '竞品页面'), snippet: cleanDisplayText(c.snippet, '').slice(0, 90), fullText: cleanDisplayText(c.snippet, ''), url: sourceUrl(c.url) })),
+  ];
+  const topEvidence = evidenceItems.slice(0, 4).map(e => e.snippet || e.title);
+  const evidenceSummary = `本报告可查看 ${totalNotes} 条去重帖子、${sampleComments.length} 条评论和 ${competitorRows.length} 条网页记录。${analysisStatus === 'incomplete' ? '分析未完成，尚不具备需求判断。' : '公开讨论提供研究线索，仍需用户行为与付款验证。'}`;
+  return { validation, report, marketAnalysis, xiaohongshuData, sentimentAnalysis, aiAnalysis, evidenceGrade, proofResult, costBreakdown, dimensions, radarData, personaData, competitorRows, evidenceItems, topEvidence, evidenceSummary, overseasSocialData, platforms, validationEvidence };
+}
+// 保留原调用名；数据规范化本身不依赖 React 生命周期，可独立验证。
+export const useReportData = deriveReportData;
 export type ReportDataResult = NonNullable<ReturnType<typeof useReportData>>;

@@ -50,7 +50,7 @@ describe("opportunity validation context", () => {
     render(<Validate />);
     act(() => vi.advanceTimersByTime(1000));
     expect(state.startValidation).not.toHaveBeenCalled();
-    const idea = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
+    const idea = (screen.getByPlaceholderText(/例如：我想开一家猫咪主题咖啡店/) as HTMLTextAreaElement).value;
     for (const value of [input.title, input.problem, input.targetUsers, input.country, input.industry]) {
       expect(idea).toContain(value);
     }

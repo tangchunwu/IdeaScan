@@ -8,9 +8,11 @@ const mocks = vi.hoisted(() => ({
   auth: { user: { id: 'account-a' } as { id: string } | null, isLoading: false },
   settings: {} as Record<string, string>,
   getSession: vi.fn(), getUser: vi.fn(), fetch: vi.fn(),
+  saveResearch:vi.fn(),listResearch:vi.fn(),recordOutcome:vi.fn(),
   listeners: new Set<(event: string, session: { user: { id: string } } | null) => void>(),
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
+vi.mock('@/services/researchService',()=>({saveResearchSession:mocks.saveResearch,listResearchSessions:mocks.listResearch,recordResearchOutcome:mocks.recordOutcome}));
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {
   getSession: mocks.getSession, getUser: mocks.getUser,
@@ -84,6 +86,9 @@ beforeEach(() => {
   mocks.getSession.mockReset().mockResolvedValue({ data: { session: { access_token: 'session-token', user: { id: 'account-a' } } }, error: null });
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: 'account-a' } }, error: null });
   mocks.fetch.mockReset().mockResolvedValue(response(fixture()));
+  mocks.saveResearch.mockReset().mockResolvedValue('11111111-1111-4111-8111-111111111111');
+  mocks.listResearch.mockReset().mockResolvedValue([]);
+  mocks.recordOutcome.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
@@ -230,12 +235,15 @@ describe('opportunity radar UI', () => {
     fireEvent.change(screen.getByLabelText('国家 / 地区'), { target: { value: 'Japan' } });
     fireEvent.change(screen.getByLabelText('行业'), { target: { value: '汽车' } });
     fireEvent.click(screen.getByRole('button', { name: '进入验证' }));
-    const destination = screen.getByTestId('destination').textContent!;
+    const destination = (await screen.findByTestId('destination')).textContent!;
     const params = new URL(destination, 'https://example.com').searchParams;
     expect(params.get('country')).toBe('United States');
     expect(params.get('industry')).toBe('宠物护理');
     expect(params.get('platforms')).toBe('reddit');
     expect(params.get('auto')).toBeNull();
+    expect(params.get('researchSessionId')).toBe('11111111-1111-4111-8111-111111111111');
+    expect(params.get('researchCandidateId')).toBe('c1');
+    expect(mocks.saveResearch).toHaveBeenCalledWith(expect.objectContaining({candidates:expect.arrayContaining([expect.objectContaining({id:'c1'})])}),'account-a');
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 

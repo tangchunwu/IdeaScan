@@ -20,7 +20,7 @@ export interface ValidationStep {
 }
 
 export interface CompletionPreview {
-  score: number;
+  score: number | null;
   validationId: string;
 }
 
@@ -91,7 +91,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
 
       if (error) throw new Error(error.message || "取消失败");
 
-      skinToast.success(`已保留部分结果: 基于已采集数据生成了降级报告（评分：${data.overallScore}分）`);
+      skinToast.success('已保留采集证据；本次分析未完成，可稍后继续研究');
 
       void queryClient.prefetchQuery({
         queryKey: validationKeys.detail(currentValidationId, user?.id),
@@ -127,9 +127,12 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     validationMode: 'quick' | 'deep';
     resumeValidationId?: string;
     selectedPlatforms?: string[];
+    marketContext?: {country?: string;language?: string;opportunityType?: string};
+    researchSessionId?: string;
+    researchCandidateId?: string;
   }) => {
     const { idea, selectedTags, validationMode, resumeValidationId } = params;
-    const selectedPlatforms = params.selectedPlatforms?.length ? params.selectedPlatforms : ['xiaohongshu'];
+    const selectedPlatforms = params.selectedPlatforms ?? ['xiaohongshu'];
     if (!user?.id || sseControllerRef.current) return;
     cleanup();
     const generation = generationRef.current;
@@ -174,6 +177,9 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
             you: settings.youApiKey,
             tavily: settings.tavilyApiKey,
           },
+          marketContext: params.marketContext,
+          researchSessionId:params.researchSessionId,
+          researchCandidateId:params.researchCandidateId,
         },
       },
       (event) => {
@@ -218,9 +224,9 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
           mode: validationMode,
         });
 
-        skinToast.success(`验证完成！评分：${result.overallScore}分`);
+        skinToast.success(result.overallScore == null ? '证据已保存，分析尚未完成，可在报告中继续研究' : '研究报告已生成，请查看支持证据与待验证项');
         notify("✅ IdeaScan 验证完成", {
-          body: `你的创意验证评分：${result.overallScore}分，点击查看完整报告`,
+          body: result.overallScore == null ? '本次分析未完成，已保留采集证据' : '研究已完成，点击查看证据与下一步实验',
           tag: `validation-${result.validationId}`,
         });
         refetchQuota();

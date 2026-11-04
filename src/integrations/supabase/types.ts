@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      research_sessions: {
+        Row: {id:string;user_id:string;result:Json;outcomes:Json;created_at:string;updated_at:string}
+        Insert: {id?:string;user_id:string;result:Json;outcomes?:Json;created_at?:string;updated_at?:string}
+        Update: {result?:Json;outcomes?:Json;updated_at?:string}
+        Relationships: []
+      }
       admin_api_configs: {
         Row: {
           api_key: string

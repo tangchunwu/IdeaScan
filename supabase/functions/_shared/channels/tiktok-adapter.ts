@@ -19,18 +19,19 @@ export class TikTokAdapter extends BaseChannelAdapter {
     const token = request.config.auth_token || this.authToken || '';
     if (!token.trim()) return this.failed('TikHub token not configured', startedAt);
     const client = new TikHubClient(token);
+    const warnings: string[] = [];
     try {
       const postsById = new Map<string, any>();
-      let page = await client.searchTikTok(request.keyword, { count: 20, region: 'US' });
+      let page = await client.searchTikTok(request.keyword, { count: 20, region: request.config.countryCode || 'US' });
       this.addPosts(postsById, page.items);
       const nextOffset = (page as any).offset ?? (page as any).nextOffset;
       if (page.hasMore && nextOffset !== undefined) {
-        page = await client.searchTikTok(request.keyword, { offset: nextOffset, count: 20, region: 'US' });
+        page = await this.readOptionalPage(() => client.searchTikTok(request.keyword, { offset: nextOffset, count: 20, region: request.config.countryCode || 'US' }), page, warnings);
         this.addPosts(postsById, page.items);
       }
       const posts = Array.from(postsById.values()).slice(0, this.postLimit(request)).map((item) => this.toPost(item));
-      const comments = await this.loadComments(client, posts, this.commentLimit(request));
-      return this.success(posts, comments, client, startedAt);
+      const comments = await this.loadComments(client, posts, this.commentLimit(request), warnings);
+      return this.success(posts, comments, client, startedAt, warnings);
     } catch (error) {
       return this.failed(error instanceof Error ? error.message : 'TikTok crawl failed', startedAt, client);
     }
@@ -45,16 +46,23 @@ export class TikTokAdapter extends BaseChannelAdapter {
     }
   }
   private postId(item: any): string { return String(item?.aweme_id || item?.id || item?.video_id || ''); }
-  private async loadComments(client: TikHubClient, posts: UnifiedPost[], limit: number): Promise<UnifiedComment[]> {
-    const comments = new Map<string, UnifiedComment>();
-    for (const post of posts.slice(0, COMMENT_POST_LIMIT)) {
-      const page: any = await client.getTikTokComments(post.post_id, limit);
-      for (const item of (Array.isArray(page) ? page : page?.comments || []).slice(0, limit)) {
-        const comment = this.toComment(item, post.post_id);
-        if (comment.comment_id && !comments.has(comment.comment_id)) comments.set(comment.comment_id, comment);
+  private async loadComments(client: TikHubClient, posts: UnifiedPost[], limit: number, warnings: string[]): Promise<UnifiedComment[]> {
+    const result = new Map<string, UnifiedComment>();
+    if (limit <= 0) return [];
+    for (const post of posts.slice(0, 5)) {
+      try {
+        const page = await client.getTikTokComments(post.post_id, limit);
+        for (const item of page.slice(0, limit)) {
+          const comment = this.toComment(item, post.post_id);
+          if (comment.comment_id && !result.has(comment.comment_id)) result.set(comment.comment_id, comment);
+        }
+      } catch (error) {
+        warnings.push('评论采集失败，已保留成功取得的帖子与评论');
+        const failure = error as { status?: number; kind?: string };
+        if ([401,402,403,422,429].includes(failure.status || 0) || failure.kind === 'budget') break;
       }
     }
-    return Array.from(comments.values());
+    return Array.from(result.values());
   }
   private toPost(item: any): UnifiedPost {
     const stats = item?.statistics || item?.stats || {};
@@ -65,6 +73,6 @@ export class TikTokAdapter extends BaseChannelAdapter {
   private toComment(item: any, postId: string): UnifiedComment { return { comment_id: String(item?.cid || item?.comment_id || item?.id || ''), platform: this.channel, post_id: postId, content: String(item?.text || item?.content || ''), author: String(item?.user?.nickname || item?.author?.nickname || item?.author?.username || ''), metrics: { likes: this.count(item?.digg_count ?? item?.like_count) }, created_at: this.toIsoDate(item?.create_time), location: String(item?.ip_label || '') }; }
   private toIsoDate(value: unknown): string | undefined { if (!value) return undefined; const date = new Date(Number(value) * 1000); return Number.isNaN(date.getTime()) ? undefined : date.toISOString(); }
   private metadata(client: TikHubClient, startedAt: number) { return { crawl_time_ms: Date.now() - startedAt, api_calls: client.stats.apiCalls, failed_calls: client.stats.failedCalls, retries: client.stats.retries, rate_limited: client.stats.rateLimited }; }
-  private success(posts: UnifiedPost[], comments: UnifiedComment[], client: TikHubClient, startedAt: number): ChannelCrawlResult { return { success: true, channel: this.channel, posts, comments, stats: this.calculateStats(posts), metadata: this.metadata(client, startedAt) }; }
+  private success(posts: UnifiedPost[], comments: UnifiedComment[], client: TikHubClient, startedAt: number, warnings: string[] = []): ChannelCrawlResult { return { success: true, channel: this.channel, posts, comments, stats: this.calculateStats(posts), metadata: { ...this.metadata(client, startedAt), partial: warnings.length > 0, warnings } }; }
   private failed(error: string, startedAt: number, client?: TikHubClient): ChannelCrawlResult { return { ...this.createEmptyResult(error), ...(client ? { metadata: this.metadata(client, startedAt) } : {}) }; }
 }

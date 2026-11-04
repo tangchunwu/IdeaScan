@@ -65,14 +65,14 @@ export const ReportHeader = ({
           需求验证报告{validation.idea.trim() ? `：${validation.idea.length > 20 ? `${validation.idea.slice(0, 20)}...` : validation.idea}` : ""}
         </h1>
         <p className="text-muted-foreground max-w-2xl text-base sm:text-lg leading-relaxed line-clamp-3 sm:line-clamp-none">
-          {aiAnalysis.overallVerdict || "AI 正在生成深度分析结论..."}
+          {aiAnalysis.overallVerdict || "尚未取得完整研究结论"}
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {validation.tags.map((tag: string, i: number) => (
             <Badge key={i} variant="secondary" className="px-3 py-1 text-sm bg-muted/50 border-border/50">#{tag}</Badge>
           ))}
           <Badge variant="outline" className="px-3 py-1 text-sm">证据等级 {evidenceGrade}</Badge>
-          <Badge variant="outline" className="px-3 py-1 text-sm">商业可用性 {proofResult.verdict}</Badge>
+          <Badge variant="outline" className="px-3 py-1 text-sm">行为实验 {proofResult.verdict}</Badge>
         </div>
       </div>
       <div className="flex flex-wrap gap-3 mt-4 md:mt-0">

@@ -7,6 +7,7 @@ export interface ValidateRouteIntent {
   platforms: string[];
   tags: string[];
   source: string;
+  opportunityType?: string;
 }
 
 const validationPlatforms = new Set(["xiaohongshu", "douyin", "tiktok", "instagram", "youtube", "reddit", "twitter", "threads"]);
@@ -25,6 +26,7 @@ export function getValidateRouteIntent(params: URLSearchParams): ValidateRouteIn
     platforms: parseList(params.get("platforms")).filter(platform => validationPlatforms.has(platform)),
     tags: parseList(params.get("tags")).slice(0, 5),
     source: params.get("source") || "",
+    ...(params.get("opportunityType") ? {opportunityType: params.get("opportunityType")!} : {}),
   };
 }
 
@@ -45,6 +47,7 @@ export function getOpportunityValidationUrl(input: {
   country: string;
   industry: string;
   platforms: string[];
+  opportunityType?: string;
 }): string {
   // 国家和行业进入实际分析正文，不能仅作为未消费的查询参数。
   const title = input.title.slice(0, 80);
@@ -63,6 +66,7 @@ export function getOpportunityValidationUrl(input: {
     platforms: input.platforms.join(","),
     tags: input.industry,
     source: "opportunity-radar",
+    ...(input.opportunityType ? { opportunityType: input.opportunityType } : {}),
   });
   return `/validate?${params.toString()}`;
 }

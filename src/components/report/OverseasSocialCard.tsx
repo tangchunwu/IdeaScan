@@ -12,7 +12,7 @@ export function OverseasSocialCard({ data }: { data: any }) {
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-2 text-primary"><Globe2 className="w-5 h-5" /></div>
-          <div><h3 className="font-semibold">海外社媒数据</h3><p className="text-xs text-muted-foreground">已与国内平台数据合并参与综合评分</p></div>
+          <div><h3 className="font-semibold">海外社媒数据</h3><p className="text-xs text-muted-foreground">已采集的原文用于研究，平台失败或缺失不会被当作需求不存在</p></div>
         </div>
         <span className="text-xs text-muted-foreground">{data.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : "未记录时间"}</span>
       </div>
@@ -25,7 +25,7 @@ export function OverseasSocialCard({ data }: { data: any }) {
         {platforms.map(([platform, result]) => (
           <div key={platform} className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 px-3 py-2">
             <span className="font-medium">{labels[platform] || platform}</span>
-            {result.status === "success" ? <span className="text-xs text-green-600">{result.posts?.length || 0} 帖子 · {result.comments?.length || 0} 评论</span> : <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" />{result.error || "采集失败"}</span>}
+            {result.status === "success" || result.status === "partial" ? <span className={`text-xs ${result.status==='partial'?'text-amber-600':'text-green-600'}`}>{result.status==='partial'?'采集不完整 · ':''}{result.posts?.length || 0} 帖子 · {result.comments?.length || 0} 评论</span> : <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" />{result.error || "采集失败"}</span>}
           </div>
         ))}
       </div>

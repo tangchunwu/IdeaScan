@@ -5,6 +5,12 @@ const body = { country: 'US', industry: 'Accounting', platforms: [], mode: 'quic
 const req = (payload: unknown = body, token = 'user-token') => new Request('https://edge.example.com', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: JSON.stringify(payload) });
 
 describe('opportunity edge boundary', () => {
+  it('takes the research owner from the verified session rather than request fields',async()=>{
+    const research=vi.fn(async()=>({candidates:[]}) as never);
+    const handler=createOpportunityHandler({authenticate:async()=> 'verified-owner',research});
+    expect((await handler(req({...body,userId:'forged-owner',parentResearchId:'11111111-1111-4111-8111-111111111111'}))).status).toBe(200);
+    expect(research).toHaveBeenCalledWith(expect.objectContaining({parentResearchId:'11111111-1111-4111-8111-111111111111'}),{},'verified-owner');
+  });
   it('rejects missing/invalid sessions before research', async () => {
     const research = vi.fn();
     const handler = createOpportunityHandler({ authenticate: async () => null, research });

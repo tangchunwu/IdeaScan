@@ -15,12 +15,17 @@ export class OpportunityRadarError extends Error {
 
 const requestSchema = z.object({
   country: z.string().trim().min(1).max(80),
-  industry: z.string().trim().min(1).max(100),
+  industry: z.string().trim().max(100),
   keyword: z.string().trim().max(200).optional(),
   platforms: z.array(z.enum(RADAR_PLATFORMS)).max(8),
   mode: z.enum(['quick', 'deep']),
-});
+  language: z.string().regex(/^[a-z]{2}(?:-[A-Za-z]{2})?$/).optional(),
+  countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
+  parentResearchId:z.string().uuid().optional(),
+  opportunityType: z.enum(['reassurance','ritual','festival','hobby','daily','workflow']).optional(),
+}).refine(value => !!(value.industry || value.keyword || value.opportunityType), '请填写场景、行业或选择机会类型');
 const count = z.number().finite().int().nonnegative();
+const claimSchema = z.object({claim:z.string().max(1200),evidenceIds:z.array(z.string()).max(60)});
 const resultSchema = z.object({
   schemaVersion: z.literal(1),
   fetchedAt: z.string(),
@@ -30,6 +35,11 @@ const resultSchema = z.object({
     urgency: z.enum(['high', 'medium', 'low']), evidenceCount: count,
     competitionHint: z.string(), recommendedNextStep: z.string(), risks: z.array(z.string()),
     kind: z.literal('hypothesis'),
+    decision:z.enum(['test','reframe','pause','insufficient']).optional(),
+    support:z.array(claimSchema).max(10).optional(), counter:z.array(claimSchema).max(10).optional(),
+    unknowns:z.array(z.string()).max(10).optional(), mvp:z.string().optional(), experiment:z.string().optional(),
+    paymentEvidence:z.enum(['unknown','pricing','reported_purchase']).optional(),
+    localSearchTerms:z.string().max(200).optional(),
     evidence: z.array(z.object({
       id: z.string(), platform: z.string(), title: z.string(), snippet: z.string(),
       url: z.string().transform(value => {
@@ -38,10 +48,13 @@ const resultSchema = z.object({
           return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
         } catch { return ''; }
       }), collectedAt: z.string(), kind: z.literal('fact'),
+      publishedAt:z.string().optional(),language:z.string().optional(),signalType:z.string().optional(),
     })),
   })),
   warnings: z.array(z.string()),
   stats: z.object({ sourceCount: count, postCount: count, commentCount: count, apiCalls: count, durationMs: z.number().finite().nonnegative() }),
+  queryPlan:z.array(z.object({intent:z.string(),query:z.string(),language:z.string(),platform:z.string().optional()})).max(32).optional(),
+  signals:z.array(z.object({id:z.string(),evidenceIds:z.array(z.string()),user:z.string(),trigger:z.string(),task:z.string(),currentWorkaround:z.string(),cost:z.string(),recurrence:z.string(),payment:z.string(),type:z.enum(['experience','help','ritual','purchase','promotion','entertainment']),quote:z.string()})).max(60).optional(),
 });
 
 export function getOpportunityConfigIssues(config: OpportunityConfig, request: OpportunityRequest): string[] {
@@ -61,6 +74,10 @@ export function getOpportunityConfigIssues(config: OpportunityConfig, request: O
 // 逐层白名单解析，避免服务端额外字段或配置进入内存结果和导出文件。
 export function serializeOpportunityResult(result: OpportunityResult): string {
   return JSON.stringify(resultSchema.parse(result), null, 2);
+}
+
+export function parseOpportunityResult(input: unknown): OpportunityResult {
+  return resultSchema.parse(input) as OpportunityResult;
 }
 
 function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {

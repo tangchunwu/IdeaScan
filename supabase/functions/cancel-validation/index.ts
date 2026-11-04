@@ -1,3 +1,4 @@
+import { writeRunReport } from '../_shared/validation-run.ts';
 /**
  * Cancel Validation Edge Function
  * 
@@ -7,6 +8,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
+import { buildIncompleteAnalysis, buildValidationEvidence } from "../_shared/validation-evidence.ts";
 import {
   calculateEvidenceGrade,
   estimateCostBreakdown,
@@ -82,69 +84,12 @@ Deno.serve(async (req) => {
     const sampleComments = Array.isArray((socialData as any).sampleComments) ? (socialData as any).sampleComments : [];
     const noteCount = sampleNotes.length;
     const commentCount = sampleComments.length;
-    const avgLikes = Number((socialData as any).avgLikes || 0);
     const competitorCount = competitorData.length;
 
-    // Build degraded analysis
-    const evidenceScore = Math.min(100, Math.round(
-      Math.min(45, noteCount * 1.2) +
-      Math.min(30, commentCount * 2) +
-      Math.min(25, competitorCount * 5)
-    ));
-    const competitionPenalty = competitorCount >= 5 ? 12 : competitorCount >= 3 ? 8 : competitorCount >= 1 ? 4 : 0;
-    const overallScore = Math.max(30, Math.min(70, evidenceScore - competitionPenalty));
-
-    const verdict = noteCount > 0 || commentCount > 0
-      ? `用户主动取消验证。已采集 ${noteCount} 条笔记和 ${commentCount} 条评论，基于部分数据生成降级报告。建议后续补充验证。`
-      : `用户主动取消验证。尚未采集到有效社媒数据，报告基于有限信息生成。建议重新发起完整验证。`;
-
-    const strengths: string[] = [];
-    const weaknesses: string[] = [];
-    if (noteCount > 0) strengths.push(`已采集 ${noteCount} 条笔记，具备初步方向参考。`);
-    if (commentCount > 0) strengths.push(`已采集 ${commentCount} 条评论，有部分用户声音。`);
-    if (competitorCount > 0) strengths.push(`已获取 ${competitorCount} 条竞品信息。`);
-    if (strengths.length === 0) strengths.push("数据采集被中断，暂无有效证据。");
-    weaknesses.push("验证被提前终止，数据样本不完整。");
-    weaknesses.push("AI 深度分析未执行，结论为规则化保底分析。");
-
-    const tags = Array.isArray(validation.tags) ? validation.tags : [];
-    const aggregatedInsights = {
-      marketInsight: String((dataSummary as any).aggregatedInsights?.marketInsight || ""),
-      competitiveInsight: String((dataSummary as any).aggregatedInsights?.competitiveInsight || ""),
-      keyFindings: Array.isArray((dataSummary as any).aggregatedInsights?.keyFindings)
-        ? (dataSummary as any).aggregatedInsights.keyFindings : [],
-    };
-
-    const aiResult = {
-      overallScore,
-      overallVerdict: verdict,
-      marketAnalysis: {
-        targetAudience: tags.length > 0 ? `目标人群：${tags.join(" / ")}` : "待确认",
-        marketSize: noteCount >= 20 ? "有一定讨论量" : "讨论量有限",
-        competitionLevel: competitorCount >= 5 ? "中高" : competitorCount >= 2 ? "中等" : "待确认",
-      },
-      sentimentAnalysis: { positive: 34, neutral: 45, negative: 21 },
-      aiAnalysis: {
-        feasibilityScore: overallScore,
-        strengths,
-        weaknesses,
-        risks: ["验证被中断，结论不完整，存在误判风险。", "建议重新发起完整验证以获得可靠结论。"],
-        suggestions: ["重新发起完整验证以获取更准确的分析结论。", "补充更多社媒样本数据来提高置信度。"],
-      },
-      persona: {
-        name: "待补样本用户",
-        role: "潜在目标用户",
-        age: "待确认",
-        painPoints: [aggregatedInsights.marketInsight || "需更多数据才能准确识别痛点"],
-        goals: ["待完整验证后确认"],
-      },
-      dimensions: [
-        { dimension: "需求痛感", score: Math.max(30, Math.min(65, 30 + commentCount * 2)), reason: `基于 ${commentCount} 条评论（不完整）` },
-        { dimension: "市场规模", score: Math.max(30, Math.min(65, 25 + Math.round(noteCount * 0.8))), reason: `基于 ${noteCount} 条内容（不完整）` },
-        { dimension: "竞争壁垒", score: Math.max(35, Math.min(65, 60 - competitorCount * 5)), reason: `基于 ${competitorCount} 个竞品（不完整）` },
-        { dimension: "PMF潜力", score: Math.max(30, Math.min(65, 35 + commentCount + Math.round(avgLikes / 20))), reason: "数据不完整，仅供参考" },
-      ],
-    };
+    // 取消只保留采集产物，不通过样本数量生成需求分数、情感或用户画像。
+    const validationEvidence = buildValidationEvidence(socialData, competitorData, (dataSummary as any).carriedEvidence || []);
+    const aiResult = buildIncompleteAnalysis(`验证已取消。已保留 ${noteCount} 条帖子和 ${commentCount} 条评论；分析未完成，可继续研究。`);
+    const overallScore = aiResult.overallScore;
 
     // Calculate metrics
     const dataQualityScore = Math.min(100, Math.round(
@@ -173,7 +118,7 @@ Deno.serve(async (req) => {
     const reportData = {
       validation_id: validationId,
       market_analysis: aiResult.marketAnalysis,
-      xiaohongshu_data: socialData,
+      xiaohongshu_data: { ...socialData, totalNotes: noteCount },
       competitor_data: competitorData,
       sentiment_analysis: aiResult.sentimentAnalysis,
       ai_analysis: aiResult.aiAnalysis,
@@ -181,6 +126,9 @@ Deno.serve(async (req) => {
       persona: aiResult.persona,
       data_summary: {
         ...dataSummary,
+        analysisStatus: 'incomplete',
+        validationEvidence,
+        sampleCounts: { posts: noteCount, comments: commentCount, independentSources: new Set(validationEvidence.filter(item => !item.sourceKey.includes(':unattributed:')).map(item => item.sourceKey)).size },
         cancelled: true,
         cancelledAt: new Date().toISOString(),
       },
@@ -191,22 +139,13 @@ Deno.serve(async (req) => {
       proof_result: proofResult,
     };
 
-    if (existingReport?.id) {
-      await supabase.from("validation_reports").update(reportData).eq("validation_id", validationId);
-    } else {
-      await supabase.from("validation_reports").insert(reportData);
-    }
-
-    // Mark validation as completed (with partial data)
-    await supabase
-      .from("validations")
-      .update({ status: "completed", overall_score: overallScore })
-      .eq("id", validationId);
+    await writeRunReport(supabase, validationId, user.id, validation.active_run_id || null, reportData, true, overallScore);
 
     return new Response(JSON.stringify({
       success: true,
       validationId,
       overallScore,
+      analysisStatus: 'incomplete',
       cancelled: true,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

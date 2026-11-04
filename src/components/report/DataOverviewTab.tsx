@@ -36,11 +36,7 @@ interface DataOverviewTabProps {
 export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsUsed, demandDecisionProps }: DataOverviewTabProps) {
   const { xiaohongshuData } = data;
 
-  const trendTimelineData = xiaohongshuData.weeklyTrend.map((item: any, i: number) => {
-    const now = new Date();
-    const date = new Date(now.getTime() - (xiaohongshuData.weeklyTrend.length - 1 - i) * 24 * 60 * 60 * 1000);
-    return { date: date.toISOString().split("T")[0], value: item.value, label: item.name };
-  });
+  const trendTimelineData = xiaohongshuData.weeklyTrend.map((item: any) => ({ date: item.date, value: item.value, label: item.name || item.date }));
 
   const hasInsightsData = dataSummary && (dataQualityScore || 0) > 0;
 
@@ -50,9 +46,7 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {demandDecisionProps && <DemandDecisionCard {...demandDecisionProps} />}
 
       {/* Trend Timeline Chart */}
-      {trendTimelineData.length > 0 && (
-        <TrendTimelineChart data={trendTimelineData} title="关键词热度趋势" />
-      )}
+      {trendTimelineData.length > 0 ? <TrendTimelineChart data={trendTimelineData} title="已采样内容时间分布" /> : <GlassCard><p className="text-sm text-muted-foreground">暂无可核实的时间序列，未绘制趋势图。</p></GlassCard>}
 
       {/* Content Type Distribution + Key Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -133,8 +127,8 @@ export function DataOverviewTab({ data, dataSummary, dataQualityScore, keywordsU
       {/* Cross-Platform Resonance */}
       {dataSummary?.crossPlatformResonance?.length ? (
         <GlassCard padding="md">
-          <SectionHeading emoji="🔗" title="跨平台强刚需" />
-          <Badge variant="outline" className="ml-2 mb-4 bg-accent/10 text-accent border-accent/20">多平台验证</Badge>
+          <SectionHeading emoji="🔗" title="跨平台相似讨论" />
+          <Badge variant="outline" className="ml-2 mb-4 bg-accent/10 text-accent border-accent/20">多平台线索</Badge>
           <div className="space-y-4">
             {dataSummary.crossPlatformResonance
               .filter((r: any) => r.isHighIntensity)

@@ -9,6 +9,10 @@ export interface OpportunityRequest {
   keyword?: string;
   platforms: RadarPlatform[];
   mode: 'quick' | 'deep';
+  language?: string;
+  countryCode?: string;
+  parentResearchId?: string;
+  opportunityType?: 'reassurance' | 'ritual' | 'festival' | 'hobby' | 'daily' | 'workflow';
 }
 
 export interface OpportunityEvidence {
@@ -19,6 +23,9 @@ export interface OpportunityEvidence {
   url: string;
   collectedAt: string;
   kind: 'fact';
+  publishedAt?: string;
+  language?: string;
+  signalType?: string;
 }
 
 export interface OpportunityCandidate {
@@ -33,6 +40,14 @@ export interface OpportunityCandidate {
   risks: string[];
   evidence: OpportunityEvidence[];
   kind: 'hypothesis';
+  decision?: 'test' | 'reframe' | 'pause' | 'insufficient';
+  support?: Array<{claim: string; evidenceIds: string[]}>;
+  counter?: Array<{claim: string; evidenceIds: string[]}>;
+  unknowns?: string[];
+  mvp?: string;
+  experiment?: string;
+  paymentEvidence?: 'unknown' | 'pricing' | 'reported_purchase';
+  localSearchTerms?: string;
 }
 
 export interface OpportunityResult {
@@ -42,4 +57,6 @@ export interface OpportunityResult {
   candidates: OpportunityCandidate[];
   warnings: string[];
   stats: { sourceCount: number; postCount: number; commentCount: number; apiCalls: number; durationMs: number };
+  queryPlan?: Array<{intent: string; query: string; language: string; platform?: string}>;
+  signals?: Array<{id: string; evidenceIds: string[]; user: string; trigger: string; task: string; currentWorkaround: string; cost: string; recurrence: string; payment: string; type: 'experience'|'help'|'ritual'|'purchase'|'promotion'|'entertainment'; quote: string}>;
 }

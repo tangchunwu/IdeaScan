@@ -16,8 +16,8 @@ interface PersonaData {
   income: string;
   painPoints: string[];
   goals: string[];
-  techSavviness: number;
-  spendingCapacity: number;
+  techSavviness: number | null;
+  spendingCapacity: number | null;
   description: string;
 }
 
@@ -30,9 +30,9 @@ interface MarketAnalysisData {
 }
 
 interface SentimentData {
-  positive: number;
-  neutral: number;
-  negative: number;
+  positive: number | null;
+  neutral: number | null;
+  negative: number | null;
   topPositive: string[];
   topNegative: string[];
 }
@@ -46,7 +46,10 @@ interface XiaohongshuData {
 }
 
 interface AIAnalysisData {
-  feasibilityScore: number;
+  feasibilityScore: number | null;
+  analysisStatus?: string;
+  decision?: string;
+  evidenceAssessment?: { support: Array<{ claim: string; evidenceIds: string[] }>; counter: Array<{ claim: string; evidenceIds: string[] }>; unknowns: string[]; nextExperiment: string };
   overallVerdict: string;
   strengths: string[];
   weaknesses: string[];
@@ -57,7 +60,7 @@ interface AIAnalysisData {
 export interface ReportData {
   id: string;
   idea: string;
-  score: number;
+  score: number | null;
   verdict: string;
   tags: string[];
   createdAt: string;
@@ -67,24 +70,46 @@ export interface ReportData {
   sentiment: SentimentData;
   xiaohongshu: XiaohongshuData;
   aiAnalysis: AIAnalysisData;
+  proofResult?: { sampleUv: number; paidIntentRate: number | null; waitlistRate: number | null; verdict: string };
+  evidenceItems?: Array<{ id?: string; title: string; snippet: string; url?: string }>;
 }
 
-function getScoreColor(score: number): string {
+function getScoreColor(score: number | null): string {
+  if (score === null) return '#6b7280';
   if (score >= 80) return "#22c55e";
   if (score >= 60) return "#eab308";
   return "#ef4444";
 }
 
-function getScoreLabel(score: number): string {
-  if (score >= 80) return "真实刚需";
-  if (score >= 60) return "需求待验证";
-  return "疑似伪需求";
+export function getReportResearchLabel(data: ReportData): string {
+  const status = data.aiAnalysis.analysisStatus;
+  if (status === 'incomplete') return '分析未完成';
+  if (status !== 'complete') return '旧版研究判断';
+  return ({ test: '值得小测', reframe: '需要调整', pause: '暂缓', insufficient: '证据不足' } as Record<string, string>)[data.aiAnalysis.decision || ''] || '证据不足';
 }
 
-function getScoreEmoji(score: number): string {
-  if (score >= 80) return "✅";
-  if (score >= 60) return "⚠️";
-  return "❌";
+export function prepareResearchExport(data: ReportData): ReportData {
+  const incomplete = data.aiAnalysis.analysisStatus === 'incomplete';
+  const noScore = incomplete || data.aiAnalysis.analysisStatus === 'complete' && data.aiAnalysis.decision === 'insufficient';
+  return {
+    ...data,
+    score: !noScore && typeof data.score === 'number' && Number.isFinite(data.score) ? data.score : null,
+    dimensions: incomplete ? [] : data.dimensions.filter(d => typeof d.score === 'number' && Number.isFinite(d.score)),
+    sentiment: incomplete ? { ...data.sentiment, positive: null, neutral: null, negative: null } : data.sentiment,
+  };
+}
+
+export function generateResearchSummaryHTML(data: ReportData): string {
+  const assessment = data.aiAnalysis.evidenceAssessment;
+  const statements = (items: Array<{ claim: string; evidenceIds: string[] }> = []) => items.map(item => `<li>${escapeHtml(item.claim)} <small>${escapeHtml(item.evidenceIds.join(', '))}</small></li>`).join('');
+  const proof = data.proofResult;
+  const proofText = proof && proof.sampleUv > 0 && proof.paidIntentRate !== null ? `已记录 ${proof.sampleUv} 个访问样本，付费意图 ${Math.round(proof.paidIntentRate * 100)}%；意图行为不等于实际购买。` : '尚未实验，尚未取得行为转化数据。';
+  const sources = (data.evidenceItems || []).map(item => {
+    let href = '';
+    try { const url = new URL(item.url || ''); if (url.protocol === 'https:' && !url.username && !url.password) href = url.href; } catch { /* 没有安全链接时仍保留原文 */ }
+    return `<li>${escapeHtml(item.title)}${item.id ? ` (${escapeHtml(item.id)})` : ''}<blockquote>${escapeHtml(item.snippet)}</blockquote>${href ? `<a href="${escapeHtml(href)}" rel="noopener noreferrer">查看来源</a>` : ''}</li>`;
+  }).join('');
+  return `<section class="section"><h2>研究判断与下一步</h2><p>${escapeHtml(getReportResearchLabel(data))}。研究参考分不能证明需求或真实付款。</p><p>${escapeHtml(proofText)}</p>${assessment ? `<h3>支持证据</h3><ul>${statements(assessment.support)}</ul><h3>反证</h3><ul>${statements(assessment.counter)}</ul><h3>待核实</h3><ul>${assessment.unknowns.map(v => `<li>${escapeHtml(v)}</li>`).join('')}</ul><p>下一步实验：${escapeHtml(assessment.nextExperiment || '尚未指定')}</p>` : '<p>尚未提供可追溯的支持、反证和实验方案。</p>'}${sources ? `<h3>原文记录</h3><ul>${sources}</ul>` : ''}</section>`;
 }
 
 function generateRadarSVG(dimensions: DimensionData[]): string {
@@ -92,6 +117,7 @@ function generateRadarSVG(dimensions: DimensionData[]): string {
   const cy = 150;
   const maxRadius = 100;
   const n = dimensions.length;
+  if (!n) return "<p>尚未取得维度评分</p>";
   
   // Generate grid lines
   let gridLines = "";
@@ -148,6 +174,7 @@ function generateRadarSVG(dimensions: DimensionData[]): string {
 }
 
 function generateSentimentBar(sentiment: SentimentData): string {
+  if ([sentiment.positive, sentiment.neutral, sentiment.negative].some(v => v === null || !Number.isFinite(v)) || sentiment.positive + sentiment.neutral + sentiment.negative <= 0) return '<p>尚未取得情感分类数据</p>';
   const total = sentiment.positive + sentiment.neutral + sentiment.negative;
   const posPercent = Math.round((sentiment.positive / total) * 100);
   const neuPercent = Math.round((sentiment.neutral / total) * 100);
@@ -179,9 +206,10 @@ function formatDate(dateStr: string): string {
 }
 
 export function generateReportHTML(data: ReportData): string {
+  data = prepareResearchExport(data);
   const scoreColor = getScoreColor(data.score);
-  const scoreLabel = getScoreLabel(data.score);
-  const scoreEmoji = getScoreEmoji(data.score);
+  const scoreLabel = getReportResearchLabel(data);
+  const scoreEmoji = '';
   
   const styles = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -520,19 +548,19 @@ export function generateReportHTML(data: ReportData): string {
           <div class="progress-item">
             <div class="progress-label">
               <span>技术素养</span>
-              <span>${data.persona.techSavviness}%</span>
+              <span>${data.persona.techSavviness === null ? '未知' : `${data.persona.techSavviness}%`}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${data.persona.techSavviness}%"></div>
+              <div class="progress-fill" style="width: ${data.persona.techSavviness ?? 0}%; display: ${data.persona.techSavviness === null ? 'none' : 'block'}"></div>
             </div>
           </div>
           <div class="progress-item">
             <div class="progress-label">
               <span>消费能力</span>
-              <span>${data.persona.spendingCapacity}%</span>
+              <span>${data.persona.spendingCapacity === null ? '未知' : `${data.persona.spendingCapacity}%`}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${data.persona.spendingCapacity}%"></div>
+              <div class="progress-fill" style="width: ${data.persona.spendingCapacity ?? 0}%; display: ${data.persona.spendingCapacity === null ? 'none' : 'block'}"></div>
             </div>
           </div>
         </div>
@@ -564,20 +592,22 @@ export function generateReportHTML(data: ReportData): string {
     <!-- Score Section -->
     <div class="score-section">
       <div class="score-card">
-        <div class="score-value">${data.score}</div>
-        <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">/ 100</div>
+        <div class="score-value">${data.score === null ? '—' : data.score}</div>
+        <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">${data.score === null ? '尚未评分' : '研究参考分 / 100'}</div>
         <div class="score-label">${scoreEmoji} ${scoreLabel}</div>
         <div style="font-size: 12px; color: #6b7280; margin-top: 12px;">
-          基于 ${data.xiaohongshu.totalNotes} 条真实用户数据分析
+          已采集 ${data.xiaohongshu.totalNotes} 条去重帖子
         </div>
       </div>
       
       <div class="radar-card">
-        <h3>🎯 需求验证雷达</h3>
+        <h3>🎯 研究维度参考</h3>
         ${generateRadarSVG(data.dimensions)}
       </div>
     </div>
     
+    ${generateResearchSummaryHTML(data)}
+
     <!-- Dimensions Detail -->
     <section class="section">
       <h2>📊 维度详细分析</h2>
@@ -637,11 +667,11 @@ export function generateReportHTML(data: ReportData): string {
     
     <!-- Xiaohongshu Stats -->
     <section class="section">
-      <h2>📱 小红书数据</h2>
+      <h2>📱 社媒采样数据</h2>
       <div class="stats-grid">
         <div class="stat-item">
           <div class="stat-value">${data.xiaohongshu.totalNotes.toLocaleString()}</div>
-          <div class="stat-label">相关笔记</div>
+          <div class="stat-label">去重帖子</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">${data.xiaohongshu.totalEngagement.toLocaleString()}</div>

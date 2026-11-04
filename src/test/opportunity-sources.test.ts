@@ -66,7 +66,7 @@ describe('safePublicHttpsUrl', () => {
 });
 
 describe('web source collection', () => {
-  it('uses each configured fixed endpoint once, with the original country/query and no China filters', async () => {
+  it('uses each configured fixed endpoint once with distinct market intents and no China filters', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(response({ data: { webPages: { value: [{
         name: '<b>Bocha</b>', snippet: 'A &amp; B', url: 'https://news.example.org/bocha',
@@ -84,18 +84,18 @@ describe('web source collection', () => {
     const calls = vi.mocked(fetch).mock.calls;
     expect(calls[0][0]).toBe('https://api.bochaai.com/v1/web-search');
     expect(JSON.parse(calls[0][1]!.body as string)).toEqual({
-      query: 'US pet care appointment scheduling manual workflow pain points alternatives', freshness: 'noLimit', summary: true, count: 10,
+      query: 'pet care appointment scheduling my experience recurring problem', freshness: 'noLimit', summary: true, count: 10,
     });
     expect(calls[0][1]!.headers).toMatchObject({ Authorization: 'Bearer bocha-secret' });
     const youUrl = new URL(calls[1][0] as string);
     expect(youUrl.origin + youUrl.pathname).toBe('https://ydc-index.io/v1/search');
     expect(Object.fromEntries(youUrl.searchParams)).toEqual({
-      query: 'US pet care appointment scheduling manual workflow pain points alternatives', count: '10', country: 'US',
+      query: 'pet care appointment scheduling subscription price paid review', count: '10', country: 'US',
     });
     expect(calls[1][1]!.headers).toMatchObject({ 'X-API-Key': 'you-secret' });
     expect(calls[2][0]).toBe('https://api.tavily.com/search');
     expect(JSON.parse(calls[2][1]!.body as string)).toEqual({
-      api_key: 'tavily-secret', query: 'US pet care appointment scheduling manual workflow pain points alternatives',
+      api_key: 'tavily-secret', query: 'pet care appointment scheduling free alternative how I do it',
       search_depth: 'basic', max_results: 10, include_answer: false, include_images: false,
     });
     for (const [, init] of calls) {
@@ -116,7 +116,7 @@ describe('web source collection', () => {
     });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
-      query: 'United Kingdom pet care manual workflow pain points alternatives', max_results: 5,
+      query: 'pet care my experience recurring problem', max_results: 5,
     });
   });
 
@@ -199,14 +199,14 @@ describe('web source collection', () => {
     expect(JSON.stringify(output)).not.toContain('private-body');
   });
 
-  it('adds Chinese demand intent only to web queries and keeps social queries short', async () => {
+  it('uses the market language for web research and Chinese intent for domestic platforms', async () => {
     vi.mocked(fetch).mockResolvedValue(response({ results: [] }));
     await collectOpportunitySources(request({ country: '日本', industry: '宠物护理', keyword: '预约管理',
       platforms: ['xiaohongshu'],
     }), { tikhubToken: 'token', tavilyApiKey: 'key' });
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).query)
-      .toBe('日本 宠物护理 预约管理 手工 低效 替代');
-    expect(mocks.crawl.mock.calls[0][0].keyword).toBe('日本 宠物护理 预约管理');
+      .toContain('体験 困った 毎回');
+    expect(mocks.crawl.mock.calls[0][0].keyword).toBe('宠物护理 预约管理 亲身经历 反复遇到');
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(mocks.crawl).toHaveBeenCalledTimes(1);
   });
@@ -249,9 +249,9 @@ describe('social source collection', () => {
     });
     expect(mocks.crawl).toHaveBeenCalledTimes(1);
     expect(mocks.crawl.mock.calls[0][0]).toEqual({
-      keyword: 'US pet care appointment scheduling',
+      keyword: 'pet care appointment scheduling 亲身经历 反复遇到',
       channels: ['xiaohongshu', 'douyin'].map(type => ({ type, config: {
-        auth_token: 'token', mode: 'deep', max_posts: 5, max_comments_per_post: 10,
+        auth_token: 'token', mode: 'deep', max_posts: 5, max_comments_per_post: 10, countryCode: 'US', language: 'zh',
       } })),
     });
   });
@@ -266,14 +266,16 @@ describe('social source collection', () => {
     vi.stubGlobal('Deno', { env: { get: vi.fn(() => 'true') } });
     await collectOpportunitySources(request({ platforms: ['youtube', 'reddit'] }), { tikhubToken: 'token' });
     expect(mocks.crawl.mock.calls[0][0].channels).toEqual(['youtube', 'reddit'].map(type => ({
-      type, config: { auth_token: 'token', mode: 'deep', max_posts: 10, max_comments_per_post: 10 },
+      type, config: { auth_token: 'token', mode: 'deep', max_posts: 10, max_comments_per_post: 10, countryCode: 'US', language: 'en' },
     })));
     await collectOpportunitySources(request({ mode: 'quick', platforms: ['youtube', 'xiaohongshu'] }), {
       tikhubToken: 'token',
     });
-    expect(mocks.crawl.mock.calls[1][0].channels).toEqual(['youtube', 'xiaohongshu'].map(type => ({
-      type, config: { auth_token: 'token', mode: 'quick', max_posts: 3, max_comments_per_post: 4 },
-    })));
+    const quickChannels = mocks.crawl.mock.calls.slice(1).flatMap(call => call[0].channels);
+    expect(quickChannels).toHaveLength(2);
+    expect(quickChannels).toEqual(expect.arrayContaining(['youtube', 'xiaohongshu'].map(type => ({
+      type, config: { auth_token: 'token', mode: 'quick', max_posts: 3, max_comments_per_post: 4, countryCode: 'US', language: type === 'xiaohongshu' ? 'zh' : 'en' },
+    }))));
   });
 
   it('treats denied environment access as a closed overseas gate', async () => {

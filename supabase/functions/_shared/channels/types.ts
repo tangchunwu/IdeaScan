@@ -80,6 +80,8 @@ export interface ChannelCrawlResult {
     rate_limited: boolean;
     failed_calls?: number;
     retries?: number;
+    partial?: boolean;
+    warnings?: string[];
   };
 }
 
@@ -112,6 +114,8 @@ export interface ChannelConfig {
   max_posts?: number;
   /** Maximum comments per post */
   max_comments_per_post?: number;
+  countryCode?: string;
+  language?: string;
 }
 
 export interface CrawlRequest {

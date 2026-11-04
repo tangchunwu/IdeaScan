@@ -124,7 +124,7 @@ const OpportunityCard = ({ opp }: { opp: NicheOpportunity }) => {
        const handleVerify = (e: React.MouseEvent) => {
               e.stopPropagation();
               const ideaContext = `【${opp.title}】\n${opp.description || ""}`;
-              navigate(`/validate?idea=${encodeURIComponent(ideaContext)}&auto=true`);
+              navigate(`/validate?idea=${encodeURIComponent(ideaContext)}`);
        };
 
        return (
