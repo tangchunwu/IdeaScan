@@ -167,8 +167,13 @@ export function fallsBackToServerLLM(config?: UserLLMConfig): boolean {
   return OFFICIAL_OPENAI_HOST.test(baseUrl) && !apiKey;
 }
 
+export type UsableUserLLMConfig = UserLLMConfig & {
+  llmApiKey: string;
+  llmBaseUrl: string;
+};
+
 /** 用户自己填写的模型配置：Key 与 Base URL 都要有实际内容，空白值不算已配置。 */
-export function hasUsableUserLLM(config?: UserLLMConfig): boolean {
+export function hasUsableUserLLM(config?: UserLLMConfig): config is UsableUserLLMConfig {
   const apiKey = String(config?.llmApiKey || "").trim();
   const baseUrl = String(config?.llmBaseUrl || "").trim();
   return !!apiKey && !!baseUrl;
