@@ -48,6 +48,7 @@ import {
   type LLMConfig 
 } from "../_shared/competitor-extractor.ts";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { extractAssistantContent, normalizeLlmBaseUrl, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,8 +87,7 @@ let _cachedLlmPool: { base_url: string; api_key: string; model: string }[] | nul
 
 async function resolveLLMRuntime(config?: RequestConfig) {
   if (config?.llmApiKey) {
-    const baseUrl = (config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1")
-      .replace(/\/$/, "").replace(/\/chat\/completions$/, "");
+    const baseUrl = normalizeLlmBaseUrl(config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1");
     return { apiKey: config.llmApiKey, baseUrl, model: config.llmModel || "google/gemini-3-flash-preview" };
   }
   if (!_cachedLlmPool) {
@@ -95,7 +95,7 @@ async function resolveLLMRuntime(config?: RequestConfig) {
   }
   const first = _cachedLlmPool[0];
   if (first) {
-    return { apiKey: first.api_key, baseUrl: first.base_url.replace(/\/$/, "").replace(/\/chat\/completions$/, ""), model: first.model };
+    return { apiKey: first.api_key, baseUrl: normalizeLlmBaseUrl(first.base_url), model: first.model };
   }
   return { apiKey: "", baseUrl: "https://ai.gateway.lovable.dev/v1", model: "google/gemini-3-flash-preview" };
 }
@@ -585,12 +585,6 @@ async function analyzeWithAI(
   const baseUrl = llmRuntime.baseUrl;
   const model = llmRuntime.model;
 
-  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  if (cleanBaseUrl.endsWith("/chat/completions")) {
-    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-  }
-  const endpoint = `${cleanBaseUrl}/chat/completions`;
-
   // Sanitize inputs for prompt
   const sanitizedIdea = sanitizeForPrompt(idea);
   const sanitizedTags = tags.map(t => sanitizeForPrompt(t));
@@ -748,27 +742,15 @@ async function analyzeWithAI(
   }`;
 
   console.log("Calling LLM for analysis...");
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-    }),
+  const response = await requestChatCompletion({
+    baseUrl,
+    apiKey,
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    timeoutMs: 45000,
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("AI Analysis failed:", text);
-    throw new Error("Analysis service temporarily unavailable. Please try again.");
-  }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content || "";
+  const content = extractAssistantContent(response.json);
 
   try {
     const parsed = parseJsonFromModelOutput<any>(content);

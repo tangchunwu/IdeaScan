@@ -13,6 +13,7 @@
 import { XhsNote, XhsComment } from "./tikhub.ts";
 import { SearchResult } from "./search.ts";
 import { sanitizeForPrompt } from "../_shared/validation.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 export interface PainPointCluster {
   theme: string;
@@ -122,12 +123,6 @@ export async function summarizeRawData(
     return createBasicSummary(idea, xhsData, competitorData, dataQuality);
   }
 
-  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  if (cleanBaseUrl.endsWith("/chat/completions")) {
-    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-  }
-  const endpoint = `${cleanBaseUrl}/chat/completions`;
-
   // Prepare data for summarization
   const notesText = xhsData.sampleNotes
     .slice(0, 10)
@@ -188,26 +183,15 @@ ${competitorText || "暂无竞品数据"}
 }`;
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-      }),
+    const response = await requestChatCompletion({
+      baseUrl,
+      apiKey,
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      timeoutMs: 30000,
     });
-
-    if (!response.ok) {
-      console.error("Data summarizer API error:", response.status);
-      return createBasicSummary(idea, xhsData, competitorData, dataQuality);
-    }
-
-    const responseData = await response.json();
-    const content = responseData.choices[0]?.message?.content || "";
+    const content = extractAssistantContent(response.json);
 
     try {
       const parsed = parseSummaryJson(content);

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -126,32 +127,21 @@ async function searchWithPerplexity(
     ? "你是一位世界级的市场趋势猎手和商机分析师。你的工作是从全网海量信息中识别出最具商业价值的趋势和机会。你的分析必须基于真实数据和案例，不允许编造。只返回有效的 JSON 数组。"
     : "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON 数组。";
 
-  const endpoint = `${baseUrl}/chat/completions`;
-  console.log(`[hunter-scan] Calling: ${endpoint} model=${model}`);
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: systemContent },
-        { role: "user", content: prompt },
-      ],
-    }),
+  console.log(`[hunter-scan] Calling configured LLM endpoint candidates model=${model}`);
+  const response = await requestChatCompletion({
+    baseUrl,
+    apiKey,
+    model,
+    temperature: 0.3,
+    messages: [
+      { role: "system", content: systemContent },
+      { role: "user", content: prompt },
+    ],
+    extraBody: isDiscovery ? { search_recency_filter: "week" } : undefined,
+    timeoutMs: 45000,
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error(`Perplexity API error: ${response.status}`, text);
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  let content = data.choices?.[0]?.message?.content ?? "";
+  const data = response.json;
+  let content = extractAssistantContent(data);
   const citations: string[] = (data as any).sources?.map((s: any) => s.url || s) ?? (data as any).citations ?? [];
 
   // Strip <think> tags from reasoning models

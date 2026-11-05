@@ -7,6 +7,9 @@ export type ChatCompletionRequest = {
   maxTokens?: number;
   /** GPT-6 reasoning effort. GPT-6.1 Sol/Astra require at least low. */
   reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+  /** Provider-specific Chat Completions fields, for example Perplexity search options. */
+  extraBody?: Record<string, unknown>;
+  redirect?: RequestRedirect;
   timeoutMs?: number;
   responseFormat?: { type: "json_object" };
 };
@@ -25,8 +28,9 @@ function safeLower(text: string): string {
 export function normalizeLlmBaseUrl(input?: string): string {
   return String(input || "")
     .trim()
-    .replace(/\/$/, "")
-    .replace(/\/chat\/completions$/i, "");
+    .replace(/\/+$/, "")
+    .replace(/\/chat\/completions$/i, "")
+    .replace(/(?:\/v1){2,}$/i, "/v1");
 }
 
 export function buildChatCompletionEndpoints(baseUrl: string): string[] {
@@ -45,6 +49,11 @@ export function buildChatCompletionEndpoints(baseUrl: string): string[] {
   const push = (value: string) => {
     if (value && !endpoints.includes(value)) endpoints.push(value);
   };
+  const appendPath = (pathname: string): string => {
+    const next = new URL(parsed.toString());
+    next.pathname = `${pathname || ""}/chat/completions`.replace(/\/+/g, "/");
+    return next.toString().replace(/\/$/, "");
+  };
 
   // If URL contains /anthropic, the user likely meant the Anthropic-compat endpoint.
   // Auto-derive the OpenAI-compat endpoint by trying multiple common patterns.
@@ -59,16 +68,16 @@ export function buildChatCompletionEndpoints(baseUrl: string): string[] {
     push(`${parsed.origin}/v1/chat/completions`);
   }
 
-  push(`${normalized}/chat/completions`);
+  const normalizedPath = path === "/" ? "" : path;
+  const hasV1Suffix = /\/v1$/i.test(normalizedPath);
+  push(appendPath(normalizedPath));
 
-  // If user entered host root, many OpenAI-compatible providers require `/v1`.
-  if (!path || path === "/") {
-    push(`${normalized}/v1/chat/completions`);
-  }
-
-  // If user entered `/v1`, some proxy gateways expose root `/chat/completions`.
-  if (path === "/v1") {
-    push(`${parsed.origin}/chat/completions`);
+  // Providers differ on whether their configured Base URL includes `/v1`.
+  // Always try the alternate form, while preserving any custom path prefix.
+  if (hasV1Suffix) {
+    push(appendPath(normalizedPath.replace(/\/v1$/i, "")));
+  } else {
+    push(appendPath(`${normalizedPath}/v1`));
   }
 
   return endpoints;
@@ -98,6 +107,7 @@ export function buildChatCompletionBody(req: ChatCompletionRequest): Record<stri
   }
 
   if (req.responseFormat) body.response_format = req.responseFormat;
+  if (req.extraBody) Object.assign(body, req.extraBody);
   return body;
 }
 
@@ -138,6 +148,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
           Authorization: `Bearer ${req.apiKey}`,
           "Content-Type": "application/json",
         },
+        redirect: req.redirect,
         body: JSON.stringify(buildChatCompletionBody(req)),
         signal: AbortSignal.timeout(timeoutMsPerEndpoint),
       });

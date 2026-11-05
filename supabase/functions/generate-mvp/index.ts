@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -90,30 +91,18 @@ IMPORTANT:
         console.log("Calling AI with model:", model);
 
         try {
-                const response = await fetch(`${baseUrl}/chat/completions`, {
-                        method: "POST",
-                        headers: {
-                                "Authorization": `Bearer ${apiKey}`,
-                                "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                                model: model,
-                                messages: [
-                                        { role: "system", content: systemPrompt },
-                                        { role: "user", content: userPrompt }
-                                ],
-                                temperature: 0.7,
-                        }),
+                const response = await requestChatCompletion({
+                        baseUrl,
+                        apiKey,
+                        model,
+                        messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userPrompt }
+                        ],
+                        temperature: 0.7,
+                        timeoutMs: 45000,
                 });
-
-                if (!response.ok) {
-                        const errText = await response.text();
-                        console.error("AI API Error:", errText);
-                        throw new Error(`AI API failed: ${response.status} ${errText}`);
-                }
-
-                const data = await response.json();
-                const content = data.choices[0]?.message?.content || "";
+                const content = extractAssistantContent(response.json);
 
                 // Parsing logic
                 const jsonMatch = content.match(/\{[\s\S]*\}/);

@@ -35,4 +35,21 @@ describe('radar model safety', () => {
     expect(body.reasoning_effort).toBe('low');
     expect(body).not.toHaveProperty('temperature');
   });
+
+  it('falls back from a root Base URL to /v1 automatically', async () => {
+    vi.stubGlobal('AbortSignal', { timeout: () => new AbortController().signal });
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    fetch.mockResolvedValueOnce(new Response('not found', { status: 404 }));
+    fetch.mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"candidates":[]}' } }] })));
+    vi.stubGlobal('fetch', fetch);
+    await analyzeOpportunitySources(
+      { country: 'US', industry: 'Software', platforms: [], mode: 'quick' },
+      [],
+      { ...model, baseUrl: 'https://api.openai.com' },
+    );
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.openai.com/chat/completions',
+      'https://api.openai.com/v1/chat/completions',
+    ]);
+  });
 });

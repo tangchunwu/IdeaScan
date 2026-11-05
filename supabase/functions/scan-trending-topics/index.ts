@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolvePool } from "../_shared/config-resolver.ts";
 import { TikHubClient, TikHubError } from "../_shared/tikhub-client.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -490,29 +491,19 @@ Deno.serve(async (req) => {
 }
 只返回 JSON，不要其他文字。`;
 
-          const response = await fetch(`${perplexityBaseUrl}/chat/completions`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${perplexityApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "sonar",
-              temperature: 0.3,
-              messages: [
-                { role: "system", content: "你是趋势分析师。返回有效 JSON。" },
-                { role: "user", content: prompt },
-              ],
-            }),
+          const response = await requestChatCompletion({
+            baseUrl: perplexityBaseUrl,
+            apiKey: perplexityApiKey,
+            model: "sonar",
+            temperature: 0.3,
+            messages: [
+              { role: "system", content: "你是趋势分析师。返回有效 JSON。" },
+              { role: "user", content: prompt },
+            ],
+            timeoutMs: 30000,
           });
-
-          if (!response.ok) {
-            console.warn(`[Scan/Perplexity] API error for "${kw}": ${response.status}`);
-            continue;
-          }
-
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content ?? "";
+          const data = response.json;
+          const content = extractAssistantContent(data);
           const citations: string[] = data.citations ?? [];
 
           let parsed: any = {};

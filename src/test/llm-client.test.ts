@@ -16,6 +16,20 @@ describe("共享 LLM 客户端", () => {
     );
   });
 
+  it("会为不带 /v1 的根地址生成 /v1 备用端点", () => {
+    expect(buildChatCompletionEndpoints("https://api.openai.com")).toEqual([
+      "https://api.openai.com/chat/completions",
+      "https://api.openai.com/v1/chat/completions",
+    ]);
+  });
+
+  it("会把重复的 /v1 和完整 endpoint 规范化", () => {
+    expect(buildChatCompletionEndpoints("https://api.openai.com/v1/v1/chat/completions")).toEqual([
+      "https://api.openai.com/v1/chat/completions",
+      "https://api.openai.com/chat/completions",
+    ]);
+  });
+
   it("为 gpt-6.1-sol 使用 reasoning_effort，并移除 temperature", () => {
     const body = buildChatCompletionBody({
       baseUrl: "https://api.openai.com/v1",

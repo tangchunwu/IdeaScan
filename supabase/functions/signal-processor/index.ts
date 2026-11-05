@@ -1,6 +1,7 @@
 // Phase 7: Signal Processor — AI scoring + semantic clustering for niche opportunities
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,7 @@ async function callWithPool<T>(
   for (let i = 0; i < alive.length; i++) {
     const provider = alive[i];
     // Normalize: strip trailing slash and /chat/completions if present (users often paste full endpoint)
-    const providerBaseUrl = provider.base_url.replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+    const providerBaseUrl = provider.base_url;
     try {
       return await fn(provider.api_key, providerBaseUrl, provider.model);
     } catch (e) {
@@ -98,20 +99,15 @@ ${signal.content.slice(0, 1500)}
   "pain_level": "<mild|moderate|severe|critical>"
 }`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 }),
+  const response = await requestChatCompletion({
+    baseUrl,
+    apiKey,
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    timeoutMs: 30000,
   });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`AI score failed: ${response.status} ${errText.slice(0, 200)}`);
-  }
-  const rawText = await response.text();
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { throw new Error(`AI returned non-JSON: ${rawText.slice(0, 200)}`); }
-  const content = data.choices[0]?.message?.content || "";
+  const content = extractAssistantContent(response.json);
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("AI did not return valid JSON");
 
@@ -173,25 +169,15 @@ ${signalSummaries}
 
 只返回 JSON 数组，不要其他文字。`;
 
-  const response = await fetch(`${clusterBaseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${clusterApiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: clusterModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-    }),
+  const response = await requestChatCompletion({
+    baseUrl: clusterBaseUrl,
+    apiKey: clusterApiKey,
+    model: clusterModel,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    timeoutMs: 30000,
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`AI clustering failed: ${response.status} ${text.slice(0, 200)}`);
-  }
-
-  const rawText = await response.text();
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { throw new Error(`AI clustering non-JSON: ${rawText.slice(0, 200)}`); }
-  const content = data.choices?.[0]?.message?.content || "";
+  const content = extractAssistantContent(response.json);
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) throw new Error("AI clustering did not return valid JSON array");
 

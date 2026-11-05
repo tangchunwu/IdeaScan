@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -83,25 +84,20 @@ Required JSON Format:
 }
 `;
 
-                const aiResponse = await fetch(`${aiUrl}/chat/completions`, {
-                        method: "POST",
-                        headers: {
-                                "Authorization": `Bearer ${aiKey}`,
-                                "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                                model: aiModel,
-                                messages: [
-                                        { role: "system", content: systemPrompt },
-                                        { role: "user", content: userPrompt }
-                                ],
-                                temperature: 0.5,
-                                response_format: { type: "json_object" }
-                        })
+                const aiResponse = await requestChatCompletion({
+                        baseUrl: aiUrl,
+                        apiKey: aiKey,
+                        model: aiModel,
+                        messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userPrompt }
+                        ],
+                        temperature: 0.5,
+                        responseFormat: { type: "json_object" },
+                        timeoutMs: 30000,
                 });
 
-                const aiData = await aiResponse.json();
-                const content = aiData.choices[0]?.message?.content || "{}";
+                const content = extractAssistantContent(aiResponse.json) || "{}";
 
                 console.log("AI Output:", content);
 

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,31 +142,20 @@ async function discoverKeywords(
 只返回 JSON，不要其他文字。`;
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        temperature: 0.5,
-        search_recency_filter: "week",
-        messages: [
-          { role: "system", content: "你是市场趋势发现专家，擅长从互联网信息中识别新兴热点和创业机会。只返回有效的 JSON。" },
-          { role: "user", content: prompt },
-        ],
-      }),
+    const response = await requestChatCompletion({
+      baseUrl,
+      apiKey,
+      model: "sonar",
+      temperature: 0.5,
+      extraBody: { search_recency_filter: "week" },
+      messages: [
+        { role: "system", content: "你是市场趋势发现专家，擅长从互联网信息中识别新兴热点和创业机会。只返回有效的 JSON。" },
+        { role: "user", content: prompt },
+      ],
+      timeoutMs: 45000,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`[discovery] Perplexity API error: ${response.status} - ${text.slice(0, 200)}`);
-      return [];
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content ?? "";
+    const data = response.json;
+    const content = extractAssistantContent(data);
     const cleaned = content.replace(/\[(\d+)\]/g, "").replace(/\s+/g, " ");
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -206,29 +196,19 @@ async function deepAnalyze(
   "competitor_weaknesses": ["短板1", "短板2"]
 }`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON。" },
-        { role: "user", content: prompt },
-      ],
-    }),
+  const response = await requestChatCompletion({
+    baseUrl,
+    apiKey,
+    model: "sonar",
+    temperature: 0.3,
+    messages: [
+      { role: "system", content: "你是一位资深市场情报分析师，擅长从公开网络信息中挖掘深层用户痛点和未被满足的需求。你的分析要具体、有洞察力，避免泛泛而谈。只返回有效的 JSON。" },
+      { role: "user", content: prompt },
+    ],
+    timeoutMs: 45000,
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Perplexity API error: ${response.status} - ${text.slice(0, 200)}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content ?? "";
+  const data = response.json;
+  const content = extractAssistantContent(data);
   const citations: string[] = data.citations ?? [];
   console.log(`[deep-analyze] "${keyword}" citations (${citations.length}):`, JSON.stringify(citations.slice(0, 5)));
   if (citations.length === 0) {

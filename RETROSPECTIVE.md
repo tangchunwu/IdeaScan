@@ -599,6 +599,45 @@
 - 代码已修复并提交到本地工作区，但 Supabase Edge Functions 尚未在本轮部署；线上生效仍需发布相关函数。
 - 未用用户真实凭据验证账号 tier、项目模型权限或实际额度，因此线上仍可能因账号权限返回 401/403/404。
 
+## 2026-11-05｜IdeaScan｜LLM Base URL 自动兼容收口
+
+### Challenges
+
+- 上一轮 GPT-6 参数修正后，部分服务仍把用户填写的 Base URL 直接拼接 `/chat/completions`，导致填根地址、填 `/v1` 或粘贴完整 endpoint 时表现不一致。
+
+### Hypotheses
+
+- 如果所有 OpenAI-compatible 请求都由共享客户端生成候选端点，那么同一配置应自动兼容根地址、`/v1`、重复 `/v1/v1` 和完整 `/chat/completions`。
+- 如果商机雷达、旧验证、关键词扩展、摘要、信号处理、竞品分析、MVP、Hunter 和 Perplexity 调度都复用该客户端，则不会出现“后台能测、业务不能用”的分叉。
+
+### Root Cause
+
+- 共享客户端此前只覆盖部分调用；商机雷达只取第一个端点，旧验证和多个后台函数仍直接拼接 URL。用户输入 Base URL 的形式不同，就会命中错误路径。
+
+### Solutions
+
+- 扩展 `normalizeLlmBaseUrl` 和 `buildChatCompletionEndpoints`：自动去除完整 endpoint、压缩重复 `/v1`，并按当前路径生成原始和备用 `/v1` 端点。
+- `requestChatCompletion` 支持保留请求重定向策略和供应商额外字段，GPT-6 参数规则仍集中在同一请求体构造器。
+- 统一接入商机雷达、旧版验证、关键词扩展、数据摘要、信号处理、竞品分析、MVP 生成、Hunter 扫描、Perplexity 调度和趋势扫描回退。
+
+### Verification
+
+- 新增根地址、`/v1`、重复 `/v1/v1`、GPT-6 参数和备用端点测试；定向 18 项通过。
+- 全量 Vitest 46 个测试文件、336 项通过。
+- `npx tsc --noEmit`、`npm run build` 和 `git diff --check` 通过。
+- 本轮未使用真实 Key 或付费请求；本机没有 Deno，未执行 Edge Function `deno check`。
+
+### Learnings
+
+- Base URL 兼容必须在共享客户端实现，不能靠每个函数各自 `baseUrl + /chat/completions`。
+- 备用端点只能在同一已配置主机和路径前缀内顺序尝试，不能依赖用户记住供应商是否要求 `/v1`。
+- Perplexity 等 OpenAI-compatible 搜索服务也应复用端点兼容，但要通过额外请求字段保留其搜索参数。
+
+### Boundary
+
+- 代码已完成本地验证；线上需要重新部署所有引用这些函数的 Edge Functions，数据库无需迁移。
+- OpenClaw 专用的固定 `/v1` 接口仍保持独立，因为它不是通用模型配置入口。
+
 ## 2026-11-04｜IdeaScan｜旧研究出口统一状态门禁
 
 ### Challenges

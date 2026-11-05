@@ -4,6 +4,7 @@
  */
 
 import { sanitizeForPrompt } from "../_shared/validation.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 export interface ExpandedKeywords {
   // Core keywords: directly describe the need
@@ -48,12 +49,6 @@ export async function expandKeywords(
     };
   }
 
-  let cleanBaseUrl = baseUrl.replace(/\/$/, "");
-  if (cleanBaseUrl.endsWith("/chat/completions")) {
-    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions$/, "");
-  }
-  const endpoint = `${cleanBaseUrl}/chat/completions`;
-
   const sanitizedIdea = sanitizeForPrompt(idea);
   const sanitizedTags = tags.map(t => sanitizeForPrompt(t)).join(", ");
 
@@ -85,13 +80,13 @@ ${sanitizedTags ? `**标签**: ${sanitizedTags}` : ""}
 }`;
 
   // Build candidate configs: user-provided first, then Lovable AI fallback
-  const candidates: Array<{ ep: string; key: string; mdl: string }> = [];
-  candidates.push({ ep: endpoint, key: apiKey, mdl: model });
+  const candidates: Array<{ baseUrl: string; key: string; model: string }> = [];
+  candidates.push({ baseUrl, key: apiKey, model });
   
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (lovableKey && apiKey !== lovableKey) {
     candidates.push({
-      ep: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      baseUrl: "https://ai.gateway.lovable.dev/v1",
       key: lovableKey,
       mdl: "google/gemini-3-flash-preview",
     });
@@ -99,26 +94,15 @@ ${sanitizedTags ? `**标签**: ${sanitizedTags}` : ""}
 
   for (const candidate of candidates) {
     try {
-      const response = await fetch(candidate.ep, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${candidate.key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: candidate.mdl,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.3,
-        }),
+      const response = await requestChatCompletion({
+        baseUrl: candidate.baseUrl,
+        apiKey: candidate.key,
+        model: candidate.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        timeoutMs: 30000,
       });
-
-      if (!response.ok) {
-        console.error(`Keyword expansion API error (${candidate.ep}):`, response.status);
-        continue;
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content || "";
+      const content = extractAssistantContent(response.json);
 
       try {
         const parsed = parseKeywordJson(content);
@@ -148,7 +132,7 @@ ${sanitizedTags ? `**标签**: ${sanitizedTags}` : ""}
         continue;
       }
     } catch (e) {
-      console.error("Keyword expansion candidate failed:", e);
+      console.error(`Keyword expansion candidate failed (${candidate.baseUrl}):`, e);
       continue;
     }
   }
