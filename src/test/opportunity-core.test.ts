@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseOpportunityRequest, runOpportunityResearch } from '../../supabase/functions/opportunity-discover/core';
+import { calculateResearchQuality, parseOpportunityRequest, runOpportunityResearch } from '../../supabase/functions/opportunity-discover/core';
 import type { OpportunityEvidence } from '../types/opportunity';
 
 const request = { country: 'United States', industry: 'Accounting', platforms: ['reddit'], mode: 'quick' };
@@ -8,6 +8,17 @@ const candidate = { title: 'Invoice workflow', problem: 'Manual entry', targetUs
 const collect = async () => ({ evidence, warnings: [], postCount: 3, commentCount: 0, apiCalls: 2 });
 
 describe('opportunity research boundaries', () => {
+  it('reports concrete research gaps instead of treating source count as demand proof', () => {
+    const quality = calculateResearchQuality(
+      { ...request, valueModel: 'entertainment', language: 'ja' },
+      evidence,
+      [{ id: 's1', evidenceIds: ['e1'], user: 'fan', trigger: 'event', task: 'share', currentWorkaround: 'chat', cost: '', recurrence: '', payment: '', type: 'entertainment', quote: 'Manual workflow is slow' }],
+    );
+    expect(quality.status).toBe('partial');
+    expect(quality.independentSourceCount).toBe(3);
+    expect(quality.evidenceTypes.experience).toBe(0);
+    expect(quality.gaps).toEqual(expect.arrayContaining(['没有具体用户经历或求助', '没有复玩或回访证据', '没有付费、价格或购买自述']));
+  });
   it('validates inputs and deduplicates platforms', () => {
     expect(parseOpportunityRequest({ ...request, platforms: ['reddit', 'reddit'] }).platforms).toEqual(['reddit']);
     for (const invalid of [{ ...request, country: '' }, { ...request, platforms: ['evil'] }, { ...request, mode: 'unlimited' }, { ...request, keyword: 'x'.repeat(201) }]) {

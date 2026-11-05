@@ -1,5 +1,5 @@
 import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
-import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest, OpportunityResult } from '../_shared/opportunity-types.ts';
+import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest, OpportunityResult, OpportunityResearchQuality } from '../_shared/opportunity-types.ts';
 
 export class RadarInputError extends Error {}
 const OPPORTUNITY_TYPES = ['reassurance', 'ritual', 'festival', 'hobby', 'daily', 'workflow'];
@@ -158,6 +158,37 @@ function normalizeSignals(payload: unknown, evidence: OpportunityEvidence[]): Re
   return signals;
 }
 
+export function calculateResearchQuality(request: OpportunityRequest, evidence: OpportunityEvidence[], signals: ResearchSignal[]): OpportunityResearchQuality {
+  const independent = new Set(evidence.map(item => {
+    try { const url = new URL(item.url); return `${url.hostname.toLowerCase()}${url.pathname}`; } catch { return item.url; }
+  }));
+  const sourceKinds = new Set(evidence.map(item => item.platform).filter(Boolean));
+  const language = (request.language || '').split('-')[0].toLowerCase();
+  const localLanguageSourceCount = language ? evidence.filter(item => (item.language || '').split('-')[0].toLowerCase() === language).length : 0;
+  const evidenceTypes = { experience: 0, behavior: 0, recurrence: 0, payment: 0, counter: 0, sharing: 0 };
+  for (const signal of signals) {
+    const textValue = `${signal.trigger} ${signal.task} ${signal.currentWorkaround} ${signal.cost} ${signal.recurrence} ${signal.payment}`.toLowerCase();
+    if (signal.type === 'experience' || signal.type === 'help') evidenceTypes.experience += 1;
+    if (signal.task || signal.currentWorkaround) evidenceTypes.behavior += 1;
+    if (signal.recurrence || /every|often|again|daily|weekly|每次|经常|一直|再次|每天|每周|毎回|いつも|매번|자주/i.test(textValue)) evidenceTypes.recurrence += 1;
+    if (signal.type === 'purchase' || signal.payment || /paid|bought|subscribe|purchase|购买|付费|订阅|購入|課金|결제/i.test(textValue)) evidenceTypes.payment += 1;
+    if (signal.type === 'promotion' || /alternative|stopped|not worth|free|替代|停止|不值得|免费|やめ|무료|중단/i.test(textValue)) evidenceTypes.counter += 1;
+    if (signal.type === 'ritual' || signal.type === 'entertainment' || /share|sharing|invite|identity|分享|邀请|身份|回访|复玩|シェア|공유/i.test(textValue)) evidenceTypes.sharing += 1;
+  }
+  const gaps: string[] = [];
+  if (independent.size < 2) gaps.push('独立原始来源不足');
+  if (sourceKinds.size < 2) gaps.push('来源类型单一，需补充不同渠道');
+  if (language && localLanguageSourceCount === 0) gaps.push('没有目标市场语言原文');
+  if (!evidenceTypes.experience) gaps.push('没有具体用户经历或求助');
+  if (!evidenceTypes.behavior) gaps.push('没有实际做法或行为证据');
+  if (!evidenceTypes.recurrence) gaps.push(request.valueModel === 'entertainment' ? '没有复玩或回访证据' : '没有重复发生频率证据');
+  if (!evidenceTypes.payment) gaps.push('没有付费、价格或购买自述');
+  if (!evidenceTypes.counter) gaps.push('没有完成替代方案或反证复核');
+  if (request.valueModel === 'entertainment' && !evidenceTypes.sharing) gaps.push('没有分享、身份表达或传播证据');
+  const complete = independent.size >= 2 && evidenceTypes.experience > 0 && evidenceTypes.behavior > 0 && evidenceTypes.recurrence > 0 && evidenceTypes.counter > 0;
+  return { status: complete ? 'research_ready' : evidence.length >= 2 ? 'partial' : 'insufficient', independentSourceCount: independent.size, sourceKindCount: sourceKinds.size, localLanguageSourceCount, evidenceTypes, gaps: gaps.slice(0, 8) };
+}
+
 function gateCandidateDecision(candidates: OpportunityCandidate[], signals: ResearchSignal[]): OpportunityCandidate[] {
   const actionable = new Set(signals.filter(signal => signal.type !== 'entertainment' && signal.type !== 'promotion').flatMap(signal => signal.evidenceIds));
   return candidates.map(candidate => {
@@ -233,8 +264,10 @@ export async function runOpportunityResearch(request: OpportunityRequest, deps: 
   }
   if (candidates.length < 3) warnings.push(`当前可用证据仅支持 ${candidates.length} 个候选，未为凑够数量生成需求。可缩小行业或更换关键词。`);
   warnings.push('国家是检索语境，不代表来源作者位于该国；搜索片段仅是来源记录，需求、紧迫度与竞品判断均为 AI 假设。热度不等于付费意愿。');
+  const quality = calculateResearchQuality(request, evidence, signals);
+  if (quality.gaps.length) warnings.push(`研究覆盖缺口：${quality.gaps.join('；')}。`);
   return {
-    schemaVersion: 1, fetchedAt: new Date().toISOString(), request, candidates, warnings, queryPlan, signals,
+    schemaVersion: 1, fetchedAt: new Date().toISOString(), request, candidates, warnings, queryPlan, signals, quality,
     stats: { sourceCount: evidence.length, postCount: sources.postCount, commentCount: sources.commentCount, apiCalls: sources.apiCalls, durationMs: Date.now() - startedAt },
   };
 }
@@ -249,7 +282,7 @@ export function buildOpportunityPrompt(request: OpportunityRequest, evidence: Op
       '根据valueModel分开判断：utility关注时间/金钱/错误损失；entertainment关注复玩、回访、分享、身份表达、情绪回报和新鲜感衰减。娱乐需求不要求用户先抱怨，但必须有行为或重复体验证据。不能把点赞当付费意愿。',
       'utility的变现可考虑节省成本、团队协作或按用量；entertainment的变现可考虑低价订阅、主题包、虚拟物品、季票、个性化、礼物或身份权益。不得用工具类ROI价格逻辑强行估算娱乐收入，先说明付费触发点和新鲜感风险。',
       '情绪安慰、仪式、关系和纪念也可有价值，需记录真实重复使用、分享和付款经历；不能把文化兴趣直接推断成购买需求。',
-      'signals先记录谁、何时、想做什么、现有做法、时间/钱/情绪代价、复发频率和付款自述；未知填空。quote必须逐字来自所引用来源的snippet，不得补写原话。先排除广告和泛娱乐，再聚类，跨国家和不同任务不能强行合并。',
+      'signals先记录谁、何时、想做什么、现有做法、时间/钱/情绪代价、复发频率和付款自述；未知填空。quote必须逐字来自所引用来源的snippet，不得补写原话。先排除广告和泛娱乐，再聚类，跨国家和不同任务不能强行合并。type之外还要用trigger/task/currentWorkaround/recurrence/payment填出行为证据；不能只凭一个情绪标签算需求。',
       'signals最多12条，优先保留具体经历、求助和重复仪式；每个字段保持简洁。候选localSearchTerms用目标市场语言提供不超过60字的场景检索词，用于独立复核，不要翻译成中文产品口号。',
       '每个候选分别列出support支持、counter反证、unknowns未知、mvp最小软件切口、experiment最小验证动作。support/counter的每条claim都必须引用本候选evidenceIds中的真实ID；没有查到反证时写入unknowns，不假装已检索或已排除。',
       'decision只能是test/reframe/pause/insufficient，代表研究建议。paymentEvidence只能是unknown/pricing/reported_purchase，分别是未知/来源中出现报价/用户原文自述购买，均不等于本产品有人真实付款。不得估算收入、创造定价或声称支付已验证。',

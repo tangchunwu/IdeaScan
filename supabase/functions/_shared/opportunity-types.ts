@@ -51,6 +51,22 @@ export interface OpportunityCandidate {
   localSearchTerms?: string;
 }
 
+export interface OpportunityResearchQuality {
+  status: 'research_ready' | 'partial' | 'insufficient';
+  independentSourceCount: number;
+  sourceKindCount: number;
+  localLanguageSourceCount: number;
+  evidenceTypes: {
+    experience: number;
+    behavior: number;
+    recurrence: number;
+    payment: number;
+    counter: number;
+    sharing: number;
+  };
+  gaps: string[];
+}
+
 export interface OpportunityResult {
   schemaVersion: 1;
   fetchedAt: string;
@@ -60,4 +76,5 @@ export interface OpportunityResult {
   stats: { sourceCount: number; postCount: number; commentCount: number; apiCalls: number; durationMs: number };
   queryPlan?: Array<{intent: string; query: string; language: string; platform?: string}>;
   signals?: Array<{id: string; evidenceIds: string[]; user: string; trigger: string; task: string; currentWorkaround: string; cost: string; recurrence: string; payment: string; type: 'experience'|'help'|'ritual'|'purchase'|'promotion'|'entertainment'; quote: string}>;
+  quality?: OpportunityResearchQuality;
 }

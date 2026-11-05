@@ -200,7 +200,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
   const commentPostLimit = quick ? 3 : 5;
   const commentLimit = quick ? 4 : 10;
   const collectedAt = new Date().toISOString();
-  const addEvidence = (platform: string, title: unknown, snippet: unknown, url: string) => {
+  const addEvidence = (platform: string, title: unknown, snippet: unknown, url: string, metadata: { language?: string; signalType?: string } = {}) => {
     const cleanedTitle = cleanText(title, 180);
     const cleanedSnippet = cleanText(snippet, 1200);
     if (!cleanedTitle && !cleanedSnippet) {
@@ -209,7 +209,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
     }
     output.evidence.push({ id: `source-${output.evidence.length + 1}`, platform,
       title: cleanedTitle || cleanedSnippet.slice(0, 180), snippet: cleanedSnippet,
-      url, collectedAt, kind: 'fact' });
+      url, collectedAt, kind: 'fact', ...metadata });
   };
   if (!subject && !request.opportunityType) {
     output.warnings.push('查询为空，未调用数据源。');
@@ -266,7 +266,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
             continue;
           }
           urls.set(post.post_id, url);
-          addEvidence(channel.channel, post.title, post.content, url);
+          addEvidence(channel.channel, post.title, post.content, url, { language: groupMarket.language, signalType: search.intent });
         }
         const commentPosts = new Set(posts.slice(0, commentPostLimit).map(post => post.post_id));
         const perPost = new Map<string, number>();
@@ -281,7 +281,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
             continue;
           }
           // 评论与父帖可共享 URL，唯一来源去重交由核心处理。
-          addEvidence(channel.channel, '用户评论', comment.content, url);
+          addEvidence(channel.channel, '用户评论', comment.content, url, { language: groupMarket.language, signalType: search.intent });
         }
       }
       } catch {
@@ -305,7 +305,8 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
         }
         const snippets = Array.isArray(data.snippets) ? data.snippets : [];
         addEvidence(provider, data.title || data.name,
-          data.snippet || data.description || data.content || data.summary || snippets[0], url);
+          data.snippet || data.description || data.content || data.summary || snippets[0], url,
+          { language: market.language, signalType: search.intent });
       }
     } catch {
       warnings.add(`${provider}: 搜索失败或超时，已跳过；未进行重试。`);

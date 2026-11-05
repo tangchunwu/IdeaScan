@@ -56,6 +56,14 @@ const resultSchema = z.object({
   stats: z.object({ sourceCount: count, postCount: count, commentCount: count, apiCalls: count, durationMs: z.number().finite().nonnegative() }),
   queryPlan:z.array(z.object({intent:z.string(),query:z.string(),language:z.string(),platform:z.string().optional()})).max(32).optional(),
   signals:z.array(z.object({id:z.string(),evidenceIds:z.array(z.string()),user:z.string(),trigger:z.string(),task:z.string(),currentWorkaround:z.string(),cost:z.string(),recurrence:z.string(),payment:z.string(),type:z.enum(['experience','help','ritual','purchase','promotion','entertainment']),quote:z.string()})).max(60).optional(),
+  quality:z.object({
+    status:z.enum(['research_ready','partial','insufficient']),
+    independentSourceCount:count,
+    sourceKindCount:count,
+    localLanguageSourceCount:count,
+    evidenceTypes:z.object({experience:count,behavior:count,recurrence:count,payment:count,counter:count,sharing:count}),
+    gaps:z.array(z.string()).max(10),
+  }).optional(),
 });
 
 export function getOpportunityConfigIssues(config: OpportunityConfig, request: OpportunityRequest): string[] {
