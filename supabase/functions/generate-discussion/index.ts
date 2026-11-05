@@ -86,7 +86,7 @@ function stripSystemPrompt(persona: Persona): SafePersona {
 async function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): Promise<LLMCandidate[]> {
   const candidates: LLMCandidate[] = [];
   
-  if (config?.llmApiKey && config?.llmBaseUrl) {
+  if (hasUsableUserLLM(config)) {
     candidates.push({
       baseUrl: config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1",
       apiKey: config.llmApiKey,

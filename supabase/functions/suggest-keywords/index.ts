@@ -116,7 +116,7 @@ serve(async (req) => {
     const config = validateConfig(body.config);
 
     // 只有默认地址且没有用户 Key 时才回退服务端配置；官方 OpenAI Key 不能被静默忽略。
-    const frontendUrlIsDefault = /api\.openai\.com/i.test(config.llmBaseUrl || "") && !config.llmApiKey?.trim();
+    const frontendUrlIsDefault = fallsBackToServerLLM(config);
     const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config.llmBaseUrl;
     const effectiveApiKey = frontendUrlIsDefault ? undefined : config.llmApiKey;
     const effectiveModel = frontendUrlIsDefault ? undefined : config.llmModel;

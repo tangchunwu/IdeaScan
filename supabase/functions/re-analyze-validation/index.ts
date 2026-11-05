@@ -148,7 +148,7 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
   }
 
   // Resolve LLM config with priority: custom > pool (DB + env + Lovable)
-  const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl;
+  const hasCustomLLM = hasUsableUserLLM(config);
 
   type LLMCandidate = { baseUrl: string; apiKey: string; model: string };
   const candidates: LLMCandidate[] = [];
