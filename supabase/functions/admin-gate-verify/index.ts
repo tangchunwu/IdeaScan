@@ -11,9 +11,11 @@ Deno.serve(async (req) => {
 
   try {
     const { password } = await req.json();
+    // 密码填错是用户输入问题，不是服务故障：用 200 + ok:false 返回，
+    // 这样前端能直接显示原因，也不会把一次输错记成后端报错。
     if (!password || typeof password !== "string") {
       return new Response(JSON.stringify({ ok: false, error: "密码不能为空" }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -28,7 +30,7 @@ Deno.serve(async (req) => {
 
     if (password !== expected) {
       return new Response(JSON.stringify({ ok: false, error: "密码错误" }), {
-        status: 401,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

@@ -10,7 +10,7 @@ import {
   LIMITS 
 } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitError, createRateLimitResponse } from "../_shared/rate-limit.ts";
-import { requestChatCompletion, extractAssistantContent } from "../_shared/llm-client.ts";
+import { requestChatCompletion, extractAssistantContent, hasUsableUserLLM } from "../_shared/llm-client.ts";
 import { resolvePool } from "../_shared/config-resolver.ts";
 import { isDecisionReady } from "../_shared/analysis-status.ts";
 
@@ -86,7 +86,7 @@ function stripSystemPrompt(persona: Persona): SafePersona {
 async function buildLLMCandidates(config?: { llmApiKey?: string; llmBaseUrl?: string; llmModel?: string }): Promise<LLMCandidate[]> {
   const candidates: LLMCandidate[] = [];
   
-  if (config?.llmApiKey && config?.llmBaseUrl) {
+  if (hasUsableUserLLM(config)) {
     candidates.push({
       baseUrl: config.llmBaseUrl || "https://ai.gateway.lovable.dev/v1",
       apiKey: config.llmApiKey,

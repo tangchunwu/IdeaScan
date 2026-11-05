@@ -33,7 +33,7 @@ import {
   createDefaultProofResult,
 } from "../_shared/report-metrics.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
-import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl, fallsBackToServerLLM } from "../_shared/llm-client.ts";
 import { multiChannelOrchestrator } from "../_shared/channels/index.ts";
 import { buildOverseasSocialData, overseasToSocialData } from "../_shared/overseas-social.ts";
 import { 
@@ -415,11 +415,6 @@ function resolveSearchKeys(config?: RequestConfig) {
   };
 }
 
-function isDefaultOpenAIUrl(url?: string): boolean {
-  if (!url) return false;
-  return /api\.openai\.com/i.test(url);
-}
-
 function normalizeLLMBaseUrl(input?: string) {
   return normalizeLlmBaseUrl(input || "https://ai.gateway.lovable.dev/v1");
 }
@@ -469,7 +464,7 @@ async function resolveLLMRuntimes(config?: RequestConfig) {
     : [];
 
   // 只有默认地址且没有用户 Key 时，才回退服务端配置；用户明确填写的官方 OpenAI Key 必须实际使用。
-  const frontendUrlIsDefault = isDefaultOpenAIUrl(config?.llmBaseUrl) && !config?.llmApiKey?.trim();
+  const frontendUrlIsDefault = fallsBackToServerLLM(config);
   const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config?.llmBaseUrl;
   const effectiveApiKey = frontendUrlIsDefault ? undefined : config?.llmApiKey;
   const effectiveModel = frontendUrlIsDefault ? undefined : config?.llmModel;

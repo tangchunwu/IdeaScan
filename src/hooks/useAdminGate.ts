@@ -19,7 +19,11 @@ export const useAdminGate = () => {
         body: { password },
       });
 
-      if (error) return { ok: false, error: "验证失败" };
+      if (error) {
+        // 服务端已经给出原因时优先显示原因，否则才用通用提示。
+        const reason = (data as { error?: string } | null)?.error;
+        return { ok: false, error: reason || "验证服务暂时不可用，请稍后重试" };
+      }
 
       if (data?.ok && data?.token) {
         sessionStorage.setItem(STORAGE_KEY, data.token);
