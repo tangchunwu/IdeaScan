@@ -525,6 +525,38 @@
 - “官方地址”不能作为忽略用户配置的依据；应以是否有用户 Key 判断回退。
 - 404 排查先分三层：最终请求 URL、账号可用模型、服务端是否实际采用了用户配置。
 
+## 2026-11-05｜IdeaScan｜管理后台 OpenAI 测试 404 修复
+
+### Challenges
+
+- 管理后台截图显示 OpenAI 官方 Base URL 为 `/v1`，测试返回 HTTP 404；需要区分重复拼接 `/v1` 和模型名不可用。
+
+### Hypotheses
+
+- 若管理后台直接把 `/v1` 再拼成 `/v1/v1/chat/completions`，官方 OpenAI 会返回 404。
+- 若模型填入非官方模型名，即使端点正确，也会返回模型不存在的 404。
+
+### Root Cause
+
+- `admin-api-config` 测试逻辑对 LLM 统一追加 `/v1/chat/completions`，Base URL 已含 `/v1` 时形成重复路径。
+- 管理后台的错误提示只显示 HTTP 404，没有说明模型或端点原因。
+
+### Solutions
+
+- 管理后台改用共享 `requestChatCompletion` 和端点规范化逻辑，避免 `/v1/v1`。
+- 对 404 和 401 输出可执行提示；明确 `gpt-6.1-sol` 不是 OpenAI 官方模型名。
+- 图片模型的 `/models` 探测也按 Base URL 是否已含 `/v1` 处理。
+
+### Verification
+
+- `admin-api-config` Deno check 通过；既有 OpenAI 端点和配置测试 5 项通过。
+- 未使用真实 OpenAI Key 发起请求；线上函数仍需重新部署后生效。
+
+### Learnings
+
+- 管理后台和普通用户设置必须共用同一个 LLM 端点构造器，避免“设置页能测、业务链路不能用”。
+- 404 诊断必须同时展示最终路径和模型可用性提示，不能只显示状态码。
+
 ## 2026-11-04｜IdeaScan｜旧研究出口统一状态门禁
 
 ### Challenges

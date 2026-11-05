@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { clearConfigCache } from "../_shared/config-resolver.ts";
+import { normalizeLlmBaseUrl, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -292,9 +293,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    const status = err.message === "Unauthorized" ? 401 : err.message === "Forbidden" ? 403 : 500;
-    return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    const status = message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500;
+    return new Response(JSON.stringify({ error: message || "Internal error" }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -313,30 +315,24 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     if (!base_url || !api_key) return { success: false, message: "Base URL 或 API Key 未填写" };
 
     if (config_group === "llm" || config_group === "search_llm") {
-      let cleanUrl = base_url.replace(/\/$/, "");
-      // Strip trailing /chat/completions or /v1/chat/completions if user pasted the full endpoint
-      cleanUrl = cleanUrl.replace(/\/v1\/chat\/completions$/i, "").replace(/\/chat\/completions$/i, "");
-      const endpoint = config_group === "search_llm"
-        ? `${cleanUrl}/chat/completions`
-        : `${cleanUrl}/v1/chat/completions`;
-
-      const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${api_key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: model || "gpt-3.5-turbo",
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 5,
-        }),
-        signal: AbortSignal.timeout(15000),
+      // 统一使用 OpenAI-compatible 端点构造；/v1 不能再次拼接成 /v1/v1。
+      const completion = await requestChatCompletion({
+        baseUrl: normalizeLlmBaseUrl(base_url),
+        apiKey: api_key,
+        model: model || "gpt-4o-mini",
+        messages: [{ role: "user", content: "hi" }],
+        maxTokens: 5,
+        timeoutMs: 15000,
       });
       const latencyMs = Date.now() - start;
-      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}`, latencyMs };
-      return { success: true, message: `连通正常 ✅ (${latencyMs}ms)`, latencyMs };
+      return { success: true, message: `连通正常 ✅ (${latencyMs}ms · ${completion.endpoint})`, latencyMs };
     }
 
     if (config_group === "image") {
-      const resp = await fetch(`${base_url.replace(/\/$/, "")}/v1/models`, {
+      const cleanUrl = normalizeLlmBaseUrl(base_url);
+      const parsed = new URL(cleanUrl);
+      const modelsEndpoint = `${cleanUrl}${parsed.pathname.replace(/\/$/, '') === '/v1' ? '' : '/v1'}/models`;
+      const resp = await fetch(modelsEndpoint, {
         headers: { Authorization: `Bearer ${api_key}` },
         signal: AbortSignal.timeout(10000),
       });
@@ -346,7 +342,13 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     }
 
     return { success: false, message: "未知配置组" };
-  } catch (e) {
-    return { success: false, message: `测试失败: ${e.message}`, latencyMs: Date.now() - start };
+  } catch (e: unknown) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const message = /http_404/i.test(raw)
+      ? "HTTP 404：请确认 Base URL 未重复包含 /v1，并确认模型名称属于该服务商（gpt-6.1-sol 不是 OpenAI 官方模型名）"
+      : /http_401|authentication|authorized/i.test(raw)
+        ? "HTTP 401：API Key 无效或没有该模型权限"
+        : `测试失败: ${raw.slice(0, 240)}`;
+    return { success: false, message, latencyMs: Date.now() - start };
   }
 }
