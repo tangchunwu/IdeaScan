@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.api-key-manager]
 verify_jwt = false
 
+[functions.external-api]
+verify_jwt = false
+
 [functions.validate-idea]
 verify_jwt = false
 

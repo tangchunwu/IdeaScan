@@ -16,6 +16,55 @@ Authorization: Bearer is_live_...
 X-IdeaScan-Key: is_live_...
 ```
 
+## AI 直接接入（推荐）
+
+把以下地址和 API Key 配给你的 AI 工具即可：
+
+```text
+POST {SUPABASE_URL}/functions/v1/external-api
+Header: X-IdeaScan-Key: is_live_...
+```
+
+统一请求格式：
+
+```json
+{
+  "operation": "discover_opportunities",
+  "input": {
+    "country": "South Korea",
+    "countryCode": "KR",
+    "language": "ko",
+    "industry": "consumer apps",
+    "keyword": "wish rituals",
+    "platforms": ["tiktok", "reddit", "youtube"],
+    "mode": "deep",
+    "opportunityType": "ritual",
+    "valueModel": "entertainment"
+  }
+}
+```
+
+需求验证只需要把 operation 改为 `validate_idea`：
+
+```json
+{
+  "operation": "validate_idea",
+  "input": {
+    "idea": "A Korean wish ritual companion app",
+    "tags": ["ritual", "Korea"],
+    "config": { "mode": "deep", "marketContext": { "country": "South Korea", "countryCode": "KR", "language": "ko", "opportunityType": "ritual", "valueModel": "entertainment" } }
+  }
+}
+```
+
+这个统一入口返回稳定 JSON：`success`、`operation`、`data`、`error`。AI 不需要处理 SSE，也不需要知道内部有几个 Supabase Function。
+
+OpenAPI 描述可直接读取：
+
+```text
+GET {SUPABASE_URL}/functions/v1/external-api
+```
+
 ## 商机挖掘
 
 ```bash
@@ -37,7 +86,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/opportunity-discover" \
 
 返回内容与网页商机雷达一致，包括 `candidates`、原文 `evidence`、`support`、`counter`、`unknowns`、`quality` 和 `warnings`。
 
-## 需求验证
+## 需求验证（底层 SSE 入口）
 
 需求验证使用 SSE：
 

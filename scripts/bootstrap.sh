@@ -21,7 +21,7 @@ deploy_core_functions() {
     export-user-data import-user-data \
     generate-mvp submit-mvp-lead track-experiment-event \
     scan-trending-topics discover-topics \
-    opportunity-discover api-key-manager \
+    opportunity-discover api-key-manager external-api \
     generate-discussion reply-to-comment generate-persona-image \
     crawler-dispatch crawler-callback crawler-health \
     crawler-auth-start crawler-auth-status crawler-auth-cancel \

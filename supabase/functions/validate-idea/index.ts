@@ -83,6 +83,15 @@ async function resolveSearchKeys(config?: RequestConfig) {
   };
 }
 
+async function resolveSystemTikHubToken(config?: RequestConfig): Promise<string> {
+  if (config?.tikhubToken) return config.tikhubToken;
+  const envToken = Deno.env.get("TIKHUB_TOKEN") || "";
+  if (envToken) return envToken;
+  const pool = await resolvePool("search_api");
+  const provider = pool.find(item => /tikhub/i.test(`${item.model} ${item.label}`));
+  return provider?.api_key || "";
+}
+
 let _cachedLlmPool: { base_url: string; api_key: string; model: string }[] | null = null;
 
 async function resolveLLMRuntime(config?: RequestConfig) {
@@ -951,7 +960,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { user } = await resolveAuthUserOrBypass(supabase, req);
+    const { user } = await resolveAuthUserOrBypass(supabase, req, "validation:run");
 
     // Check rate limit
     await checkRateLimit(supabase, user.id, "validate-idea");
@@ -964,7 +973,7 @@ serve(async (req) => {
 
     // ============ TikHub Quota Check ============
     const userProvidedTikhub = enableTikhubFallback && !!config?.tikhubToken;
-    let tikhubToken = enableTikhubFallback ? config?.tikhubToken : undefined;
+    let tikhubToken = enableTikhubFallback ? await resolveSystemTikHubToken(config) : undefined;
 
     // TikHub token is user-only; no system fallback.
     // If user didn't provide a token and tikhub fallback is needed, it will fail gracefully.

@@ -838,3 +838,30 @@
 
 - 线上生效需要先应用数据库迁移，再部署 `api-key-manager`、`opportunity-discover`、`validate-idea-stream` 和前端。
 - 真实 TikHub、Tavily、You.com 可用性和线上额度仍需使用用户创建的 IdeaScan Key 做一次低请求量冒烟测试。
+
+## 2026-11-05｜IdeaScan｜统一 AI 外部 API 网关
+
+### Challenges
+
+- 仅暴露多个 Function 和 SSE 文档仍要求 AI 理解内部 Supabase 路由，需求验证也不适合直接由普通工具消费 SSE。
+
+### Root Cause
+
+- 外部 API 缺少统一 `operation/input/data/error` 合同和可发现的 OpenAPI 描述；外部 Key 的每分钟限流字段也没有落地执行。
+
+### Solutions
+
+- 新增 `external-api` 统一 JSON 网关，支持 `discover_opportunities` 和 `validate_idea` 两个 operation；GET 返回可供 AI 导入的 OpenAPI 描述。
+- 网关内部复用商机挖掘和旧版 JSON 验证入口，调用方不再处理 SSE 或内部 Function 数量。
+- 新增独立限流迁移 `20261105130000_external_api_key_rate_limit.sql`，按 API Key 和分钟桶原子计数。
+- 外部 Key 仍只保存哈希，供应商配置池继续由服务端读取。
+
+### Verification
+
+- 统一 API 相关定向测试 10 项通过。
+- 全量回归前一轮 47 个测试文件、339 项通过；本次新增网关完成 TypeScript、构建和 diff 检查。
+- 未使用真实 Key 或真实供应商请求；线上仍需应用两份限流/Key 迁移并部署网关。
+
+### Boundary
+
+- `external-api` 的验证操作返回旧版 JSON 报告；如需实时进度仍可直接使用流式入口，但 AI 默认应使用统一网关。
