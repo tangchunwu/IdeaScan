@@ -8,16 +8,22 @@ import { createOpportunityHandler, RadarServiceError } from './handler.ts';
 import { collectOpportunitySources, collectOpportunityFollowUpSources } from './sources.ts';
 import { analyzeOpportunitySources } from './model.ts';
 import { resolveRadarConfiguration } from './configuration.ts';
+import { authenticateExternalApiKeyValue, isExternalApiKey } from '../_shared/external-api-key.ts';
 
 const handler = createOpportunityHandler({
   authenticate: async token => {
+    if (isExternalApiKey(token)) {
+      const external = await authenticateExternalApiKeyValue(token, 'opportunity:read');
+      if (external) return { userId: external.userId, external: true };
+      return null;
+    }
     const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await client.auth.getUser(token);
     return !error && data.user ? data.user.id : null;
   },
-  research: async (request, config, userId) => {
+  research: async (request, config, userId, authMode = 'session') => {
     const { model, sources } = await resolveRadarConfiguration(config, {
-      useServerKeys: Deno.env.get('OPPORTUNITY_USE_SERVER_KEYS') === 'true',
+      useServerKeys: authMode === 'external' || Deno.env.get('OPPORTUNITY_USE_SERVER_KEYS') === 'true',
       allowedModelHosts: Deno.env.get('OPPORTUNITY_LLM_ALLOWED_HOSTS'), getPool: resolvePool,
       getServerTikHubToken: () => Deno.env.get('TIKHUB_TOKEN') || '',
     });

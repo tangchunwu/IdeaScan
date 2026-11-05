@@ -22,8 +22,8 @@ export function parseRadarConfig(input: unknown): RadarRuntimeConfig {
 }
 
 export function createOpportunityHandler(deps: {
-  authenticate: (token: string) => Promise<string | null>;
-  research: (request: OpportunityRequest, config: RadarRuntimeConfig, userId: string) => Promise<OpportunityResult>;
+  authenticate: (token: string) => Promise<string | { userId: string; external: boolean } | null>;
+  research: (request: OpportunityRequest, config: RadarRuntimeConfig, userId: string, authMode?: 'session' | 'external') => Promise<OpportunityResult>;
   now?: () => number;
 }) {
   const lastRuns = new Map<string, number>();
@@ -32,10 +32,15 @@ export function createOpportunityHandler(deps: {
   return async (req: Request): Promise<Response> => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if (req.method !== 'POST') return json({ error: '仅支持 POST 请求' }, 405);
-    const token = req.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
+    const token = req.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1] || req.headers.get('x-ideascan-key')?.trim();
     if (!token) return json({ error: '请先登录' }, 401);
     let userId: string | null;
-    try { userId = await deps.authenticate(token); } catch { return json({ error: '登录验证暂不可用' }, 503); }
+    let authMode: 'session' | 'external' = 'session';
+    try {
+      const authenticated = await deps.authenticate(token);
+      if (authenticated && typeof authenticated === 'object') { userId = authenticated.userId; authMode = authenticated.external ? 'external' : 'session'; }
+      else userId = authenticated;
+    } catch { return json({ error: '登录验证暂不可用' }, 503); }
     if (!userId) return json({ error: '登录态已失效，请重新登录' }, 401);
     let reserved = false;
     try {
@@ -65,7 +70,10 @@ export function createOpportunityHandler(deps: {
       lastRuns.set(userId, time);
       activeUsers.add(userId);
       reserved = true;
-      return json(await deps.research(request, config, userId));
+      const result = authMode === 'external'
+        ? await deps.research(request, config, userId, 'external')
+        : await deps.research(request, config, userId);
+      return json(result);
     } catch (error) {
       if (error instanceof RadarInputError) return json({ error: error.message }, 400);
       if (error instanceof RadarServiceError) return json({ error: error.message }, error.status);

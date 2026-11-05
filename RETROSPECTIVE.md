@@ -798,3 +798,43 @@
 
 - 挖掘层应把“研究是否查够”与“产品是否有人付费”分开；前者可以由公开证据覆盖度衡量，后者不能由搜索结果代替。
 - 娱乐方向必须单独看复玩、分享和身份表达；工具方向必须单独看实际做法、重复损失和替代成本。
+
+## 2026-11-05｜IdeaScan｜系统配置池外部 API 接入
+
+### Challenges
+
+- 用户希望直接用一个 IdeaScan API Key 调用商机挖掘和需求验证，不把 TikHub、Tavily、You.com 或模型供应商密钥交给外部调用方。
+- 既有网页函数依赖 Supabase 登录态；外部 API 需要独立 Key 认证，同时继续把结果写入所属用户的验证和研究记录。
+
+### Hypotheses
+
+- 为每个用户保存不可逆 Key 哈希，并让 Key 只在创建时返回一次，可以实现可撤销的外部调用认证。
+- 让外部 Key 进入现有商机挖掘和流式验证入口，能复用现有证据、RLS 和额度逻辑，避免再造一套研究链路。
+
+### Root Cause
+
+- 系统已有服务端配置池和网页认证，但没有外部 Key 表、Key 生命周期管理和 API 认证分支；调用方只能依赖网页会话。
+
+### Solutions
+
+- 新增 `external_api_keys` 迁移和 `api-key-manager` Function，支持创建、列表和撤销；数据库只保存 SHA-256 哈希和前缀。
+- API 配置中心增加外部 Key 管理卡片，完整 Key 只展示一次。
+- `opportunity-discover` 支持 `Authorization: Bearer is_live_...` 或 `X-IdeaScan-Key`，外部调用自动使用系统 LLM/TikHub/搜索池。
+- `validate-idea-stream` 支持 `validation:run` scope 的外部 Key，继续返回 SSE 并写入该用户记录。
+- 增加外部 API 调用文档和 Key 加密/提取测试。
+
+### Verification
+
+- 全量 Vitest 47 个测试文件、339 项通过。
+- `npx tsc --noEmit`、`npm run build` 和 `git diff --check` 通过。
+- 未使用真实供应商 Key 或真实外部 API 请求；本机没有 Deno，未执行 Edge Function `deno check`。
+
+### Learnings
+
+- 外部 API 应只暴露产品 Key，供应商 Key 留在服务端配置池；原始 Key 不能写入数据库或日志。
+- API 认证必须绑定用户身份和 scope，才能继续沿用现有验证记录、额度和研究归属边界。
+
+### Boundary
+
+- 线上生效需要先应用数据库迁移，再部署 `api-key-manager`、`opportunity-discover`、`validate-idea-stream` 和前端。
+- 真实 TikHub、Tavily、You.com 可用性和线上额度仍需使用用户创建的 IdeaScan Key 做一次低请求量冒烟测试。

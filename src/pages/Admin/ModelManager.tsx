@@ -14,7 +14,7 @@ import { getFunctionInvokeError } from "@/lib/adminModelManager";
 import {
   Brain, Search, Image, Globe, Shield, Loader2, CheckCircle2, XCircle,
   Eye, EyeOff, Save, Plus, Trash2, GripVertical, ArrowUp, ArrowDown,
-  Zap,
+  Zap, Copy, KeyRound,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -44,6 +44,16 @@ interface GroupDef {
   icon: React.ElementType;
   description: string;
   fields: { key: keyof ProviderRow; label: string; isSecret?: boolean; placeholder?: string }[];
+}
+
+interface ExternalApiKeyRow {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at?: string | null;
+  revoked_at?: string | null;
+  created_at: string;
 }
 
 const GROUPS: GroupDef[] = [
@@ -103,6 +113,10 @@ const ModelManager = () => {
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [envStatus, setEnvStatus] = useState<Record<string, boolean>>({});
   const [lovableReady, setLovableReady] = useState(false);
+  const [externalKeys, setExternalKeys] = useState<ExternalApiKeyRow[]>([]);
+  const [apiKeyName, setApiKeyName] = useState("自动化测试");
+  const [newRawApiKey, setNewRawApiKey] = useState("");
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const deletingProviderKeysRef = useRef(new Set<string>());
 
@@ -129,9 +143,42 @@ const ModelManager = () => {
     }
   }, []);
 
+  const fetchExternalKeys = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("api-key-manager", { body: { action: "list" } });
+      if (error) throw error;
+      setExternalKeys(data?.keys || []);
+    } catch (e: any) {
+      toast.error("加载外部 API Key 失败: " + (e.message || "未知错误"));
+    }
+  }, []);
+
   useEffect(() => {
-    if (isAdmin) fetchData();
-  }, [isAdmin, fetchData]);
+    if (isAdmin) { fetchData(); fetchExternalKeys(); }
+  }, [isAdmin, fetchData, fetchExternalKeys]);
+
+  const createExternalKey = async () => {
+    setApiKeyLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("api-key-manager", { body: { action: "create", name: apiKeyName } });
+      if (error) throw error;
+      setNewRawApiKey(data.raw_key || "");
+      toast.success("API Key 已创建，请立即复制保存");
+      await fetchExternalKeys();
+    } catch (e: any) {
+      toast.error("创建 API Key 失败: " + (e.message || "未知错误"));
+    } finally { setApiKeyLoading(false); }
+  };
+
+  const revokeExternalKey = async (id: string) => {
+    if (!window.confirm("确定撤销这个 API Key 吗？撤销后立即失效。")) return;
+    try {
+      const { error } = await supabase.functions.invoke("api-key-manager", { body: { action: "revoke", id } });
+      if (error) throw error;
+      toast.success("API Key 已撤销");
+      await fetchExternalKeys();
+    } catch (e: any) { toast.error("撤销失败: " + (e.message || "未知错误")); }
+  };
 
   const updateProvider = (groupId: string, idx: number, field: string, value: any) => {
     setProviders((prev) => {
@@ -396,6 +443,16 @@ const ModelManager = () => {
             一键导入全部环境变量到数据库
           </Button>
         )}
+
+        <GlassCard padding="lg" className="my-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <KeyRound className="w-5 h-5 text-primary" />
+            <div><h2 className="font-semibold text-foreground">外部 API Key</h2><p className="text-xs text-muted-foreground">调用商机挖掘和需求验证 API；供应商密钥只留在系统配置池，不会暴露给调用方。</p></div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row"><Input value={apiKeyName} onChange={e => setApiKeyName(e.target.value)} placeholder="Key 名称" className="sm:max-w-xs" /><Button onClick={createExternalKey} disabled={apiKeyLoading}>{apiKeyLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}创建 Key</Button></div>
+          {newRawApiKey && <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2"><p className="text-xs text-destructive">完整 Key 只显示这一次，请复制保存：</p><div className="flex gap-2"><Input readOnly value={newRawApiKey} className="font-mono text-xs" /><Button variant="outline" size="icon" onClick={() => void navigator.clipboard.writeText(newRawApiKey)}><Copy className="w-4 h-4" /></Button></div></div>}
+          <div className="space-y-2">{externalKeys.length === 0 ? <p className="text-xs text-muted-foreground">尚未创建外部 Key。</p> : externalKeys.map(key => <div key={key.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2 text-sm"><span><strong>{key.name}</strong><span className="ml-2 font-mono text-xs text-muted-foreground">{key.key_prefix}••••</span>{key.revoked_at && <span className="ml-2 text-xs text-destructive">已撤销</span>}</span>{!key.revoked_at && <Button variant="ghost" size="sm" className="text-destructive" onClick={() => void revokeExternalKey(key.id)}>撤销</Button>}</div>)}</div>
+        </GlassCard>
 
         <div className="space-y-6">
           {GROUPS.map((group) => {

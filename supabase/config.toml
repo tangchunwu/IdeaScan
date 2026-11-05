@@ -27,6 +27,12 @@ verify_jwt = false
 [functions.validate-idea-stream]
 verify_jwt = false
 
+[functions.opportunity-discover]
+verify_jwt = false
+
+[functions.api-key-manager]
+verify_jwt = false
+
 [functions.validate-idea]
 verify_jwt = false
 

@@ -1,4 +1,5 @@
 import { ValidationError } from "./validation.ts";
+import { authenticateExternalApiKeyValue, extractExternalApiKey } from "./external-api-key.ts";
 
 type MinimalUser = {
   id: string;
@@ -15,7 +16,14 @@ function isBypassEnabled() {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
-async function tryResolveRealUser(supabase: any, req: Request): Promise<MinimalUser | null> {
+async function tryResolveRealUser(supabase: any, req: Request, requiredScope?: string): Promise<MinimalUser | null> {
+  if (requiredScope) {
+    const externalKey = extractExternalApiKey(req);
+    if (externalKey) {
+      const external = await authenticateExternalApiKeyValue(externalKey, requiredScope);
+      if (external) return { id: external.userId, email: "" };
+    }
+  }
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
   const token = authHeader.replace("Bearer ", "").trim();
@@ -36,8 +44,8 @@ async function resolveBypassUser(supabase: any): Promise<MinimalUser> {
   throw new ValidationError("BYPASS_AUTH_FAILED: no users found. Please create one auth user or set DEV_AUTH_USER_ID");
 }
 
-export async function resolveAuthUserOrBypass(supabase: any, req: Request): Promise<ResolveUserResult> {
-  const realUser = await tryResolveRealUser(supabase, req);
+export async function resolveAuthUserOrBypass(supabase: any, req: Request, requiredScope?: string): Promise<ResolveUserResult> {
+  const realUser = await tryResolveRealUser(supabase, req, requiredScope);
   if (realUser) return { user: realUser, bypassed: false };
 
   if (!isBypassEnabled()) {

@@ -826,7 +826,7 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
       );
 
-      const { user } = await resolveAuthUserOrBypass(supabase, req);
+      const { user } = await resolveAuthUserOrBypass(supabase, req, "validation:run");
       checkpointUserId = user.id;
 
       if (config.researchSessionId || config.researchCandidateId) {
