@@ -468,9 +468,8 @@ async function resolveLLMRuntimes(config?: RequestConfig) {
         .filter((item) => !!item.apiKey && !!item.baseUrl && !!item.model)
     : [];
 
-  // If the frontend sends the default api.openai.com URL, treat it as unconfigured
-  // and prefer system env vars (LLM_BASE_URL / LLM_API_KEY) instead
-  const frontendUrlIsDefault = isDefaultOpenAIUrl(config?.llmBaseUrl);
+  // 只有默认地址且没有用户 Key 时，才回退服务端配置；用户明确填写的官方 OpenAI Key 必须实际使用。
+  const frontendUrlIsDefault = isDefaultOpenAIUrl(config?.llmBaseUrl) && !config?.llmApiKey?.trim();
   const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config?.llmBaseUrl;
   const effectiveApiKey = frontendUrlIsDefault ? undefined : config?.llmApiKey;
   const effectiveModel = frontendUrlIsDefault ? undefined : config?.llmModel;

@@ -114,8 +114,8 @@ serve(async (req) => {
     const tags = validateStringArray(body.tags, "tags", LIMITS.TAG_MAX_COUNT, LIMITS.TAG_MAX_LENGTH);
     const config = validateConfig(body.config);
 
-    // If frontend sends default api.openai.com URL, skip it and use system env vars
-    const frontendUrlIsDefault = /api\.openai\.com/i.test(config.llmBaseUrl || "");
+    // 只有默认地址且没有用户 Key 时才回退服务端配置；官方 OpenAI Key 不能被静默忽略。
+    const frontendUrlIsDefault = /api\.openai\.com/i.test(config.llmBaseUrl || "") && !config.llmApiKey?.trim();
     const effectiveBaseUrl = frontendUrlIsDefault ? undefined : config.llmBaseUrl;
     const effectiveApiKey = frontendUrlIsDefault ? undefined : config.llmApiKey;
     const effectiveModel = frontendUrlIsDefault ? undefined : config.llmModel;

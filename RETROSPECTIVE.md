@@ -493,6 +493,38 @@
 - 扫描器命中只是候选：JWT应解析角色，通用token规则需排除源码引用、测试值和占位符，疑似真实值仍要区分归属与有效性。
 - anon/publishable key 公开不等于数据库管理员密钥暴露；实际数据权限仍需独立 RLS 验收。
 
+## 2026-11-05｜IdeaScan｜官方 OpenAI 配置 404 排查与路由修复
+
+### Challenges
+
+- 用户在服务设置中填写 OpenAI 官方 API 后遇到 404，需要区分 Base URL、模型名称和服务端配置回退。
+
+### Hypotheses
+
+- `https://api.openai.com/v1` 应请求 `/chat/completions`；若模型名使用 `gpt-6.1-terra`，官方账号可能返回模型不存在的 404。
+- 主验证链路把 `api.openai.com` 视为默认未配置地址，可能在用户已填写 Key 时改用服务端环境配置。
+
+### Root Cause
+
+- `validate-idea-stream`、关键词建议、讨论生成和重新分析的配置选择逻辑把官方 OpenAI 地址当作回退信号，忽略用户 Key；导致设置页测试和主验证实际使用的模型服务不一致。
+- 404 错误提示没有明确区分错误路由与模型不存在。
+
+### Solutions
+
+- 只有官方 OpenAI 默认地址且用户没有填写 Key 时才回退服务端配置；带用户 Key 的官方 OpenAI 配置直接进入请求。
+- `verify-config` 对 404 提示检查 `/v1` Base URL 和模型名称，并明确 `gpt-6.1-terra` 不是 OpenAI 官方模型名。
+- 其他 OpenAI-compatible 自定义地址继续沿用共享端点候选逻辑。
+
+### Verification
+
+- 应用 TypeScript 和五个相关 Edge Functions 的 Deno check 通过。
+- 既有 OpenAI 端点和配置测试可继续复用；本轮未使用真实 OpenAI Key、未发起付费请求。
+
+### Learnings
+
+- “官方地址”不能作为忽略用户配置的依据；应以是否有用户 Key 判断回退。
+- 404 排查先分三层：最终请求 URL、账号可用模型、服务端是否实际采用了用户配置。
+
 ## 2026-11-04｜IdeaScan｜旧研究出口统一状态门禁
 
 ### Challenges

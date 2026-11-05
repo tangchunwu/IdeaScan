@@ -148,8 +148,7 @@ ${dimensionNames.map((name: string, i: number) => `- ${name}: 当前得分 ${exi
   }
 
   // Resolve LLM config with priority: custom > pool (DB + env + Lovable)
-  const frontendUrlIsDefault = /api\.openai\.com/i.test(config?.llmBaseUrl || "");
-  const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl && !frontendUrlIsDefault;
+  const hasCustomLLM = config?.llmApiKey && config?.llmBaseUrl;
 
   type LLMCandidate = { baseUrl: string; apiKey: string; model: string };
   const candidates: LLMCandidate[] = [];

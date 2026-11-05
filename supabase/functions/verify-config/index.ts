@@ -202,6 +202,8 @@ serve(async (req) => {
             message = "LLM API 额度已用尽 (429 Rate Limit)，请检查你的 MiniMax/LLM 账户余额或等待限流重置。";
           } else if (details.includes("http_401") || details.includes("authorized_error") || details.includes("authentication")) {
             message = "LLM API Key 认证失败 (401)，请检查 API Key 是否正确。";
+          } else if (details.includes("http_404")) {
+            message = "OpenAI 接口返回 404：请确认 Base URL 是 https://api.openai.com/v1，并确认模型名称属于你的 OpenAI 账号；gpt-6.1-terra 不是 OpenAI 官方模型名。";
           } else {
             message = `LLM endpoint unreachable. Details: ${details.slice(0, 300)}`;
           }
