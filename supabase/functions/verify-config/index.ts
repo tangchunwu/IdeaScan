@@ -203,7 +203,7 @@ serve(async (req) => {
           } else if (details.includes("http_401") || details.includes("authorized_error") || details.includes("authentication")) {
             message = "LLM API Key 认证失败 (401)，请检查 API Key 是否正确。";
           } else if (details.includes("http_404")) {
-            message = "OpenAI 接口返回 404：请确认 Base URL 是 https://api.openai.com/v1，并确认模型名称属于你的 OpenAI 账号；gpt-6.1-terra 不是 OpenAI 官方模型名。";
+            message = "OpenAI 接口返回 404：请确认 Base URL 是 https://api.openai.com/v1，并确认模型已在你的 OpenAI 账号和项目中可用。gpt-6.1-sol、gpt-6.1-terra 等是官方模型；如果仍失败，请检查账号 tier、项目权限和请求参数。";
           } else {
             message = `LLM endpoint unreachable. Details: ${details.slice(0, 300)}`;
           }

@@ -5,6 +5,8 @@ export type ChatCompletionRequest = {
   messages: Array<{ role: string; content: string }>;
   temperature?: number;
   maxTokens?: number;
+  /** GPT-6 reasoning effort. GPT-6.1 Sol/Astra require at least low. */
+  reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   timeoutMs?: number;
   responseFormat?: { type: "json_object" };
 };
@@ -72,6 +74,33 @@ export function buildChatCompletionEndpoints(baseUrl: string): string[] {
   return endpoints;
 }
 
+/** GPT-6 models reject temperature/top_p whenever reasoning is enabled. */
+export function isGpt6ReasoningModel(model: string): boolean {
+  return /^gpt-6(?:\.\d+)?-(?:astra|sol|terra|luna)$/i.test(String(model || "").trim());
+}
+
+/** Build a provider-compatible Chat Completions payload in one place. */
+export function buildChatCompletionBody(req: ChatCompletionRequest): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model: req.model,
+    messages: req.messages,
+    max_tokens: req.maxTokens ?? 800,
+  };
+
+  if (isGpt6ReasoningModel(req.model)) {
+    // GPT-6.1 Sol and GPT-6 Astra do not support "none". Low is the
+    // conservative default and callers can explicitly request more effort.
+    const requested = req.reasoningEffort;
+    body.reasoning_effort = requested && requested !== "none" ? requested : "low";
+  } else {
+    body.temperature = req.temperature ?? 0.3;
+    if (req.reasoningEffort) body.reasoning_effort = req.reasoningEffort;
+  }
+
+  if (req.responseFormat) body.response_format = req.responseFormat;
+  return body;
+}
+
 function shouldTryNextEndpoint(status: number, contentType: string, bodyText: string): boolean {
   const ct = safeLower(contentType);
   const body = safeLower(bodyText).slice(0, 120);
@@ -109,20 +138,15 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
           Authorization: `Bearer ${req.apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: req.model,
-          messages: req.messages,
-          temperature: req.temperature ?? 0.3,
-          max_tokens: req.maxTokens ?? 800,
-          ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
-        }),
+        body: JSON.stringify(buildChatCompletionBody(req)),
         signal: AbortSignal.timeout(timeoutMsPerEndpoint),
       });
 
       const rawText = await response.text();
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok) {
-        const reason = `http_${response.status}:${rawText.slice(0, 160)}`;
+        const safeRawText = req.apiKey ? rawText.replaceAll(req.apiKey, "[REDACTED_API_KEY]") : rawText;
+        const reason = `http_${response.status}:${safeRawText.slice(0, 160)}`;
         errors.push(`${endpoint} -> ${reason}`);
         if (shouldTryNextEndpoint(response.status, contentType, rawText)) continue;
         throw new Error(reason);

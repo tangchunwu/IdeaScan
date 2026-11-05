@@ -501,7 +501,7 @@
 
 ### Hypotheses
 
-- `https://api.openai.com/v1` 应请求 `/chat/completions`；若模型名使用 `gpt-6.1-terra`，官方账号可能返回模型不存在的 404。
+- `https://api.openai.com/v1` 应请求 `/chat/completions`；此前把 `gpt-6.1-terra` 视为可能不存在的模型是假设，已被本次官方文档核验推翻。404 应优先检查最终路径、账号权限和请求参数。
 - 主验证链路把 `api.openai.com` 视为默认未配置地址，可能在用户已填写 Key 时改用服务端环境配置。
 
 ### Root Cause
@@ -512,7 +512,7 @@
 ### Solutions
 
 - 只有官方 OpenAI 默认地址且用户没有填写 Key 时才回退服务端配置；带用户 Key 的官方 OpenAI 配置直接进入请求。
-- `verify-config` 对 404 提示检查 `/v1` Base URL 和模型名称，并明确 `gpt-6.1-terra` 不是 OpenAI 官方模型名。
+- `verify-config` 对 404 提示检查 `/v1` Base URL、账号可用模型和项目权限，不再误判官方模型名称。
 - 其他 OpenAI-compatible 自定义地址继续沿用共享端点候选逻辑。
 
 ### Verification
@@ -544,7 +544,7 @@
 ### Solutions
 
 - 管理后台改用共享 `requestChatCompletion` 和端点规范化逻辑，避免 `/v1/v1`。
-- 对 404 和 401 输出可执行提示；明确 `gpt-6.1-sol` 不是 OpenAI 官方模型名。
+- 对 404 和 401 输出可执行提示；移除对 `gpt-6.1-sol` 的错误非官方判断。
 - 图片模型的 `/models` 探测也按 Base URL 是否已含 `/v1` 处理。
 
 ### Verification
@@ -556,6 +556,48 @@
 
 - 管理后台和普通用户设置必须共用同一个 LLM 端点构造器，避免“设置页能测、业务链路不能用”。
 - 404 诊断必须同时展示最终路径和模型可用性提示，不能只显示状态码。
+
+## 2026-11-05｜IdeaScan｜GPT-6.1 Sol 官方兼容性修正
+
+### Challenges
+
+- 用户配置 OpenAI 官方 Base URL `https://api.openai.com/v1` 和 `gpt-6.1-sol` 时仍看到 HTTP 404，需要区分产品限制、路径拼接错误和新模型参数兼容性。
+
+### Hypotheses
+
+- 如果后台把已含 `/v1` 的 Base URL 再拼接 `/v1/chat/completions`，最终 URL 会变成 `/v1/v1/chat/completions` 并触发 404。
+- 如果共享客户端继续给 GPT-6.1 Sol 发送 `temperature`，路径修正后仍可能被上游以参数错误拒绝。
+- 官方文档若确认 `gpt-6.1-sol` 支持 Chat Completions，则此前“不是官方模型”的错误提示必须删除。
+
+### Root Cause
+
+- 管理后台上一轮已修复重复 `/v1` 的主要路径问题，但共享 Chat Completions 请求仍对所有模型发送 `temperature`，没有适配 GPT-6 推理参数。
+- 管理后台和 `verify-config` 的 404 文案残留了错误的非官方模型判断；官方文档确认 `gpt-6.1-sol` 是官方模型，支持 Chat Completions，且 GPT-6.1 Sol 不支持 `reasoning_effort: "none"`。
+
+### Solutions
+
+- 在 `_shared/llm-client.ts` 增加统一的 GPT-6 模型识别和请求体构造：GPT-6 模型默认使用 `reasoning_effort: "low"`，不发送 `temperature`；传统模型继续使用原有 `temperature`。
+- 商机雷达改为复用同一请求体构造器，避免后台测试通过但实际分析仍发送不兼容参数。
+- 404 错误改为提示 Base URL、账号 tier、项目权限和模型可用列表；不再声称 `gpt-6.1-sol` 或 `gpt-6.1-terra` 不是官方模型。
+- 上游错误文本中的用户 API Key 做脱敏，避免供应商回显时进入错误日志。
+
+### Verification
+
+- 官方文档实时核验：`gpt-6.1-sol` 支持 Chat Completions；在非 `none` 推理模式下移除 `temperature` 等旧参数，GPT-6.1 Sol 使用至少 `low` 的推理强度。
+- 新增共享客户端回归测试，覆盖 `/v1` 端点、GPT-6.1 Sol 参数、传统模型兼容和 Key 脱敏；定向 8 项通过。
+- 全量 Vitest 第二次独立运行 46 个测试文件、332 项全部通过；`npx tsc --noEmit` 和 `npm run build` 通过。
+- 本机未安装 Deno，未执行 `deno check`；未使用真实 OpenAI Key，未发起付费请求。
+
+### Learnings
+
+- “官方模型返回 404”不能直接归因于模型不存在，必须先记录最终请求 URL，再检查模型权限和请求参数。
+- 新推理模型的参数约束应集中在共享客户端，并让后台探测、验证、雷达和主业务共用同一请求体规则。
+- 本次证据推翻了上一条复盘中对 `gpt-6.1-sol`/`gpt-6.1-terra` 的非官方判断；以后遇到新模型应以官方模型页和接口文档为准。
+
+### Boundary
+
+- 代码已修复并提交到本地工作区，但 Supabase Edge Functions 尚未在本轮部署；线上生效仍需发布相关函数。
+- 未用用户真实凭据验证账号 tier、项目模型权限或实际额度，因此线上仍可能因账号权限返回 401/403/404。
 
 ## 2026-11-04｜IdeaScan｜旧研究出口统一状态门禁
 

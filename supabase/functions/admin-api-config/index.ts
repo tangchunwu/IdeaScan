@@ -345,7 +345,7 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e);
     const message = /http_404/i.test(raw)
-      ? "HTTP 404：请确认 Base URL 未重复包含 /v1，并确认模型名称属于该服务商（gpt-6.1-sol 不是 OpenAI 官方模型名）"
+      ? "HTTP 404：请确认 Base URL、模型访问权限和账号可用模型列表。gpt-6.1-sol 是 OpenAI 官方模型；如果模型存在但仍失败，请检查账号 tier、项目权限和请求参数。"
       : /http_401|authentication|authorized/i.test(raw)
         ? "HTTP 401：API Key 无效或没有该模型权限"
         : `测试失败: ${raw.slice(0, 240)}`;
