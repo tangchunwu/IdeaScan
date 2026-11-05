@@ -148,3 +148,28 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
 export function extractAssistantContent(payload: any): string {
   return String(payload?.choices?.[0]?.message?.content || "");
 }
+
+export type UserLLMConfig = {
+  llmApiKey?: string;
+  llmBaseUrl?: string;
+  llmModel?: string;
+};
+
+const OFFICIAL_OPENAI_HOST = /api\.openai\.com/i;
+
+/**
+ * 官方 OpenAI 地址只有在用户没有填写 Key 时才算"未配置"。
+ * 用户填了 Key，就必须实际使用用户配置，不能静默换成服务端配置。
+ */
+export function fallsBackToServerLLM(config?: UserLLMConfig): boolean {
+  const apiKey = String(config?.llmApiKey || "").trim();
+  const baseUrl = String(config?.llmBaseUrl || "").trim();
+  return OFFICIAL_OPENAI_HOST.test(baseUrl) && !apiKey;
+}
+
+/** 用户自己填写的模型配置：Key 与 Base URL 都要有实际内容，空白值不算已配置。 */
+export function hasUsableUserLLM(config?: UserLLMConfig): boolean {
+  const apiKey = String(config?.llmApiKey || "").trim();
+  const baseUrl = String(config?.llmBaseUrl || "").trim();
+  return !!apiKey && !!baseUrl;
+}

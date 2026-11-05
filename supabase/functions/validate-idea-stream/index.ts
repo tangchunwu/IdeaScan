@@ -33,7 +33,7 @@ import {
   createDefaultProofResult,
 } from "../_shared/report-metrics.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
-import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl, fallsBackToServerLLM } from "../_shared/llm-client.ts";
 import { multiChannelOrchestrator } from "../_shared/channels/index.ts";
 import { buildOverseasSocialData, overseasToSocialData } from "../_shared/overseas-social.ts";
 import { 

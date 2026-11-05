@@ -11,6 +11,7 @@ import {
 import { expandKeywords } from "../_shared/keyword-expander.ts";
 import { resolveAuthUserOrBypass } from "../_shared/dev-auth.ts";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { fallsBackToServerLLM } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
