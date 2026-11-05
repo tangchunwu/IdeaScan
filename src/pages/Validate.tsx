@@ -272,7 +272,7 @@ const Validate = () => {
       validationMode,
       selectedPlatforms,
       resumeValidationId: resumeIdForRun,
-      marketContext: marketCountry ? {country:marketCountry,...(marketLanguage ? {language:marketLanguage}: {}),opportunityType:searchParams.get('opportunityType') || undefined} : undefined,
+      marketContext: marketCountry ? {country:marketCountry,...(marketLanguage ? {language:marketLanguage}: {}),opportunityType:searchParams.get('opportunityType') || undefined,valueModel:(searchParams.get('valueModel') as 'utility'|'entertainment'|null)||undefined} : undefined,
       researchSessionId:searchParams.get('researchSessionId') || undefined,
       researchCandidateId:searchParams.get('researchCandidateId') || undefined,
     });

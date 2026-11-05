@@ -13,6 +13,7 @@ export interface OpportunityRequest {
   countryCode?: string;
   parentResearchId?: string;
   opportunityType?: 'reassurance' | 'ritual' | 'festival' | 'hobby' | 'daily' | 'workflow';
+  valueModel?: 'utility' | 'entertainment';
 }
 
 export interface OpportunityEvidence {

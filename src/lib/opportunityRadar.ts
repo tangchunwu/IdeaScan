@@ -23,6 +23,7 @@ const requestSchema = z.object({
   countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
   parentResearchId:z.string().uuid().optional(),
   opportunityType: z.enum(['reassurance','ritual','festival','hobby','daily','workflow']).optional(),
+  valueModel:z.enum(['utility','entertainment']).optional(),
 }).refine(value => !!(value.industry || value.keyword || value.opportunityType), '请填写场景、行业或选择机会类型');
 const count = z.number().finite().int().nonnegative();
 const claimSchema = z.object({claim:z.string().max(1200),evidenceIds:z.array(z.string()).max(60)});

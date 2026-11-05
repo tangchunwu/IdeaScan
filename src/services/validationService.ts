@@ -24,7 +24,7 @@ export interface ValidationConfig {
     you: string;
     tavily: string;
   };
-  marketContext?: { country?: string; countryCode?: string; language?: string; opportunityType?: string };
+  marketContext?: { country?: string; countryCode?: string; language?: string; opportunityType?: string; valueModel?: 'utility'|'entertainment' };
   researchSessionId?: string;
   researchCandidateId?: string;
   imageGen: {

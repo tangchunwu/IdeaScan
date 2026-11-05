@@ -3,7 +3,7 @@ import { buildMarketQueries, resolveMarketContext } from '../../supabase/functio
 
 describe('目标市场检索', () => {
   it('把日本国家名解析成国家码和本地语言，生成日语经历与反证检索', () => {
-    const context = resolveMarketContext({ country: 'Japan', opportunityType: 'festival' });
+    const context = resolveMarketContext({ country: 'Japan', opportunityType: 'festival', valueModel: 'utility' });
     expect(context).toMatchObject({ countryCode: 'JP', language: 'ja' });
     const queries = buildMarketQueries(context, '黑五');
     expect(queries.some(q => q.language === 'ja' && /ブラックフライデー/.test(q.query))).toBe(true);
@@ -18,5 +18,11 @@ describe('目标市场检索', () => {
   it('显式语言可覆盖默认，未知地域不擅自设置美国', () => {
     expect(resolveMarketContext({ country: 'Japan', language: 'en' })).toMatchObject({ countryCode: 'JP', language: 'en' });
     expect(resolveMarketContext({ country: 'Unknown island' }).countryCode).toBe('');
+  });
+  it('娱乐价值优先查询复玩、分享、身份和新鲜感衰减', () => {
+    const context = resolveMarketContext({ country:'South Korea', opportunityType:'ritual', valueModel:'entertainment' });
+    const queries = buildMarketQueries(context, '愿望卡');
+    expect(queries.map(q=>q.intent)).toEqual(expect.arrayContaining(['repeat_use','sharing','payment','novelty_decay']));
+    expect(queries.some(q=>/재사용|공유|싫증|구독/.test(q.query))).toBe(true);
   });
 });

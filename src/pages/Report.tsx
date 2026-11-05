@@ -380,6 +380,7 @@ const Report = () => {
       if(scope.market?.country)params.set('country',scope.market.country);
       if(scope.market?.language)params.set('language',scope.market.language);
       if(scope.market?.opportunityType)params.set('opportunityType',scope.market.opportunityType);
+      if(scope.market?.valueModel)params.set('valueModel',scope.market.valueModel);
       if(scope.researchSessionId)params.set('researchSessionId',scope.researchSessionId);
       if(scope.researchCandidateId)params.set('researchCandidateId',scope.researchCandidateId);
     } catch { /* 旧报告无范围记录，由服务端明确拒绝旧证据复用。 */ }

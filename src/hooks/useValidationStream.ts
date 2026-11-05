@@ -127,7 +127,7 @@ export function useValidationStream(validationSteps: ValidationStep[]) {
     validationMode: 'quick' | 'deep';
     resumeValidationId?: string;
     selectedPlatforms?: string[];
-    marketContext?: {country?: string;language?: string;opportunityType?: string};
+    marketContext?: {country?: string;language?: string;opportunityType?: string;valueModel?: 'utility'|'entertainment'};
     researchSessionId?: string;
     researchCandidateId?: string;
   }) => {

@@ -26,7 +26,7 @@ export function buildValidationScope(idea: string, tags: string[], configInput: 
   const market = object(config.marketContext);
   return JSON.stringify({
     version: 1, idea: idea.trim(), tags: [...new Set(tags.map(tag => tag.trim()).filter(Boolean))].sort(),
-    market: config.marketContext ? { country: text(market.country, 80), countryCode: text(market.countryCode, 2), language: text(market.language, 20), opportunityType: text(market.opportunityType, 80) } : null,
+    market: config.marketContext ? { country: text(market.country, 80), countryCode: text(market.countryCode, 2), language: text(market.language, 20), opportunityType: text(market.opportunityType, 80), valueModel: text(market.valueModel, 20) } : null,
     platforms: [...new Set([...(config.enableXiaohongshu !== false ? ['xiaohongshu'] : []), ...(config.enableDouyin === true ? ['douyin'] : []), ...strings(config.overseasPlatforms)])].sort(),
     researchSessionId: text(config.researchSessionId, 80), researchCandidateId: text(config.researchCandidateId, 120),
   });

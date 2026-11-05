@@ -22,6 +22,7 @@ export async function loadResearchHandoff(client: ResearchReader, userId: string
     evidence.push({id,platform:clean(e.platform,40),title:clean(e.title,180),snippet,url:url.href,collectedAt:clean(e.collectedAt,50),kind:'fact'});
   }
   const req=record(result.request);
-  const request={country:clean(req.country,80),industry:clean(req.industry,100),keyword:clean(req.keyword,200),platforms:Array.isArray(req.platforms)?req.platforms:[],mode:req.mode==='deep'?'deep':'quick',language:clean(req.language,20)||undefined,countryCode:clean(req.countryCode,2)||undefined,opportunityType:clean(req.opportunityType,30)||undefined} as OpportunityRequest;
+  const valueModel=clean(req.valueModel,20);
+  const request={country:clean(req.country,80),industry:clean(req.industry,100),keyword:clean(req.keyword,200),platforms:Array.isArray(req.platforms)?req.platforms:[],mode:req.mode==='deep'?'deep':'quick',language:clean(req.language,20)||undefined,countryCode:clean(req.countryCode,2)||undefined,opportunityType:clean(req.opportunityType,30)||undefined,valueModel:valueModel==='entertainment'?'entertainment':valueModel==='utility'?'utility':undefined} as OpportunityRequest;
   return {evidence,request};
 }

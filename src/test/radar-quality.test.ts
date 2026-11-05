@@ -23,6 +23,10 @@ describe('radar research quality', () => {
       .toMatchObject({ industry: '', opportunityType: 'ritual', language: 'ja' });
     expect(() => parseOpportunityRequest(request({ industry: '', keyword: '', opportunityType: 'invented' }))).toThrow();
   });
+  it('keeps utility and entertainment as separate value models', () => {
+    expect(parseOpportunityRequest(request({ industry:'', opportunityType:'ritual', valueModel:'entertainment' }))).toMatchObject({valueModel:'entertainment'});
+    expect(() => parseOpportunityRequest(request({ valueModel:'unknown' }))).toThrow();
+  });
 
   it.each([
     ['https://x.com/alice/status/1234567890123456789', 'https://twitter.com/bob/status/1234567890123456789'],

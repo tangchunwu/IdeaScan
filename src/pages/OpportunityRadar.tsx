@@ -23,6 +23,7 @@ const platformNames: Record<RadarPlatform, string> = {
 };
 const countries = ['United States', 'China', 'United Kingdom', 'Canada', 'Australia', 'Singapore', 'Japan', 'South Korea', 'Germany', 'France', 'India', 'Indonesia', 'Brazil', 'Mexico', 'United Arab Emirates'];
 const urgencyNames = { high: '高', medium: '中', low: '低' };
+const valueModelNames = { utility: '工具价值', entertainment: '娱乐价值' } as const;
 
 function safeSourceUrl(value: string): string | null {
   try {
@@ -175,7 +176,7 @@ export default function OpportunityRadar() {
       const savedId=sessionId || await saveResearchSession(result,ownerId);
       if(activeIdentity.current!==ownerId || generation.current!==current)return;
       setSessionId(savedId);
-      const url=getOpportunityValidationUrl({title:candidate.title,problem:candidate.problem,targetUsers:candidate.targetUsers,country:result.request.country,industry:result.request.industry,platforms:result.request.platforms,opportunityType:result.request.opportunityType});
+      const url=getOpportunityValidationUrl({title:candidate.title,problem:candidate.problem,targetUsers:candidate.targetUsers,country:result.request.country,industry:result.request.industry,platforms:result.request.platforms,opportunityType:result.request.opportunityType,valueModel:result.request.valueModel});
       const params=new URLSearchParams(url.split('?')[1]);params.set('researchSessionId',savedId);params.set('researchCandidateId',candidate.id);
       if(result.request.language)params.set('language',result.request.language);
       navigate(`/validate?${params}`);
@@ -212,6 +213,11 @@ export default function OpportunityRadar() {
                   <div className="space-y-2">
                     <label htmlFor="radar-type" className="text-sm font-medium">想找哪类小应用</label>
                     <select id="radar-type" value={form.opportunityType||''} onChange={e=>setForm({...form,opportunityType:(e.target.value||undefined) as OpportunityRequest['opportunityType']})} className="block w-full rounded-md border bg-background p-2">{[['','不限类型'],['reassurance','安心与被关心'],['ritual','情绪与仪式'],['festival','地域节日'],['hobby','兴趣与关系'],['daily','日常小麻烦'],['workflow','工作与效率']].map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="radar-value-model" className="text-sm font-medium">价值类型</label>
+                    <select id="radar-value-model" value={form.valueModel||''} onChange={e=>setForm({...form,valueModel:(e.target.value||undefined) as OpportunityRequest['valueModel']})} className="block w-full rounded-md border bg-background p-2"><option value="">自动判断</option><option value="utility">工具：节省时间 / 降低损失</option><option value="entertainment">娱乐：复玩 / 情绪 / 分享</option></select>
+                    <p className="text-xs text-muted-foreground">娱乐型会重点检索复玩、分享、身份和新鲜感衰减，不只搜用户抱怨。</p>
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="radar-language" className="text-sm font-medium">研究语言</label>
@@ -270,7 +276,7 @@ export default function OpportunityRadar() {
             {result && (
               <>
                 <GlassCard className="space-y-4">
-                  <div className="space-y-1 text-sm"><p className="break-words font-medium">{result.request.country} · {result.request.industry}{result.request.keyword ? ` · ${result.request.keyword}` : ''}</p><p className="text-muted-foreground">{result.request.mode === 'quick' ? '快速模式' : '深入模式'} · {result.request.platforms.length ? result.request.platforms.map(p => platformNames[p]).join(' / ') : '仅全网检索'}</p><p className="text-xs text-muted-foreground">本次采集：<CollectedTime value={result.fetchedAt} /></p></div>
+                  <div className="space-y-1 text-sm"><p className="break-words font-medium">{result.request.country} · {result.request.industry || result.request.keyword || '场景研究'}{result.request.keyword && result.request.industry ? ` · ${result.request.keyword}` : ''}</p><p className="text-muted-foreground">{result.request.valueModel ? valueModelNames[result.request.valueModel] : '自动价值模型'} · {result.request.mode === 'quick' ? '快速模式' : '深入模式'} · {result.request.platforms.length ? result.request.platforms.map(p => platformNames[p]).join(' / ') : '仅全网检索'}</p><p className="text-xs text-muted-foreground">本次采集：<CollectedTime value={result.fetchedAt} /></p></div>
                   <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">{[
                     ['来源数', result.stats.sourceCount], ['帖子数', result.stats.postCount], ['评论数', result.stats.commentCount],
                     ['API 调用', result.stats.apiCalls], ['候选假设', result.candidates.length], ['耗时（秒）', (result.stats.durationMs / 1000).toFixed(1)],

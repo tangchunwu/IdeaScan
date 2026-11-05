@@ -549,6 +549,7 @@ function validateConfig(config: unknown): RequestConfig {
       countryCode: validateString((c.marketContext as any).countryCode, 'countryCode', 2) || '',
       language: validateString((c.marketContext as any).language, 'language', 20) || '',
       opportunityType: validateString((c.marketContext as any).opportunityType, 'opportunityType', 80) || undefined,
+      valueModel: validateString((c.marketContext as any).valueModel, 'valueModel', 20) || undefined,
     }) : undefined,
     researchSessionId: c.researchSessionId ? validateUUID(c.researchSessionId, 'researchSessionId') : undefined,
     researchCandidateId: validateString(c.researchCandidateId, 'researchCandidateId', 120) || undefined,
