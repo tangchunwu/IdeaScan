@@ -43,6 +43,13 @@
       "when": 1793928972497,
       "tag": "0005_external_api_key_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793928985626,
+      "tag": "0006_external_api_keys_grants",
+      "breakpoints": true
     }
   ]
 }
