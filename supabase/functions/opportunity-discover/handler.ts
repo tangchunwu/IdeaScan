@@ -39,7 +39,7 @@ export function createOpportunityHandler(deps: {
     try {
       const authenticated = await deps.authenticate(token);
       if (authenticated && typeof authenticated === 'object') { userId = authenticated.userId; authMode = authenticated.external ? 'external' : 'session'; }
-      else userId = authenticated;
+      else userId = typeof authenticated === 'string' ? authenticated : null;
     } catch { return json({ error: '登录验证暂不可用' }, 503); }
     if (!userId) return json({ error: '登录态已失效，请重新登录' }, 401);
     let reserved = false;

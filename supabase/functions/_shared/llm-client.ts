@@ -156,7 +156,7 @@ export async function requestChatCompletion(req: ChatCompletionRequest): Promise
       const rawText = await response.text();
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok) {
-        const safeRawText = req.apiKey ? rawText.replaceAll(req.apiKey, "[REDACTED_API_KEY]") : rawText;
+        const safeRawText = req.apiKey ? rawText.split(req.apiKey).join("[REDACTED_API_KEY]") : rawText;
         const reason = `http_${response.status}:${safeRawText.slice(0, 160)}`;
         errors.push(`${endpoint} -> ${reason}`);
         if (shouldTryNextEndpoint(response.status, contentType, rawText)) continue;

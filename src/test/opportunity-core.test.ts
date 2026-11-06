@@ -10,7 +10,7 @@ const collect = async () => ({ evidence, warnings: [], postCount: 3, commentCoun
 describe('opportunity research boundaries', () => {
   it('reports concrete research gaps instead of treating source count as demand proof', () => {
     const quality = calculateResearchQuality(
-      { ...request, valueModel: 'entertainment', language: 'ja' },
+      { ...request, valueModel: 'entertainment', language: 'ja' } as Parameters<typeof calculateResearchQuality>[0],
       evidence,
       [{ id: 's1', evidenceIds: ['e1'], user: 'fan', trigger: 'event', task: 'share', currentWorkaround: 'chat', cost: '', recurrence: '', payment: '', type: 'entertainment', quote: 'Manual workflow is slow' }],
     );
