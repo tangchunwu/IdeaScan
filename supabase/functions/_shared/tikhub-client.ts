@@ -619,10 +619,24 @@ export class TikHubClient {
     if (!tweetId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
     const params = new URLSearchParams({ tweet_id: tweetId, cursor: options.cursor || "" });
     const payload = unwrapPayload(await this.request(`/api/v1/twitter/web/fetch_post_comments?${params}`));
-    const result = findArrayResult(payload, ["comments", "items", "replies", "data"]);
+    // 当前清洗响应把根帖放在 data 本身，回复放在 data.thread。
+    // 显式空 thread 是本页无回复，不能回退到 initial_tweets 等上下文数组。
+    const hasThread = Object.prototype.hasOwnProperty.call(payload, 'thread');
+    const result = hasThread
+      ? { found: Array.isArray(payload.thread), value: asArray(payload.thread) }
+      : findArrayResult(payload, ["comments", "items", "replies", "data"]);
     this.requireFoundArray(result, "comments");
-    const comments = result.value.slice(0, limit);
-    if (typeof limitOrOptions !== "number") return this.commentPage(comments, payload, pageToken(payload, ["next_cursor", "nextCursor"]), "");
+    const rootIds = new Set([tweetId, String(payload.id || payload.tweet_id || '')]);
+    const comments = [...new Map(result.value.flatMap(item => {
+      const comment = asRecord(item);
+      const id = String(comment.id || comment.tweet_id || comment.comment_id || '');
+      if (hasThread && !id) {
+        this.stats.failedCalls += 1;
+        throw new TikHubError('TikHub invalid X reply: missing id', { kind: 'invalid_response', httpStatus: 200, path: this.lastPath });
+      }
+      return id && !rootIds.has(id) ? [[id, comment] as const] : [];
+    })).values()].slice(0, limit);
+    if (typeof limitOrOptions !== "number") return this.commentPage(comments, payload, pageToken(payload, ["next_cursor", "nextCursor", "cursor"]), "");
     return comments;
   }
 

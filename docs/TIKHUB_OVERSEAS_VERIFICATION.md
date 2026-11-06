@@ -63,3 +63,14 @@ supabase functions deploy opportunity-discover validate-idea-stream verify-confi
 ```
 
 本次无数据库迁移，无前端变更。代码推送不等于线上函数已经部署。
+
+## X 评论真实响应补充（2026-11-06）
+
+`GET /api/v1/twitter/web/fetch_post_comments?tweet_id=...` 当前返回的 `data` 本身是根帖，`data.thread` 才是回复数组，翻页字段是 `data.cursor`。客户端同时兼容旧 `comments/items/replies` 数组与 `next_cursor`。
+
+- 显式 `thread: []` 表示该页未返回回复，不能据根帖 `replies` 总数强行补出评论。
+- 根帖和 `initial_tweets` 属于上下文，不计为评论；回复按原始ID去重。
+- 缺失或非法 `thread` 不冒充空成功。
+- 真实回复的作者位于 `author`，点赞位于 `likes`。
+
+两个原失败帖复测：`2085435063081042189` 返回零条、`2117477828090597625` 返回两条，HTTP及业务码均为200。此前研究报告的39次失败记录是旧解析器结果，不等于这些帖子无评论；本次没有自动重写历史研究数据或宣称全部39帖已补采。

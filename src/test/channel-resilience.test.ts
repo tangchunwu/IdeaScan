@@ -36,6 +36,14 @@ describe('渠道部分失败保留证据', () => {
     expect(result.stats.total_posts).toBe(1);
     expect(result.stats.weekly_trend).toEqual([]);
   });
+  it('X评论映射保留真实author、正文与发布时间', async () => {
+    mock.client.mockReturnValue({ stats: { apiCalls: 2, failedCalls: 0, retries: 0, rateLimited: false },
+      searchTwitter: vi.fn().mockResolvedValue({ items: [{ tweet_id: 'root', text: '正文' }], hasMore: false }),
+      getTwitterComments: vi.fn().mockResolvedValue([{ id: 'reply', display_text: '回复', author: { name: 'Reader' }, likes: 4, created_at: '2026-11-01T00:00:00Z' }]),
+    });
+    const result = await new TwitterAdapter().crawl(req);
+    expect(result.comments[0]).toMatchObject({ comment_id: 'reply', post_id: 'root', content: '回复', author: 'Reader', metrics: { likes: 4 }, created_at: '2026-11-01T00:00:00.000Z' });
+  });
   it('TikTok地域使用明确选择的日本', async () => {
     const search = vi.fn().mockResolvedValue({ items: [], hasMore: false });
     mock.client.mockReturnValue({ stats: { apiCalls: 1, failedCalls: 0, retries: 0, rateLimited: false }, searchTikTok: search });

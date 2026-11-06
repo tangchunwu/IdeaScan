@@ -138,6 +138,38 @@ describe("TikHub overseas API contracts", () => {
     expect(comments).toEqual([{ id: "twc1", text: "same" }]);
   });
 
+  it('读取X真实thread回复、去重排除根帖、透传cursor', async () => {
+    const reply = { id: 'reply-1', text: '原始回复', author: { name: 'Reader' }, likes: 3 };
+    const fetcher = vi.fn().mockImplementation(async () => json({ code: 200, data: {
+      id: 'root', text: '根帖不是评论', initial_tweets: ['root', 'reply-1'],
+      thread: [{ id: 'root', text: '根帖上下文' }, reply, reply], cursor: 'page-next',
+    } }));
+    vi.stubGlobal('fetch', fetcher);
+    const client = new TikHubClient('token');
+    const page = await client.getTwitterComments('root', { cursor: '' });
+    expect(page.comments).toEqual([reply]);
+    expect(page).toMatchObject({ continuationToken: 'page-next', hasMore: true });
+    await client.getTwitterComments('root', { cursor: page.continuationToken });
+    expect(new URL(fetcher.mock.calls[1][0]).searchParams.get('cursor')).toBe('page-next');
+  });
+
+  it('X的显式空thread不会回退到根帖、initial_tweets或旧comments', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 200, data: {
+      id: 'root', text: 'root', thread: [], initial_tweets: ['context'], comments: [{ id: 'unrelated' }], cursor: '',
+    } })));
+    const client = new TikHubClient('token');
+    const page = await client.getTwitterComments('root', {});
+    expect(page).toMatchObject({ comments: [], hasMore: false });
+    expect(client.stats.failedCalls).toBe(0);
+  });
+
+  it('X缺失或非法thread不会冒充无评论', async () => {
+    for (const data of [{ id: 'root', text: 'root' }, { thread: null, comments: [] }, { thread: {} }, { thread: [{ nested: 'unknown' }] }]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 200, data })));
+      await expect(new TikHubClient('token').getTwitterComments('root', 5)).rejects.toMatchObject({ kind: 'invalid_response', httpStatus: 200 });
+    }
+  });
+
   it("unwraps Threads search results and reads unpaginated comments", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(json({ code: 200, data: { results: [{ node: { thread: { thread_items: [{ post: { pk: "th1", code: "AbC12", caption: { text: "need" }, user: { username: "alice" } } }] } } }] } }))
