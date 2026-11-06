@@ -865,3 +865,42 @@
 ### Boundary
 
 - `external-api` 的验证操作返回旧版 JSON 报告；如需实时进度仍可直接使用流式入口，但 AI 默认应使用统一网关。
+
+## 2026-11-06｜IdeaScan｜TikTok 研究解析与 Threads 评论合同修复
+
+### Challenges
+
+- 用户要求修复研究报告里的 TikTok 空解析与 Threads 422，并提供真实海外原文。
+- 此前报告将临时脚本失败误归因于产品客户端，HTTP 200 被当成采集成功，评论也没有逐平台核验。
+
+### Hypotheses
+
+- 如果 TikTok 只是临时脚本选错数组，直接调用项目客户端应该能展开 search_item_list[].aweme_info。
+- 如果 Threads 422 来自参数错误，同一关键词改用官方 query 字段后应该通过；需要继续核验评论结构而不是仅报搜索成功。
+
+### Root Cause
+
+- 项目 TikTok 客户端已经支持正确包装，旧研究 Python 脚本却优先选中空 aweme_list；没有复用产品实现。
+- 旧研究脚本的 Threads 搜索误传 keyword，官方必填 query。真实 422 明确指出 query.query 缺失；query 请求返回 200。
+- 产品 Threads 评论解析确有缺口：真实 data.edges[].node.thread_items[].post 未被旧 comments/items/replies 分支识别，导致 HTTP 200 被标记 invalid_response。
+
+### Solutions
+
+- 新增 scripts/collect-tikhub-overseas.mjs，直接复用产品 TikHubClient，统一参数、解析、预算和错误合同。正文不截成标题，保留原文链接、互动、父帖和评论；分关键词增量保存 JSON/Markdown，不保存供应商原始 envelope 或密钥。
+- Threads 评论兼容 edges、多项 thread_items、旧数组结构；去重、排除根帖上下文；空 edges 保留为空、非法结构显式失败，并按官方无分页合同固定 hasMore=false。
+- 增加研究工具与客户端合同测试：空 aweme_list 不覆盖有效搜索、query 参数、数字 pk、完整正文、评论、空结果和 422 脱敏。
+- 顺带修复应用类型检查中三处既有错误：fixture 明确 OpportunityRequest、ES2020 脱敏采用 split/join、鉴权返回值显式类型缩窄。均为类型或兼容性最小修正。
+
+### Verification
+
+- 官方 OpenAPI 实时核对 search_posts(query) 与无分页评论合同；错传 keyword 真实返回 422，query 真实返回 HTTP/业务 200。
+- 项目客户端真实采集：TikTok 解析20帖、保存5帖完整正文、10条评论；Threads解析19帖、保存5帖、5条评论。各平台3次物理调用；Threads一篇评论请求仍返回上游400，另一篇成功，失败未伪装为空。
+- 全量 Vitest 48个文件347项通过；应用 tsc --noEmit -p tsconfig.app.json、目标 TikHub 客户端/适配器 ES2022 类型检查、Node脚本语法检查、git diff --check 通过。
+- 独立 TypeScript 审查受全库既有 ESLint 665错误/32警告阻断，未取得审查通过结论；主代理已复核本次差异。不扩大修复至全库lint。
+- 未部署线上函数；无数据库迁移、无前端修改。真实采集结果本地保留，不提交公开仓库。
+
+### Learnings
+
+- 研究与诊断脚本必须复用产品客户端，不能维护另一套猜数组的解析逻辑；请求成功、解析成功、评论成功必须分开验收。
+- 422 应读取具体缺失参数，不能未经核对就认定供应商接口不兼容。
+- 根 tsconfig 的无输出成功不一定检查了应用；必须明确指定应用项目，并给 Edge 目标单独类型检查。

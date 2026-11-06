@@ -648,10 +648,34 @@ export class TikHubClient {
     if (!postId || limit <= 0) return typeof limitOrOptions === "number" ? [] : this.emptyCommentPage();
     const params = new URLSearchParams({ post_id: postId, end_cursor: options.endCursor || "" });
     const payload = unwrapPayload(await this.request(`/api/v1/threads/web/fetch_post_comments?${params}`));
-    const result = findArrayResult(payload, ["comments", "items", "replies", "data"]);
+    // 当前 Threads 清洗响应使用 GraphQL edges；显式空 edges 表示无评论，
+    // 不能回退到任意其它数组，更不能把 thread_items 包装当成一条评论。
+    let result: { found: boolean; value: Record<string, unknown>[] };
+    if (Array.isArray(payload.edges)) {
+      const posts: Record<string, unknown>[] = [];
+      for (const edge of payload.edges) {
+        const node = asRecord(asRecord(edge).node);
+        const thread = asRecord(node.thread || node);
+        if (!Array.isArray(thread.thread_items)) {
+          throw new TikHubError('TikHub invalid Threads comment thread', { kind: 'invalid_response', httpStatus: 200, path: this.lastPath });
+        }
+        for (const item of thread.thread_items) {
+          const post = asRecord(asRecord(item).post);
+          if (!post.pk && !post.id) {
+            throw new TikHubError('TikHub invalid Threads comment post', { kind: 'invalid_response', httpStatus: 200, path: this.lastPath });
+          }
+          // 某些线程响应包含根帖上下文，不能把根帖当成自己的评论。
+          if (String(post.pk || post.id) !== postId) posts.push(post);
+        }
+      }
+      result = { found: true, value: [...new Map(posts.map(post => [String(post.pk || post.id), post])).values()] };
+    } else {
+      result = findArrayResult(payload, ["comments", "items", "replies", "data"]);
+    }
     this.requireFoundArray(result, "comments");
     const comments = result.value.slice(0, limit);
-    if (typeof limitOrOptions !== "number") return this.commentPage(comments, payload, "", "");
+    // 官方合同明确此接口无分页，不根据 GraphQL page_info 虚构翻页能力。
+    if (typeof limitOrOptions !== "number") return { ...this.commentPage(comments, payload, "", ""), hasMore: false };
     return comments;
   }
 

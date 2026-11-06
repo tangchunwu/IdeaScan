@@ -147,9 +147,34 @@ describe("TikHub overseas API contracts", () => {
     const page = await client.searchThreads("black friday");
     const comments = await client.getThreadsComments("th1", 1);
     expect(new URL(fetcher.mock.calls[0][0]).pathname).toBe("/api/v1/threads/web/search_posts");
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.get("query")).toBe("black friday");
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.has("keyword")).toBe(false);
     expect(new URL(fetcher.mock.calls[1][0]).pathname).toBe("/api/v1/threads/web/fetch_post_comments");
     expect(page.items[0]).toMatchObject({ pk: "th1", code: "AbC12" });
     expect(comments).toEqual([{ pk: "thc1", text: "same" }]);
+  });
+
+  it('解开 Threads 评论 edges 的多项帖子、去重并排除根帖，不虚构翻页', async () => {
+    const comment = { pk: '3390920896561588970', caption: { text: 'teşekkürler' } };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 200, data: {
+      edges: [
+        { node: { thread_items: [{ post: { pk: '3390920896561588969', caption: { text: 'root' } } }, { post: comment }] } },
+        { node: { thread_items: [{ post: comment }, { post: { pk: '3390920896561588971', caption: { text: 'reply' } } }] } },
+      ], page_info: { has_next_page: true, end_cursor: 'not-supported' },
+    } })));
+    const page = await new TikHubClient('token').getThreadsComments('3390920896561588969', { endCursor: '' });
+    expect(page.comments.map(item => item.pk)).toEqual(['3390920896561588970', '3390920896561588971']);
+    expect(page).toMatchObject({ hasMore: false, continuationToken: '', after: '' });
+  });
+
+  it('Threads 显式空 edges 不回退到其它评论数组', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 200, data: { edges: [], comments: [{ pk: 'unrelated' }] } })));
+    expect(await new TikHubClient('token').getThreadsComments('root', 5)).toEqual([]);
+  });
+
+  it.each([{ node: {} }, { node: { thread_items: [{ post: {} }] } }])('Threads 非法线程不能伪装为无评论成功', async edge => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 200, data: { edges: [edge] } })));
+    await expect(new TikHubClient('token').getThreadsComments('root', 5)).rejects.toMatchObject({ kind: 'invalid_response', httpStatus: 200 });
   });
 
   it("maps Reddit commentForest trees and preserves pageInfo endCursor", async () => {

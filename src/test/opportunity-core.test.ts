@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { calculateResearchQuality, parseOpportunityRequest, runOpportunityResearch } from '../../supabase/functions/opportunity-discover/core';
-import type { OpportunityEvidence } from '../types/opportunity';
+import type { OpportunityEvidence, OpportunityRequest } from '../types/opportunity';
 
-const request = { country: 'United States', industry: 'Accounting', platforms: ['reddit'], mode: 'quick' };
+const request: OpportunityRequest = { country: 'United States', industry: 'Accounting', platforms: ['reddit'], mode: 'quick' };
 const evidence: OpportunityEvidence[] = [1, 2, 3].map(n => ({ id: `e${n}`, title: `Pain ${n}`, snippet: 'Manual workflow is slow', url: `https://example.com/${n}`, platform: 'web', collectedAt: '2026-11-02T00:00:00Z', kind: 'fact' }));
 const candidate = { title: 'Invoice workflow', problem: 'Manual entry', targetUsers: 'Small firms', urgency: 'high', evidenceIds: ['e1', 'e2'], competitionHint: 'Unknown', recommendedNextStep: 'Interview users', risks: ['Willingness to pay unverified'] };
 const collect = async () => ({ evidence, warnings: [], postCount: 3, commentCount: 0, apiCalls: 2 });
