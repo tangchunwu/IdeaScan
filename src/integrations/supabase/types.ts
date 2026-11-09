@@ -339,6 +339,39 @@ export type Database = {
           },
         ]
       }
+      daily_digest_runs: {
+        Row: {
+          digest_date: string
+          error_message: string | null
+          finished_at: string | null
+          provider_message_id: string | null
+          signal_count: number
+          started_at: string
+          status: string
+          summary: Json | null
+        }
+        Insert: {
+          digest_date: string
+          error_message?: string | null
+          finished_at?: string | null
+          provider_message_id?: string | null
+          signal_count?: number
+          started_at?: string
+          status?: string
+          summary?: Json | null
+        }
+        Update: {
+          digest_date?: string
+          error_message?: string | null
+          finished_at?: string | null
+          provider_message_id?: string | null
+          signal_count?: number
+          started_at?: string
+          status?: string
+          summary?: Json | null
+        }
+        Relationships: []
+      }
       demand_experiments: {
         Row: {
           checkout_start_count: number

@@ -162,12 +162,24 @@ async function sendEmail(subject: string, html: string) {
   return await response.json();
 }
 
+async function expectedDigestSecret(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const envSecret = Deno.env.get("DAILY_DIGEST_CRON_SECRET");
+  if (envSecret) return envSecret;
+  const { data, error } = await supabase.from("digest_trigger_secrets").select("secret").eq("id", 1).maybeSingle();
+  if (error) {
+    console.error("[daily-digest] trigger secret lookup failed:", error.message);
+    return null;
+  }
+  return typeof data?.secret === "string" && data.secret ? data.secret : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const expectedSecret = Deno.env.get("DAILY_DIGEST_CRON_SECRET");
-  if (!expectedSecret || req.headers.get("x-digest-secret") !== expectedSecret) return json({ error: "Unauthorized" }, 401);
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const expectedSecret = await expectedDigestSecret(supabase);
+  if (!expectedSecret || req.headers.get("x-digest-secret") !== expectedSecret) return json({ error: "Unauthorized" }, 401);
+
   const digestDate = new Date().toISOString().slice(0, 10);
   const { data: existing } = await supabase.from("daily_digest_runs").select("status").eq("digest_date", digestDate).maybeSingle();
   if (existing?.status === "sent") return json({ success: true, duplicate: true, digest_date: digestDate });
