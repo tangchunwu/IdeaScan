@@ -347,9 +347,10 @@ const ModelManager = () => {
         body: {
           action: "test",
           provider: {
+            id: p.id,
             config_group: groupId,
             base_url: p.base_url,
-            api_key: p.api_key.startsWith("****") ? "" : p.api_key,
+            api_key: p.api_key,
             model: p.model,
           },
         },
@@ -395,28 +396,15 @@ const ModelManager = () => {
       toast.info("没有需要导入的环境变量配置");
       return;
     }
-    let successCount = 0;
-    for (const { provider } of envEntries) {
-      try {
-        const { error } = await supabase.functions.invoke("admin-api-config", {
-          body: {
-            action: "save",
-            provider: {
-              id: provider.id,
-              config_group: provider.config_group,
-              priority: provider.priority,
-              label: provider.label,
-              base_url: provider.base_url,
-              api_key: provider.api_key,
-              model: provider.model,
-              enabled: provider.enabled,
-            },
-          },
-        });
-        if (!error) successCount++;
-      } catch {}
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-api-config", {
+        body: { action: "import_env" },
+      });
+      if (error) throw error;
+      toast.success(`已导入 ${data?.imported ?? 0} 个配置到数据库`);
+    } catch (e: any) {
+      toast.error("导入失败: " + (e.message || "未知错误"));
     }
-    toast.success(`已导入 ${successCount}/${envEntries.length} 个配置到数据库`);
     await fetchData();
   };
 
@@ -545,9 +533,10 @@ const ModelManager = () => {
                         {group.fields.map((f) => {
                           const fieldKey = `${p.id}-${String(f.key)}`;
                           const isVisible = showSecrets[fieldKey];
-                          const displayVal = f.isSecret && p.api_key_display && !p._dirty
-                            ? p.api_key_display
-                            : (p[f.key] as string) || "";
+                          const displayVal = (p[f.key] as string) || "";
+                          const placeholder = f.isSecret && p.api_key_display
+                            ? `${p.api_key_display}（留空保持不变）`
+                            : f.placeholder;
 
                           return (
                             <div key={String(f.key)} className="space-y-1">
@@ -557,7 +546,7 @@ const ModelManager = () => {
                                   type={f.isSecret && !isVisible ? "password" : "text"}
                                   value={displayVal}
                                   onChange={(e) => updateProvider(group.id, idx, String(f.key), e.target.value)}
-                                  placeholder={f.placeholder}
+                                  placeholder={placeholder}
                                   className="font-mono text-xs h-9"
                                 />
                                 {f.isSecret && (
