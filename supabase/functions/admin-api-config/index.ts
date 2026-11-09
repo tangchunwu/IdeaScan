@@ -172,9 +172,11 @@ Deno.serve(async (req) => {
       const groups: Record<string, any[]> = {};
       for (const row of (data || [])) {
         if (!groups[row.config_group]) groups[row.config_group] = [];
+        const { api_key, ...rest } = row;
         groups[row.config_group].push({
-          ...row,
-          api_key_display: row.api_key ? maskValue(row.api_key) : "",
+          ...rest,
+          api_key: "",
+          api_key_display: api_key ? maskValue(api_key) : "",
         });
       }
 
@@ -188,7 +190,7 @@ Deno.serve(async (req) => {
           const existing = new Set(groups[gid].map((r: any) => `${r.label}||${r.base_url}`));
           for (const e of envEntries) {
             if (!existing.has(`${e.label}||${e.base_url}`)) {
-              groups[gid].push(e);
+              groups[gid].push({ ...e, api_key: "" });
             }
           }
         }
@@ -212,8 +214,31 @@ Deno.serve(async (req) => {
       // Test connectivity for a specific provider
       if (action === "test") {
         const { provider } = body;
-        const result = await testProvider(provider);
+        const resolved = { ...provider, api_key: await resolveKey(adminClient, provider) };
+        const result = await testProvider(resolved);
         return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Import all env-var entries server-side (keys never reach the browser)
+      if (action === "import_env") {
+        const { data: rows } = await adminClient.from("admin_api_configs").select("config_group,label,base_url");
+        const existing = new Set((rows || []).map((r: any) => `${r.config_group}||${r.label}||${(r.base_url || "").trim()}`));
+        let imported = 0;
+        for (const gid of ["llm", "search_llm", "image", "search_api"]) {
+          for (const e of buildEnvEntries(gid)) {
+            if (existing.has(`${gid}||${e.label}||${(e.base_url || "").trim()}`)) continue;
+            const { error } = await adminClient.from("admin_api_configs").insert({
+              config_group: gid, priority: e.priority, label: e.label, base_url: (e.base_url || "").trim(),
+              api_key: e.api_key, model: e.model, enabled: true,
+              updated_at: new Date().toISOString(), updated_by: user.id,
+            });
+            if (!error) imported++;
+          }
+        }
+        clearConfigCache();
+        return new Response(JSON.stringify({ success: true, imported }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -231,8 +256,8 @@ Deno.serve(async (req) => {
           config_group: provider.config_group,
           priority: provider.priority ?? 0,
           label: provider.label || "",
-          base_url: provider.base_url || "",
-          api_key: provider.api_key || "",
+          base_url: (provider.base_url || "").trim(),
+          api_key: await resolveKey(adminClient, provider),
           model: provider.model || "",
           enabled: provider.enabled !== false,
           updated_at: new Date().toISOString(),
@@ -245,7 +270,7 @@ Deno.serve(async (req) => {
         if (!isNew) {
           // Update existing — skip api_key if masked
           const updateRecord: any = { ...record };
-          if (provider.api_key && provider.api_key.startsWith("****")) {
+          if (!provider.api_key || provider.api_key.startsWith("****")) {
             delete updateRecord.api_key;
           }
           const { error } = await adminClient
@@ -351,4 +376,20 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
         : `测试失败: ${raw.slice(0, 240)}`;
     return { success: false, message, latencyMs: Date.now() - start };
   }
+}
+
+/** Use the typed key if given; otherwise look up the stored key (DB row or env var) server-side. */
+async function resolveKey(adminClient: any, provider: any): Promise<string> {
+  const typed = typeof provider?.api_key === "string" ? provider.api_key.trim() : "";
+  if (typed && !typed.startsWith("****")) return typed;
+  const id: string = provider?.id || "";
+  if (id.startsWith("env-")) {
+    const envEntry = buildEnvEntries(provider.config_group).find((e) => e.id.split("-")[1] === id.split("-")[1]);
+    return envEntry?.api_key || "";
+  }
+  if (id && !id.startsWith("new-")) {
+    const { data } = await adminClient.from("admin_api_configs").select("api_key").eq("id", id).maybeSingle();
+    return data?.api_key || "";
+  }
+  return "";
 }
