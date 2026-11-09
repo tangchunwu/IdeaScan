@@ -50,6 +50,20 @@
       "when": 1793928985626,
       "tag": "0006_external_api_keys_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794226545596,
+      "tag": "0007_daily_digest_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794226557314,
+      "tag": "0008_digest_trigger_secret",
+      "breakpoints": true
     }
   ]
 }
