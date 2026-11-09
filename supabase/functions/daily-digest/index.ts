@@ -135,18 +135,30 @@ function renderHtml(digest: Digest, signals: Signal[], generatedAt: string): str
   return `<!doctype html><html lang="zh-CN"><body style="margin:0;background:#f6f8fa;color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><main style="max-width:720px;margin:0 auto;padding:32px 20px"><section style="background:#fff;border:1px solid #e6eaf0;border-radius:16px;padding:28px"><p style="margin:0 0 8px;color:#64748b;font-size:13px">IdeaScan · 每日聚合结论</p><h1 style="margin:0 0 18px;font-size:26px">${escapeHtml(digest.title)}</h1><p style="font-size:16px;line-height:1.8">${escapeHtml(digest.conclusion)}</p><h2 style="margin:28px 0 12px;font-size:18px">值得继续核查</h2><ol style="padding-left:22px;line-height:1.7">${opportunityHtml || "<li>今天没有足够的新信号。</li>"}</ol><h2 style="margin:28px 0 12px;font-size:18px">证据边界</h2><ul style="padding-left:22px;line-height:1.7">${watchouts || "<li>暂无额外提示。</li>"}</ul><p style="margin:28px 0 0;color:#94a3b8;font-size:12px">聚合时间：${escapeHtml(generatedAt)} · 共 ${signals.length} 条信号。请打开来源核查，不要把日报当成已验证收入。</p></section></main></body></html>`;
 }
 
+const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+
 async function sendEmail(subject: string, html: string) {
-  const apiKey = Deno.env.get("RESEND_API_KEY");
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  const connectionApiKey = Deno.env.get("RESEND_API_KEY");
   const to = Deno.env.get("DAILY_DIGEST_TO_EMAIL");
   const from = Deno.env.get("DIGEST_FROM_EMAIL");
-  if (!apiKey || !to || !from) throw new Error("Missing RESEND_API_KEY, DAILY_DIGEST_TO_EMAIL or DIGEST_FROM_EMAIL");
-  const response = await fetch("https://api.resend.com/emails", {
+  if (!lovableApiKey || !connectionApiKey) throw new Error("Missing LOVABLE_API_KEY or RESEND_API_KEY");
+  if (!to || !from) throw new Error("Missing DAILY_DIGEST_TO_EMAIL or DIGEST_FROM_EMAIL");
+  const response = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${lovableApiKey}`,
+      "X-Connection-Api-Key": connectionApiKey,
+    },
     body: JSON.stringify({ from, to: [to], subject, html }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (!response.ok) throw new Error(`Resend HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`);
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`[daily-digest] Resend gateway failed [${response.status}]: ${body.slice(0, 300)}`);
+    throw new Error(`Resend HTTP ${response.status}: ${body.slice(0, 200)}`);
+  }
   return await response.json();
 }
 
