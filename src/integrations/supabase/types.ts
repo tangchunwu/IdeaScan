@@ -450,6 +450,24 @@ export type Database = {
           },
         ]
       }
+      digest_trigger_secrets: {
+        Row: {
+          id: number
+          secret: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          secret: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          secret?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       experiment_events: {
         Row: {
           anon_id: string | null
