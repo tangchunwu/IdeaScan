@@ -187,9 +187,9 @@ Deno.serve(async (req) => {
         if (envEntries.length > 0) {
           if (!groups[gid]) groups[gid] = [];
           // Avoid duplicating: only add env entries whose label+base_url aren't already in DB
-          const existing = new Set(groups[gid].map((r: any) => `${r.label}||${r.base_url}`));
+          const existing = new Set(groups[gid].map((r: any) => `${r.label}||${(r.base_url || "").trim()}`));
           for (const e of envEntries) {
-            if (!existing.has(`${e.label}||${e.base_url}`)) {
+            if (!existing.has(`${e.label}||${(e.base_url || "").trim()}`)) {
               groups[gid].push({ ...e, api_key: "" });
             }
           }
