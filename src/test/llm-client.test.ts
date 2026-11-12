@@ -42,7 +42,8 @@ describe("共享 LLM 客户端", () => {
 
     expect(body.reasoning_effort).toBe("low");
     expect(body).not.toHaveProperty("temperature");
-    expect(body.max_tokens).toBe(5);
+    expect(body.max_completion_tokens).toBe(5);
+    expect(body).not.toHaveProperty("max_tokens");
   });
 
   it("保留传统模型的 temperature 参数", () => {
@@ -56,6 +57,7 @@ describe("共享 LLM 客户端", () => {
 
     expect(body.temperature).toBe(0.2);
     expect(body).not.toHaveProperty("reasoning_effort");
+    expect(body.max_tokens).toBe(800);
   });
 
   it("404 失败信息不会回显 API Key", async () => {
