@@ -27,6 +27,8 @@ interface ProviderRow {
   api_key: string;
   api_key_display?: string;
   model: string;
+  protocol?: string;
+  capabilities?: string[];
   enabled: boolean;
   updated_at: string;
   _source?: string; // "env" for env-var entries
@@ -89,8 +91,22 @@ const GROUPS: GroupDef[] = [
     fields: [
       { key: "label", label: "标签", placeholder: "如：DALL-E" },
       { key: "base_url", label: "Base URL" },
+      { key: "protocol", label: "协议", placeholder: "openai_images / openai_compatible" },
       { key: "api_key", label: "API Key", isSecret: true },
       { key: "model", label: "Model", placeholder: "如：dall-e-3" },
+    ],
+  },
+  {
+    id: "video",
+    title: "🎬 视频生成池",
+    icon: Image,
+    description: "视频生成和异步任务接口预留（OpenAI Videos / 兼容网关）",
+    fields: [
+      { key: "label", label: "标签", placeholder: "如：Sora" },
+      { key: "base_url", label: "Base URL", placeholder: "https://api.openai.com/v1" },
+      { key: "protocol", label: "协议", placeholder: "openai_videos / openai_compatible" },
+      { key: "api_key", label: "API Key", isSecret: true },
+      { key: "model", label: "Model", placeholder: "如：sora-2" },
     ],
   },
   {
@@ -200,6 +216,8 @@ const ModelManager = () => {
         base_url: "",
         api_key: "",
         model: "",
+        protocol: groupId === "image" ? "openai_images" : groupId === "video" ? "openai_videos" : undefined,
+        capabilities: [],
         enabled: true,
         updated_at: "",
         _dirty: true,
@@ -275,6 +293,8 @@ const ModelManager = () => {
               base_url: p.base_url,
               api_key: p.api_key,
               model: p.model,
+              protocol: p.protocol,
+              capabilities: p.capabilities,
               enabled: p.enabled,
             },
           },
@@ -313,6 +333,8 @@ const ModelManager = () => {
         base_url: p.base_url,
         api_key: p.api_key,
         model: p.model,
+        protocol: p.protocol,
+        capabilities: p.capabilities,
         enabled: p.enabled,
       };
       const { error } = await supabase.functions.invoke("admin-api-config", {
@@ -352,6 +374,8 @@ const ModelManager = () => {
             base_url: p.base_url,
             api_key: p.api_key,
             model: p.model,
+            protocol: p.protocol,
+            capabilities: p.capabilities,
           },
         },
       });

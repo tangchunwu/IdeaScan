@@ -1,10 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { ProviderProtocol } from './provider-contract.ts';
 
 export interface ProviderConfig {
   id: string;
   base_url: string;
   api_key: string;
   model: string;
+  protocol?: ProviderProtocol;
+  capabilities?: string[];
   label: string;
   priority: number;
   enabled: boolean;
@@ -46,6 +49,8 @@ export async function resolvePool(group: string): Promise<ProviderConfig[]> {
         base_url: d.base_url,
         api_key: d.api_key,
         model: d.model,
+        protocol: d.protocol || undefined,
+        capabilities: Array.isArray(d.capabilities) ? d.capabilities : [],
         label: d.label,
         priority: d.priority,
         enabled: d.enabled,
@@ -92,6 +97,7 @@ function buildEnvFallback(group: string): ProviderConfig[] {
         base_url: url,
         api_key: key,
         model: Deno.env.get("LLM_MODEL") || "google/gemini-3-flash-preview",
+        protocol: "openai_compatible",
         label: "环境变量 LLM",
         priority: 0,
         enabled: true,
@@ -119,6 +125,7 @@ function buildEnvFallback(group: string): ProviderConfig[] {
         base_url: url,
         api_key: key,
         model: Deno.env.get("PERPLEXITY_MODEL") || "sonar",
+        protocol: "openai_chat",
         label: "环境变量 Perplexity",
         priority: 0,
         enabled: true,
@@ -133,6 +140,7 @@ function buildEnvFallback(group: string): ProviderConfig[] {
         base_url: url,
         api_key: key,
         model: Deno.env.get("IMAGE_GEN_MODEL") || "dall-e-3",
+        protocol: Deno.env.get("IMAGE_GEN_PROTOCOL") as ProviderProtocol | undefined,
         label: "环境变量 Image",
         priority: 0,
         enabled: true,
@@ -152,11 +160,11 @@ function buildEnvFallback(group: string): ProviderConfig[] {
     }
   } else if (group === "search_api") {
     const tavily = Deno.env.get("TAVILY_API_KEY");
-    if (tavily) providers.push({ id: "env-tavily", base_url: "", api_key: tavily, model: "tavily", label: "Tavily", priority: 0, enabled: true });
+    if (tavily) providers.push({ id: "env-tavily", base_url: "", api_key: tavily, model: "tavily", protocol: "search_tavily", label: "Tavily", priority: 0, enabled: true });
     const bocha = Deno.env.get("BOCHA_API_KEY");
-    if (bocha) providers.push({ id: "env-bocha", base_url: "", api_key: bocha, model: "bocha", label: "Bocha", priority: 1, enabled: true });
+    if (bocha) providers.push({ id: "env-bocha", base_url: "", api_key: bocha, model: "bocha", protocol: "search_bocha", label: "Bocha", priority: 1, enabled: true });
     const you = Deno.env.get("YOU_API_KEY");
-    if (you) providers.push({ id: "env-you", base_url: "", api_key: you, model: "you", label: "You", priority: 2, enabled: true });
+    if (you) providers.push({ id: "env-you", base_url: "", api_key: you, model: "you", protocol: "search_you", label: "You", priority: 2, enabled: true });
   }
 
   return providers;

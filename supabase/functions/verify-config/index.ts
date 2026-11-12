@@ -7,6 +7,7 @@ import {
   LIMITS
 } from "../_shared/validation.ts";
 import { requestChatCompletion, extractAssistantContent, normalizeLlmBaseUrl } from "../_shared/llm-client.ts";
+import { normalizeProviderBaseUrl, providerEndpoint } from "../_shared/provider-contract.ts";
 import { runTikHubDiagnostics, DIAGNOSTIC_PLATFORMS } from "../_shared/tikhub-probe.ts";
 
 const corsHeaders = {
@@ -215,8 +216,8 @@ serve(async (req) => {
       }
     } else if (type === 'image_gen') {
       try {
-        let cleanBaseUrl = (baseUrl || Deno.env.get("IMAGE_GEN_BASE_URL") || "https://ai.gateway.lovable.dev/v1").replace(/\/$/, "");
-        const endpoint = `${cleanBaseUrl}/models`;
+        const cleanBaseUrl = normalizeProviderBaseUrl(baseUrl || Deno.env.get("IMAGE_GEN_BASE_URL") || "https://ai.gateway.lovable.dev/v1");
+        const endpoint = providerEndpoint(cleanBaseUrl, "/models");
 
         const res = await fetch(endpoint, {
           method: "GET",

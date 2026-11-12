@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { inferProviderProtocol, normalizeProviderBaseUrl, providerEndpoint } from "../_shared/provider-contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,11 +107,14 @@ serve(async (req) => {
     }
 
     // Always use system image generation configuration (admin DB > env)
-    const { resolveConfigs: rc } = await import("../_shared/config-resolver.ts");
+    const { resolveConfigs: rc, resolvePool } = await import("../_shared/config-resolver.ts");
     const resolved = await rc(["IMAGE_GEN_API_KEY", "IMAGE_GEN_BASE_URL", "IMAGE_GEN_MODEL"]);
+    const imagePool = await resolvePool("image");
+    const imageProvider = imagePool[0];
     const imageGenApiKey = resolved["IMAGE_GEN_API_KEY"];
     const imageGenBaseUrl = resolved["IMAGE_GEN_BASE_URL"];
     const imageGenModel = resolved["IMAGE_GEN_MODEL"] || "dall-e-3";
+    const imageGenProtocol = inferProviderProtocol(imageGenBaseUrl || "", imageGenModel, imageProvider?.protocol);
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
     // 决定使用哪个 API - 优先使用系统配置的 Image Gen API
@@ -141,16 +145,18 @@ ${personaDescription}
     let customProviderError: string | null = null;
 
     if (useSystemImageGen) {
-      // 使用系统配置的图片生成 API (优先尝试 chat/completions 方式，适配 Gemini)
+      // 按协议选择图片接口：OpenAI Images 与 OpenAI-compatible chat 图片模型不是同一条路由。
       const baseUrl = imageGenBaseUrl!.replace(/\/$/, "");
 
       console.log("Using system image API:", baseUrl, "model:", imageGenModel);
 
       try {
-        // 尝试使用 chat completions 方式（适配 Gemini 图片生成）
-        const chatEndpoint = baseUrl.endsWith('/chat/completions') 
-          ? baseUrl 
-          : `${baseUrl}/chat/completions`;
+        const chatEndpoint = imageGenProtocol === 'openai_images'
+          ? providerEndpoint(normalizeProviderBaseUrl(baseUrl), '/images/generations')
+          : baseUrl.endsWith('/chat/completions') ? baseUrl : `${normalizeProviderBaseUrl(baseUrl)}/chat/completions`;
+        const requestBody = imageGenProtocol === 'openai_images'
+          ? { model: imageGenModel, prompt }
+          : { model: imageGenModel, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] };
           
         const imageResponse = await fetch(chatEndpoint, {
           method: "POST",
@@ -158,11 +164,7 @@ ${personaDescription}
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            model: imageGenModel,
-            messages: [{ role: "user", content: prompt }],
-            modalities: ["image", "text"],
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!imageResponse.ok) {

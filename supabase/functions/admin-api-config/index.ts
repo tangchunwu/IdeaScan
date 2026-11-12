@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { clearConfigCache } from "../_shared/config-resolver.ts";
 import { normalizeLlmBaseUrl, requestChatCompletion } from "../_shared/llm-client.ts";
+import { inferProviderProtocol, normalizeProviderBaseUrl, providerEndpoint } from "../_shared/provider-contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,6 +87,8 @@ function buildEnvEntries(group: string): any[] {
         api_key: key,
         api_key_display: maskValue(key),
         model: Deno.env.get("IMAGE_GEN_MODEL") || "dall-e-3",
+        protocol: Deno.env.get("IMAGE_GEN_PROTOCOL") || "",
+        capabilities: ["image"],
         enabled: true,
         updated_at: ts,
         _source: "env",
@@ -181,7 +184,7 @@ Deno.serve(async (req) => {
       }
 
       // Always append env-var virtual entries (after DB entries) so they stay visible
-      const allGroupIds = ["llm", "search_llm", "image", "search_api"];
+      const allGroupIds = ["llm", "search_llm", "image", "video", "search_api"];
       for (const gid of allGroupIds) {
         const envEntries = buildEnvEntries(gid);
         if (envEntries.length > 0) {
@@ -201,6 +204,7 @@ Deno.serve(async (req) => {
         llm: !!(Deno.env.get("LLM_API_KEY") && Deno.env.get("LLM_BASE_URL")),
         search_llm: !!(Deno.env.get("PERPLEXITY_API_KEY") && Deno.env.get("PERPLEXITY_BASE_URL")),
         image: !!(Deno.env.get("IMAGE_GEN_API_KEY") && Deno.env.get("IMAGE_GEN_BASE_URL")),
+        video: false,
         search_api: !!(Deno.env.get("TAVILY_API_KEY") || Deno.env.get("BOCHA_API_KEY") || Deno.env.get("YOU_API_KEY")),
       };
 
@@ -226,7 +230,7 @@ Deno.serve(async (req) => {
         const { data: rows } = await adminClient.from("admin_api_configs").select("config_group,label,base_url");
         const existing = new Set((rows || []).map((r: any) => `${r.config_group}||${r.label}||${(r.base_url || "").trim()}`));
         let imported = 0;
-        for (const gid of ["llm", "search_llm", "image", "search_api"]) {
+        for (const gid of ["llm", "search_llm", "image", "video", "search_api"]) {
           for (const e of buildEnvEntries(gid)) {
             if (existing.has(`${gid}||${e.label}||${(e.base_url || "").trim()}`)) continue;
             const { error } = await adminClient.from("admin_api_configs").insert({
@@ -259,6 +263,8 @@ Deno.serve(async (req) => {
           base_url: (provider.base_url || "").trim(),
           api_key: await resolveKey(adminClient, provider),
           model: provider.model || "",
+          protocol: provider.protocol || inferProviderProtocol(provider.base_url || "", provider.model || "", provider.protocol),
+          capabilities: Array.isArray(provider.capabilities) ? provider.capabilities : [],
           enabled: provider.enabled !== false,
           updated_at: new Date().toISOString(),
           updated_by: user.id,
@@ -353,17 +359,17 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
       return { success: true, message: `连通正常 ✅ (${latencyMs}ms · ${completion.endpoint})`, latencyMs };
     }
 
-    if (config_group === "image") {
-      const cleanUrl = normalizeLlmBaseUrl(base_url);
-      const parsed = new URL(cleanUrl);
-      const modelsEndpoint = `${cleanUrl}${parsed.pathname.replace(/\/$/, '') === '/v1' ? '' : '/v1'}/models`;
-      const resp = await fetch(modelsEndpoint, {
+    if (config_group === "image" || config_group === "video") {
+      const protocol = inferProviderProtocol(base_url, model, provider.protocol);
+      const cleanUrl = normalizeProviderBaseUrl(base_url);
+      const probeEndpoint = providerEndpoint(cleanUrl, '/models');
+      const resp = await fetch(probeEndpoint, {
         headers: { Authorization: `Bearer ${api_key}` },
         signal: AbortSignal.timeout(10000),
       });
       const latencyMs = Date.now() - start;
-      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}`, latencyMs };
-      return { success: true, message: `连通正常 ✅ (${latencyMs}ms)`, latencyMs };
+      if (!resp.ok) return { success: false, message: `HTTP ${resp.status}（协议 ${protocol}，请检查 Base URL 是否填到 /v1 根路径）`, latencyMs };
+      return { success: true, message: `连通正常 ✅（${protocol} · ${latencyMs}ms）`, latencyMs };
     }
 
     return { success: false, message: "未知配置组" };
