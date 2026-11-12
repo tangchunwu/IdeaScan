@@ -21,6 +21,9 @@ import { deriveEvidenceGaps } from '@/lib/researchGaps';
 const platformNames: Record<RadarPlatform, string> = {
   xiaohongshu: '小红书', douyin: '抖音', tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', reddit: 'Reddit', twitter: 'X / Twitter', threads: 'Threads',
 };
+const evidenceSourceNames: Record<string, string> = {
+  github: 'GitHub', hackernews: 'Hacker News', steam: 'Steam', appstore: 'App Store', googleplay: 'Google Play', etsy: 'Etsy', gumroad: 'Gumroad',
+};
 const countries = ['United States', 'China', 'United Kingdom', 'Canada', 'Australia', 'Singapore', 'Japan', 'South Korea', 'Germany', 'France', 'India', 'Indonesia', 'Brazil', 'Mexico', 'United Arab Emirates'];
 const urgencyNames = { high: '高', medium: '中', low: '低' };
 const valueModelNames = { utility: '工具价值', entertainment: '娱乐价值' } as const;
@@ -306,7 +309,7 @@ export default function OpportunityRadar() {
                       {!!candidate.risks.length && <div className="radar-note"><h4 className="mb-2 font-semibold">风险与待核实项</h4><ul className="list-disc space-y-1 pl-5">{candidate.risks.map((risk, i) => <li key={i}>{risk}</li>)}</ul></div>}
                       <details className="radar-evidence"><summary>查看原文证据（实际返回 {candidate.evidence.length} 条）</summary><div className="mt-3 space-y-4">{!candidate.evidence.length && <p className="text-sm text-muted-foreground">本候选没有返回可展开的原文证据，请勿将其视为已证实需求。</p>}{candidate.evidence.map((evidence, i) => {
                         const url = safeSourceUrl(evidence.url);
-                        return <section key={`${evidence.id}-${i}`} className="radar-source"><h4 className="font-semibold">{evidence.title || '未提供标题'}</h4><p className="mt-1 text-xs text-muted-foreground">{platformNames[evidence.platform as RadarPlatform] || evidence.platform} · 采集时间：<CollectedTime value={evidence.collectedAt} /></p><p className="my-3 whitespace-pre-wrap text-sm leading-relaxed">{evidence.snippet || '未提供原文摘录'}</p>{url ? <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="radar-source-link">打开原文（新窗口）<span className="block break-all text-xs">{url}</span></a> : <p className="text-xs text-muted-foreground">未提供有效的 HTTPS 原文链接</p>}</section>;
+                        return <section key={`${evidence.id}-${i}`} className="radar-source"><h4 className="font-semibold">{evidence.title || '未提供标题'}</h4><p className="mt-1 text-xs text-muted-foreground">{evidenceSourceNames[evidence.platform] || platformNames[evidence.platform as RadarPlatform] || evidence.platform} · 采集时间：<CollectedTime value={evidence.collectedAt} /></p><p className="my-3 whitespace-pre-wrap text-sm leading-relaxed">{evidence.snippet || '未提供原文摘录'}</p>{url ? <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="radar-source-link">打开原文（新窗口）<span className="block break-all text-xs">{url}</span></a> : <p className="text-xs text-muted-foreground">未提供有效的 HTTPS 原文链接</p>}</section>;
                       })}</div></details>
                       <Button type="button" variant="outline" className="radar-touch" disabled={savingHandoff} onClick={()=>void enterValidation(candidate)}>进入验证<ArrowRight aria-hidden="true" /></Button>
                       {sessionId&&userId&&<ResearchOutcomeEditor ownerId={userId} sessionId={sessionId} candidateId={candidate.id} initialOutcomes={outcomes[candidate.id]}/>}

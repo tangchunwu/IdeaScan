@@ -66,6 +66,24 @@ describe('safePublicHttpsUrl', () => {
 });
 
 describe('web source collection', () => {
+  it('collects free consumer evidence for entertainment research without extra credentials', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ items: [{ full_name: 'demo/fun-app', description: 'A playful app', stargazers_count: 42, forks_count: 3, html_url: 'https://github.com/demo/fun-app' }] }))
+      .mockResolvedValueOnce(response({ hits: [{ objectID: '123', title: 'A fun experiment', points: 18, num_comments: 7 }] }))
+      .mockResolvedValueOnce(response({ results: [{ trackName: 'Fun App', description: 'Make a shareable avatar', formattedPrice: 'Free', averageUserRating: 4.7, userRatingCount: 120, trackViewUrl: 'https://apps.apple.com/us/app/id123' }] }))
+      .mockResolvedValueOnce(response({ items: [{ id: 456, name: 'Fun Game', price: { final_formatted: '$4.99' }, type: 'game' }] }));
+    const output = await collectOpportunitySources(request({ valueModel: 'entertainment' }), {});
+    expect(output.apiCalls).toBe(4);
+    expect(output.evidence.map(item => item.platform)).toEqual(['github', 'hackernews', 'appstore', 'steam']);
+    expect(output.evidence.map(item => item.url)).toEqual([
+      'https://github.com/demo/fun-app',
+      'https://news.ycombinator.com/item?id=123',
+      'https://apps.apple.com/us/app/id123',
+      'https://store.steampowered.com/app/456/',
+    ]);
+    expect(output.evidence.some(item => item.snippet.includes('$4.99'))).toBe(true);
+  });
+
   it('uses each configured fixed endpoint once with distinct market intents and no China filters', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(response({ data: { webPages: { value: [{

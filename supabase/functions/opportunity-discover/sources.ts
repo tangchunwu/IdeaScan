@@ -188,6 +188,89 @@ async function searchWeb(provider: SearchProvider, key: string, query: string, c
   return items.slice(0, count);
 }
 
+function sourcePlatformForUrl(url: string, fallback: string): string {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'github.com' || host === 'api.github.com') return 'github';
+    if (host === 'news.ycombinator.com' || host === 'hn.algolia.com') return 'hackernews';
+    if (host === 'store.steampowered.com') return 'steam';
+    if (host === 'apps.apple.com' || host === 'itunes.apple.com') return 'appstore';
+    if (host === 'play.google.com') return 'googleplay';
+    if (host === 'etsy.com') return 'etsy';
+    if (host === 'gumroad.com') return 'gumroad';
+  } catch { /* keep provider label */ }
+  return fallback;
+}
+
+async function collectFreeConsumerSources(
+  subject: string,
+  market: ReturnType<typeof resolveMarketContext>,
+  count: number,
+  addEvidence: (platform: string, title: unknown, snippet: unknown, url: string, metadata?: { language?: string; signalType?: string }) => void,
+  warnings: Set<string>,
+): Promise<number> {
+  if (!subject.trim()) return 0;
+  const country = market.countryCode || 'US';
+  const language = market.language;
+  let calls = 0;
+  const run = async (label: string, endpoint: string, init: RequestInit, parse: (payload: unknown) => Array<{ title: string; snippet: string; url: string }>) => {
+    calls += 1;
+    try {
+      const payload = await fetchSearchJson(endpoint, init);
+      for (const item of parse(payload).slice(0, count)) {
+        const url = safePublicHttpsUrl(item.url);
+        if (url) addEvidence(label, item.title, item.snippet, url, { language, signalType: 'payment' });
+      }
+    } catch {
+      warnings.add(`${label}: 免费公开源搜索失败或超时，已跳过。`);
+    }
+  };
+
+  await run('github', `https://api.github.com/search/repositories?q=${encodeURIComponent(subject)}&sort=stars&order=desc&per_page=${count}`, {
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'IdeaScan/1.0' },
+  }, payload => {
+    const items = record(payload).items;
+    return Array.isArray(items) ? items.map(item => {
+      const data = record(item);
+      return { title: String(data.full_name || data.name || 'GitHub repository'), snippet: `${data.description || ''} Stars: ${data.stargazers_count || 0}; forks: ${data.forks_count || 0}; updated: ${data.updated_at || 'unknown'}`, url: String(data.html_url || '') };
+    }) : [];
+  });
+
+  await run('hackernews', `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(subject)}&tags=story&hitsPerPage=${count}`, {
+    headers: { Accept: 'application/json', 'User-Agent': 'IdeaScan/1.0' },
+  }, payload => {
+    const hits = record(payload).hits;
+    return Array.isArray(hits) ? hits.map(item => {
+      const data = record(item);
+      const objectId = String(data.objectID || '');
+      return { title: String(data.title || 'Hacker News story'), snippet: `${data.story_text || ''} Points: ${data.points || 0}; comments: ${data.num_comments || 0}`, url: objectId ? `https://news.ycombinator.com/item?id=${encodeURIComponent(objectId)}` : '' };
+    }) : [];
+  });
+
+  await run('appstore', `https://itunes.apple.com/search?term=${encodeURIComponent(subject)}&country=${encodeURIComponent(country)}&entity=software&limit=${count}`, {
+    headers: { Accept: 'application/json', 'User-Agent': 'IdeaScan/1.0' },
+  }, payload => {
+    const results = record(payload).results;
+    return Array.isArray(results) ? results.map(item => {
+      const data = record(item);
+      return { title: String(data.trackName || 'App Store app'), snippet: `${data.description || ''} price: ${data.formattedPrice || data.price || 'unknown'}; rating: ${data.averageUserRating || 'unknown'} (${data.userRatingCount || 0} ratings)`, url: String(data.trackViewUrl || '') };
+    }) : [];
+  });
+
+  await run('steam', `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(subject)}&l=english&cc=${encodeURIComponent(country)}`, {
+    headers: { Accept: 'application/json', 'User-Agent': 'IdeaScan/1.0' },
+  }, payload => {
+    const items = record(payload).items;
+    return Array.isArray(items) ? items.map(item => {
+      const data = record(item);
+      const id = String(data.id || '');
+      return { title: String(data.name || 'Steam app'), snippet: `price: ${record(data.price).final_formatted || data.price || 'unknown'}; type: ${data.type || 'game'}`, url: id ? `https://store.steampowered.com/app/${encodeURIComponent(id)}/` : '' };
+    }) : [];
+  });
+
+  return calls;
+}
+
 export async function collectOpportunitySources(request: OpportunityRequest, config: RadarSourceConfig): Promise<SourceCollection> {
   const output: SourceCollection = { evidence: [], warnings: [], postCount: 0, commentCount: 0, apiCalls: 0, queryPlan: [] };
   const warnings = new Set<string>();
@@ -304,7 +387,7 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
           continue;
         }
         const snippets = Array.isArray(data.snippets) ? data.snippets : [];
-        addEvidence(provider, data.title || data.name,
+        addEvidence(sourcePlatformForUrl(url, provider), data.title || data.name,
           data.snippet || data.description || data.content || data.summary || snippets[0], url,
           { language: market.language, signalType: search.intent });
       }
@@ -315,7 +398,18 @@ export async function collectOpportunitySources(request: OpportunityRequest, con
 
   const providers: Array<[SearchProvider, string]> = ([['bocha', config.bochaApiKey], ['you', config.youApiKey], ['tavily', config.tavilyApiKey]] as Array<[SearchProvider, string | undefined]>).filter((entry): entry is [SearchProvider, string] => !!entry[1]?.trim());
   // 初筛每个供应商只请求一次，分别覆盖经历、付费与替代意图；深度复核另有严格预算。
-  await Promise.all([collectSocial(), ...providers.map(([provider, key], index) => collectWeb(provider, key, plan[index % plan.length]))]);
+  if (market.valueModel === 'entertainment') {
+    output.apiCalls += await collectFreeConsumerSources(subject, market, quick ? 3 : 5, addEvidence, warnings);
+  }
+  await Promise.all([collectSocial(), ...providers.map(([provider, key], index) => {
+    const base = market.valueModel === 'entertainment' && index === 0
+      ? (plan.find(query => query.intent === 'payment') || plan[0])
+      : plan[index % plan.length];
+    const search = market.valueModel === 'entertainment' && base.intent === 'payment'
+      ? { ...base, query: `${base.query} (site:play.google.com/store/apps/details OR site:etsy.com/listing OR site:gumroad.com)` }
+      : base;
+    return collectWeb(provider, key, search);
+  })]);
   output.warnings = [...warnings];
   return output;
 }
@@ -347,7 +441,7 @@ export async function collectOpportunityFollowUpSources(request: OpportunityRequ
         const snippet = cleanText(data.snippet || data.description || data.content || data.summary || snippets[0], 1200);
         if (!title && !snippet) continue;
         output.evidence.push({ id: `followup-${output.evidence.length + 1}`, title: title || snippet.slice(0, 180), snippet, url,
-          platform: provider, collectedAt: new Date().toISOString(), kind: 'fact', language: market.language, signalType: query.intent });
+          platform: sourcePlatformForUrl(url, provider), collectedAt: new Date().toISOString(), kind: 'fact', language: market.language, signalType: query.intent });
       }
     } catch {
       output.warnings.push(`${provider}: ${query.intent} 复核搜索失败或超时；未重试。`);

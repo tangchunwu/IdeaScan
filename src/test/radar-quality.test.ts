@@ -25,6 +25,8 @@ describe('radar research quality', () => {
   });
   it('keeps utility and entertainment as separate value models', () => {
     expect(parseOpportunityRequest(request({ industry:'', opportunityType:'ritual', valueModel:'entertainment' }))).toMatchObject({valueModel:'entertainment'});
+    expect(parseOpportunityRequest(request({ industry:'', opportunityType:'ritual' }))).toMatchObject({valueModel:'entertainment'});
+    expect(parseOpportunityRequest(request({ industry:'', opportunityType:'workflow' }))).toMatchObject({valueModel:'utility'});
     expect(() => parseOpportunityRequest(request({ valueModel:'unknown' }))).toThrow();
   });
 

@@ -1,5 +1,6 @@
 import { RADAR_PLATFORMS } from '../_shared/opportunity-types.ts';
 import type { OpportunityCandidate, OpportunityEvidence, OpportunityRequest, OpportunityResult, OpportunityResearchQuality } from '../_shared/opportunity-types.ts';
+import { resolveMarketContext } from '../_shared/market-context.ts';
 
 export class RadarInputError extends Error {}
 const OPPORTUNITY_TYPES = ['reassurance', 'ritual', 'festival', 'hobby', 'daily', 'workflow'];
@@ -32,6 +33,7 @@ export function parseOpportunityRequest(input: unknown): OpportunityRequest {
   if (body.countryCode !== undefined && (typeof body.countryCode !== 'string' || !/^[A-Za-z]{2}$/.test(body.countryCode))) throw new RadarInputError('国家代码不正确');
   if (body.valueModel !== undefined && body.valueModel !== 'utility' && body.valueModel !== 'entertainment') throw new RadarInputError('价值模型不正确');
   if(body.parentResearchId!==undefined && (typeof body.parentResearchId!=='string'|| !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.parentResearchId)))throw new RadarInputError('研究引用不正确');
+  const valueModel = resolveMarketContext({ opportunityType: body.opportunityType as string | undefined, valueModel: body.valueModel as string | undefined }).valueModel;
   return {
     country: requiredText(body.country, 80), industry,
     ...(keyword ? { keyword } : {}),
@@ -39,7 +41,7 @@ export function parseOpportunityRequest(input: unknown): OpportunityRequest {
     ...(body.language ? { language: String(body.language) } : {}),
     ...(body.countryCode ? { countryCode: String(body.countryCode).toUpperCase() } : {}),
     ...(body.parentResearchId ? {parentResearchId:String(body.parentResearchId)}:{}),
-    ...(body.valueModel ? {valueModel: body.valueModel as OpportunityRequest['valueModel']} : {}),
+    valueModel,
     platforms: [...new Set(body.platforms)] as OpportunityRequest['platforms'], mode: body.mode,
   };
 }
