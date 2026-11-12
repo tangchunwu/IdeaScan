@@ -64,6 +64,13 @@
       "when": 1794226557314,
       "tag": "0008_digest_trigger_secret",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794473675454,
+      "tag": "0009_provider_protocol_capabilities",
+      "breakpoints": true
     }
   ]
 }
