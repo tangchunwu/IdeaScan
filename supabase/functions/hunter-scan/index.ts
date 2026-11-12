@@ -15,6 +15,8 @@ interface MarketSignal {
   pain_level: string;
   sentiment: string;
   trend_direction?: string;
+  value_model?: "utility" | "entertainment" | "unknown";
+  evidence_types?: string[];
 }
 
 const VALID_PAIN_LEVELS = new Set(["mild", "moderate", "severe", "critical"]);
@@ -24,6 +26,11 @@ function normalizePainLevel(raw: string | null | undefined): string | null {
   if (VALID_PAIN_LEVELS.has(lower)) return lower;
   const map: Record<string, string> = { high: "severe", low: "mild", medium: "moderate", extreme: "critical", very_high: "critical", none: "mild" };
   return map[lower] || "moderate";
+}
+
+function normalizeValueModel(raw: string | null | undefined): "utility" | "entertainment" | "unknown" {
+  if (raw === "utility" || raw === "entertainment") return raw;
+  return "unknown";
 }
 
 async function hashContent(content: string): Promise<string> {
@@ -55,6 +62,8 @@ function buildTrendDiscoveryPrompt(): string {
 - opportunity_score: 商机评分（0-100，越高越值得关注）
 - pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 市场情绪（"negative"/"neutral"/"mixed"/"positive"）
+- value_model: 价值类型（"utility"/"entertainment"/"unknown"）；娱乐类型关注复玩、分享、身份、情绪和已有消费，不要求先出现抱怨
+- evidence_types: 已出现的证据类型数组，只能使用 ["experience","behavior","repeat","sharing","payment","pricing","counter","novelty_decay"]
 - trend_direction: 趋势方向（"rising"/"emerging"/"declining"/"stable"）
 
 只返回 JSON 数组，不要其他文字。`;
@@ -69,9 +78,9 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 
 请从社交媒体（小红书、Reddit、知乎、微博、抖音评论区）、论坛、行业报告等渠道深入调研。
 重点关注：
-1. 真实用户的具体抱怨和不满（尽量引用原话或场景）
-2. 用户愿意为什么付费？有没有"付费意愿强但供给不足"的需求？
-3. 现有方案的明显短板
+1. 真实用户的具体经历、行为或抱怨（尽量引用原话或场景）
+2. 用户已经为什么体验或产品付费？是否出现复玩、分享、身份表达或回访？
+3. 现有方案的明显短板、免费替代和新鲜感衰减
 4. 未被充分服务的细分市场
 
 请返回 JSON 格式，包含 5-8 条市场信号。每条信号包含：
@@ -81,6 +90,8 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 - opportunity_score: 商机评分（0-100，越高越有商业价值）
 - pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
+- value_model: 价值类型（"utility"/"entertainment"/"unknown"）
+- evidence_types: 已出现的证据类型数组，只能使用 ["experience","behavior","repeat","sharing","payment","pricing","counter","novelty_decay"]
 
 只返回 JSON 数组，不要其他文字。`;
   }
@@ -102,6 +113,8 @@ function buildSemanticPrompt(input: string, isDescription: boolean): string {
 - opportunity_score: 商机评分（0-100，越高越有商业价值）
 - pain_level: 痛点等级（"mild"/"moderate"/"severe"/"critical"）
 - sentiment: 情感倾向（"negative"/"neutral"/"mixed"）
+- value_model: 价值类型（"utility"/"entertainment"/"unknown"）
+- evidence_types: 已出现的证据类型数组，只能使用 ["experience","behavior","repeat","sharing","payment","pricing","counter","novelty_decay"]
 
 只返回 JSON 数组，不要其他文字。`;
 }
@@ -193,6 +206,12 @@ function buildRecordsFromSignals(signals: MarketSignal[]): any[] {
       processed_at: null,
       scanned_at: new Date().toISOString(),
     };
+    const valueModel = normalizeValueModel(signal.value_model);
+    record.topic_tags = [...new Set([
+      ...(record.topic_tags || []),
+      `value:${valueModel}`,
+      ...(Array.isArray(signal.evidence_types) ? signal.evidence_types.slice(0, 8).map(type => `evidence:${type}`) : []),
+    ])];
     // Encode trend_direction into topic_tags if present
     if (signal.trend_direction) {
       record.topic_tags = [...(record.topic_tags || []), `trend:${signal.trend_direction}`];

@@ -70,6 +70,17 @@ describe('radar research quality', () => {
     expect(result.candidates[0].decision).toBe('insufficient');
   });
 
+  it('allows an entertainment test when existing payment and engagement evidence both exist', async () => {
+    const result = await runOpportunityResearch(parseOpportunityRequest(request({ valueModel: 'entertainment' })), {
+      collect: async () => sources([evidence('one'), evidence('two')]),
+      analyze: async () => ({
+        signals: [{ type: 'entertainment', quote: 'I paid for the group', evidenceIds: ['e1'], trigger: 'Every Friday', task: 'Share the result with friends', recurrence: 'weekly', payment: 'I paid for the group' }],
+        candidates: [candidate({ paymentEvidence: 'reported_purchase' })],
+      }),
+    });
+    expect(result.candidates[0].decision).toBe('test');
+  });
+
   it('keeps a research recommendation when the supporting claim refers to a quoted experience', async () => {
     const result = await runOpportunityResearch(parseOpportunityRequest(request()), {
       collect: async () => sources([evidence('one'), evidence('two')]),

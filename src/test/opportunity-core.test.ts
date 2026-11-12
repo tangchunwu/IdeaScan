@@ -16,8 +16,8 @@ describe('opportunity research boundaries', () => {
     );
     expect(quality.status).toBe('partial');
     expect(quality.independentSourceCount).toBe(3);
-    expect(quality.evidenceTypes.experience).toBe(0);
-    expect(quality.gaps).toEqual(expect.arrayContaining(['没有具体用户经历或求助', '没有复玩或回访证据', '没有付费、价格或购买自述']));
+    expect(quality.evidenceTypes.experience).toBe(1);
+    expect(quality.gaps).toEqual(expect.arrayContaining(['没有复玩或回访证据', '没有付费、价格或购买自述']));
   });
   it('validates inputs and deduplicates platforms', () => {
     expect(parseOpportunityRequest({ ...request, platforms: ['reddit', 'reddit'] }).platforms).toEqual(['reddit']);

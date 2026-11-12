@@ -21,6 +21,8 @@ interface AIAnalysisResult {
   opportunity_score: number;
   topic_tags: string[];
   pain_level: string;
+  value_model: "utility" | "entertainment" | "unknown";
+  evidence_types: string[];
 }
 
 interface LLMProvider {
@@ -28,6 +30,10 @@ interface LLMProvider {
   api_key: string;
   model: string;
   label: string;
+}
+
+function normalizeValueModel(value: unknown): "utility" | "entertainment" | "unknown" {
+  return value === "utility" || value === "entertainment" ? value : "unknown";
 }
 
 // ── Pool-aware call with dead-provider cache ──
@@ -96,7 +102,9 @@ ${signal.content.slice(0, 1500)}
   "sentiment_score": <-1到1的浮点数>,
   "opportunity_score": <0-100整数>,
   "topic_tags": ["标签1", "标签2", "标签3"],
-  "pain_level": "<mild|moderate|severe|critical>"
+  "pain_level": "<mild|moderate|severe|critical>",
+  "value_model": "<utility|entertainment|unknown>",
+  "evidence_types": ["experience|behavior|repeat|sharing|payment|pricing|counter|novelty_decay"]
 }`;
 
   const response = await requestChatCompletion({
@@ -117,6 +125,8 @@ ${signal.content.slice(0, 1500)}
     opportunity_score: Math.max(0, Math.min(100, result.opportunity_score || 0)),
     topic_tags: Array.isArray(result.topic_tags) ? result.topic_tags.slice(0, 5) : [],
     pain_level: ["mild", "moderate", "severe", "critical"].includes(result.pain_level) ? result.pain_level : "mild",
+    value_model: normalizeValueModel(result.value_model),
+    evidence_types: Array.isArray(result.evidence_types) ? result.evidence_types.filter((item: unknown) => typeof item === "string").slice(0, 8) : [],
   };
 }
 
@@ -140,7 +150,7 @@ async function clusterSignalsWithAI(
   clusterModel: string
 ): Promise<ClusteredOpportunity[]> {
   const signalSummaries = signals.slice(0, 80).map((s, i) => 
-    `[${i}] (score:${s.opportunity_score}) ${s.content.slice(0, 200)}`
+    `[${i}] (score:${s.opportunity_score}) (tags:${(s.topic_tags || []).join(",")}) ${s.content.slice(0, 200)}`
   ).join("\n");
 
   const prompt = `你是一位商业分析专家。以下是最近采集的高分市场信号（用户痛点/需求）。请将它们按**语义主题**聚类为商业机会。
@@ -153,7 +163,8 @@ ${signalSummaries}
 2. 每个商机至少包含 2 条信号
 3. 给每个商机起一个简洁有力的标题（如"小红书博主急需批量修图工具"）
 4. keyword 应该是一个 2-4 字的核心关键词（用于去重）
-5. 最多输出 15 个商机
+5. 不要把 value:utility 和 value:entertainment 信号强行聚成同一商机
+6. 最多输出 15 个商机
 
 请返回 JSON 数组:
 [
@@ -286,7 +297,11 @@ serve(async (req) => {
           .update({
             sentiment_score: analysis.sentiment_score,
             opportunity_score: analysis.opportunity_score,
-            topic_tags: analysis.topic_tags,
+            topic_tags: [...new Set([
+              ...(analysis.topic_tags || []),
+              `value:${analysis.value_model}`,
+              ...analysis.evidence_types.map(type => `evidence:${type}`),
+            ])],
             pain_level: analysis.pain_level,
             processed_at: new Date().toISOString(),
           })

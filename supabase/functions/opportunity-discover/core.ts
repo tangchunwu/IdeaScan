@@ -168,7 +168,8 @@ export function calculateResearchQuality(request: OpportunityRequest, evidence: 
   const evidenceTypes = { experience: 0, behavior: 0, recurrence: 0, payment: 0, counter: 0, sharing: 0 };
   for (const signal of signals) {
     const textValue = `${signal.trigger} ${signal.task} ${signal.currentWorkaround} ${signal.cost} ${signal.recurrence} ${signal.payment}`.toLowerCase();
-    if (signal.type === 'experience' || signal.type === 'help') evidenceTypes.experience += 1;
+    // 娱乐/仪式信号本身就是体验证据；工具线仍优先要求具体求助或经历。
+    if (signal.type === 'experience' || signal.type === 'help' || signal.type === 'ritual' || signal.type === 'entertainment') evidenceTypes.experience += 1;
     if (signal.task || signal.currentWorkaround) evidenceTypes.behavior += 1;
     if (signal.recurrence || /every|often|again|daily|weekly|每次|经常|一直|再次|每天|每周|毎回|いつも|매번|자주/i.test(textValue)) evidenceTypes.recurrence += 1;
     if (signal.type === 'purchase' || signal.payment || /paid|bought|subscribe|purchase|购买|付费|订阅|購入|課金|결제/i.test(textValue)) evidenceTypes.payment += 1;
@@ -185,15 +186,34 @@ export function calculateResearchQuality(request: OpportunityRequest, evidence: 
   if (!evidenceTypes.payment) gaps.push('没有付费、价格或购买自述');
   if (!evidenceTypes.counter) gaps.push('没有完成替代方案或反证复核');
   if (request.valueModel === 'entertainment' && !evidenceTypes.sharing) gaps.push('没有分享、身份表达或传播证据');
-  const complete = independent.size >= 2 && evidenceTypes.experience > 0 && evidenceTypes.behavior > 0 && evidenceTypes.recurrence > 0 && evidenceTypes.counter > 0;
+  const entertainment = request.valueModel === 'entertainment';
+  const complete = entertainment
+    ? independent.size >= 2 && evidenceTypes.experience > 0 && evidenceTypes.behavior > 0 && evidenceTypes.recurrence > 0 && evidenceTypes.sharing > 0 && evidenceTypes.payment > 0 && evidenceTypes.counter > 0
+    : independent.size >= 2 && evidenceTypes.experience > 0 && evidenceTypes.behavior > 0 && evidenceTypes.recurrence > 0 && evidenceTypes.counter > 0;
   return { status: complete ? 'research_ready' : evidence.length >= 2 ? 'partial' : 'insufficient', independentSourceCount: independent.size, sourceKindCount: sourceKinds.size, localLanguageSourceCount, evidenceTypes, gaps: gaps.slice(0, 8) };
 }
 
-function gateCandidateDecision(candidates: OpportunityCandidate[], signals: ResearchSignal[]): OpportunityCandidate[] {
-  const actionable = new Set(signals.filter(signal => signal.type !== 'entertainment' && signal.type !== 'promotion').flatMap(signal => signal.evidenceIds));
+function gateCandidateDecision(request: OpportunityRequest, candidates: OpportunityCandidate[], signals: ResearchSignal[]): OpportunityCandidate[] {
+  const actionable = new Set(signals.filter(signal => signal.type !== 'promotion').flatMap(signal => signal.evidenceIds));
   return candidates.map(candidate => {
     const supportedByActionableSignal = (candidate.support || []).some(claim => claim.evidenceIds.some(id => actionable.has(id)));
-    return supportedByActionableSignal ? candidate : { ...candidate, decision: 'insufficient' };
+    if (request.valueModel !== 'entertainment') return supportedByActionableSignal ? candidate : { ...candidate, decision: 'insufficient' };
+
+    // 娱乐候选不要求“抱怨”信号，但至少需要已有消费线索，以及复玩/分享/仪式行为线索。
+    const candidateEvidence = new Set(candidate.evidence.map(item => item.id));
+    const entertainmentSignals = signals.filter(signal => signal.evidenceIds.some(id => candidateEvidence.has(id)));
+    const hasEngagement = entertainmentSignals.some(signal =>
+      signal.type === 'entertainment' || signal.type === 'ritual' ||
+      /repeat|return|share|sharing|invite|identity|复玩|回访|分享|邀请|身份|リピート|共有|재방문|공유/i.test(
+        `${signal.trigger} ${signal.task} ${signal.recurrence} ${signal.payment}`,
+      )
+    );
+    const hasPaymentEvidence = candidate.paymentEvidence !== 'unknown' || entertainmentSignals.some(signal =>
+      signal.type === 'purchase' || /paid|bought|subscribe|purchase|购买|付费|订阅|購入|課金|결제/i.test(signal.payment)
+    );
+    return supportedByActionableSignal && hasEngagement && hasPaymentEvidence
+      ? candidate
+      : { ...candidate, decision: 'insufficient' };
   });
 }
 
@@ -240,7 +260,7 @@ export async function runOpportunityResearch(request: OpportunityRequest, deps: 
       const payload = await deps.analyze(evidence);
       candidates = normalizeCandidates(payload, evidence);
       signals = normalizeSignals(payload, evidence);
-      candidates = gateCandidateDecision(candidates, signals);
+      candidates = gateCandidateDecision(request, candidates, signals);
     } catch {
       warnings.push('AI 分析未完成，请检查模型配置后重试；未生成替代商机。');
     }
@@ -256,7 +276,7 @@ export async function runOpportunityResearch(request: OpportunityRequest, deps: 
       const payload = await deps.analyze(evidence);
       candidates = normalizeCandidates(payload, evidence);
       signals = normalizeSignals(payload, evidence);
-      candidates = gateCandidateDecision(candidates, signals);
+      candidates = gateCandidateDecision(request, candidates, signals);
     } catch {
       candidates = candidates.map(item => ({ ...item, decision: 'insufficient' }));
       warnings.push('入围候选的价格、替代方案与反证复核未完成；保留初筛线索，尚不能作为投入依据。');
