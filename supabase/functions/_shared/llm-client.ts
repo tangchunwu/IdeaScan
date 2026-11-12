@@ -98,13 +98,20 @@ export function isGpt6ReasoningModel(model: string): boolean {
   return /^gpt-6(?:\.\d+)?-(?:astra|sol|terra|luna)$/i.test(String(model || "").trim());
 }
 
+export function usesMaxCompletionTokens(model: string): boolean {
+  const m = String(model || "").trim().toLowerCase();
+  return isGpt6ReasoningModel(m) || /^gpt-6/.test(m) || /^gpt-5/.test(m) || /^o\d/.test(m);
+}
+
 /** Build a provider-compatible Chat Completions payload in one place. */
 export function buildChatCompletionBody(req: ChatCompletionRequest): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model: req.model,
     messages: req.messages,
-    max_tokens: req.maxTokens ?? 800,
   };
+  // OpenAI reasoning models (GPT-6, GPT-5, o-series) reject max_tokens.
+  if (usesMaxCompletionTokens(req.model)) body.max_completion_tokens = req.maxTokens ?? 800;
+  else body.max_tokens = req.maxTokens ?? 800;
 
   if (isGpt6ReasoningModel(req.model)) {
     // GPT-6.1 Sol and GPT-6 Astra do not support "none". Low is the

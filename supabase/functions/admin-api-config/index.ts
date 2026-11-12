@@ -409,6 +409,8 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     const normalizedRaw = raw.toLowerCase();
     const message = /model_not_found|model.*not found|does not exist/.test(normalizedRaw)
       ? "模型未在当前 Project 可用：请确认模型 ID、Project、账号 tier 和模型权限；系统没有限制 gpt-6.1-sol。"
+      : /unsupported parameter|http_400/i.test(raw)
+      ? `HTTP 400：${(raw.match(/"message":\s*"([^"]+)"/)?.[1] || raw).slice(0, 240)}`
       : /http_404/i.test(raw)
       ? "HTTP 404：请确认 Base URL 为 https://api.openai.com/v1，且请求路径为 /v1/chat/completions。gpt-6.1-sol 是 OpenAI 官方模型。"
       : /http_401|authentication|authorized/i.test(raw)
