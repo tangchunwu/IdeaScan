@@ -14,6 +14,32 @@ function maskValue(value: string): string {
   return "****" + value.slice(-4);
 }
 
+async function probeOpenAIModel(baseUrl: string, apiKey: string, model: string): Promise<{ ok: boolean; message?: string }> {
+  let parsed: URL;
+  try { parsed = new URL(normalizeLlmBaseUrl(baseUrl)); } catch { return { ok: true }; }
+  if (parsed.hostname.toLowerCase() !== "api.openai.com") return { ok: true };
+
+  try {
+    const response = await fetch(`${normalizeLlmBaseUrl(baseUrl)}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    const bodyText = await response.text();
+    if (response.status === 401) return { ok: false, message: "HTTP 401：OpenAI API Key 无效或已失效" };
+    if (response.status === 403) return { ok: false, message: "HTTP 403：Key 有效，但当前 Project 没有访问模型列表的权限" };
+    if (!response.ok) return { ok: false, message: `HTTP ${response.status}：OpenAI 模型列表接口不可用，请确认 Base URL 为 https://api.openai.com/v1` };
+    let payload: any = {};
+    try { payload = JSON.parse(bodyText || "{}"); } catch { return { ok: false, message: "OpenAI 模型列表返回了非 JSON 响应" }; }
+    const models = Array.isArray(payload?.data) ? payload.data : [];
+    if (!models.some((item: any) => String(item?.id || "") === model)) {
+      return { ok: false, message: `Key 已通过，但当前 OpenAI Project 的模型列表中没有 ${model}；请检查 Project、账号 tier 或模型授权` };
+    }
+  } catch {
+    // 网络错误交给后面的 Chat Completions 请求继续给出最终结果。
+  }
+  return { ok: true };
+}
+
 async function verifyAdmin(req: Request) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -260,7 +286,9 @@ Deno.serve(async (req) => {
           config_group: provider.config_group,
           priority: provider.priority ?? 0,
           label: provider.label || "",
-          base_url: (provider.base_url || "").trim(),
+          base_url: (provider.config_group === "llm" || provider.config_group === "search_llm")
+            ? normalizeLlmBaseUrl(provider.base_url || "")
+            : (provider.base_url || "").trim(),
           api_key: await resolveKey(adminClient, provider),
           model: provider.model || "",
           protocol: provider.protocol || inferProviderProtocol(provider.base_url || "", provider.model || "", provider.protocol),
@@ -346,11 +374,14 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     if (!base_url || !api_key) return { success: false, message: "Base URL 或 API Key 未填写" };
 
     if (config_group === "llm" || config_group === "search_llm") {
+      const modelName = model || "gpt-4o-mini";
+      const modelProbe = await probeOpenAIModel(base_url, api_key, modelName);
+      if (!modelProbe.ok) return { success: false, message: modelProbe.message || "模型不可用", latencyMs: Date.now() - start };
       // 统一使用 OpenAI-compatible 端点构造；/v1 不能再次拼接成 /v1/v1。
       const completion = await requestChatCompletion({
         baseUrl: normalizeLlmBaseUrl(base_url),
         apiKey: api_key,
-        model: model || "gpt-4o-mini",
+        model: modelName,
         messages: [{ role: "user", content: "hi" }],
         maxTokens: 5,
         timeoutMs: 15000,
@@ -375,8 +406,11 @@ async function testProvider(provider: any): Promise<{ success: boolean; message:
     return { success: false, message: "未知配置组" };
   } catch (e: unknown) {
     const raw = e instanceof Error ? e.message : String(e);
-    const message = /http_404/i.test(raw)
-      ? "HTTP 404：请确认 Base URL、模型访问权限和账号可用模型列表。gpt-6.1-sol 是 OpenAI 官方模型；如果模型存在但仍失败，请检查账号 tier、项目权限和请求参数。"
+    const normalizedRaw = raw.toLowerCase();
+    const message = /model_not_found|model.*not found|does not exist/.test(normalizedRaw)
+      ? "模型未在当前 Project 可用：请确认模型 ID、Project、账号 tier 和模型权限；系统没有限制 gpt-6.1-sol。"
+      : /http_404/i.test(raw)
+      ? "HTTP 404：请确认 Base URL 为 https://api.openai.com/v1，且请求路径为 /v1/chat/completions。gpt-6.1-sol 是 OpenAI 官方模型。"
       : /http_401|authentication|authorized/i.test(raw)
         ? "HTTP 401：API Key 无效或没有该模型权限"
         : `测试失败: ${raw.slice(0, 240)}`;

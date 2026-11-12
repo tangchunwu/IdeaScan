@@ -26,11 +26,21 @@ function safeLower(text: string): string {
 }
 
 export function normalizeLlmBaseUrl(input?: string): string {
-  return String(input || "")
+  const raw = String(input || "")
     .trim()
     .replace(/\/+$/, "")
     .replace(/\/chat\/completions$/i, "")
     .replace(/(?:\/v1){2,}$/i, "/v1");
+  try {
+    const url = new URL(raw);
+    if (/^api\.openai\.com$/i.test(url.hostname) && (url.pathname === "" || url.pathname === "/")) {
+      url.pathname = "/v1";
+      return url.toString().replace(/\/$/, "");
+    }
+  } catch {
+    // buildChatCompletionEndpoints will return an invalid URL error later.
+  }
+  return raw;
 }
 
 export function buildChatCompletionEndpoints(baseUrl: string): string[] {

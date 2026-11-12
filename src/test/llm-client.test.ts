@@ -16,10 +16,10 @@ describe("共享 LLM 客户端", () => {
     );
   });
 
-  it("会为不带 /v1 的根地址生成 /v1 备用端点", () => {
+  it("会把官方 OpenAI 根地址规范化到 /v1", () => {
     expect(buildChatCompletionEndpoints("https://api.openai.com")).toEqual([
-      "https://api.openai.com/chat/completions",
       "https://api.openai.com/v1/chat/completions",
+      "https://api.openai.com/chat/completions",
     ]);
   });
 
