@@ -196,7 +196,10 @@ export function calculateResearchQuality(request: OpportunityRequest, evidence: 
 }
 
 function gateCandidateDecision(request: OpportunityRequest, candidates: OpportunityCandidate[], signals: ResearchSignal[]): OpportunityCandidate[] {
-  const actionable = new Set(signals.filter(signal => signal.type !== 'promotion').flatMap(signal => signal.evidenceIds));
+  // 工具型机会只认体验/求助/仪式/购买信号；纯娱乐信号不足以支撑一个工具型测试建议。
+  const actionable = new Set(signals
+    .filter(signal => signal.type !== 'promotion' && (request.valueModel === 'entertainment' || signal.type !== 'entertainment'))
+    .flatMap(signal => signal.evidenceIds));
   return candidates.map(candidate => {
     const supportedByActionableSignal = (candidate.support || []).some(claim => claim.evidenceIds.some(id => actionable.has(id)));
     if (request.valueModel !== 'entertainment') return supportedByActionableSignal ? candidate : { ...candidate, decision: 'insufficient' };
