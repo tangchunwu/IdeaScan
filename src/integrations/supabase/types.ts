@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           api_key: string
           base_url: string
+          capabilities: string[]
           config_group: string
           created_at: string
           enabled: boolean
@@ -25,12 +26,14 @@ export type Database = {
           label: string
           model: string
           priority: number
+          protocol: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           api_key?: string
           base_url?: string
+          capabilities?: string[]
           config_group?: string
           created_at?: string
           enabled?: boolean
@@ -38,12 +41,14 @@ export type Database = {
           label?: string
           model?: string
           priority?: number
+          protocol?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           api_key?: string
           base_url?: string
+          capabilities?: string[]
           config_group?: string
           created_at?: string
           enabled?: boolean
@@ -51,6 +56,7 @@ export type Database = {
           label?: string
           model?: string
           priority?: number
+          protocol?: string
           updated_at?: string
           updated_by?: string | null
         }
