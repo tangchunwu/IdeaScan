@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolvePool } from "../_shared/config-resolver.ts";
+import { extractAssistantContent, requestChatCompletion } from "../_shared/llm-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +51,14 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
+function completeText(value: unknown, maxLength: number): string {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const boundary = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("！"), cut.lastIndexOf("？"), cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+  return `${(boundary >= Math.floor(maxLength * 0.55) ? cut.slice(0, boundary + 1) : cut).trim()}…`;
+}
+
 function parseJson(content: string): Digest | null {
   try {
     const match = content.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
@@ -58,24 +67,24 @@ function parseJson(content: string): Digest | null {
     if (typeof parsed.conclusion !== "string") return null;
     const normalizeOpportunities = (items: unknown): Opportunity[] => Array.isArray(items)
       ? items.slice(0, 5).map((item: any) => ({
-        title: String(item.title || "未命名机会"),
-        why: String(item.why || ""),
+        title: completeText(item.title || "未命名机会", 100),
+        why: completeText(item.why || "", 520),
         evidence_ids: Array.isArray(item.evidence_ids) ? item.evidence_ids.map(String) : [],
       }))
       : [];
     const legacy = normalizeOpportunities(parsed.opportunities);
     return {
       title: typeof parsed.title === "string" ? parsed.title : "今日市场信号日报",
-      conclusion: parsed.conclusion,
+      conclusion: completeText(parsed.conclusion, 500),
       utility: {
-        conclusion: typeof parsed.utility?.conclusion === "string" ? parsed.utility.conclusion : "",
+        conclusion: completeText(typeof parsed.utility?.conclusion === "string" ? parsed.utility.conclusion : "", 360),
         opportunities: normalizeOpportunities(parsed.utility?.opportunities).length ? normalizeOpportunities(parsed.utility?.opportunities) : legacy,
       },
       entertainment: {
-        conclusion: typeof parsed.entertainment?.conclusion === "string" ? parsed.entertainment.conclusion : "",
+        conclusion: completeText(typeof parsed.entertainment?.conclusion === "string" ? parsed.entertainment.conclusion : "", 360),
         opportunities: normalizeOpportunities(parsed.entertainment?.opportunities),
       },
-      watchouts: Array.isArray(parsed.watchouts) ? parsed.watchouts.map(String).slice(0, 5) : [],
+      watchouts: Array.isArray(parsed.watchouts) ? parsed.watchouts.map((item: unknown) => completeText(item, 260)).slice(0, 5) : [],
     };
   } catch {
     return null;
@@ -87,7 +96,7 @@ function fallbackDigest(signals: Signal[]): Digest {
   const entertainment = signals.filter(isEntertainmentSignal).slice(0, 3);
   const toOpportunities = (items: Signal[]) => items.map((signal) => ({
     title: signal.topic_tags?.find(tag => !tag.startsWith("value:") && !tag.startsWith("evidence:")) || "待归类机会",
-    why: signal.content.slice(0, 180),
+    why: completeText(signal.content, 220),
     evidence_ids: [signal.id],
   }));
   return {
@@ -125,22 +134,22 @@ async function generateDigest(signals: Signal[]): Promise<Digest> {
 ${JSON.stringify(evidence)}`;
 
   try {
-    const response = await fetch(`${provider.base_url.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${provider.api_key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: provider.model,
-        temperature: 0.2,
-        messages: [
-          { role: "system", content: "你是严格的证据编辑，只返回有效 JSON。" },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: AbortSignal.timeout(45_000),
+    const response = await requestChatCompletion({
+      baseUrl: provider.base_url,
+      apiKey: provider.api_key,
+      model: provider.model,
+      messages: [
+        { role: "system", content: "你是严格的证据编辑，只返回有效 JSON。不要省略字段，不要在句子中间停止。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+      maxTokens: 12000,
+      reasoningEffort: "low",
+      responseFormat: { type: "json_object" },
+      timeoutMs: 60000,
     });
-    if (!response.ok) throw new Error(`LLM HTTP ${response.status}`);
-    const data = await response.json();
-    return parseJson(data.choices?.[0]?.message?.content || "") || fallbackDigest(signals);
+    if (response.json?.choices?.[0]?.finish_reason === "length") throw new Error("LLM output truncated");
+    return parseJson(extractAssistantContent(response.json)) || fallbackDigest(signals);
   } catch (error) {
     console.error("[daily-digest] LLM failed, using deterministic fallback:", error);
     return fallbackDigest(signals);
